@@ -1,0 +1,174 @@
+import { execFile } from 'node:child_process'
+import os from 'node:os'
+import { promisify } from 'node:util'
+
+import { ROOT_PATH } from '@/constants/paths'
+import { GIT_LOG_PAGE_SIZE } from '@/lib/git/identity'
+import { parseGitBranches, parseGitLog, parseGitRemotes, parseGitStashes, parseGitSubmodules, parseGitTags, parseGitWorktrees } from '@/lib/git/parse'
+import type { GitCommit, GitLogView, GitWorktree } from '@/lib/git/types'
+
+import { readBranchMarks } from './marks'
+import { rememberLocalProject, writeLastOpenedRepo } from './projects'
+
+const execFileAsync = promisify(execFile)
+const LOG_FORMAT = '%H%x1f%h%x1f%P%x1f%an%x1f%ad%x1f%D%x1f%s%x1e'
+
+function gitFailure(error: unknown): string {
+  if (error && typeof error === 'object' && 'code' in error && (error as { code?: string }).code === 'ENOENT') return '未找到 git'
+  const stderr = error && typeof error === 'object' && 'stderr' in error ? String((error as { stderr?: string }).stderr || '') : ''
+  const message = (stderr || (error instanceof Error ? error.message : '')).trim()
+  if (/not a git repository/i.test(message)) return '这个文件夹不是 Git 仓库'
+  if (/No such file or directory|not a directory/i.test(message)) return '找不到这个文件夹'
+  return message || 'git 失败'
+}
+
+async function git(repo: string, args: string[]): Promise<string> {
+  const { stdout } = await execFileAsync('git', ['-C', repo, ...args], {
+    maxBuffer: 8 * 1024 * 1024,
+    timeout: 15000,
+    encoding: 'utf8',
+  })
+  return stdout
+}
+
+async function gitOptional(repo: string, args: string[]): Promise<string> {
+  try {
+    return await git(repo, args)
+  } catch {
+    return ''
+  }
+}
+
+function displayPath(repo: string): string {
+  const home = os.homedir()
+  if (repo === home) return '~'
+  return repo.startsWith(`${home}/`) ? `~${repo.slice(home.length)}` : repo
+}
+
+export async function resolveGitRepo(input?: string): Promise<string> {
+  const start = (input || ROOT_PATH).trim() || ROOT_PATH
+  try {
+    return (await git(start, ['rev-parse', '--show-toplevel'])).trim()
+  } catch (error) {
+    throw new Error(gitFailure(error))
+  }
+}
+
+async function readHead(repo: string): Promise<string> {
+  try {
+    return (await git(repo, ['symbolic-ref', '--short', 'HEAD'])).trim()
+  } catch {
+    return ''
+  }
+}
+
+function historyArgs(ref: string, skip: number): string[] {
+  const requested = (ref || '').trim()
+  if (requested.startsWith('-')) throw new Error('无效的引用')
+  const isStash = /^(?:stash(?:@\{\d+\})?|refs\/stash)$/.test(requested)
+  // `--all` also walks refs/stash, which draws the stash index and untracked commits as normal nodes.
+  const branchRefs = ['--branches', '--tags', '--remotes', 'HEAD']
+  // Keep branch tips visible when selecting a stash, including its base if the original branch was deleted.
+  // Stashes are drawn separately; never walk their index or untracked parents as ordinary commits.
+  const revisions = isStash ? [...branchRefs, `${requested}^1`] : !requested || requested === '*' ? branchRefs : [requested]
+  const offset = Number.isFinite(skip) && skip > 0 ? Math.floor(skip) : 0
+  return ['log', ...revisions, '--date-order', '-n', String(GIT_LOG_PAGE_SIZE + 1), '--skip', String(offset), '--date=iso-strict', `--pretty=format:${LOG_FORMAT}`]
+}
+
+async function readLogPage(repo: string, ref: string, skip: number): Promise<{ commits: GitCommit[]; hasMore: boolean }> {
+  try {
+    const text = await git(repo, historyArgs(ref, skip))
+    const commits = parseGitLog(text)
+    return { commits: commits.slice(0, GIT_LOG_PAGE_SIZE), hasMore: commits.length > GIT_LOG_PAGE_SIZE }
+  } catch (error) {
+    const message = gitFailure(error)
+    if (message.includes('does not have any commits') || /bad revision|unknown revision|ambiguous argument/i.test(message)) return { commits: [], hasMore: false }
+    throw new Error(message)
+  }
+}
+
+async function readWorktree(repo: string): Promise<GitWorktree | null> {
+  let porcelain = ''
+  try {
+    porcelain = await git(repo, ['status', '--porcelain'])
+  } catch {
+    return null
+  }
+  const files = porcelain
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+  if (files.length === 0) return null
+  let insertions = 0
+  let deletions = 0
+  try {
+    const numstat = await git(repo, ['diff', '--numstat', 'HEAD'])
+    for (const line of numstat.split('\n')) {
+      const [added, removed] = line.split('\t')
+      if (!added || added === '-' || removed === '-') continue
+      insertions += Number(added) || 0
+      deletions += Number(removed) || 0
+    }
+  } catch {
+    /* 还没有 HEAD 时只计文件数 */
+  }
+  return { files: files.length, insertions, deletions }
+}
+
+export async function readGitHistory(input: { repo?: string; ref?: string; skip?: number }): Promise<{ commits: GitCommit[]; hasMore: boolean }> {
+  const repo = await resolveGitRepo(input.repo)
+  return readLogPage(repo, (input.ref || '*').trim() || '*', input.skip ?? 0)
+}
+
+export async function readGitLog(input?: { repo?: string; branch?: string; ref?: string; skip?: number }): Promise<GitLogView> {
+  const repo = await resolveGitRepo(input?.repo)
+  writeLastOpenedRepo(repo)
+  const head = await readHead(repo)
+  const historyRef = (input?.ref || input?.branch || '*').trim() || '*'
+  let branchText = ''
+  let remoteText = ''
+  let tagText = ''
+  let stashText = ''
+  let worktreeText = ''
+  let submoduleText = ''
+  let page: { commits: GitCommit[]; hasMore: boolean } = { commits: [], hasMore: false }
+  let status: GitWorktree | null = null
+  try {
+    ;[branchText, remoteText, tagText, stashText, worktreeText, submoduleText, page, status] = await Promise.all([
+      git(repo, ['for-each-ref', 'refs/heads', '--format=%(refname:short)%00%(upstream:short)%00%(HEAD)%00%(objectname)']),
+      gitOptional(repo, ['for-each-ref', 'refs/remotes', '--format=%(refname:short)%00%(objectname)']),
+      gitOptional(repo, ['for-each-ref', 'refs/tags', '--sort=-creatordate', '--format=%(refname:short)%00%(*objectname)%00%(objectname)']),
+      gitOptional(repo, ['stash', 'list', '--format=%gd%x1f%H%x1f%P%x1f%cI%x1f%s']),
+      gitOptional(repo, ['worktree', 'list', '--porcelain']),
+      gitOptional(repo, ['submodule', 'status']),
+      readLogPage(repo, historyRef, input?.skip ?? 0),
+      readWorktree(repo),
+    ])
+  } catch (error) {
+    throw new Error(gitFailure(error))
+  }
+  void rememberLocalProject(repo).catch(() => undefined)
+  const branches = parseGitBranches(branchText)
+  if (head && !branches.some((item) => item.name === head)) {
+    branches.unshift({ name: head, upstream: '', current: true, tip: '' })
+  }
+  const requested = (input?.branch || '').trim()
+  const branch = requested && branches.some((item) => item.name === requested) ? requested : head
+  const worktrees = parseGitWorktrees(worktreeText).map((entry) => ({ ...entry, current: entry.path === repo }))
+  return {
+    repo,
+    displayPath: displayPath(repo),
+    head,
+    branch,
+    branches,
+    remotes: parseGitRemotes(remoteText),
+    tags: parseGitTags(tagText),
+    stashes: parseGitStashes(stashText),
+    worktrees,
+    submodules: parseGitSubmodules(submoduleText, repo),
+    commits: page.commits,
+    hasMore: page.hasMore,
+    marks: readBranchMarks(repo),
+    worktree: status,
+  }
+}

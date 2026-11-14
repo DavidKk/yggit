@@ -1,0 +1,21 @@
+# Generated / runtime — skip formatters
+next-env.d.ts
+data/
+logs/
+.next/
+coverage/
+out/
+build/
+dist/
+tmp/
+.jest-yggit-root/
+node_modules/
+.corepack/
+.pnpm/
+.pnpm-cache/
+.pnpm-store/
+pnpm-lock.yaml
+package-lock.json
+
+.cursor/
+.husky/

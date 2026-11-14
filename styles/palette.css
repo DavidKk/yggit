@@ -1,0 +1,139 @@
+/**
+ * 色板唯一真源。换皮 / 换主题只改本文件。
+ * 控制台挂 :root，局内 overlay 挂 :host（Shadow 内）；两边 @import 同一份。
+ *
+ * 当前主题：世界树 · 电光蓝焦点（GitKraken-inspired contrast）
+ * — 底座中性深岩灰 / 浅岩灰；`--accent` / `--wt-primary` 世界树青绿；`--focus-contrast` 电光蓝专管 UI 焦点
+ * — 通过 `html[data-theme="dark"|"light"]` 切换；缺省按暗色（boot 脚本会在首屏前写入）
+ */
+:root,
+:host,
+[data-theme='dark'],
+:host([data-theme='dark']) {
+  color-scheme: dark;
+
+  /* 表面 — 中性冷炭岩灰，不跟绿色抢戏 */
+  --paper: #14171c;
+  --paper-2: #1b1f26;
+  --paper-wash: #161a20;
+  --paper-glow-top: #132a28;
+  --paper-glow-bottom: #151c28;
+  --mist: #232933;
+  --panel: #1b1f26;
+  --panel-2: #242a34;
+  --inset: #111418;
+
+  /* 文字 / 线 — 干净冷白 + 中性钢灰 */
+  --ink: #e6edf3;
+  --ink-soft: #8b949e;
+  --line: color-mix(in srgb, var(--ink) 11%, transparent);
+  --line-soft: color-mix(in srgb, var(--ink) 6%, transparent);
+
+  /* 浮层 / 悬停叠色（相对 ink，暗亮通用） */
+  --overlay-06: color-mix(in srgb, var(--ink) 6%, transparent);
+  --overlay-08: color-mix(in srgb, var(--ink) 8%, transparent);
+  --overlay-10: color-mix(in srgb, var(--ink) 10%, transparent);
+  --overlay-12: color-mix(in srgb, var(--ink) 12%, transparent);
+  --shadow-menu: 0 10px 28px rgb(0 0 0 / 0.3);
+  --ambient-rim: rgb(0 0 0 / 0.55);
+
+  /* 品牌主色：世界树荧光青绿（实心钮 / 选中 / Switch / 主干） */
+  --accent: #3cd2a8;
+  --accent-ink: #f4fffb;
+  --accent-glow: rgb(60 210 168 / 0.45);
+
+  /* UI 焦点对比：电光蓝（搜索激活、Find、焦点框）— 与绿色主干解耦 */
+  --focus-contrast: #3b82f6;
+  --focus-contrast-ink: #f4f8ff;
+  --focus-contrast-bg: rgb(59 130 246 / 0.18);
+  --focus-contrast-border: rgb(96 165 250 / 0.75);
+  --focus-contrast-glow: rgb(59 130 246 / 0.4);
+
+  /* 状态与多分支对比 */
+  --ok: #2dd4a8;
+  --ok-ink: #f4fffb;
+  --ok-glow: rgb(45 212 168 / 0.45);
+  --warn: #f5b841;
+  --warn-fill: #b87d14;
+  --fail: #ec4899;
+  --fail-ink: #fff5f9;
+  --info: #3b82f6;
+  --debug: #6e7681;
+
+  /* 世界树 Git 图谱 — 复刻多色分支层次 */
+  --wt-primary: #3cd2a8;
+  --wt-primary-glow: #b8ffea;
+  --wt-secondary: #0ea5e9;
+  --wt-merge: #d946ef;
+  --wt-modified: #eab308;
+  --wt-delete: var(--fail);
+  --wt-accent-node: var(--focus-contrast);
+  --wt-ambient: color-mix(in srgb, var(--wt-primary) 14%, transparent);
+  --wt-border-subtle: #232933;
+  --wt-text-muted: #6e7681;
+  --wt-git-merge: var(--wt-merge);
+  --wt-git-modified: var(--wt-modified);
+}
+
+[data-theme='light'],
+:host([data-theme='light']) {
+  color-scheme: light;
+
+  /* 表面 — 冷浅岩灰，仍避开奶油纸风 */
+  --paper: #eef1f5;
+  --paper-2: #f7f9fb;
+  --paper-wash: #e8ecf2;
+  --paper-glow-top: #d8efe8;
+  --paper-glow-bottom: #dce6f4;
+  --mist: #d9e0ea;
+  --panel: #ffffff;
+  --panel-2: #f3f6fa;
+  --inset: #e4eaf1;
+
+  /* 文字 / 线 — 深岩墨 + 钢灰 */
+  --ink: #1b232c;
+  --ink-soft: #5b6673;
+  --line: color-mix(in srgb, var(--ink) 12%, transparent);
+  --line-soft: color-mix(in srgb, var(--ink) 7%, transparent);
+
+  --overlay-06: color-mix(in srgb, var(--ink) 5%, transparent);
+  --overlay-08: color-mix(in srgb, var(--ink) 7%, transparent);
+  --overlay-10: color-mix(in srgb, var(--ink) 9%, transparent);
+  --overlay-12: color-mix(in srgb, var(--ink) 11%, transparent);
+  --shadow-menu: 0 10px 28px rgb(15 23 42 / 0.12);
+  --ambient-rim: rgb(15 23 42 / 0.08);
+
+  /* 光亮底上略压饱和，保证近白字对比 */
+  --accent: #12a884;
+  --accent-ink: #f4fffb;
+  --accent-glow: rgb(18 168 132 / 0.35);
+
+  --focus-contrast: #2563eb;
+  --focus-contrast-ink: #f4f8ff;
+  --focus-contrast-bg: rgb(37 99 235 / 0.12);
+  --focus-contrast-border: rgb(37 99 235 / 0.55);
+  --focus-contrast-glow: rgb(37 99 235 / 0.28);
+
+  --ok: #0f9f7a;
+  --ok-ink: #f4fffb;
+  --ok-glow: rgb(15 159 122 / 0.35);
+  --warn: #c98510;
+  --warn-fill: #a86d0c;
+  --fail: #db2777;
+  --fail-ink: #fff5f9;
+  --info: #2563eb;
+  --debug: #64748b;
+
+  --wt-primary: #12a884;
+  --wt-primary-glow: #0d7a60;
+  --wt-secondary: #0284c7;
+  --wt-merge: #c026d3;
+  --wt-modified: #ca8a04;
+  --wt-delete: var(--fail);
+  --wt-accent-node: var(--focus-contrast);
+  --wt-ambient: color-mix(in srgb, var(--wt-primary) 12%, transparent);
+  --wt-border-subtle: #d5dde8;
+  --wt-text-muted: #64748b;
+  --wt-git-merge: var(--wt-merge);
+  --wt-git-modified: var(--wt-modified);
+}

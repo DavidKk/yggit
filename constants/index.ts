@@ -1,0 +1,1 @@
+export { CONFIG_FILE_NAME, PRODUCT_DISPLAY_NAME, PRODUCT_SLUG } from './brand'

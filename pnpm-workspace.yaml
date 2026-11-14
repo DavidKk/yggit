@@ -1,0 +1,9 @@
+# Same as MagickMonkey: single package; only declare allowBuilds
+packages: []
+
+allowBuilds:
+  '@parcel/watcher': true
+  core-js: true
+  esbuild: true
+  sharp: true
+  unrs-resolver: true
