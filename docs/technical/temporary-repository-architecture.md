@@ -116,6 +116,39 @@ export interface TemporaryRepo {
 
 ---
 
+### 2.4 跨用户分享与两种仓库场景的对齐机制 (Cross-User Sharing)
+
+针对跨用户分享场景，系统将仓库抽象为**确定性身份（Identity）**与**本地数据源（Source）**，覆盖两种核心分享场景：
+
+```mermaid
+flowchart TD
+    ShareBtn["用户 A 复制分享链接"] --> GenURL["生成规范化语义 URL<br/>/repo/{host}/{owner}/{repo}/commit/{sha}"]
+    GenURL --> UserB["用户 B 打开该分享链接"]
+    UserB --> ResolveSlug["解析器匹配本地 catalog.json"]
+    
+    ResolveSlug -->|场景一：已添加过该仓库 / 本地存在克隆| LocalMatch["Local-First: 命中本地项目<br/>直接打开用户 B 的本地目录"]
+    
+    ResolveSlug -->|场景二 A：未添加，但属于公开仓库| RemoteProvider["Remote-First: 调用远程 Git API<br/>免克隆进入临时模式 (打开即看)"]
+    
+    ResolveSlug -->|场景二 B：未添加，且属于企业私有/内网自建仓库| AssociateGuide["关联引导: GitAssociateRepoGuide<br/>展示远程标识与目标 Commit，一键指定本地克隆目录关联"]
+    AssociateGuide --> RegisterLocal["写入 catalog.json 建立映射"] --> LocalMatch
+```
+
+#### 场景 1：公共仓库 (Public Repositories)
+- **分享链接格式**：`/repo/github/{owner}/{repo}/commit/{sha}`
+- **接收方行为**：
+  - 若接收方本机已经导入或克隆了该仓库：**本地优先（Local-First）**，直接秒开本地磁盘工程，无需外部网络请求；
+  - 若接收方本机未导入：自动降级为 **Temporary 模式**，通过远程 Git Provider API 实时加载，用户无需克隆代码即可浏览 Commit 演进与 Diff，并可随时点击 ⭐ 收藏。
+
+#### 场景 2：都拥有的私有/企业仓库 (Shared Private / Corporate Repositories)
+- **业务痛点**：用户 A 的本地目录为 `/Users/alice/work/billing`，用户 B 为 `/Users/bob/dev/billing`，物理绝对路径完全不同，但两者拥有共同的 Remote Origin（如 `git@gitlab.corp.com:team/billing.git`）。
+- **统一身份计算**：通过 `normalizeRemote(origin)` 提取跨平台唯一键（如 `gitlab.corp.com/team/billing`），生成标准化分享链接：`/repo/gitlab.corp.com/team/billing/commit/{sha}`。
+- **自动对齐与引导**：
+  - **已添加情况**：用户 B 打开链接时，系统通过 `normalizeRemote(project.httpsUrl).key` 自动识别出用户 B 的本地目录 `/Users/bob/dev/billing` 并直接定位至目标 Commit。
+  - **未添加情况**：系统弹出 `GitAssociateRepoGuide`（共享仓库关联引导面板），清晰展示分享者发来的远程标识与目标 Commit Hash，并提供「浏览本地目录」一键关联，关联后自动将该目录注册至项目库并秒开该 Commit。
+
+---
+
 ## 3. 自我代码评审 (Self-CR) 与方案修正
 
 在方案设计与预审过程中，识别出以下潜在风险及修正对策：
