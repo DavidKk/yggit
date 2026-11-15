@@ -1,8 +1,10 @@
 import git from 'isomorphic-git'
 
+import { GIT_LOG_PAGE_SIZE } from '@/lib/git/identity'
 import {
   createEdgeFolder,
   deleteEdgeFolder,
+  findDirectoryHandleId,
   getDirectoryHandle,
   getEdgeCatalog,
   getEdgeFolders,
@@ -11,34 +13,53 @@ import {
   saveDirectoryHandle,
   saveEdgeRemoteProject,
 } from '@/lib/git/indexeddb-handles'
+import { uniqueLocalProject } from '@/lib/git/project-access'
 import { parseRemoteUrl } from '@/lib/git/temporary-store'
-import type { GitCommit, GitCommitChanges, GitFileChange, GitLogView, GitProjectCatalog, GitProjectHost, GitProjectView, GitRemoteBranch } from '@/lib/git/types'
-import { parseGitHubRepo, readRemoteCommitChanges, readRemoteGitLog } from '@/services/git/remote-provider'
+import type { GitCommit, GitCommitChanges, GitLogView, GitProjectCatalog, GitProjectHost, GitProjectView, GitRemoteBranch, GitWorktree } from '@/lib/git/types'
+import { parseGitHubRepo, readRemoteBlobData, readRemoteCommitChanges, readRemoteGitLog } from '@/services/git/remote-provider'
 
-import { createDirectoryHandleFs } from './handle-fs'
+import { EdgeRepositoryReader } from './edge-repository-reader'
 import type { AddProjectPayload, AddRemoteProjectOptions, GitDeleteFolderResult, IGitDriver, ReadBlobOptions, ReadCommitDiffOptions, ReadLogOptions } from './types'
 
 export class EdgeGitDriver implements IGitDriver {
   readonly mode = 'edge' as const
+  private readonly repositories = new Map<string, Promise<EdgeRepositoryReader>>()
+
+  private repository(repo: string): Promise<EdgeRepositoryReader> {
+    const hit = this.repositories.get(repo)
+    if (hit) return hit
+    const pending = getDirectoryHandle(repo)
+      .then((handle) => {
+        if (!handle) throw new Error(`RESOURCE_UNRESOLVED: Directory handle for "${repo}" not found.`)
+        return new EdgeRepositoryReader(handle)
+      })
+      .catch((error) => {
+        if (this.repositories.get(repo) === pending) this.repositories.delete(repo)
+        throw error
+      })
+    this.repositories.set(repo, pending)
+    if (this.repositories.size > 2) this.repositories.delete(this.repositories.keys().next().value!)
+    return pending
+  }
 
   async isAvailable(): Promise<boolean> {
     return typeof window !== 'undefined' || typeof global !== 'undefined'
   }
 
   async readLog(options: ReadLogOptions): Promise<GitLogView> {
-    const { repo, branch, ref } = options
+    const { branch, ref } = options
+    const repo = parseGitHubRepo(options.repo) ? uniqueLocalProject((await getEdgeCatalog()).projects, options.repo)?.localPath || options.repo : options.repo
 
     // Check if it's a GitHub remote repo
     const gh = parseGitHubRepo(repo)
     if (gh) {
-      return await readRemoteGitLog(repo, branch || ref)
+      options.onProgress?.('正在拉取远端 Git 仓库历史...')
+      return await readRemoteGitLog(repo, branch || ref, options.skip)
     }
 
-    // Check if it's a local folder backed by IndexedDB directory handle
-    const handle = await getDirectoryHandle(repo)
-    if (!handle) {
-      throw new Error(`RESOURCE_UNRESOLVED: Directory handle for "${repo}" not found in browser storage.`)
-    }
+    options.onProgress?.('正在访问文件系统句柄...')
+    const reader = await this.repository(repo)
+    const { handle, fs, cache } = reader
 
     try {
       // Check and request permission if needed
@@ -54,14 +75,14 @@ export class EdgeGitDriver implements IGitDriver {
         throw new Error(`PERMISSION_REQUIRED: Read permission needed for directory "${handle.name}".`)
       }
 
-      const fs = createDirectoryHandleFs(handle)
-
       // Verify that this is a git directory
       try {
         await fs.promises.stat('/.git')
       } catch {
         throw new Error(`NOT_A_GIT_REPO: Directory "${handle.name}" does not contain a .git folder.`)
       }
+
+      options.onProgress?.('正在解析分支与引用...')
 
       // 1. Current Branch
       let currentBranch = 'main'
@@ -143,23 +164,32 @@ export class EdgeGitDriver implements IGitDriver {
       }
 
       // 5. Commits
+      options.onProgress?.('正在读取 Git 提交与构建图谱...')
+      const headOid = await git.resolveRef({ fs, dir: '/', ref: 'HEAD' }).catch(() => '')
       const targetRef = branch || ref || currentBranch || 'HEAD'
       let commits: GitCommit[] = []
+      let hasMore = false
+      const skip = Math.max(0, Math.floor(options.skip || 0))
+      const take = Math.max(1, Math.floor(options.take || GIT_LOG_PAGE_SIZE))
       try {
         const rawCommits = await git.log({
           fs,
+          cache,
           dir: '/',
           ref: targetRef === '*' ? currentBranch : targetRef,
-          depth: 100,
+          depth: skip + take + 1,
         })
 
         const branchTips = new Map<string, string[]>()
         for (const b of branches) {
           if (b.tip) {
             const list = branchTips.get(b.tip) || []
-            list.push(b.name)
+            list.push(b.current && b.tip === headOid ? `HEAD -> ${b.name}` : b.name)
             branchTips.set(b.tip, list)
           }
+        }
+        if (headOid && !branchTips.get(headOid)?.some((name) => name.startsWith('HEAD -> '))) {
+          branchTips.set(headOid, [...(branchTips.get(headOid) || []), 'HEAD'])
         }
         for (const t of tags) {
           if (t.tip) {
@@ -169,7 +199,8 @@ export class EdgeGitDriver implements IGitDriver {
           }
         }
 
-        commits = rawCommits.map((item) => {
+        hasMore = rawCommits.length > skip + take
+        commits = rawCommits.slice(skip, skip + take).map((item) => {
           const oid = item.oid
           const c = item.commit
           const refs = branchTips.get(oid) || []
@@ -184,9 +215,30 @@ export class EdgeGitDriver implements IGitDriver {
             refs,
           }
         })
-      } catch {
-        // Fallback or empty commits if log fails
+      } catch (error) {
+        // An unborn branch has no history; read failures must not look like the last page.
+        const resolvedRef = targetRef === '*' ? currentBranch : targetRef
+        if (resolvedRef !== currentBranch || branches.some((item) => item.tip)) throw error
       }
+
+      options.onProgress?.('正在核对工作区状态...')
+      // Cap worktree status checking with a 1200ms timeout budget so slow disk I/O does not freeze the view
+      let worktreeStatus: GitWorktree | null = null
+      let worktreeTimer: ReturnType<typeof setTimeout> | undefined
+      try {
+        worktreeStatus = await Promise.race([
+          reader.readWorktreeStatus(),
+          new Promise<null>((resolve) => {
+            worktreeTimer = setTimeout(() => resolve(null), 1200)
+          }),
+        ])
+      } catch {
+        worktreeStatus = null
+      } finally {
+        if (worktreeTimer) clearTimeout(worktreeTimer)
+      }
+
+      options.onProgress?.('准备完成，正在呈现图谱...')
 
       return {
         repo,
@@ -201,9 +253,9 @@ export class EdgeGitDriver implements IGitDriver {
         worktrees: [],
         submodules: [],
         commits,
-        hasMore: false,
+        hasMore,
         marks: {},
-        worktree: null,
+        worktree: worktreeStatus,
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
@@ -216,54 +268,10 @@ export class EdgeGitDriver implements IGitDriver {
 
     const gh = parseGitHubRepo(repo)
     if (gh) {
-      return await readRemoteCommitChanges(repo, hash)
+      return await readRemoteCommitChanges(repo, hash, options)
     }
 
-    const handle = await getDirectoryHandle(repo)
-    if (!handle) {
-      throw new Error(`RESOURCE_UNRESOLVED: Directory handle for "${repo}" not found.`)
-    }
-
-    const fs = createDirectoryHandleFs(handle)
-    const files: GitFileChange[] = []
-
-    try {
-      const commitObj = await git.readCommit({ fs, dir: '/', oid: hash })
-      const parentOid = commitObj?.commit?.parent?.[0]
-
-      await git.walk({
-        fs,
-        dir: '/',
-        trees: [git.TREE({ ref: parentOid || undefined }), git.TREE({ ref: hash })],
-        map: async function (filepath, [parentEntry, headEntry]) {
-          if (filepath === '.') return
-          const parentType = parentEntry ? await parentEntry.type() : null
-          const headType = headEntry ? await headEntry.type() : null
-          if (parentType === 'tree' || headType === 'tree') return
-
-          if (!parentEntry && headEntry) {
-            files.push({ path: filepath, status: 'add', oldPath: filepath })
-          } else if (parentEntry && !headEntry) {
-            files.push({ path: filepath, status: 'delete', oldPath: filepath })
-          } else if (parentEntry && headEntry) {
-            const pOid = await parentEntry.oid()
-            const hOid = await headEntry.oid()
-            if (pOid !== hOid) {
-              files.push({ path: filepath, status: 'modify', oldPath: filepath })
-            }
-          }
-        },
-      })
-    } catch {
-      // Fallback
-    }
-
-    return {
-      hash,
-      files,
-      patch: '',
-      truncated: false,
-    }
+    return (await this.repository(repo)).readChanges(options)
   }
 
   async readBlob(options: ReadBlobOptions): Promise<{ content: string; binary: boolean }> {
@@ -271,54 +279,12 @@ export class EdgeGitDriver implements IGitDriver {
 
     const gh = parseGitHubRepo(repo)
     if (gh) {
-      const rawUrl = `https://raw.githubusercontent.com/${gh.owner}/${gh.repo}/${hash}/${path}`
-      const res = await fetch(rawUrl)
-      if (!res.ok) {
-        throw new Error(`Failed to load blob from GitHub (${res.status})`)
-      }
-      const text = await res.text()
-      const contentType = res.headers.get('content-type') || ''
-      const binary = !contentType.startsWith('text/') && !contentType.includes('json') && !contentType.includes('javascript')
-      return { content: text, binary }
+      const blob = await readRemoteBlobData(repo, hash, path)
+      const binary = blob.bytes.slice(0, 8000).includes(0) || /^(image|audio|video)\//.test(blob.contentType)
+      return { content: binary ? '' : new TextDecoder().decode(blob.bytes), binary }
     }
 
-    const handle = await getDirectoryHandle(repo)
-    if (!handle) {
-      throw new Error(`RESOURCE_UNRESOLVED: Directory handle for "${repo}" not found.`)
-    }
-
-    const fs = createDirectoryHandleFs(handle)
-    try {
-      const { blob } = await git.readBlob({ fs, dir: '/', oid: hash, filepath: path })
-      // Check for binary by looking for null bytes in sample
-      const sample = blob.subarray(0, 8000)
-      let isBinary = false
-      for (let i = 0; i < sample.length; i++) {
-        if (sample[i] === 0) {
-          isBinary = true
-          break
-        }
-      }
-      if (isBinary) {
-        return { content: '', binary: true }
-      }
-      const text = new TextDecoder('utf-8').decode(blob)
-      return { content: text, binary: false }
-    } catch {
-      // Fallback: read directly from directory handle if git object read fails
-      const pathParts = path.split('/').filter(Boolean)
-      let curDir = handle
-      for (let i = 0; i < pathParts.length - 1; i++) {
-        curDir = await curDir.getDirectoryHandle(pathParts[i])
-      }
-      const fileHandle = await curDir.getFileHandle(pathParts[pathParts.length - 1])
-      const file = await fileHandle.getFile()
-      const text = await file.text()
-      return {
-        content: text,
-        binary: false,
-      }
-    }
+    return (await this.repository(repo)).readBlob(hash, path)
   }
 
   async getProjects(): Promise<GitProjectCatalog> {
@@ -326,7 +292,7 @@ export class EdgeGitDriver implements IGitDriver {
   }
 
   async addProject(payload: AddProjectPayload): Promise<GitProjectView> {
-    const id = payload.pathOrUrl
+    const id = payload.handle ? (await findDirectoryHandleId(payload.handle)) || `edge_${crypto.randomUUID()}` : payload.pathOrUrl
     const folders = await getEdgeFolders()
     let group = payload.group
     if (folders.length === 0) {
@@ -343,7 +309,7 @@ export class EdgeGitDriver implements IGitDriver {
         name: payload.name || payload.handle.name || id,
         group,
         host: 'local',
-        localPath: payload.handle.name,
+        localPath: id,
         httpsUrl: '',
         local: true,
         remote: false,

@@ -96,6 +96,7 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
   const selectionFallback: GitSelection = view ? selectionFor(view) : failed ? { kind: 'all' } : selectionFor(initial)
   const [selection, setSelection] = useGitUiPref(selectionRepo ? repoPrefKey(selectionRepo, 'selection') : 'git.selection.none', selectionFallback, isGitSelection)
   const [busy, setBusy] = useState(false)
+  const [progressStage, setProgressStage] = useState('')
   const [picking, setPicking] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [projectSearchRequest, setProjectSearchRequest] = useState(0)
@@ -448,14 +449,19 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
   async function load(repo: string) {
     setBusy(true)
     setError('')
+    setProgressStage('正在准备加载项目...')
     try {
       const driver = getGitDriver()
-      const body = await driver.readLog({ repo })
+      const body = await driver.readLog({
+        repo,
+        onProgress: (stage) => setProgressStage(stage),
+      })
       applyView(body)
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : t('git.errors.readGit'))
     } finally {
       setBusy(false)
+      setProgressStage('')
     }
   }
 
@@ -912,11 +918,11 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
               e.stopPropagation()
             }}
           >
-            <div className="flex flex-col items-center gap-3 rounded-2xl border border-line/80 bg-panel/95 px-6 py-5 shadow-2xl backdrop-blur-md animate-in fade-in zoom-in-95 duration-200">
-              <Spinner className="size-7 text-accent" />
-              <div className="flex flex-col items-center gap-1">
+            <div className="flex flex-col items-center gap-3 rounded-2xl border border-line/80 bg-panel/95 px-7 py-6 shadow-2xl backdrop-blur-md animate-in fade-in zoom-in-95 duration-200 min-w-[280px]">
+              <Spinner className="size-8 text-accent" />
+              <div className="flex flex-col items-center gap-1.5 text-center">
                 <span className="text-sm font-semibold text-ink">{t('git.page.switchingProject')}</span>
-                <span className="text-xs text-ink-soft">{t('git.page.switchingProjectHint')}</span>
+                <span className="text-xs text-accent font-medium transition-all duration-200">{progressStage || t('git.page.switchingProjectHint')}</span>
               </div>
             </div>
           </div>

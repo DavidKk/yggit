@@ -8,6 +8,7 @@ export interface ReadLogOptions {
   ref?: string
   skip?: number
   take?: number
+  onProgress?: (stage: string) => void
 }
 
 export interface ReadCommitDiffOptions {
