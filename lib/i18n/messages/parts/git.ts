@@ -57,6 +57,7 @@ export type GitMessages = {
     copyStashSubject: string
     copyStashName: string
     copyStashBase: string
+    copyShareUrl: string
   }
   splitter: { sidebar: string; tree: string }
   section: { history: string }
@@ -275,7 +276,8 @@ export const gitZh: GitMessages = {
     copyWorktreeChanges: "复制工作区变更统计",
     copyStashSubject: "复制暂存说明",
     copyStashName: "复制暂存名称",
-    copyStashBase: "复制基础 Commit Hash"
+    copyStashBase: "复制基础 Commit Hash",
+    copyShareUrl: "复制分享链接",
   },
   splitter: {
     sidebar: "调整分支栏宽度",
@@ -507,7 +509,8 @@ export const gitCht: GitMessages = {
     copyWorktreeChanges: "複製工作區變更統計",
     copyStashSubject: "複製暫存說明",
     copyStashName: "複製暫存名稱",
-    copyStashBase: "複製基礎 Commit Hash"
+    copyStashBase: "複製基礎 Commit Hash",
+    copyShareUrl: "複製分享連結",
   },
   splitter: {
     sidebar: "調整分支欄寬度",
@@ -739,7 +742,8 @@ export const gitEn: GitMessages = {
     copyWorktreeChanges: "Copy working tree changes",
     copyStashSubject: "Copy stash message",
     copyStashName: "Copy stash name",
-    copyStashBase: "Copy base commit hash"
+    copyStashBase: "Copy base commit hash",
+    copyShareUrl: "Copy share link",
   },
   splitter: {
     sidebar: "Resize branch panel",
@@ -971,7 +975,8 @@ export const gitJa: GitMessages = {
     copyWorktreeChanges: "作業ツリーの変更統計をコピー",
     copyStashSubject: "スタッシュ説明をコピー",
     copyStashName: "スタッシュ名をコピー",
-    copyStashBase: "ベースコミットハッシュをコピー"
+    copyStashBase: "ベースコミットハッシュをコピー",
+    copyShareUrl: "共有リンクをコピー",
   },
   splitter: {
     sidebar: "ブランチパネルの幅を調整",
@@ -1203,7 +1208,8 @@ export const gitFr: GitMessages = {
     copyWorktreeChanges: "Copier les modifications de l'arbre de travail",
     copyStashSubject: "Copier le message du stash",
     copyStashName: "Copier le nom du stash",
-    copyStashBase: "Copier le hash du commit de base"
+    copyStashBase: "Copier le hash du commit de base",
+    copyShareUrl: "Copier le lien de partage",
   },
   splitter: {
     sidebar: "Redimensionner le panneau de branche",
@@ -1435,7 +1441,8 @@ export const gitDe: GitMessages = {
     copyWorktreeChanges: "Änderungen im Arbeitsverzeichnis kopieren",
     copyStashSubject: "Stash-Nachricht kopieren",
     copyStashName: "Stash-Namen kopieren",
-    copyStashBase: "Basis-Commit-Hash kopieren"
+    copyStashBase: "Basis-Commit-Hash kopieren",
+    copyShareUrl: "Freigabelink kopieren",
   },
   splitter: {
     sidebar: "Zweigpanelgröße ändern",
@@ -1667,7 +1674,8 @@ export const gitEs: GitMessages = {
     copyWorktreeChanges: "Copiar cambios del árbol de trabajo",
     copyStashSubject: "Copiar mensaje de stash",
     copyStashName: "Copiar nombre de stash",
-    copyStashBase: "Copiar hash de commit base"
+    copyStashBase: "Copiar hash de commit base",
+    copyShareUrl: "Copiar enlace para compartir",
   },
   splitter: {
     sidebar: "Redimensionar panel de rama",
@@ -1899,7 +1907,8 @@ export const gitRu: GitMessages = {
     copyWorktreeChanges: "Копировать изменения рабочей директории",
     copyStashSubject: "Копировать описание стэша",
     copyStashName: "Копировать имя стэша",
-    copyStashBase: "Копировать базовый хеш коммита"
+    copyStashBase: "Копировать базовый хеш коммита",
+    copyShareUrl: "Копировать ссылку для общего доступа",
   },
   splitter: {
     sidebar: "Изменить размер панели ветки",
@@ -2131,7 +2140,8 @@ export const gitPtBR: GitMessages = {
     copyWorktreeChanges: "Copiar alterações da árvore de trabalho",
     copyStashSubject: "Copiar mensagem do stash",
     copyStashName: "Copiar nome do stash",
-    copyStashBase: "Copiar hash do commit base"
+    copyStashBase: "Copiar hash do commit base",
+    copyShareUrl: "Copiar link de compartilhamento",
   },
   splitter: {
     sidebar: "Redimensionar painel de ramo",
@@ -2363,7 +2373,8 @@ export const gitKo: GitMessages = {
     copyWorktreeChanges: "작업 트리 변경 통계 복사",
     copyStashSubject: "스태시 설명 복사",
     copyStashName: "스태시 이름 복사",
-    copyStashBase: "기본 커밋 해시 복사"
+    copyStashBase: "기본 커밋 해시 복사",
+    copyShareUrl: "공유 링크 복사",
   },
   splitter: {
     sidebar: "브랜치 패널 너비 조정",

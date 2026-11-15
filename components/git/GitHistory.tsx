@@ -264,6 +264,7 @@ export function GitHistory({
         </div>
       ) : null}
       <GitGraph
+        repo={repo}
         commits={commits}
         worktree={worktree}
         stashes={stashes}

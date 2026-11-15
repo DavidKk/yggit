@@ -156,6 +156,12 @@ export function GitProjectMenu({
   const temporaryRepos = useTemporaryRepos()
   const parsedRemoteInput = useMemo(() => parseRemoteUrl(query), [query])
   const [favoriteLoadingId, setFavoriteLoadingId] = useState<string | null>(null)
+  const [temporaryExpanded, setTemporaryExpanded] = useState(true)
+
+  const listedTemporary = useMemo(() => {
+    if (!needle) return temporaryRepos
+    return temporaryRepos.filter((t) => t.name.toLowerCase().includes(needle) || t.remoteUrl.toLowerCase().includes(needle))
+  }, [needle, temporaryRepos])
 
   const handleFavoriteTemporary = async (temp: TemporaryRepo) => {
     setFavoriteLoadingId(temp.id)
@@ -164,6 +170,14 @@ export function GitProjectMenu({
       removeTemporaryRepo(temp.id)
     } finally {
       setFavoriteLoadingId(null)
+    }
+  }
+
+  const handleRemoveTemporary = (temp: TemporaryRepo) => {
+    removeTemporaryRepo(temp.id)
+    if (currentPath === temp.remoteUrl || currentPath === temp.id) {
+      const fallback = projects[0]?.localPath || ''
+      onOpen(fallback)
     }
   }
 
@@ -519,72 +533,80 @@ export function GitProjectMenu({
         <EmptyState className="min-h-0 flex-1" title={t('git.project.noMatches')} message={t('git.project.noMatchesMsg')} />
       ) : (
         <ScrollArea className="min-h-0 flex-1" reserveGutter={false} scrollRef={listScrollRef} scrollProps={{ onDragOver: onListDragOver }}>
-          {temporaryRepos.length > 0 ? (
-            <section className="border-b border-line pb-2 mb-2">
-              <div className="flex h-8 w-full items-center px-2">
-                <span className="flex min-w-0 flex-1 items-center gap-1.5 text-xs font-medium text-ink-soft">
+          {listedTemporary.length > 0 ? (
+            <section className="mb-2 border-b border-line pb-2">
+              <div className="flex h-8 w-full items-center hover:bg-[var(--overlay-06)]">
+                <Button
+                  variant="plain"
+                  className="h-8 min-w-0 flex-1 justify-start gap-1.5 px-2 font-normal text-ink-soft hover:enabled:bg-transparent"
+                  aria-expanded={temporaryExpanded}
+                  onClick={() => setTemporaryExpanded((prev) => !prev)}
+                >
+                  {temporaryExpanded ? <LuChevronDown className="size-3.5 shrink-0" aria-hidden /> : <LuChevronRight className="size-3.5 shrink-0" aria-hidden />}
                   <LuGlobe className="size-3.5 text-accent" aria-hidden />
-                  {t('git.project.temporary')}
+                  <span className="min-w-0 truncate whitespace-nowrap text-left">{t('git.project.temporary')}</span>
                   <Badge tone="neutral" size="mini" dot={false} className="shrink-0">
-                    {temporaryRepos.length}
+                    {listedTemporary.length}
                   </Badge>
-                </span>
+                </Button>
               </div>
-              {temporaryRepos.map((temp) => {
-                const current = currentPath === temp.remoteUrl || currentPath === temp.id
-                const isFavoriting = favoriteLoadingId === temp.id
-                return (
-                  <div key={temp.id} className="group/temp relative flex h-8 w-full items-center pr-1 hover:bg-[var(--overlay-06)]">
-                    <Button
-                      variant="plain"
-                      aria-current={current ? 'true' : undefined}
-                      className={cn(
-                        'h-8 min-w-0 flex-1 justify-start gap-1.5 rounded-none px-2 pl-4 font-normal text-ink',
-                        current && 'bg-[color-mix(in_oklab,var(--accent)_18%,transparent)] hover:enabled:bg-[color-mix(in_oklab,var(--accent)_24%,transparent)]'
-                      )}
-                      onClick={() => {
-                        onOpen(temp.remoteUrl)
-                        onClose()
-                      }}
-                    >
-                      <HostIcon host={temp.provider} />
-                      <span className="min-w-0 flex-1 truncate whitespace-nowrap text-left">{temp.name}</span>
-                      <Badge tone="neutral" size="mini" dot={false} className="shrink-0 text-[10px]">
-                        {t('git.project.temporaryBadge')}
-                      </Badge>
-                    </Button>
-                    <div className="flex shrink-0 items-center gap-0.5 opacity-80 group-hover/temp:opacity-100">
-                      <Button
-                        variant="plain"
-                        size="mini"
-                        className="size-6 text-warn hover:bg-warn/15"
-                        aria-label={t('git.project.favoriteProject')}
-                        tooltip={t('git.project.favoriteProject')}
-                        loading={isFavoriting}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          void handleFavoriteTemporary(temp)
-                        }}
-                      >
-                        <LuStar className="size-3.5 fill-warn/30 text-warn" aria-hidden />
-                      </Button>
-                      <Button
-                        variant="plain"
-                        size="mini"
-                        className="size-6 text-ink-soft hover:bg-[var(--overlay-08)] hover:text-fail"
-                        aria-label={t('git.project.removeTemporary')}
-                        tooltip={t('git.project.removeTemporary')}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          removeTemporaryRepo(temp.id)
-                        }}
-                      >
-                        <LuX className="size-3.5" aria-hidden />
-                      </Button>
-                    </div>
-                  </div>
-                )
-              })}
+              {temporaryExpanded
+                ? listedTemporary.map((temp) => {
+                    const current = currentPath === temp.remoteUrl || currentPath === temp.id
+                    const isFavoriting = favoriteLoadingId === temp.id
+                    return (
+                      <div key={temp.id} className="group/temp relative flex h-8 w-full items-center pr-1 hover:bg-[var(--overlay-06)]">
+                        <Button
+                          variant="plain"
+                          aria-current={current ? 'true' : undefined}
+                          className={cn(
+                            'h-8 min-w-0 flex-1 justify-start gap-1.5 rounded-none px-2 pl-7 font-normal text-ink',
+                            current && 'bg-[color-mix(in_oklab,var(--accent)_18%,transparent)] hover:enabled:bg-[color-mix(in_oklab,var(--accent)_24%,transparent)]'
+                          )}
+                          onClick={() => {
+                            onOpen(temp.remoteUrl)
+                            onClose()
+                          }}
+                        >
+                          <HostIcon host={temp.provider} />
+                          <span className="min-w-0 flex-1 truncate whitespace-nowrap text-left">{temp.name}</span>
+                          <Badge tone="neutral" size="mini" dot={false} className="shrink-0 text-[10px]">
+                            {t('git.project.temporaryBadge')}
+                          </Badge>
+                        </Button>
+                        <div className="flex shrink-0 items-center gap-0.5 opacity-80 group-hover/temp:opacity-100">
+                          <Button
+                            variant="plain"
+                            size="mini"
+                            className="size-6 text-warn hover:bg-warn/15"
+                            aria-label={t('git.project.favoriteProject')}
+                            tooltip={t('git.project.favoriteProject')}
+                            loading={isFavoriting}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              void handleFavoriteTemporary(temp)
+                            }}
+                          >
+                            <LuStar className="size-3.5 fill-warn/30 text-warn" aria-hidden />
+                          </Button>
+                          <Button
+                            variant="plain"
+                            size="mini"
+                            className="size-6 text-ink-soft hover:bg-[var(--overlay-08)] hover:text-fail"
+                            aria-label={t('git.project.removeTemporary')}
+                            tooltip={t('git.project.removeTemporary')}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleRemoveTemporary(temp)
+                            }}
+                          >
+                            <LuX className="size-3.5" aria-hidden />
+                          </Button>
+                        </div>
+                      </div>
+                    )
+                  })
+                : null}
             </section>
           ) : null}
           {visibleFolders.map((group) => {

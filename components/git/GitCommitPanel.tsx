@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { LuChevronDown, LuChevronRight, LuChevronsDownUp, LuChevronsUpDown, LuFolderTree, LuList, LuPencil, LuX } from 'react-icons/lu'
+import { LuChevronDown, LuChevronRight, LuChevronsDownUp, LuChevronsUpDown, LuFolderTree, LuList, LuPencil, LuShare2, LuX } from 'react-icons/lu'
 import { TbFileStack } from 'react-icons/tb'
 import { TiMinusOutline, TiPlusOutline } from 'react-icons/ti'
 
@@ -9,6 +9,7 @@ import { handleTreeExpandKey, handleTreeParentKey } from '@/components/git/treeE
 import { useT } from '@/components/i18n/LocaleProvider'
 import { Badge, Button, EmptyState, ScrollArea, SegmentedNav } from '@/components/sk'
 import { readApiErrorMessage } from '@/lib/api-error'
+import { makeShareUrl } from '@/lib/git/resolver'
 import { GIT_WORKTREE_HASH, type GitCommit, type GitCommitChanges, type GitFileChange } from '@/lib/git/types'
 import { isBoolean, useGitUiPref } from '@/lib/git/ui-prefs'
 import { cn } from '@/lib/utils'
@@ -284,6 +285,7 @@ export function GitCommitPanel({ repo, commit, width, title, selectedPath, onSel
   const [error, setError] = useState('')
   const [view, setView] = useGitUiPref('commit.fileView', 'tree' as FileView, isFileView)
   const [expandDefault, setExpandDefault] = useGitUiPref('commit.treeExpandDefault', true, isBoolean)
+  const [copiedShare, setCopiedShare] = useState(false)
   const [openPaths, setOpenPaths] = useState<Set<string>>(() => new Set())
   const expandDefaultRef = useRef(expandDefault)
   expandDefaultRef.current = expandDefault
@@ -419,6 +421,23 @@ export function GitCommitPanel({ repo, commit, width, title, selectedPath, onSel
               }}
             >
               {allOpen ? <LuChevronsDownUp aria-hidden /> : <LuChevronsUpDown aria-hidden />}
+            </Button>
+          ) : null}
+          {commit.hash !== GIT_WORKTREE_HASH ? (
+            <Button
+              variant="plain"
+              size="icon"
+              aria-label={t('git.graph.copyShareUrl')}
+              tooltip={copiedShare ? t('common.copied') : t('git.graph.copyShareUrl')}
+              onClick={() => {
+                const shareUrl = makeShareUrl(repo, commit.hash)
+                const full = typeof window !== 'undefined' ? `${window.location.origin}${shareUrl}` : shareUrl
+                void navigator.clipboard.writeText(full)
+                setCopiedShare(true)
+                setTimeout(() => setCopiedShare(false), 2000)
+              }}
+            >
+              <LuShare2 className="size-3.5" aria-hidden />
             </Button>
           ) : null}
           <Button variant="plain" size="icon" aria-label={t('git.commit.closeTree')} onClick={onClose}>

@@ -42,8 +42,12 @@ function isGitSelection(value: unknown): value is GitSelection {
   return false
 }
 
+import { makeShareUrl, type RepositoryPersistence } from '@/lib/git/resolver'
+
 type Props = {
   initial: GitLogView | { error: string; repo: string }
+  initialCommitHash?: string
+  initialPersistence?: RepositoryPersistence
 }
 
 const SIDEBAR_MIN = 200
@@ -70,7 +74,7 @@ function highlightOf(view: GitLogView, selection: GitSelection): string {
   return ''
 }
 
-export function GitLogPage({ initial }: Props) {
+export function GitLogPage({ initial, initialCommitHash, initialPersistence }: Props) {
   const t = useT()
   const failed = isError(initial)
   const [view, setView] = useState<GitLogView | null>(failed ? null : initial)
@@ -86,8 +90,8 @@ export function GitLogPage({ initial }: Props) {
   const [folders, setFolders] = useState<string[]>([])
   const [commits, setCommits] = useState<GitCommit[]>(failed ? [] : initial.commits)
   const [hasMore, setHasMore] = useState(failed ? false : initial.hasMore)
-  const [focusRequest, setFocusRequest] = useState<{ hash: string } | null>(null)
-  const [selectedHash, setSelectedHash] = useState('')
+  const [focusRequest, setFocusRequest] = useState<{ hash: string } | null>(initialCommitHash ? { hash: initialCommitHash } : null)
+  const [selectedHash, setSelectedHash] = useState(initialCommitHash || '')
   const [selectedFile, setSelectedFile] = useState('')
   const [selectedStatus, setSelectedStatus] = useState('')
   const [sidebarWidth, setSidebarWidth] = useGitUiPref('layout.sidebarWidth', 256, isPositiveNumber)
@@ -244,6 +248,24 @@ export function GitLogPage({ initial }: Props) {
       }
     }
   }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !view?.repo) return
+    const path = window.location.pathname
+    if (path.startsWith('/repo/')) {
+      const shareUrl = makeShareUrl(view.repo, selectedHash || undefined)
+      if (window.location.pathname !== shareUrl) {
+        window.history.replaceState(window.history.state, '', shareUrl)
+      }
+    } else {
+      const url = new URL(window.location.href)
+      if (selectedHash) url.searchParams.set('commit', selectedHash)
+      else url.searchParams.delete('commit')
+      if (url.toString() !== window.location.href) {
+        window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}`)
+      }
+    }
+  }, [selectedHash, view?.repo])
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {

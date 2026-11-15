@@ -1,7 +1,7 @@
 'use client'
 
 import { type CSSProperties, memo, type PointerEvent as ReactPointerEvent, type ReactNode, type Ref, useEffect, useMemo, useRef, useState } from 'react'
-import { LuClock, LuCopy, LuGitBranch, LuHash, LuInbox, LuText, LuUser } from 'react-icons/lu'
+import { LuClock, LuCopy, LuGitBranch, LuHash, LuInbox, LuShare2, LuText, LuUser } from 'react-icons/lu'
 
 import { measureCellsFit } from '@/components/git/fitColumn'
 import { PanelSplitter } from '@/components/git/PanelSplitter'
@@ -12,6 +12,7 @@ import { EmptyState, ScrollArea, Tooltip } from '@/components/sk'
 import { copyToClipboard } from '@/lib/clipboard'
 import { formatCommitAgo } from '@/lib/git/format-commit-ago'
 import { COL, DOT, graphScene, laneColor, PAD, ROW, type Stroke, xAt } from '@/lib/git/graph-scene'
+import { makeShareUrl } from '@/lib/git/resolver'
 import { GIT_WORKTREE_HASH, type GitCommit, type GitStash, gitStashAsCommit, type GitWorktree } from '@/lib/git/types'
 import { isPositiveNumber, useGitUiPref, useGitUiReady } from '@/lib/git/ui-prefs'
 import { cn } from '@/lib/utils'
@@ -48,6 +49,7 @@ const GRAPH_MIN = 80
 const GRAPH_DEFAULT_LANES = 5
 
 type Props = {
+  repo?: string
   commits: GitCommit[]
   worktree: GitWorktree | null
   stashes?: GitStash[]
@@ -123,6 +125,7 @@ const GraphStrokes = memo(function GraphStrokes({ strokes }: { strokes: Stroke[]
 })
 
 function GitGraphComponent({
+  repo,
   commits,
   worktree,
   stashes = [],
@@ -160,6 +163,16 @@ function GitGraphComponent({
       })
     }
     items.push(
+      {
+        key: 'share-link',
+        label: t('git.graph.copyShareUrl'),
+        icon: <LuShare2 className="size-3.5 shrink-0" aria-hidden />,
+        onSelect: () => {
+          const shareUrl = makeShareUrl(repo || '', commit.hash)
+          const full = typeof window !== 'undefined' ? `${window.location.origin}${shareUrl}` : shareUrl
+          void copyValue(full)
+        },
+      },
       {
         key: 'subject',
         label: t('git.graph.copyCommitSubject'),
