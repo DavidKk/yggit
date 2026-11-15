@@ -710,6 +710,7 @@ export function GitLogPage({ initial, initialCommitHash, initialPersistence }: P
                   repo={view.repo}
                   remoteUrl={view.remoteUrl}
                   commit={selected}
+                  allCommits={commits}
                   width={treeWidth}
                   title={selectedIsWorktree ? t('git.panel.worktree') : t('git.panel.files')}
                   selectedPath={selectedFile}

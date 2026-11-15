@@ -141,6 +141,9 @@ export type GitMessages = {
     pathListAria: string
     allFilesAria: string
     treeAria: string
+    mergeLineage: string
+    copyIssueCard: string
+    commitsCount: string
   }
   preview: {
     imageFailed: string
@@ -368,7 +371,10 @@ export const gitZh: GitMessages = {
     noFilesMsg: "这次提交没有文件。",
     pathListAria: "路径视图",
     allFilesAria: "所有文件",
-    treeAria: "树级视图"
+    treeAria: "树级视图",
+    mergeLineage: "合并脉络",
+    copyIssueCard: "复制问题排查卡片",
+    commitsCount: "个提交",
   },
   preview: {
     imageFailed: "图片加载失败",
@@ -601,7 +607,10 @@ export const gitCht: GitMessages = {
     noFilesMsg: "此次提交沒有檔案。",
     pathListAria: "路徑檢視",
     allFilesAria: "所有檔案",
-    treeAria: "樹狀檢視"
+    treeAria: "樹狀檢視",
+    mergeLineage: "合併脈絡",
+    copyIssueCard: "複製問題排查卡片",
+    commitsCount: "個提交",
   },
   preview: {
     imageFailed: "圖片載入失敗",
@@ -834,7 +843,10 @@ export const gitEn: GitMessages = {
     noFilesMsg: "This commit has no files.",
     pathListAria: "Path view",
     allFilesAria: "All files",
-    treeAria: "Tree view"
+    treeAria: "Tree view",
+    mergeLineage: "Merge lineage",
+    copyIssueCard: "Copy issue share card",
+    commitsCount: "commits",
   },
   preview: {
     imageFailed: "Image failed to load",
@@ -1067,7 +1079,10 @@ export const gitJa: GitMessages = {
     noFilesMsg: "このコミットにファイルはありません。",
     pathListAria: "パス表示",
     allFilesAria: "すべてのファイル",
-    treeAria: "ツリー表示"
+    treeAria: "ツリー表示",
+    mergeLineage: "マージの系譜",
+    copyIssueCard: "問題共有カードをコピー",
+    commitsCount: "コミット",
   },
   preview: {
     imageFailed: "画像の読み込みに失敗",
@@ -1300,7 +1315,10 @@ export const gitFr: GitMessages = {
     noFilesMsg: "Ce commit n'a pas de fichiers.",
     pathListAria: "Vue du chemin",
     allFilesAria: "Tous les fichiers",
-    treeAria: "Vue en arbre"
+    treeAria: "Vue en arbre",
+    mergeLineage: "Lignée de fusion",
+    copyIssueCard: "Copier la carte de partage de problème",
+    commitsCount: "commits",
   },
   preview: {
     imageFailed: "Échec du chargement de l'image",
@@ -1533,7 +1551,10 @@ export const gitDe: GitMessages = {
     noFilesMsg: "Dieser Commit hat keine Dateien.",
     pathListAria: "Pfadansicht",
     allFilesAria: "Alle Dateien",
-    treeAria: "Baumansicht"
+    treeAria: "Baumansicht",
+    mergeLineage: "Merge-Herkunft",
+    copyIssueCard: "Issue-Freigabekarte kopieren",
+    commitsCount: "Commits",
   },
   preview: {
     imageFailed: "Bild konnte nicht geladen werden",
@@ -1766,7 +1787,10 @@ export const gitEs: GitMessages = {
     noFilesMsg: "Este commit no tiene archivos.",
     pathListAria: "Vista de ruta",
     allFilesAria: "Todos los archivos",
-    treeAria: "Vista de árbol"
+    treeAria: "Vista de árbol",
+    mergeLineage: "Linaje de fusión",
+    copyIssueCard: "Copiar tarjeta de problema",
+    commitsCount: "commits",
   },
   preview: {
     imageFailed: "Error al cargar la imagen",
@@ -1999,7 +2023,10 @@ export const gitRu: GitMessages = {
     noFilesMsg: "Этот коммит не содержит файлов.",
     pathListAria: "Просмотр пути",
     allFilesAria: "Все файлы",
-    treeAria: "Древовидный вид"
+    treeAria: "Древовидный вид",
+    mergeLineage: "Происхождение слияния",
+    copyIssueCard: "Копировать карточку проблемы",
+    commitsCount: "коммитов",
   },
   preview: {
     imageFailed: "Не удалось загрузить изображение",
@@ -2232,7 +2259,10 @@ export const gitPtBR: GitMessages = {
     noFilesMsg: "Este commit não tem arquivos.",
     pathListAria: "Visualização de caminho",
     allFilesAria: "Todos os arquivos",
-    treeAria: "Exibição em árvore"
+    treeAria: "Exibição em árvore",
+    mergeLineage: "Linhagem de mesclagem",
+    copyIssueCard: "Copiar cartão de problema",
+    commitsCount: "commits",
   },
   preview: {
     imageFailed: "Falha ao carregar a imagem",
@@ -2465,7 +2495,10 @@ export const gitKo: GitMessages = {
     noFilesMsg: "이 커밋에는 파일이 없습니다.",
     pathListAria: "경로 목록",
     allFilesAria: "모든 파일",
-    treeAria: "트리 보기"
+    treeAria: "트리 보기",
+    mergeLineage: "병합 계보",
+    copyIssueCard: "문제 공유 카드 복사",
+    commitsCount: "커밋",
   },
   preview: {
     imageFailed: "이미지를 불러오지 못했습니다",

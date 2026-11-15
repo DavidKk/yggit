@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { LuChevronDown, LuChevronRight, LuChevronsDownUp, LuChevronsUpDown, LuFolderTree, LuList, LuPencil, LuShare2, LuX } from 'react-icons/lu'
+import { LuChevronDown, LuChevronRight, LuChevronsDownUp, LuChevronsUpDown, LuFolderTree, LuGitMerge, LuList, LuPencil, LuShare2, LuX } from 'react-icons/lu'
 import { TbFileStack } from 'react-icons/tb'
 import { TiMinusOutline, TiPlusOutline } from 'react-icons/ti'
 
@@ -10,6 +10,8 @@ import { useT } from '@/components/i18n/LocaleProvider'
 import { Badge, Button, EmptyState, ScrollArea, SegmentedNav } from '@/components/sk'
 import { readApiErrorMessage } from '@/lib/api-error'
 import { makeShareUrl } from '@/lib/git/resolver'
+import { formatIssueShareCard, makeIssueShareUrl } from '@/lib/git/share-card'
+import { analyzeMergeTopology } from '@/lib/git/topology'
 import { GIT_WORKTREE_HASH, type GitCommit, type GitCommitChanges, type GitFileChange } from '@/lib/git/types'
 import { isBoolean, useGitUiPref } from '@/lib/git/ui-prefs'
 import { cn } from '@/lib/utils'
@@ -18,6 +20,7 @@ type Props = {
   repo: string
   remoteUrl?: string
   commit: GitCommit
+  allCommits?: GitCommit[]
   width: number
   /** Panel heading; defaults to 「文件」. */
   title?: string
@@ -267,8 +270,13 @@ function PathRows({ groups, selected, onSelect }: { groups: PathGroup[]; selecte
   ))
 }
 
-export function GitCommitPanel({ repo, remoteUrl, commit, width, title, selectedPath, onSelect, onClose }: Props) {
+export function GitCommitPanel({ repo, remoteUrl, commit, allCommits, width, title, selectedPath, onSelect, onClose }: Props) {
   const t = useT()
+  const topology = useMemo(() => {
+    if (!commit.parents || commit.parents.length < 2) return null
+    const map = allCommits ? new Map(allCommits.map((c) => [c.hash, c])) : undefined
+    return analyzeMergeTopology(commit, map)
+  }, [commit, allCommits])
   const panelTitle = title ?? t('git.panel.files')
   const isWorktree = commit.hash === GIT_WORKTREE_HASH
   const viewItems = useMemo(() => {
@@ -428,12 +436,39 @@ export function GitCommitPanel({ repo, remoteUrl, commit, width, title, selected
             <Button
               variant="plain"
               size="icon"
-              aria-label={t('git.graph.copyShareUrl')}
-              tooltip={copiedShare ? t('common.copied') : t('git.graph.copyShareUrl')}
+              aria-label={t('git.commit.copyIssueCard')}
+              tooltip={copiedShare ? t('common.copied') : t('git.commit.copyIssueCard')}
               onClick={() => {
-                const shareUrl = makeShareUrl(repo, commit.hash, remoteUrl)
-                const full = typeof window !== 'undefined' ? `${window.location.origin}${shareUrl}` : shareUrl
-                void navigator.clipboard.writeText(full)
+                const fullShareUrl =
+                  typeof window !== 'undefined'
+                    ? `${window.location.origin}${makeIssueShareUrl({
+                        repoName: repo.split('/').pop() || repo,
+                        repoPathOrUrl: repo,
+                        remoteUrl,
+                        commit,
+                        file: selectedPath || undefined,
+                        topology: topology || undefined,
+                      })}`
+                    : makeIssueShareUrl({
+                        repoName: repo.split('/').pop() || repo,
+                        repoPathOrUrl: repo,
+                        remoteUrl,
+                        commit,
+                        file: selectedPath || undefined,
+                        topology: topology || undefined,
+                      })
+                const card = formatIssueShareCard(
+                  {
+                    repoName: repo.split('/').pop() || repo,
+                    repoPathOrUrl: repo,
+                    remoteUrl,
+                    commit,
+                    file: selectedPath || undefined,
+                    topology: topology || undefined,
+                  },
+                  fullShareUrl
+                )
+                void navigator.clipboard.writeText(card.markdown)
                 setCopiedShare(true)
                 setTimeout(() => setCopiedShare(false), 2000)
               }}
@@ -446,6 +481,20 @@ export function GitCommitPanel({ repo, remoteUrl, commit, width, title, selected
           </Button>
         </div>
       </header>
+      {topology?.isMerge ? (
+        <div className="flex items-center gap-1.5 border-b border-line bg-[var(--overlay-04)] px-3 py-1.5 text-xs font-mono">
+          <LuGitMerge className="size-3.5 shrink-0 text-accent" aria-hidden />
+          <span className="text-ink-soft">{t('git.commit.mergeLineage')}:</span>
+          <span className="font-medium text-accent">{topology.sourceBranchHint || 'feature'}</span>
+          <span className="text-ink-soft">➔</span>
+          <span className="font-medium text-ink">{topology.targetBranchHint || 'main'}</span>
+          {topology.commitsIncluded.length > 0 ? (
+            <Badge tone="accent" size="mini" dot={false} className="ml-auto text-[10px]">
+              {topology.commitsIncluded.length} {t('git.commit.commitsCount')}
+            </Badge>
+          ) : null}
+        </div>
+      ) : null}
       {error ? (
         <p className="m-0 px-3 py-2 text-xs text-fail">{error}</p>
       ) : !changes || (view === 'all' && !allFiles) ? (

@@ -13,6 +13,7 @@ import { copyToClipboard } from '@/lib/clipboard'
 import { formatCommitAgo } from '@/lib/git/format-commit-ago'
 import { COL, DOT, graphScene, laneColor, PAD, ROW, type Stroke, xAt } from '@/lib/git/graph-scene'
 import { makeShareUrl } from '@/lib/git/resolver'
+import { formatIssueShareCard, makeIssueShareUrl } from '@/lib/git/share-card'
 import { GIT_WORKTREE_HASH, type GitCommit, type GitStash, gitStashAsCommit, type GitWorktree } from '@/lib/git/types'
 import { isPositiveNumber, useGitUiPref, useGitUiReady } from '@/lib/git/ui-prefs'
 import { cn } from '@/lib/utils'
@@ -173,6 +174,37 @@ function GitGraphComponent({
           const shareUrl = makeShareUrl(repo || '', commit.hash, remoteUrl)
           const full = typeof window !== 'undefined' ? `${window.location.origin}${shareUrl}` : shareUrl
           void copyValue(full)
+        },
+      },
+      {
+        key: 'share-issue-card',
+        label: t('git.commit.copyIssueCard'),
+        icon: <LuShare2 className="size-3.5 shrink-0" aria-hidden />,
+        onSelect: () => {
+          const fullShareUrl =
+            typeof window !== 'undefined'
+              ? `${window.location.origin}${makeIssueShareUrl({
+                  repoName: (repo || '').split('/').pop() || repo || '',
+                  repoPathOrUrl: repo || '',
+                  remoteUrl,
+                  commit,
+                })}`
+              : makeIssueShareUrl({
+                  repoName: (repo || '').split('/').pop() || repo || '',
+                  repoPathOrUrl: repo || '',
+                  remoteUrl,
+                  commit,
+                })
+          const card = formatIssueShareCard(
+            {
+              repoName: (repo || '').split('/').pop() || repo || '',
+              repoPathOrUrl: repo || '',
+              remoteUrl,
+              commit,
+            },
+            fullShareUrl
+          )
+          void copyValue(card.markdown)
         },
       },
       {
