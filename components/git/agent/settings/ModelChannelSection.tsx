@@ -1,16 +1,16 @@
 'use client'
 
 import React, { useState } from 'react'
-import { LuActivity, LuServer } from 'react-icons/lu'
+import { LuActivity, LuKeyRound, LuServer } from 'react-icons/lu'
 
 import { useT } from '@/components/i18n/LocaleProvider'
-import { formCard, formDesc, formField, formTitle, settingsCardWide } from '@/components/layoutClasses'
 import { ApiKeyInput, Badge, Button, Select, type SelectOption, Spinner, TextInput } from '@/components/sk'
 import { useAgent } from '@/lib/agent/agent-context'
 import { testAgentConnection } from '@/lib/agent/openapi-client'
 import { AGENT_PRESETS, type AgentProviderType } from '@/lib/agent/types'
 
 import { PrivacyNoticeCallout } from './PrivacyNoticeCallout'
+import { SettingsSectionCard } from './SettingsSectionCard'
 
 export function ModelChannelSection() {
   const t = useT()
@@ -67,32 +67,29 @@ export function ModelChannelSection() {
   }
 
   return (
-    <div className={settingsCardWide}>
-      {/* 1. Channel Preset Selector */}
-      <section className={formCard}>
-        <div className={formField}>
-          <div className={formTitle}>{t('gitAgent.modelProvider')}</div>
-          <p className={formDesc}>选择大模型接入渠道与协议（支持 Vercel AI Gateway 免费渠道、自定义 OpenAI 兼容接口或本地 Ollama）</p>
-          <div className="pt-1">
+    <div className="flex flex-col gap-4">
+      {/* Card 1: Channel & Protocol Configuration */}
+      <SettingsSectionCard title="模型渠道配置" description="选择大模型推理服务渠道与协议，支持免凭证公共通道、自定义 OpenAI 兼容接口或本地 Ollama">
+        {/* Provider Selector */}
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-medium text-ink">{t('gitAgent.modelProvider')}</label>
+          <p className="text-xs text-ink-soft">选择接入渠道与模型协议规范</p>
+          <div className="pt-0.5">
             <Select className="w-full" value={config.provider} options={providerOptions} onChange={handleProviderChange} />
           </div>
         </div>
 
-        {/* 2. Privacy Notice when Free Model Selected */}
-        {preset.noZdrNotice && (
-          <div>
-            <PrivacyNoticeCallout />
-          </div>
-        )}
+        {/* Privacy Notice for Free Public Model Tier */}
+        {preset.noZdrNotice && <PrivacyNoticeCallout />}
 
-        {/* 3. API Base URL */}
-        <div className={formField}>
+        {/* API Base URL */}
+        <div className="flex flex-col gap-1.5">
           <div className="flex items-center gap-1.5">
-            <LuServer className="size-3.5 text-ink-soft" aria-hidden />
-            <span className={formTitle}>{t('gitAgent.endpoint')}</span>
+            <LuServer className="size-3.5 text-ink-soft" aria-hidden="true" />
+            <label className="text-xs font-medium text-ink">{t('gitAgent.endpoint')}</label>
           </div>
-          <p className={formDesc}>服务端中继网关地址或私有化模型服务 Base URL</p>
-          <div className="pt-1">
+          <p className="text-xs text-ink-soft">服务端中继网关地址或私有化模型服务 Base URL</p>
+          <div className="pt-0.5">
             <TextInput
               fullWidth
               value={config.baseUrl || ''}
@@ -102,11 +99,11 @@ export function ModelChannelSection() {
           </div>
         </div>
 
-        {/* 4. Model Name */}
-        <div className={formField}>
-          <div className={formTitle}>{t('gitAgent.modelName')}</div>
-          <p className={formDesc}>当前渠道推荐模型或输入自定义模型标识</p>
-          <div className="pt-1">
+        {/* Model Name */}
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-medium text-ink">{t('gitAgent.modelName')}</label>
+          <p className="text-xs text-ink-soft">当前渠道推荐模型标识或自定义模型名</p>
+          <div className="pt-0.5">
             {modelOptions.length > 0 ? (
               <Select className="w-full" value={config.model} options={modelOptions} onChange={(val) => setConfig((prev) => ({ ...prev, model: val }))} />
             ) : (
@@ -115,15 +112,18 @@ export function ModelChannelSection() {
           </div>
         </div>
 
-        {/* 5. API Key Input (if not ollama) */}
+        {/* API Key Input */}
         {config.provider !== 'ollama' && (
-          <div className={formField}>
+          <div className="flex flex-col gap-1.5">
             <div className="flex items-center justify-between">
-              <span className={formTitle}>{t('gitAgent.apiKey')}</span>
-              <span className="text-[11px] text-ink-soft font-mono">{config.provider === 'vercel-free' ? '免费渠道可留空' : '零持久化 · 内存保存'}</span>
+              <div className="flex items-center gap-1.5">
+                <LuKeyRound className="size-3.5 text-ink-soft" aria-hidden="true" />
+                <label className="text-xs font-medium text-ink">{t('gitAgent.apiKey')}</label>
+              </div>
+              <span className="font-mono text-[11px] text-ink-soft">{config.provider === 'vercel-free' ? '免费渠道可留空' : '零持久化 · 内存保存'}</span>
             </div>
-            <p className={formDesc}>{t('gitAgent.apiKeyPlaceholder')}</p>
-            <div className="pt-1">
+            <p className="text-xs text-ink-soft">{t('gitAgent.apiKeyPlaceholder')}</p>
+            <div className="pt-0.5">
               <ApiKeyInput
                 configured={Boolean(config.apiKey)}
                 value={config.apiKey || ''}
@@ -135,11 +135,13 @@ export function ModelChannelSection() {
             </div>
           </div>
         )}
+      </SettingsSectionCard>
 
-        {/* 6. Test Connection */}
-        <div className="flex items-center gap-3 pt-3">
+      {/* Card 2: Connectivity Test & Diagnostic */}
+      <SettingsSectionCard title="服务连通性检测" description="向配置的推理服务端点发送握手探针，验证网络可达性与鉴权凭据有效性">
+        <div className="flex flex-wrap items-center gap-3">
           <Button type="button" variant="default" onClick={handleTestConnection} disabled={testing} className="gap-2">
-            {testing ? <Spinner className="size-3.5" /> : <LuActivity className="size-3.5" aria-hidden />}
+            {testing ? <Spinner className="size-3.5" /> : <LuActivity className="size-3.5" aria-hidden="true" />}
             <span>{testing ? t('gitAgent.testing') : t('gitAgent.testConnection')}</span>
           </Button>
 
@@ -157,7 +159,9 @@ export function ModelChannelSection() {
             </div>
           )}
         </div>
-      </section>
+
+        <p className="text-xs text-ink-soft leading-relaxed">测试探针由客户端直接发起探测，通过本地网关代理直连模型接口，服务端不留存任何密钥与请求历史。</p>
+      </SettingsSectionCard>
     </div>
   )
 }
