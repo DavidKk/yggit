@@ -15,6 +15,8 @@ Welcome to the Yggit documentation repository. Yggit is a high-performance, orga
 - [Agent Dockable Workspace UX Specification](ux/agent-dockable-workspace-ux.md) - Interaction design for the bottom floating pill, in-place quick response cards, dockable side/bottom workspaces, and explicit dual-track context.
 - [Agent Git Graph Annotation & Spotlight PRD (Sub-Req 2)](prd/agent-git-graph-annotation-and-spotlight.md) - Sub-requirement 2: Product requirements for Agent-driven precise commit focusing, multi-target highlighting, graph annotation badges, multi-result stepper navigation, and evidence grading.
 - [Agent Git Graph Annotation & Spotlight Technical Architecture (Sub-Req 2)](technical/agent-git-graph-annotation-and-spotlight.md) - Sub-requirement 2: Technical specification for the spotlight context state machine, virtual window scroll coordination, annotation popover badges, and impact resolvers.
+- [Agent Context Desensitization & Privacy PRD (Sub-Req 3)](prd/agent-context-desensitization-and-privacy.md) - Sub-requirement 3: Product requirements for client-side context desensitization, round-trip reversible masking, and zero-storage privacy filters.
+- [Agent Context Desensitization & Unmasking Technical Architecture (Sub-Req 3)](technical/agent-context-desensitization-and-privacy.md) - Sub-requirement 3: Technical specification for the regex/entropy scanner, semantic placeholder substitution, streaming chunk buffer unmasker, and settings integration.
 
 ## Standards
 
