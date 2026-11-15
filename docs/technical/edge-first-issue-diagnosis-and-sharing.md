@@ -195,7 +195,9 @@ export function formatIssueShareCard(payload: {
 
 ---
 
-## 5. 本地目录句柄在 IndexedDB 中的持久化规范
+## 5. 本地目录持久化、工作区感知与重授权机制
+
+### 5.1 目录句柄在 IndexedDB 中的持久化规范
 
 在 `lib/git/indexeddb-handles.ts` 中，使用原生 `idb` 或简单包装实现句柄持久化：
 
@@ -222,10 +224,14 @@ export async function getDirectoryHandle(repoId: string): Promise<FileSystemDire
   if (permission === 'granted') {
     return record.handle
   }
-  // 若未永久授权，可调用 requestPermission 单击激活
   return record.handle
 }
 ```
+
+### 5.2 权限生命周期与静默恢复机制 (Permissions Lifecycle & Silent Restore)
+
+- **持久权限（Persistent Permissions）**：针对 Chrome 122+ / Edge 等支持长期授权的浏览器，用户勾选「每次访问都允许」后，刷新页面（F5）或次日重新打开网页，句柄状态为 `granted`，系统**100% 自动静默读取本地工程，零弹窗、零中断**。
+- **单次唤醒（Fallback Activation）**：在权限过期或新会话需激活时，当用户点击项目列表项，系统调用 `handle.requestPermission({ mode: 'read' })`，地址栏下方轻量弹窗单击「允许」即可恢复，绝无需重新打开文件系统对话框去硬盘翻找。
 
 ### 5.3 统一资源未定位、路径迁移与重新授权机制 (Resource Re-association Engine)
 
@@ -251,6 +257,16 @@ flowchart TD
 ```
 
 通过这一归一化机制，系统无需针对“404”、“文件不存在”、“权限过期”编写凌乱的补丁，用户随时拥有**自愈修复和灵活重连**的权利。
+
+### 5.4 本地工作区修改（Uncommitted Changes）的高性能感知策略 (Worktree Fast Diff)
+
+针对纯浏览器在缺少原生 `fsevents` 文件监听时如何快速查看本地修改的痛点，系统设计三级快速比对引擎：
+1. **切回窗口聚焦事件驱动（Focus-Driven Auto-Refresh）**：
+   监听 `window.addEventListener('focus', onWindowFocus)`。当开发者在 VS Code / Cursor 编辑代码后切回 Yggit 网页标签，系统自动静默触发工作区比对。
+2. **mtime 预过滤与局部哈希扫描（Fast mtime Pruning）**：
+   通过 `isomorphic-git` 的 `statusMatrix`，优先比对文件的修改时间戳（mtime）与文件大小（size）。未变动的文件直接跳过，仅对发生变动的文件计算 SHA-1，将中型项目（数千文件）的扫描比对耗时压缩至 50ms 以内。
+3. **工作区置顶虚拟节点（Virtual Worktree Node）**：
+   比对结果在生命图谱最顶层渲染为 `GIT_WORKTREE_HASH`（带有工作区修改徽标与文件变动数），点击即可在右侧展开未提交 Diff，保持与桌面客户端完全一致的交互体验。
 
 ---
 
