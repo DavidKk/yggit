@@ -2,6 +2,7 @@ import { debugEs } from '@/lib/i18n/messages/parts/debug'
 import { eventCurrentEs } from '@/lib/i18n/messages/parts/event-current'
 import { floatingBallEs } from '@/lib/i18n/messages/parts/floating-ball'
 import { gitEs } from '@/lib/i18n/messages/parts/git'
+import { gitAgentEs } from '@/lib/i18n/messages/parts/agent'
 import { mcpGatewayEs } from '@/lib/i18n/messages/parts/mcp-gateway'
 import { playEs } from '@/lib/i18n/messages/parts/play'
 import type { MessageTree } from '@/lib/i18n/messages/types'
@@ -1407,6 +1408,7 @@ export const es: MessageTree = {
     webmcpUntrusted: 'Contenido externo',
   },
   ...mcpGatewayEs,
+  ...gitAgentEs,
   downloads: {
     title: 'Downloads',
     triggerAria: 'Downloads',

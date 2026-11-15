@@ -9,6 +9,7 @@ import { editKo } from '@/lib/i18n/messages/parts/edit.ko'
 import { eventsKo } from '@/lib/i18n/messages/parts/events.ko'
 import { floatingBallKo } from '@/lib/i18n/messages/parts/floating-ball'
 import { gitKo } from '@/lib/i18n/messages/parts/git'
+import { gitAgentKo } from '@/lib/i18n/messages/parts/agent'
 import { integrationKo } from '@/lib/i18n/messages/parts/integration'
 import { legalKo } from '@/lib/i18n/messages/parts/legal'
 import { mcpGatewayKo } from '@/lib/i18n/messages/parts/mcp-gateway'
@@ -345,6 +346,7 @@ export const ko: MessageTree = {
   ...editKo,
   ...integrationKo,
   ...mcpGatewayKo,
+  ...gitAgentKo,
   ...downloadsKo,
   ...aboutKo,
   ...agentAuthKo,

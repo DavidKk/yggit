@@ -17,6 +17,8 @@ import { formatIssueShareCard, makeIssueShareUrl } from '@/lib/git/share-card'
 import { GIT_WORKTREE_HASH, type GitCommit, type GitStash, gitStashAsCommit, type GitWorktree } from '@/lib/git/types'
 import { isPositiveNumber, useGitUiPref, useGitUiReady } from '@/lib/git/ui-prefs'
 import { cn } from '@/lib/utils'
+import { useOptionalSpotlight } from '@/lib/agent/spotlight-context'
+import { AnnotationBadge } from '@/components/git/agent/spotlight/AnnotationBadge'
 
 const BADGE_H = DOT
 const NODE_DOT = 16
@@ -150,6 +152,9 @@ function GitGraphComponent({
   const t = useT()
   const locale = useLocaleCode()
   const notify = useNotification()
+  const spotlight = useOptionalSpotlight()
+  const isSpotlightActive = Boolean(spotlight?.active && spotlight.targets.length > 0)
+  const spotlightMap = spotlight?.targetsMap
   const [contextMenu, setContextMenu] = useState<GraphContextMenu | null>(null)
 
   const copyValue = async (value: string) => {
@@ -637,16 +642,23 @@ function GitGraphComponent({
               const isLineageActive = Boolean(lineageHashes && lineageHashes.size > 0)
               const isLineageHit = isLineageActive && lineageHashes!.has(commit.hash)
               const isContextActive = contextMenu?.type === 'commit' && contextMenu.commit.hash === commit.hash
+              const spotlightTarget = spotlightMap?.get(commit.hash.toLowerCase())
+              const isSpotlightHit = Boolean(spotlightTarget)
+              const isSpotlightDimmed = isSpotlightActive && !isSpotlightHit
               const rowTintClass = cn(
-                selected
-                  ? 'bg-[color-mix(in_oklab,var(--ink)_14%,transparent)]'
-                  : isContextActive
-                    ? 'bg-[color-mix(in_oklab,var(--ink)_10%,transparent)]'
-                    : isLineageHit
-                      ? 'bg-[color-mix(in_oklab,var(--accent)_16%,transparent)] ring-1 ring-inset ring-accent/35'
-                      : marked
-                        ? 'bg-[color-mix(in_oklab,var(--ink)_8%,transparent)]'
-                        : 'group-hover/commit:bg-[color-mix(in_oklab,var(--ink)_6%,transparent)]'
+                isSpotlightHit && spotlightTarget?.role === 'primary'
+                  ? 'bg-[color-mix(in_oklab,var(--accent)_22%,transparent)] ring-1 ring-inset ring-accent/60'
+                  : isSpotlightHit
+                    ? 'bg-[color-mix(in_oklab,var(--accent)_14%,transparent)] ring-1 ring-inset ring-blue-500/40'
+                    : selected
+                      ? 'bg-[color-mix(in_oklab,var(--ink)_14%,transparent)]'
+                      : isContextActive
+                        ? 'bg-[color-mix(in_oklab,var(--ink)_10%,transparent)]'
+                        : isLineageHit
+                          ? 'bg-[color-mix(in_oklab,var(--accent)_16%,transparent)] ring-1 ring-inset ring-accent/35'
+                          : marked
+                            ? 'bg-[color-mix(in_oklab,var(--ink)_8%,transparent)]'
+                            : 'group-hover/commit:bg-[color-mix(in_oklab,var(--ink)_6%,transparent)]'
               )
               const isHovered = hoverHash === commit.hash || isContextActive
               return (
@@ -665,7 +677,8 @@ function GitGraphComponent({
                     className={cn(
                       'group/commit grid h-[26px] max-h-[26px] w-full min-w-0 cursor-pointer select-text items-center justify-start gap-0 rounded-none border-0 bg-transparent px-0 text-left leading-none font-normal outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent transition-opacity duration-150',
                       findNeedle && !findHit && 'opacity-35',
-                      isLineageActive && !isLineageHit && !selected && !isHovered && 'opacity-35 hover:opacity-100'
+                      isLineageActive && !isLineageHit && !selected && !isHovered && 'opacity-35 hover:opacity-100',
+                      isSpotlightDimmed && !selected && !isHovered && 'opacity-35 hover:opacity-100'
                     )}
                     style={{ gridTemplateColumns: columns }}
                     onClick={() => {
@@ -695,6 +708,7 @@ function GitGraphComponent({
                       {chips.length > 0 ? (
                         <>
                           <RefChipsCell chips={chips} commit={commit} checkedOut={checkedOut} color={color} />
+                          {spotlightTarget && <AnnotationBadge target={spotlightTarget} className="ml-1 shrink-0" />}
                           <span
                             className="h-0.5 min-w-2 flex-1"
                             style={{
@@ -715,10 +729,22 @@ function GitGraphComponent({
                           >
                             {branch}
                           </span>
+                          {spotlightTarget && <AnnotationBadge target={spotlightTarget} className="ml-1 shrink-0" />}
                           <span
                             className={cn('h-0.5 min-w-2 flex-1', isHovered ? 'inline-flex opacity-35' : 'hidden opacity-25 group-hover/commit:inline-flex')}
                             style={{
                               background: `linear-gradient(to right, ${color}, color-mix(in oklab, ${color} 20%, transparent))`,
+                            }}
+                          />
+                        </>
+                      ) : spotlightTarget ? (
+                        <>
+                          <AnnotationBadge target={spotlightTarget} className="ml-1 shrink-0" />
+                          <span
+                            className="h-0.5 min-w-2 flex-1"
+                            style={{
+                              background: `linear-gradient(to right, ${color}, color-mix(in oklab, ${color} 20%, transparent))`,
+                              opacity: 0.25,
                             }}
                           />
                         </>
@@ -915,9 +941,11 @@ function GitGraphComponent({
                 const tint = laneColor(point.color)
                 const isMerge = commit.parents.length > 1
                 const isLineageHit = lineageHashes?.has(commit.hash)
+                const isSpotlightHit = Boolean(spotlightMap?.get(commit.hash.toLowerCase()))
+                const isSpotlightDimmed = isSpotlightActive && !isSpotlightHit
                 const isHead = index === headIndex || commit.refs.some((r) => r === 'HEAD' || r.startsWith('HEAD -> '))
                 const isTagged = commit.refs.some((r) => r.startsWith('tag: '))
-                const isDimmed = Boolean(lineageHashes && lineageHashes.size > 0 && !isLineageHit && !isHead)
+                const isDimmed = Boolean((lineageHashes && lineageHashes.size > 0 && !isLineageHit && !isHead) || isSpotlightDimmed)
                 return (
                   <Tooltip key={commit.hash} content={commit.author} placement="top">
                     <span
@@ -927,6 +955,7 @@ function GitGraphComponent({
                         'absolute flex -translate-x-1/2 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full leading-none transition-all duration-200',
                         !isMerge && 'text-[9px] font-semibold text-ink',
                         isLineageHit && 'ring-2 ring-accent ring-offset-1 ring-offset-[var(--panel)] scale-110 z-10 shadow-[0_0_8px_var(--accent)]',
+                        isSpotlightHit && 'ring-2 ring-accent ring-offset-1 ring-offset-[var(--panel)] scale-125 z-20 shadow-[0_0_12px_var(--accent)]',
                         isDimmed && 'opacity-35 hover:opacity-100'
                       )}
                       style={

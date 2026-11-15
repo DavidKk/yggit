@@ -1,0 +1,66 @@
+/**
+ * Type definition for Git Agent messages across all supported locales.
+ */
+export type GitAgentMessages = {
+  barPlaceholder: string
+  barAria: string
+  settingsTitle: string
+  backToGraph: string
+  modelList: string
+  modelListDesc: string
+  addModel: string
+  editModel: string
+  activeModel: string
+  useModel: string
+  keyRequired: string
+  modelDetails: string
+  modelDetailsDesc: string
+  profileName: string
+  requiredFields: string
+  invalidEndpoint: string
+  showKey: string
+  hideKey: string
+  clearKey: string
+  backToModels: string
+  tabModels: string
+  tabPrivacy: string
+  tabGeneral: string
+  tabShortcuts: string
+  modelProvider: string
+  modelName: string
+  apiKey: string
+  apiKeyPlaceholder: string
+  endpoint: string
+  endpointPlaceholder: string
+  testConnection: string
+  testing: string
+  testSuccess: string
+  testFailed: string
+  latency: string
+  privacyNoticeTitle: string
+  privacyNoticeBody: string
+  privacyRedactTitle: string
+  privacyRedactDesc: string
+  privacySecrets: string
+  privacyPii: string
+  privacyNetwork: string
+  privacyCustomWords: string
+  privacyCustomWordsPlaceholder: string
+  privacyAllowList: string
+  privacyAllowListPlaceholder: string
+  quickAnswer: string
+  dockRight: string
+  dockBottom: string
+  dockClose: string
+  dockTitle: string
+  spotlightTitle: string
+  spotlightPrev: string
+  spotlightNext: string
+  spotlightClear: string
+  evidenceFact: string
+  evidenceDerived: string
+  evidenceHypothesis: string
+  shortcutHint: string
+  deepDiscussion: string
+  clearHistory: string
+}

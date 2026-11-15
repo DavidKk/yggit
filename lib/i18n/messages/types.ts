@@ -1,5 +1,6 @@
 import type { AboutMessages } from '@/lib/i18n/messages/about-types'
 import type { AgentAuthMessages } from '@/lib/i18n/messages/agent-auth-types'
+import type { GitAgentMessages } from '@/lib/i18n/messages/agent-types'
 import type { CreditsMessages } from '@/lib/i18n/messages/credits-types'
 import type { DataMessages } from '@/lib/i18n/messages/data-types'
 import type { DownloadsMessages } from '@/lib/i18n/messages/downloads-types'
@@ -931,6 +932,7 @@ export type MessageTree = {
   integration: IntegrationMessages
   agentAuth: AgentAuthMessages
   mcpGateway: McpGatewayMessages
+  gitAgent: GitAgentMessages
   downloads: DownloadsMessages
   about: AboutMessages
   credits: CreditsMessages

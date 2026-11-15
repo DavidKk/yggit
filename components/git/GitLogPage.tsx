@@ -4,6 +4,9 @@ import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState }
 import { LuCheck, LuChevronsUpDown, LuFolderGit2, LuShare2 } from 'react-icons/lu'
 
 import { BrandLogo } from '@/components/BrandLogo'
+import { AgentWorkspace } from '@/components/git/agent/AgentWorkspace'
+import { GitAgentBar } from '@/components/git/agent/GitAgentBar'
+import { AgentSpotlightNavigator } from '@/components/git/agent/spotlight/AgentSpotlightNavigator'
 import { measurePanelFit } from '@/components/git/fitColumn'
 import { GitCommitPanel } from '@/components/git/GitCommitPanel'
 import { GitDebug } from '@/components/git/GitDebug'
@@ -18,6 +21,7 @@ import { useT } from '@/components/i18n/LocaleProvider'
 import { LocaleSwitcher } from '@/components/i18n/LocaleSwitcher'
 import { Button, EmptyState, Tooltip } from '@/components/sk'
 import { ThemeSwitcher } from '@/components/theme/ThemeSwitcher'
+import { useOptionalSpotlight } from '@/lib/agent/spotlight-context'
 import { readApiErrorMessage } from '@/lib/api-error'
 import { getDriverMode, getGitDriver } from '@/lib/git/driver'
 import { isFileSystemAccessSupported } from '@/lib/git/indexeddb-handles'
@@ -111,6 +115,16 @@ export function GitLogPage({ initial, initialCommitHash, initialPersistence: _in
   const anchorRef = useRef<HTMLButtonElement>(null)
   const projectFindRef = useRef<HTMLDivElement>(null)
   useGitFindShortcut(worldRef)
+
+  const spotlight = useOptionalSpotlight()
+  useEffect(() => {
+    if (spotlight?.registerNavigateHandler) {
+      return spotlight.registerNavigateHandler((hash) => {
+        setSelectedHash(hash)
+        setFocusRequest({ hash })
+      })
+    }
+  }, [spotlight])
 
   useEffect(() => {
     const host = projectFindRef.current
@@ -821,6 +835,10 @@ export function GitLogPage({ initial, initialCommitHash, initialPersistence: _in
             ) : null}
           </div>
         )}
+        {/* Git Agent Floating Entry & Spotlight Navigation */}
+        <AgentSpotlightNavigator />
+        <GitAgentBar repoPath={view?.repo} />
+        <AgentWorkspace repoPath={view?.repo} />
       </div>
     </div>
   )
