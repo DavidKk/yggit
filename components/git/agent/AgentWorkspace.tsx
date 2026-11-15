@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { LuBot, LuCheck, LuCopy, LuMaximize2, LuMinimize2, LuSend, LuSparkles, LuTrash2, LuUser, LuWrench, LuX } from 'react-icons/lu'
 
 import { useT } from '@/components/i18n/LocaleProvider'
-import { Spinner } from '@/components/sk'
+import { Button, Spinner, TextInput } from '@/components/sk'
 import { useAgent } from '@/lib/agent/agent-context'
 import { copyToClipboard } from '@/lib/clipboard'
 import { cn } from '@/lib/utils'
@@ -186,24 +186,10 @@ export function AgentWorkspace({ repoPath, className }: Props) {
 
       {/* Input Field */}
       <form onSubmit={handleSend} className="flex items-center gap-2 border-t border-border/50 p-3 bg-muted/10">
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="深入追问 Git 历史或排查线索..."
-          className="min-w-0 flex-1 rounded-md border border-border/80 bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-        />
-        <button
-          type="submit"
-          disabled={!input.trim() || isProcessing}
-          className={cn(
-            'flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-all active:scale-95',
-            input.trim() && !isProcessing ? 'bg-accent text-accent-foreground hover:brightness-110' : 'text-muted-foreground/40 cursor-not-allowed'
-          )}
-          aria-label="Send message"
-        >
+        <TextInput fullWidth value={input} onChange={(e) => setInput(e.target.value)} placeholder="深入追问 Git 历史或排查线索..." />
+        <Button type="submit" variant="default" size="icon" disabled={!input.trim() || isProcessing} aria-label="Send message">
           {isProcessing ? <Spinner className="h-3.5 w-3.5" /> : <LuSend className="h-3.5 w-3.5" />}
-        </button>
+        </Button>
       </form>
     </aside>
   )

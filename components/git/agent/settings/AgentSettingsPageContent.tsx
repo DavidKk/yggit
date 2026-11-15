@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import React, { useState } from 'react'
-import { LuArrowLeft, LuCpu, LuKeyboard, LuShieldCheck } from 'react-icons/lu'
+import { LuArrowLeft, LuCpu, LuShieldCheck } from 'react-icons/lu'
 
 import { BrandLogo } from '@/components/BrandLogo'
 import { useT } from '@/components/i18n/LocaleProvider'
@@ -13,7 +13,6 @@ import { ThemeSwitcher } from '@/components/theme/ThemeSwitcher'
 import { ModelChannelSection } from './ModelChannelSection'
 import { PrivacyRedactSection } from './PrivacyRedactSection'
 import { type SettingsSectionKey, SettingsSideNav } from './SettingsSideNav'
-import { ShortcutsSection } from './ShortcutsSection'
 
 export function AgentSettingsPageContent() {
   const t = useT()
@@ -21,7 +20,7 @@ export function AgentSettingsPageContent() {
   const repoParam = searchParams.get('repo') || ''
   const tabParam = searchParams.get('tab') as SettingsSectionKey | null
 
-  const [activeSection, setActiveSection] = useState<SettingsSectionKey>(tabParam && ['models', 'privacy', 'shortcuts'].includes(tabParam) ? tabParam : 'models')
+  const [activeSection, setActiveSection] = useState<SettingsSectionKey>(tabParam && ['models', 'privacy'].includes(tabParam) ? tabParam : 'models')
 
   const backUrl = repoParam ? `/?repo=${encodeURIComponent(repoParam)}` : '/'
 
@@ -35,11 +34,6 @@ export function AgentSettingsPageContent() {
       title: t('gitAgent.tabPrivacy'),
       desc: '在客户端本地完成密钥、邮箱、拓扑与自定义敏感词的双向可逆掩盖，防范敏感资产外泄。',
       icon: <LuShieldCheck className="h-5 w-5 text-accent" />,
-    },
-    shortcuts: {
-      title: t('gitAgent.tabShortcuts'),
-      desc: '查看 Agent 全局呼出与图谱关键提交巡检快捷键。',
-      icon: <LuKeyboard className="h-5 w-5 text-accent" />,
     },
   }
 
@@ -95,7 +89,6 @@ export function AgentSettingsPageContent() {
             <div className="pt-2">
               {activeSection === 'models' && <ModelChannelSection />}
               {activeSection === 'privacy' && <PrivacyRedactSection />}
-              {activeSection === 'shortcuts' && <ShortcutsSection />}
             </div>
           </div>
         </main>
