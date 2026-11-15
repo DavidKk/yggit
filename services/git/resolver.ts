@@ -13,6 +13,12 @@ export interface ResolvedRepo {
   persistence: RepositoryPersistence
   project?: GitProjectView
   error?: string
+  unresolvedIdentity?: {
+    key: string
+    remoteUrl?: string
+    name: string
+    commitHash?: string
+  }
 }
 
 export function resolveRepoSlug(slugParts: string[]): { parsed: ParsedRepoSlug; resolved: ResolvedRepo } {
@@ -31,17 +37,19 @@ export function resolveRepoSlug(slugParts: string[]): { parsed: ParsedRepoSlug; 
   }
 
   const projects = listGitProjects()
-  const key = parsed.repoKey
+  const key = parsed.repoKey.toLowerCase()
 
-  // 1. Match against saved projects
+  // 1. Match against saved projects (Local-First Priority)
   for (const project of projects) {
-    // Direct ID match
-    if (project.id === key || `l_${project.id}` === key) {
-      const localValid = project.localPath && fs.existsSync(project.localPath)
+    const localValid = Boolean(project.localPath && fs.existsSync(project.localPath))
+    const projectUrl = localValid ? project.localPath : project.httpsUrl
+
+    // Direct ID or Local Hash match
+    if (project.id.toLowerCase() === key || `l_${project.id}`.toLowerCase() === key) {
       return {
         parsed,
         resolved: {
-          repoPathOrUrl: localValid ? project.localPath : project.httpsUrl,
+          repoPathOrUrl: projectUrl,
           name: project.name,
           source: localValid ? 'local' : 'remote',
           persistence: 'saved',
@@ -50,17 +58,16 @@ export function resolveRepoSlug(slugParts: string[]): { parsed: ParsedRepoSlug; 
       }
     }
 
-    // Remote fingerprint hash match (r_{hash})
+    // Remote Identity Fingerprint match (r_{hash}) or URL match
     if (project.httpsUrl) {
       const identity = normalizeRemote(project.httpsUrl)
       if (identity) {
         const hashKey = `r_${projectId(identity.key)}`
-        if (hashKey === key) {
-          const localValid = project.localPath && fs.existsSync(project.localPath)
+        if (hashKey === key || identity.key.toLowerCase() === key) {
           return {
             parsed,
             resolved: {
-              repoPathOrUrl: localValid ? project.localPath : project.httpsUrl,
+              repoPathOrUrl: projectUrl,
               name: project.name,
               source: localValid ? 'local' : 'remote',
               persistence: 'saved',
@@ -68,29 +75,27 @@ export function resolveRepoSlug(slugParts: string[]): { parsed: ParsedRepoSlug; 
             },
           }
         }
-      }
-    }
 
-    // Direct remote path match: github/owner/repo or github.com/owner/repo
-    if (parsed.owner && parsed.repo && project.httpsUrl) {
-      const identity = normalizeRemote(project.httpsUrl)
-      if (identity && identity.name.toLowerCase() === parsed.repo.toLowerCase() && identity.key.toLowerCase().includes(parsed.owner.toLowerCase())) {
-        const localValid = project.localPath && fs.existsSync(project.localPath)
-        return {
-          parsed,
-          resolved: {
-            repoPathOrUrl: localValid ? project.localPath : project.httpsUrl,
-            name: project.name,
-            source: localValid ? 'local' : 'remote',
-            persistence: 'saved',
-            project,
-          },
+        // Direct remote path match: owner/repo
+        if (parsed.owner && parsed.repo) {
+          if (identity.name.toLowerCase() === parsed.repo.toLowerCase() && identity.key.toLowerCase().includes(parsed.owner.toLowerCase())) {
+            return {
+              parsed,
+              resolved: {
+                repoPathOrUrl: projectUrl,
+                name: project.name,
+                source: localValid ? 'local' : 'remote',
+                persistence: 'saved',
+                project,
+              },
+            }
+          }
         }
       }
     }
   }
 
-  // 2. Not found in saved projects -> resolve as public remote repository (Temporary mode)
+  // 2. Not found in saved projects -> check if public GitHub repository (Temporary mode)
   let candidateRemote = parsed.remoteUrl
   if (!candidateRemote) {
     if (parsed.owner && parsed.repo) {
@@ -102,7 +107,7 @@ export function resolveRepoSlug(slugParts: string[]): { parsed: ParsedRepoSlug; 
     }
   }
 
-  if (candidateRemote) {
+  if (candidateRemote && parseGitHubRepo(candidateRemote)) {
     const gh = parseGitHubRepo(candidateRemote)
     const repoName = gh ? `${gh.owner}/${gh.repo}` : candidateRemote
     return {
@@ -116,14 +121,21 @@ export function resolveRepoSlug(slugParts: string[]): { parsed: ParsedRepoSlug; 
     }
   }
 
+  // 3. Not found locally and cannot be loaded as public GitHub repo -> Unresolved Remote
   return {
     parsed,
     resolved: {
       repoPathOrUrl: '',
-      name: key,
+      name: parsed.repo || parsed.repoKey,
       source: 'local',
       persistence: 'temporary',
-      error: `未找到匹配的仓库: ${key}`,
+      error: 'UNRESOLVED_REMOTE',
+      unresolvedIdentity: {
+        key: parsed.repoKey,
+        remoteUrl: parsed.remoteUrl || `https://${parsed.repoKey}.git`,
+        name: parsed.repo || parsed.repoKey.split('/').pop() || parsed.repoKey,
+        commitHash: parsed.resourceType === 'commit' ? parsed.resourceId : undefined,
+      },
     },
   }
 }

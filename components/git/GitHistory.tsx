@@ -13,6 +13,7 @@ import { type GitCommit, type GitStash, gitStashAsCommit, type GitWorktree } fro
 
 type Props = {
   repo: string
+  remoteUrl?: string
   scope: string
   commits: GitCommit[]
   hasMore: boolean
@@ -42,6 +43,7 @@ function stashMatches(stash: GitStash, needle: string) {
 
 export function GitHistory({
   repo,
+  remoteUrl,
   scope,
   commits,
   hasMore,
@@ -265,6 +267,7 @@ export function GitHistory({
       ) : null}
       <GitGraph
         repo={repo}
+        remoteUrl={remoteUrl}
         commits={commits}
         worktree={worktree}
         stashes={stashes}

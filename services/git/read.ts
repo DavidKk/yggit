@@ -3,12 +3,12 @@ import os from 'node:os'
 import { promisify } from 'node:util'
 
 import { ROOT_PATH } from '@/constants/paths'
-import { GIT_LOG_PAGE_SIZE } from '@/lib/git/identity'
+import { GIT_LOG_PAGE_SIZE, normalizeRemote } from '@/lib/git/identity'
 import { parseGitBranches, parseGitLog, parseGitRemotes, parseGitStashes, parseGitSubmodules, parseGitTags, parseGitWorktrees } from '@/lib/git/parse'
 import type { GitCommit, GitLogView, GitWorktree } from '@/lib/git/types'
 
 import { readBranchMarks } from './marks'
-import { rememberLocalProject, writeLastOpenedRepo } from './projects'
+import { originUrl, rememberLocalProject, writeLastOpenedRepo } from './projects'
 import { parseGitHubRepo, readRemoteGitLog } from './remote-provider'
 
 const execFileAsync = promisify(execFile)
@@ -137,8 +137,9 @@ export async function readGitLog(input?: { repo?: string; branch?: string; ref?:
   let submoduleText = ''
   let page: { commits: GitCommit[]; hasMore: boolean } = { commits: [], hasMore: false }
   let status: GitWorktree | null = null
+  let origin = ''
   try {
-    ;[branchText, remoteText, tagText, stashText, worktreeText, submoduleText, page, status] = await Promise.all([
+    ;[branchText, remoteText, tagText, stashText, worktreeText, submoduleText, page, status, origin] = await Promise.all([
       git(repo, ['for-each-ref', 'refs/heads', '--format=%(refname:short)%00%(upstream:short)%00%(HEAD)%00%(objectname)']),
       gitOptional(repo, ['for-each-ref', 'refs/remotes', '--format=%(refname:short)%00%(objectname)']),
       gitOptional(repo, ['for-each-ref', 'refs/tags', '--sort=-creatordate', '--format=%(refname:short)%00%(*objectname)%00%(objectname)']),
@@ -147,10 +148,12 @@ export async function readGitLog(input?: { repo?: string; branch?: string; ref?:
       gitOptional(repo, ['submodule', 'status']),
       readLogPage(repo, historyRef, input?.skip ?? 0),
       readWorktree(repo),
+      originUrl(repo),
     ])
   } catch (error) {
     throw new Error(gitFailure(error))
   }
+  const remoteIdentity = normalizeRemote(origin)
   void rememberLocalProject(repo).catch(() => undefined)
   const branches = parseGitBranches(branchText)
   if (head && !branches.some((item) => item.name === head)) {
@@ -162,6 +165,8 @@ export async function readGitLog(input?: { repo?: string; branch?: string; ref?:
   return {
     repo,
     displayPath: displayPath(repo),
+    remoteUrl: origin || undefined,
+    remoteKey: remoteIdentity?.key || undefined,
     head,
     branch,
     branches,

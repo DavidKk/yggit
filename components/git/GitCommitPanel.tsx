@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils'
 
 type Props = {
   repo: string
+  remoteUrl?: string
   commit: GitCommit
   width: number
   /** Panel heading; defaults to 「文件」. */
@@ -266,7 +267,7 @@ function PathRows({ groups, selected, onSelect }: { groups: PathGroup[]; selecte
   ))
 }
 
-export function GitCommitPanel({ repo, commit, width, title, selectedPath, onSelect, onClose }: Props) {
+export function GitCommitPanel({ repo, remoteUrl, commit, width, title, selectedPath, onSelect, onClose }: Props) {
   const t = useT()
   const panelTitle = title ?? t('git.panel.files')
   const isWorktree = commit.hash === GIT_WORKTREE_HASH
@@ -430,7 +431,7 @@ export function GitCommitPanel({ repo, commit, width, title, selectedPath, onSel
               aria-label={t('git.graph.copyShareUrl')}
               tooltip={copiedShare ? t('common.copied') : t('git.graph.copyShareUrl')}
               onClick={() => {
-                const shareUrl = makeShareUrl(repo, commit.hash)
+                const shareUrl = makeShareUrl(repo, commit.hash, remoteUrl)
                 const full = typeof window !== 'undefined' ? `${window.location.origin}${shareUrl}` : shareUrl
                 void navigator.clipboard.writeText(full)
                 setCopiedShare(true)

@@ -1,3 +1,4 @@
+import { GitAssociateRepoGuide } from '@/components/git/GitAssociateRepoGuide'
 import { GitLogPage } from '@/components/git/GitLogPage'
 import { GitUiBootScript } from '@/components/git/GitUiBootScript'
 import { readGitLog } from '@/services/git/read'
@@ -16,6 +17,15 @@ interface Props {
 export default async function RepoPage({ params }: Props) {
   const { slug } = await params
   const { parsed, resolved } = resolveRepoSlug(slug)
+
+  if (resolved.error === 'UNRESOLVED_REMOTE' && resolved.unresolvedIdentity) {
+    return (
+      <>
+        <GitUiBootScript />
+        <GitAssociateRepoGuide identity={resolved.unresolvedIdentity} />
+      </>
+    )
+  }
 
   if (resolved.error || !resolved.repoPathOrUrl) {
     return (

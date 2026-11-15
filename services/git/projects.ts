@@ -248,7 +248,7 @@ function folderName(repo: string): string {
   return parts[parts.length - 1] || repo
 }
 
-async function originUrl(repo: string): Promise<string> {
+export async function originUrl(repo: string): Promise<string> {
   try {
     const { stdout } = await execFileAsync('git', ['-C', repo, 'remote', 'get-url', 'origin'], { timeout: 8000, encoding: 'utf8' })
     return stdout.trim()

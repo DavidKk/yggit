@@ -253,7 +253,7 @@ export function GitLogPage({ initial, initialCommitHash, initialPersistence }: P
     if (typeof window === 'undefined' || !view?.repo) return
     const path = window.location.pathname
     if (path.startsWith('/repo/')) {
-      const shareUrl = makeShareUrl(view.repo, selectedHash || undefined)
+      const shareUrl = makeShareUrl(view.repo, selectedHash || undefined, view.remoteUrl)
       if (window.location.pathname !== shareUrl) {
         window.history.replaceState(window.history.state, '', shareUrl)
       }
@@ -265,7 +265,7 @@ export function GitLogPage({ initial, initialCommitHash, initialPersistence }: P
         window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}`)
       }
     }
-  }, [selectedHash, view?.repo])
+  }, [selectedHash, view?.repo, view?.remoteUrl])
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -667,6 +667,7 @@ export function GitLogPage({ initial, initialCommitHash, initialPersistence }: P
                   ) : (
                     <GitHistory
                       repo={view.repo}
+                      remoteUrl={view.remoteUrl}
                       scope={scope}
                       commits={commits}
                       hasMore={hasMore}
@@ -707,6 +708,7 @@ export function GitLogPage({ initial, initialCommitHash, initialPersistence }: P
                 />
                 <GitCommitPanel
                   repo={view.repo}
+                  remoteUrl={view.remoteUrl}
                   commit={selected}
                   width={treeWidth}
                   title={selectedIsWorktree ? t('git.panel.worktree') : t('git.panel.files')}

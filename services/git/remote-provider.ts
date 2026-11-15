@@ -145,6 +145,8 @@ export async function readRemoteGitLog(urlOrPath: string, branchName?: string): 
   return {
     repo: `https://github.com/${repoFullName}`,
     displayPath: repoFullName,
+    remoteUrl: `https://github.com/${repoFullName}.git`,
+    remoteKey: `github.com/${repoFullName.toLowerCase()}`,
     head,
     branch: defaultBranch,
     branches,

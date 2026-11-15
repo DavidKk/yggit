@@ -7,6 +7,7 @@ import { GIT_LOG_PAGE_SIZE } from '@/lib/git/identity'
 import { readGitHistory, readGitLog } from '@/services/git/read'
 
 jest.mock('@/services/git/projects', () => ({
+  originUrl: jest.fn(async () => ''),
   rememberLocalProject: jest.fn(async () => undefined),
   writeLastOpenedRepo: jest.fn(),
 }))

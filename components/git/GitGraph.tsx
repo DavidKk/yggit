@@ -50,6 +50,7 @@ const GRAPH_DEFAULT_LANES = 5
 
 type Props = {
   repo?: string
+  remoteUrl?: string
   commits: GitCommit[]
   worktree: GitWorktree | null
   stashes?: GitStash[]
@@ -126,6 +127,7 @@ const GraphStrokes = memo(function GraphStrokes({ strokes }: { strokes: Stroke[]
 
 function GitGraphComponent({
   repo,
+  remoteUrl,
   commits,
   worktree,
   stashes = [],
@@ -168,7 +170,7 @@ function GitGraphComponent({
         label: t('git.graph.copyShareUrl'),
         icon: <LuShare2 className="size-3.5 shrink-0" aria-hidden />,
         onSelect: () => {
-          const shareUrl = makeShareUrl(repo || '', commit.hash)
+          const shareUrl = makeShareUrl(repo || '', commit.hash, remoteUrl)
           const full = typeof window !== 'undefined' ? `${window.location.origin}${shareUrl}` : shareUrl
           void copyValue(full)
         },

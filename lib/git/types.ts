@@ -115,6 +115,8 @@ export type GitSelection =
 export type GitLogView = {
   repo: string
   displayPath: string
+  remoteUrl?: string
+  remoteKey?: string
   head: string
   branch: string
   branches: GitBranch[]
