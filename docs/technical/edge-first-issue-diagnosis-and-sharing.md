@@ -227,6 +227,31 @@ export async function getDirectoryHandle(repoId: string): Promise<FileSystemDire
 }
 ```
 
+### 5.3 统一资源未定位、路径迁移与重新授权机制 (Resource Re-association Engine)
+
+在去中心化 Web 架构中，系统将以下场景归一化为**统一的未定位状态（RESOURCE_UNRESOLVED）**：
+1. 打开未曾绑定的私有/自建 GitLab 仓库分享链接；
+2. 本地目录被移动（从 `/Users/.../dev` 迁移到 `/Users/.../work`）；
+3. 操作系统文件夹被重命名或磁盘句柄失效；
+4. 开发者主动切换本地绑定的多 Worktree 副本。
+
+```mermaid
+flowchart TD
+    Req["请求仓库: identity (如 gitlab.corp/fe/pay)"] --> QueryDB["查询 IndexedDB 别名映射与句柄"]
+    QueryDB --> CheckExist{"句柄是否存在且能读取？"}
+    
+    CheckExist -- 存在且正常 --> OpenRepo["秒级加载并恢复视图"]
+    
+    CheckExist -- 找不到 / 路径已迁移 / 首次访问 --> TriggerGuide["触发统一重新关联与重新授权面板<br/>(GitAssociateRepoGuide)"]
+    
+    TriggerGuide --> OptionA["选项 A: 从已有项目列表中手动选取映射"]
+    TriggerGuide --> OptionB["选项 B: 重新调用 showDirectoryPicker() 选定新目录"]
+    
+    OptionA & OptionB --> UpdateAlias["更新 IndexedDB 别名与句柄绑定"] --> OpenRepo
+```
+
+通过这一归一化机制，系统无需针对“404”、“文件不存在”、“权限过期”编写凌乱的补丁，用户随时拥有**自愈修复和灵活重连**的权利。
+
 ---
 
 ## 6. 实施路线图（Phases）
