@@ -57,18 +57,18 @@ flowchart TD
 ```typescript
 export interface EphemeralAgentConfig {
   endpoint: string // e.g. "https://my-proxy.vercel.app/v1"
-  apiKey?: string  // e.g. "sk-..."
-  model: string    // e.g. "gemini-1.5-flash" or "deepseek-chat"
+  apiKey?: string // e.g. "sk-..."
+  model: string // e.g. "gemini-1.5-flash" or "deepseek-chat"
 }
 ```
 
-* **严格纯内存存储 (In-Memory Only)**：
+- **严格纯内存存储 (In-Memory Only)**：
   - `EphemeralAgentConfig` 只能作为局部状态存在于 React Context 或 `GitAgentBar` 的内部 `useState` 中；
   - **严禁**调用 `localStorage.setItem`、`sessionStorage.setItem`、`document.cookie`、IndexedDB 或发送给 Yggit 后端保存；
   - 页面刷新（F5）、标签页关闭、或点击面板上的“清空”按钮，凭证立即随内存回收彻底抹除。
-* **CORS 友好型错误捕获**：
+- **CORS 友好型错误捕获**：
   - 若用户填写的直连 API（如未开启跨域的官方域名）触发了浏览器的 `TypeError: Failed to fetch` (CORS 错误)，客户端拦截并明确提示：
-    > *“网络请求被浏览器拦截（CORS 跨域错误）。请使用已开启 CORS 的代理地址（如自建的 vercel-gemini-proxy 或 Cloudflare Worker 代理）。”*
+    > _“网络请求被浏览器拦截（CORS 跨域错误）。请使用已开启 CORS 的代理地址（如自建的 vercel-gemini-proxy 或 Cloudflare Worker 代理）。”_
 
 ---
 
@@ -122,7 +122,8 @@ export async function sendAgentCompletion(
 export const AGENT_GIT_TOOLS = [
   {
     name: 'check_branch_containment',
-    description: 'Check whether a source branch (e.g. feature branch) is already contained in a target branch (e.g. TEST or main), or if test contents accidentally leaked into feature branch.',
+    description:
+      'Check whether a source branch (e.g. feature branch) is already contained in a target branch (e.g. TEST or main), or if test contents accidentally leaked into feature branch.',
     parameters: {
       type: 'object',
       properties: {
@@ -173,6 +174,7 @@ const [focusRequest, setFocusRequest] = useState<{ hash: string } | null>(null)
 ```
 
 当 Agent 完成工具执行（如 `check_branch_containment` 发现分支包含关系）：
+
 1. 提取所有关联 Commit Hash（合入 Commit + 来源分支提交点集合）：
    ```typescript
    setLineageHashes(['7a88b1', 'c128f9', 'f092e4'])
@@ -180,18 +182,18 @@ const [focusRequest, setFocusRequest] = useState<{ hash: string } | null>(null)
    setSelectedHash('7a88b1')
    ```
 2. `GitGraph` 接收 `lineageHashes`：
-   * **连线高亮**：
+   - **连线高亮**：
      ```typescript
      const isLineage = hasLineage && lineageHashes.has(stroke.hash)
      const strokeWidth = isLineage ? 3.5 : 1.8
      const opacity = hasLineage ? (isLineage ? 1 : 0.25) : 1
      ```
-   * **提交行弱化**：
+   - **提交行弱化**：
      ```typescript
      // 非链路中的行整体虚化至 35% 不透明度
      isLineageActive && !isLineageHit && !selected && !isHovered && 'opacity-35 hover:opacity-100'
      ```
-   * **节点光晕**：
+   - **节点光晕**：
      ```typescript
      isLineageHit && 'ring-2 ring-accent ring-offset-1 scale-110 z-10 shadow-[0_0_8px_var(--accent)]'
      ```
@@ -208,11 +210,11 @@ const [focusRequest, setFocusRequest] = useState<{ hash: string } | null>(null)
 /repo/[...slug]?focus=<commitHash>&lineage=<hash1,hash2,...>&targets=<hash:role,...>&reason=<tag>&desc=<encodedSummary>
 ```
 
-* **`focus`**：主聚焦的目标 Commit Hash（打开时居中高亮并选中）；
-* **`lineage`**：逗号分隔的关联脉络提交列表（用于图谱快速连线加粗与弱化其余分支）；
-* **`targets`**：可选，细粒度角色映射（如 `hash:primary,hash:related,hash:candidate`），用于差异化光晕；
-* **`reason`**：诊断类型与标记类型（例如 `risk:test-leak`、`audit:merge-audit`、`info:author-check`）；
-* **`desc`**：可选，经 URI 编码的精简诊断摘要（例如 `feat/cart_contains_test`）。
+- **`focus`**：主聚焦的目标 Commit Hash（打开时居中高亮并选中）；
+- **`lineage`**：逗号分隔的关联脉络提交列表（用于图谱快速连线加粗与弱化其余分支）；
+- **`targets`**：可选，细粒度角色映射（如 `hash:primary,hash:related,hash:candidate`），用于差异化光晕；
+- **`reason`**：诊断类型与标记类型（例如 `risk:test-leak`、`audit:merge-audit`、`info:author-check`）；
+- **`desc`**：可选，经 URI 编码的精简诊断摘要（例如 `feat/cart_contains_test`）。
 
 ### 5.2 接收端逆解析恢复流程 (`GitLogPage` 初始化)
 
@@ -226,7 +228,10 @@ useEffect(() => {
   const focusParam = search.get('focus')
 
   if (lineageParam) {
-    const hashes = lineageParam.split(',').map((h) => h.trim()).filter(Boolean)
+    const hashes = lineageParam
+      .split(',')
+      .map((h) => h.trim())
+      .filter(Boolean)
     if (hashes.length > 0) {
       setLineageHashes(hashes)
     }
@@ -244,14 +249,10 @@ useEffect(() => {
 扩展现有 `lib/git/share-card.ts`，新增 `formatAgentDiagnosticShareCard`：
 
 ```typescript
-export function formatAgentDiagnosticShareCard(options: {
-  repoName: string
-  title: string
-  detail: string
-  focusHash: string
-  lineageHashes: string[]
-  shareUrl: string
-}): { markdown: string; plain: string } {
+export function formatAgentDiagnosticShareCard(options: { repoName: string; title: string; detail: string; focusHash: string; lineageHashes: string[]; shareUrl: string }): {
+  markdown: string
+  plain: string
+} {
   const markdown = [
     `🔍 **[Yggit 诊断与脉络排查分享]**`,
     `- **仓库**：${options.repoName}`,
@@ -294,9 +295,9 @@ lib/git/
 
 ## 7. 实施计划 (Implementation Roadmap)
 
-| 阶段 | 实施任务 | 交付物 |
-|---|---|---|
-| **Phase 1** | 核心通信与工具集封装 | `lib/agent/openapi-client.ts`, `lib/agent/tools.ts`, `services/git/agent-tools.ts` |
-| **Phase 2** | 居中药丸入口与内存配置 | `components/git/agent/GitAgentBar.tsx`, `AgentConfigDrawer.tsx` (无持久化) |
-| **Phase 3** | 图谱联动与高亮弱化绑定 | `GitLogPage.tsx` 联动 `lineageHashes` 与 `GitGraph.tsx` 动态高亮 |
-| **Phase 4** | 无状态深链接分享与 URL 还原 | `lib/git/share-card.ts` 扩展与接收端 URL query 自动聚焦还原 |
+| 阶段        | 实施任务                    | 交付物                                                                             |
+| ----------- | --------------------------- | ---------------------------------------------------------------------------------- |
+| **Phase 1** | 核心通信与工具集封装        | `lib/agent/openapi-client.ts`, `lib/agent/tools.ts`, `services/git/agent-tools.ts` |
+| **Phase 2** | 居中药丸入口与内存配置      | `components/git/agent/GitAgentBar.tsx`, `AgentConfigDrawer.tsx` (无持久化)         |
+| **Phase 3** | 图谱联动与高亮弱化绑定      | `GitLogPage.tsx` 联动 `lineageHashes` 与 `GitGraph.tsx` 动态高亮                   |
+| **Phase 4** | 无状态深链接分享与 URL 还原 | `lib/git/share-card.ts` 扩展与接收端 URL query 自动聚焦还原                        |

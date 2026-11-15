@@ -163,7 +163,7 @@ export function resolveVirtualWindowOffset(options: {
 }
 ```
 
-* **防夺焦判定 (Anti-Stealing Guard)**：
+- **防夺焦判定 (Anti-Stealing Guard)**：
   - 内部维护 `isManualScrolling: boolean`；
   - 仅在 Agent 首次返回结果或用户显式点击 Stepper（`‹ ›`）时下发 `focusRequest`；
   - 一旦监听到底层滚轮事件（Wheel Event）或用户拖动滚动条，立刻锁死自动化滚动，防止干扰人工阅读。
@@ -177,13 +177,7 @@ export function resolveVirtualWindowOffset(options: {
 在 Commit 列表的 RefCell 旁预留极小尺寸的插标槽位：
 
 ```tsx
-export function AnnotationBadge({
-  annotations,
-  onClick,
-}: {
-  annotations: GraphAnnotation[]
-  onClick: (e: React.MouseEvent) => void
-}) {
+export function AnnotationBadge({ annotations, onClick }: { annotations: GraphAnnotation[]; onClick: (e: React.MouseEvent) => void }) {
   if (!annotations || annotations.length === 0) return null
   const primary = annotations[0]
   const count = annotations.length
@@ -210,7 +204,9 @@ export function AnnotationBadge({
 ```
 
 ### 5.2 证据卡片 Popover (`AnnotationPopover.tsx`)
+
 点击徽章展示轻量卡片：
+
 1. **Header**：展示标记类型徽章 + 标题 + 证据等级（`[Fact] / [Derived] / [Hypothesis]`）；
 2. **Body**：展示 2~3 行摘要说明，附带变更文件与行号超链接（点击直接打开右侧 Diff）；
 3. **Actions**：人工确认按钮 `[ ✓ 标记确认 ]` 与 `[ ✕ 驳回推断 ]`，操作结果实时更新当前标记状态。
@@ -228,11 +224,12 @@ export function AnnotationBadge({
 ```
 
 ### 交互实现逻辑
-* **快捷键绑定**：
+
+- **快捷键绑定**：
   - `ArrowLeft` / `p`：跳转上一个目标；
   - `ArrowRight` / `n`：跳转下一个目标；
   - `Escape`：调用 `clearSpotlight()`，瞬间恢复图谱全景。
-* **状态迁移**：
+- **状态迁移**：
   - 切换索引时：自动同步 `setSelectedHash(targets[nextIndex].hash)` 与 `setFocusRequest({ hash: ... })`。
 
 ---
@@ -288,12 +285,12 @@ export async function resolveCommitImpact(
 /repo/[...slug]?focus=7a88b1&lineage=7a88b1,c128f9,f092e4&targets=7a88b1:primary,c128f9:related,f092e4:candidate&reason=risk:test_leak&desc=feat_contains_test
 ```
 
-* **`focus`**：主聚焦的目标 Commit Hash（打开时居中高亮并选中）；
-* **`lineage`**：逗号分隔的高亮链路提交集合（用于图谱快速连线加粗与弱化其余分支）；
-* **`targets`**：细粒度角色映射（`primary`、`related`、`candidate`），对应不同发光光晕；
-* **`reason`**：标记类型与原因标识（如 `risk:test_leak`）；
-* **`desc`**：诊断摘要描述（URI 编码）；
-* 页面挂载时通过 `useMemo` 解析该 URL，一键恢复 `targets`、`lineageHashes` 与弱化视觉，做到**“链接即诊断现场”**。
+- **`focus`**：主聚焦的目标 Commit Hash（打开时居中高亮并选中）；
+- **`lineage`**：逗号分隔的高亮链路提交集合（用于图谱快速连线加粗与弱化其余分支）；
+- **`targets`**：细粒度角色映射（`primary`、`related`、`candidate`），对应不同发光光晕；
+- **`reason`**：标记类型与原因标识（如 `risk:test_leak`）；
+- **`desc`**：诊断摘要描述（URI 编码）；
+- 页面挂载时通过 `useMemo` 解析该 URL，一键恢复 `targets`、`lineageHashes` 与弱化视觉，做到**“链接即诊断现场”**。
 
 ---
 
