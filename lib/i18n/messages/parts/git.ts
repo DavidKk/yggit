@@ -109,6 +109,8 @@ export type GitMessages = {
     expandAll: string
     remoteNewAria: string
     remoteNewTip: string
+    worktreeEdgeUnsupported: string
+    worktreeEdgeUnsupportedMsg: string
   }
   diff: {
     before: string
@@ -375,6 +377,8 @@ export const gitZh: GitMessages = {
     expandAll: '全部展开',
     remoteNewAria: '远端有新提交',
     remoteNewTip: '{label} · 远端有新提交 {tip}',
+    worktreeEdgeUnsupported: 'Edge 暂不支持',
+    worktreeEdgeUnsupportedMsg: '受浏览器沙箱限制，无法跨目录读取外部 Worktree。请在右上角切换为 Local 模式使用。',
   },
   diff: {
     before: '改动前',
@@ -646,6 +650,8 @@ export const gitCht: GitMessages = {
     expandAll: '全部展開',
     remoteNewAria: '遠端有新提交',
     remoteNewTip: '{label} · 遠端有新提交 {tip}',
+    worktreeEdgeUnsupported: 'Edge 暫不支援',
+    worktreeEdgeUnsupportedMsg: '受瀏覽器沙箱限制，無法跨目錄讀取外部 Worktree。請在右上角切換為 Local 模式使用。',
   },
   diff: {
     before: '變更前',
@@ -917,6 +923,8 @@ export const gitEn: GitMessages = {
     expandAll: 'Expand all',
     remoteNewAria: 'New commits on remote',
     remoteNewTip: '{label} · new on remote {tip}',
+    worktreeEdgeUnsupported: 'Edge unsupported',
+    worktreeEdgeUnsupportedMsg: 'Browser sandbox restrictions prevent accessing external worktrees outside this folder. Switch to Local mode (top right) to view worktrees.',
   },
   diff: {
     before: 'Before',
@@ -1188,6 +1196,8 @@ export const gitJa: GitMessages = {
     expandAll: 'すべて展開',
     remoteNewAria: 'リモートに新しいコミット',
     remoteNewTip: '{label} · リモートに新規 {tip}',
+    worktreeEdgeUnsupported: 'Edge 非対応',
+    worktreeEdgeUnsupportedMsg: 'ブラウザサンドボックスの制限により、外部 Worktree を読み込めません。右上の Local モードに切り替えてご利用ください。',
   },
   diff: {
     before: '変更前',
@@ -1459,6 +1469,8 @@ export const gitFr: GitMessages = {
     expandAll: 'Tout développer',
     remoteNewAria: 'Nouveaux commits sur le dépôt distant',
     remoteNewTip: '{label} · nouveau sur à distance {tip}',
+    worktreeEdgeUnsupported: 'Non supporté sur Edge',
+    worktreeEdgeUnsupportedMsg: 'Les restrictions du bac à sable du navigateur empêchent d’accéder aux worktrees externes. Passez en mode Local en haut à droite.',
   },
   diff: {
     before: 'Avant',
@@ -1732,6 +1744,8 @@ export const gitDe: GitMessages = {
     expandAll: 'Alles erweitern',
     remoteNewAria: 'Neue Commits auf dem Remote',
     remoteNewTip: '{label} · neu bei Remote {tip}',
+    worktreeEdgeUnsupported: 'In Edge nicht unterstützt',
+    worktreeEdgeUnsupportedMsg: 'Browser-Sandbox-Einschränkungen verhindern den Zugriff auf externe Worktrees. Wechseln Sie oben rechts in den Local-Modus.',
   },
   diff: {
     before: 'Vor',
@@ -2004,6 +2018,8 @@ export const gitEs: GitMessages = {
     expandAll: 'Expandir todo',
     remoteNewAria: 'Nuevos commits en el remoto',
     remoteNewTip: '{label} · nuevo en remoto {tip}',
+    worktreeEdgeUnsupported: 'No compatible en Edge',
+    worktreeEdgeUnsupportedMsg: 'Las restricciones de seguridad del navegador impiden acceder a worktrees externos. Cambia al modo Local arriba a la derecha.',
   },
   diff: {
     before: 'Antes',
@@ -2275,6 +2291,8 @@ export const gitRu: GitMessages = {
     expandAll: 'Развернуть все',
     remoteNewAria: 'Новые коммиты на удалённом репозитории',
     remoteNewTip: '{label} · ново на удалённом {tip}',
+    worktreeEdgeUnsupported: 'Не поддерживается в Edge',
+    worktreeEdgeUnsupportedMsg: 'Ограничения песочницы браузера не позволяют читать внешние Worktree. Переключитесь в режим Local вверху справа.',
   },
   diff: {
     before: 'До',
@@ -2546,6 +2564,8 @@ export const gitPtBR: GitMessages = {
     expandAll: 'Expandir tudo',
     remoteNewAria: 'Novos commits no remoto',
     remoteNewTip: '{label} · novo em remoto {tip}',
+    worktreeEdgeUnsupported: 'Não suportado no Edge',
+    worktreeEdgeUnsupportedMsg: 'Restrições da sandbox do navegador impedem o acesso a worktrees externos. Alterne para o modo Local no canto superior direito.',
   },
   diff: {
     before: 'Antes',
@@ -2817,6 +2837,8 @@ export const gitKo: GitMessages = {
     expandAll: '모두 펼치기',
     remoteNewAria: '원격에 새 커밋',
     remoteNewTip: '{label} · 원격에 새 커밋 {tip}',
+    worktreeEdgeUnsupported: 'Edge 미지원',
+    worktreeEdgeUnsupportedMsg: '브라우저 샌드박스 제한으로 외부 Worktree에 접근할 수 없습니다. 우측 상단에서 Local 모드로 전환해 주세요.',
   },
   diff: {
     before: '변경 전',

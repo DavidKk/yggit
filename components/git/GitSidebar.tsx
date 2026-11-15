@@ -21,6 +21,7 @@ import { GitSearchDropdown } from '@/components/git/GitSearchDropdown'
 import { handleTreeExpandKey, handleTreeParentKey } from '@/components/git/treeExpandKey'
 import { useT } from '@/components/i18n/LocaleProvider'
 import { Badge, Button, EmptyState, ScrollArea } from '@/components/sk'
+import { useGitDriver } from '@/lib/git/driver'
 import type { GitLogView, GitRemoteProbe, GitSelection } from '@/lib/git/types'
 import { isBoolean, isRecordBoolean, repoPrefKey, useGitUiPref, useGitUiReady } from '@/lib/git/ui-prefs'
 import { cn } from '@/lib/utils'
@@ -148,6 +149,7 @@ const SECTION_EMPTY_KEY: Record<SectionId, `git.sidebar.empty.${SectionId}`> = {
 export function GitSidebar({ view, selection, width, remoteUpdates = [], remoteProbing = false, onProbeRemotes, onSelect, onOpenRepo }: Props) {
   const t = useT()
   const ready = useGitUiReady()
+  const { isEdge } = useGitDriver()
   const [openRaw, setOpen] = useGitUiPref(repoPrefKey(view.repo, 'sections'), SECTION_DEFAULT, isSectionMap)
   const open = sectionsOf(openRaw)
   const [openRemotes, setOpenRemotes] = useGitUiPref(repoPrefKey(view.repo, 'remotes'), {} as Record<string, boolean>, isRecordBoolean)
@@ -427,6 +429,7 @@ export function GitSidebar({ view, selection, width, remoteUpdates = [], remoteP
         )),
       },
     ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       t,
       view,
@@ -493,9 +496,21 @@ export function GitSidebar({ view, selection, width, remoteUpdates = [], remoteP
                   <span data-git-sidebar-label className="shrink-0 whitespace-nowrap">
                     {section.title}
                   </span>
-                  <Badge tone="neutral" size="mini" dot={false} className="shrink-0">
-                    {badgeCount}
-                  </Badge>
+                  {section.id === 'worktree' && isEdge ? (
+                    <Badge
+                      tone="neutral"
+                      size="mini"
+                      dot={false}
+                      className="shrink-0 text-[10px] text-ink-soft/80 bg-[var(--overlay-06)]"
+                      title={t('git.sidebar.worktreeEdgeUnsupportedMsg')}
+                    >
+                      {t('git.sidebar.worktreeEdgeUnsupported')}
+                    </Badge>
+                  ) : (
+                    <Badge tone="neutral" size="mini" dot={false} className="shrink-0">
+                      {badgeCount}
+                    </Badge>
+                  )}
                   {section.notice && section.notice > 0 ? (
                     <Badge tone="accent" size="mini" dot={false} className="shrink-0" title={t('git.sidebar.remotePending')}>
                       {section.notice}
@@ -536,23 +551,32 @@ export function GitSidebar({ view, selection, width, remoteUpdates = [], remoteP
                       {section.expand.allOpen ? <LuChevronsDownUp className="size-3.5" aria-hidden /> : <LuChevronsUpDown className="size-3.5" aria-hidden />}
                     </Button>
                   ) : null}
-                  <GitSearchDropdown
-                    label={section.searchPlaceholder}
-                    placeholder={section.searchPlaceholder}
-                    value={queries[section.id] || ''}
-                    onOpenChange={(next) => {
-                      setSearchMenuOpen((prev) => ({ ...prev, [section.id]: next }))
-                      if (next) setOpen((prev) => ({ ...prev, [section.id]: true }))
-                    }}
-                    onChange={(next) => {
-                      setQueries((prev) => ({ ...prev, [section.id]: next }))
-                      if (next.trim()) setOpen((prev) => ({ ...prev, [section.id]: true }))
-                    }}
-                  />
+                  {!(section.id === 'worktree' && isEdge) && (
+                    <GitSearchDropdown
+                      label={section.searchPlaceholder}
+                      placeholder={section.searchPlaceholder}
+                      value={queries[section.id] || ''}
+                      onOpenChange={(next) => {
+                        setSearchMenuOpen((prev) => ({ ...prev, [section.id]: next }))
+                        if (next) setOpen((prev) => ({ ...prev, [section.id]: true }))
+                      }}
+                      onChange={(next) => {
+                        setQueries((prev) => ({ ...prev, [section.id]: next }))
+                        if (next.trim()) setOpen((prev) => ({ ...prev, [section.id]: true }))
+                      }}
+                    />
+                  )}
                 </div>
               </div>
               {expanded ? (
-                empty || noMatch ? (
+                section.id === 'worktree' && isEdge ? (
+                  <EmptyState
+                    density="panel"
+                    className="min-h-32 px-3 py-6"
+                    title={t('git.sidebar.worktreeEdgeUnsupported')}
+                    message={t('git.sidebar.worktreeEdgeUnsupportedMsg')}
+                  />
+                ) : empty || noMatch ? (
                   <EmptyState
                     density="panel"
                     className="min-h-32 px-3 py-6"

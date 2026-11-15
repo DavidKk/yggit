@@ -14,13 +14,15 @@ interface Props {
   className?: string
 }
 
+const FULL_LABEL = 'Git Agent'
+
 export function GitAgentBar({ repoPath, className }: Props) {
   const t = useT()
   const { sendMessage, isProcessing, messages, dockMode, setDockMode } = useAgent()
 
   const [input, setInput] = useState('')
   const [expanded, setExpanded] = useState(false)
-  const [labelVisible, setLabelVisible] = useState(true)
+  const [displayText, setDisplayText] = useState('')
   const [contentVisible, setContentVisible] = useState(false)
   const [quickCardOpen, setQuickCardOpen] = useState(false)
 
@@ -28,6 +30,7 @@ export function GitAgentBar({ repoPath, className }: Props) {
   const formRef = useRef<HTMLFormElement>(null)
   const openTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const typewriterTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const clearTimers = useCallback(() => {
     if (openTimerRef.current) {
@@ -40,29 +43,64 @@ export function GitAgentBar({ repoPath, className }: Props) {
     }
   }, [])
 
+  const clearTypewriter = useCallback(() => {
+    if (typewriterTimerRef.current) {
+      clearTimeout(typewriterTimerRef.current)
+      typewriterTimerRef.current = null
+    }
+  }, [])
+
+  const startTypewriter = useCallback(() => {
+    clearTypewriter()
+    setDisplayText('')
+    let idx = 0
+    const step = () => {
+      idx += 1
+      setDisplayText(FULL_LABEL.slice(0, idx))
+      if (idx < FULL_LABEL.length) {
+        typewriterTimerRef.current = setTimeout(step, 40)
+      }
+    }
+    typewriterTimerRef.current = setTimeout(step, 60)
+  }, [clearTypewriter])
+
+  // Initial typewriter effect on page load/mount
+  useEffect(() => {
+    const initTimer = setTimeout(() => {
+      startTypewriter()
+    }, 280)
+    return () => {
+      clearTimeout(initTimer)
+      clearTypewriter()
+    }
+  }, [startTypewriter, clearTypewriter])
+
   const openBar = useCallback(() => {
     clearTimers()
-    // Staged sequence: 1. Hide collapsed text immediately (snappy 100ms fade)
-    setLabelVisible(false)
+    clearTypewriter()
+    // Staged sequence: 1. Hide text immediately so pill stretches cleanly
+    setDisplayText('')
     // 2. Expand container width with spring curve
     setExpanded(true)
     // 3. Staged: reveal expanded input & actions only after width stretch settles
     openTimerRef.current = setTimeout(() => {
       setContentVisible(true)
     }, 280)
-  }, [clearTimers])
+  }, [clearTimers, clearTypewriter])
 
   const closeBar = useCallback(() => {
     clearTimers()
+    clearTypewriter()
     // Staged sequence: 1. Hide expanded content immediately
     setContentVisible(false)
-    // 2. Collapse container width with spring recoil
+    // 2. Collapse container width with spring recoil; text is empty so icon stays centered
     setExpanded(false)
-    // 3. Staged: reveal collapsed text only after container bounce settles
+    setDisplayText('')
+    // 3. Staged: start typewriter to glide icon leftward only after container bounce settles
     closeTimerRef.current = setTimeout(() => {
-      setLabelVisible(true)
+      startTypewriter()
     }, 360)
-  }, [clearTimers])
+  }, [clearTimers, clearTypewriter, startTypewriter])
 
   const toggleBar = useCallback(() => {
     if (expanded) {
@@ -73,8 +111,11 @@ export function GitAgentBar({ repoPath, className }: Props) {
   }, [expanded, closeBar, openBar])
 
   useEffect(() => {
-    return () => clearTimers()
-  }, [clearTimers])
+    return () => {
+      clearTimers()
+      clearTypewriter()
+    }
+  }, [clearTimers, clearTypewriter])
 
   useEffect(() => {
     if (contentVisible) {
@@ -196,10 +237,10 @@ export function GitAgentBar({ repoPath, className }: Props) {
         }}
         aria-label={t('gitAgent.barAria')}
         className={cn(
-          'absolute bottom-5 left-1/2 -translate-x-1/2 z-40 flex h-10 items-center overflow-hidden rounded-full border border-accent bg-panel/90 shadow-lg backdrop-blur-md transition-[width,padding,background-color,border-color,box-shadow] duration-350 ease-[cubic-bezier(0.175,0.885,0.32,1.15)] motion-reduce:transition-none select-none',
+          'fixed bottom-5 left-1/2 -translate-x-1/2 z-40 flex h-10 items-center overflow-hidden rounded-full border border-accent bg-panel/90 shadow-lg backdrop-blur-md transition-[width,padding,background-color,border-color,box-shadow,opacity] duration-350 ease-[cubic-bezier(0.175,0.885,0.32,1.15)] motion-reduce:transition-none select-none',
           expanded
-            ? 'w-[min(90vw,500px)] px-3 focus-within:ring-2 focus-within:ring-accent/25'
-            : 'w-[128px] px-3.5 cursor-pointer hover:shadow-accent/15 hover:bg-panel active:scale-[0.98]',
+            ? 'w-[min(90vw,500px)] px-3 opacity-100 focus-within:ring-2 focus-within:ring-accent/25'
+            : 'w-[128px] justify-center px-3.5 cursor-pointer opacity-70 hover:opacity-100 hover:shadow-accent/20 hover:bg-panel active:scale-[0.98]',
           className
         )}
       >
@@ -216,25 +257,15 @@ export function GitAgentBar({ repoPath, className }: Props) {
             }
           }}
           className={cn(
-            'flex size-6 shrink-0 items-center justify-center rounded-full text-accent outline-none transition-[transform,color,background-color] duration-350 ease-[cubic-bezier(0.175,0.885,0.32,1.15)] motion-reduce:transition-none',
-            !expanded && !labelVisible ? 'translate-x-[38px]' : 'translate-x-0',
+            'flex size-6 shrink-0 items-center justify-center rounded-full text-accent outline-none transition-colors duration-200',
             expanded ? 'hover:bg-accent/15 cursor-pointer' : 'pointer-events-none'
           )}
         >
           {isProcessing ? <Spinner className="size-3.5" /> : <LuBot className="size-4" />}
         </button>
 
-        {/* Collapsed Label: "Git Agent" */}
-        <span
-          className={cn(
-            'text-[13px] font-medium tracking-wide text-ink whitespace-nowrap overflow-hidden select-none',
-            labelVisible && !expanded
-              ? 'max-w-[80px] opacity-100 ml-2 transition-[max-width,opacity,margin] duration-250 ease-out'
-              : 'max-w-0 opacity-0 ml-0 pointer-events-none transition-[max-width,opacity,margin] duration-100 ease-in'
-          )}
-        >
-          Git Agent
-        </span>
+        {/* Collapsed Label with Typewriter effect */}
+        {!expanded && displayText ? <span className="text-[13px] font-medium tracking-wide text-ink whitespace-nowrap overflow-hidden select-none ml-2">{displayText}</span> : null}
 
         {/* Expanded Content: Input & Actions */}
         <div

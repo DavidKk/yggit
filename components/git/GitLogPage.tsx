@@ -13,6 +13,7 @@ import { GitDebug } from '@/components/git/GitDebug'
 import { GitFileDiff } from '@/components/git/GitFileDiff'
 import { GIT_FIND_EVENT, useGitFindShortcut } from '@/components/git/gitFind'
 import { GitHistory } from '@/components/git/GitHistory'
+import { GitMergePanel } from '@/components/git/GitMergePanel'
 import { GitModeSwitcher } from '@/components/git/GitModeSwitcher'
 import { GitProjectMenu } from '@/components/git/GitProjectMenu'
 import { GitSidebar } from '@/components/git/GitSidebar'
@@ -27,6 +28,7 @@ import { getDriverMode, getGitDriver } from '@/lib/git/driver'
 import { isFileSystemAccessSupported } from '@/lib/git/indexeddb-handles'
 import { gitSelectionHash } from '@/lib/git/scope'
 import { addTemporaryRepo, parseRemoteUrl } from '@/lib/git/temporary-store'
+import { analyzeMergeTopology } from '@/lib/git/topology'
 import {
   GIT_WORKTREE_COMMIT,
   GIT_WORKTREE_HASH,
@@ -832,8 +834,26 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                       onPage={onPage}
                     />
                   )}
-                  {/* Git Agent Floating Entry anchored to GitLog bottom */}
-                  <GitAgentBar repoPath={view?.repo} />
+                  {/* Standalone Merge Lineage Panel beside Git history */}
+                  {selected && selected.parents && selected.parents.length >= 2 ? (
+                    <GitMergePanel
+                      commit={selected}
+                      commits={commits}
+                      highlighted={Boolean(lineageHashes && lineageHashes.length > 0)}
+                      onHighlight={(active) => {
+                        if (!active) {
+                          setLineageHashes(null)
+                        } else {
+                          const topology = analyzeMergeTopology(selected, new Map(commits.map((c) => [c.hash, c])))
+                          setLineageHashes(topology.commitsIncluded)
+                        }
+                      }}
+                      onLocate={(hash) => {
+                        setSelectedHash(hash)
+                        setFocusRequest({ hash })
+                      }}
+                    />
+                  ) : null}
                 </section>
               </>
             )}
@@ -853,9 +873,6 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                   repo={view.repo}
                   remoteUrl={view.remoteUrl}
                   commit={selected}
-                  allCommits={commits}
-                  isLineageHighlighted={Boolean(lineageHashes && lineageHashes.length > 0)}
-                  onToggleHighlightLineage={setLineageHashes}
                   width={treeWidth}
                   title={selectedIsWorktree ? t('git.panel.worktree') : t('git.panel.files')}
                   selectedPath={selectedFile}
@@ -877,6 +894,7 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
         {/* Git Agent Floating Entry & Spotlight Navigation */}
         <AgentSpotlightNavigator />
         <AgentWorkspace repoPath={view?.repo} />
+        <GitAgentBar repoPath={view?.repo} />
 
         {/* Full-Page Blocking Loading Overlay when switching or loading repository */}
         {busy ? (

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { LuChevronDown, LuChevronRight, LuChevronsDownUp, LuChevronsUpDown, LuFolderTree, LuGitMerge, LuList, LuPencil, LuX } from 'react-icons/lu'
+import { LuChevronDown, LuChevronRight, LuChevronsDownUp, LuChevronsUpDown, LuFolderTree, LuList, LuPencil, LuX } from 'react-icons/lu'
 import { TbFileStack } from 'react-icons/tb'
 import { TiMinusOutline, TiPlusOutline } from 'react-icons/ti'
 
@@ -9,7 +9,6 @@ import { handleTreeExpandKey, handleTreeParentKey } from '@/components/git/treeE
 import { useT } from '@/components/i18n/LocaleProvider'
 import { Badge, Button, EmptyState, ScrollArea, SegmentedNav } from '@/components/sk'
 import { getGitDriver } from '@/lib/git/driver'
-import { analyzeMergeTopology } from '@/lib/git/topology'
 import { GIT_WORKTREE_HASH, type GitCommit, type GitCommitChanges, type GitFileChange } from '@/lib/git/types'
 import { isBoolean, useGitUiPref } from '@/lib/git/ui-prefs'
 import { cn } from '@/lib/utils'
@@ -18,9 +17,6 @@ type Props = {
   repo: string
   remoteUrl?: string
   commit: GitCommit
-  allCommits?: GitCommit[]
-  isLineageHighlighted?: boolean
-  onToggleHighlightLineage?: (hashes: string[]) => void
   width: number
   /** Panel heading; defaults to 「文件」. */
   title?: string
@@ -270,13 +266,8 @@ function PathRows({ groups, selected, onSelect }: { groups: PathGroup[]; selecte
   ))
 }
 
-export function GitCommitPanel({ repo, commit, allCommits, isLineageHighlighted, onToggleHighlightLineage, width, title, selectedPath, onSelect, onClose }: Props) {
+export function GitCommitPanel({ repo, commit, width, title, selectedPath, onSelect, onClose }: Props) {
   const t = useT()
-  const topology = useMemo(() => {
-    if (!commit.parents || commit.parents.length < 2) return null
-    const map = allCommits ? new Map(allCommits.map((c) => [c.hash, c])) : undefined
-    return analyzeMergeTopology(commit, map)
-  }, [commit, allCommits])
   const panelTitle = title ?? t('git.panel.files')
   const isWorktree = commit.hash === GIT_WORKTREE_HASH
   const viewItems = useMemo(() => {
@@ -292,7 +283,9 @@ export function GitCommitPanel({ repo, commit, allCommits, isLineageHighlighted,
   const [changes, setChanges] = useState<GitCommitChanges | null>(null)
   const [allFiles, setAllFiles] = useState<GitFileChange[] | null>(null)
   const [error, setError] = useState('')
-  const [view, setView] = useGitUiPref('commit.fileView', 'tree' as FileView, isFileView)
+  const [preferredView, setView] = useGitUiPref('commit.fileView', 'tree' as FileView, isFileView)
+  // Working trees have no committed snapshot; keep the shared preference intact.
+  const view = isWorktree && preferredView === 'all' ? 'tree' : preferredView
   const [expandDefault, setExpandDefault] = useGitUiPref('commit.treeExpandDefault', true, isBoolean)
   const [openPaths, setOpenPaths] = useState<Set<string>>(() => new Set())
   const expandDefaultRef = useRef(expandDefault)
@@ -357,7 +350,7 @@ export function GitCommitPanel({ repo, commit, allCommits, isLineageHighlighted,
     }
   }, [view, allFiles, changes, repo, commit.hash, t])
 
-  const changedFiles = changes?.files || []
+  const changedFiles = useMemo(() => changes?.files || [], [changes?.files])
   const changedTree = useMemo(() => buildTree(changedFiles), [changedFiles])
   const pathGroups = useMemo(() => groupByPath(changedFiles), [changedFiles])
   const allTree = useMemo(() => buildTree(allFiles || []), [allFiles])
@@ -386,10 +379,6 @@ export function GitCommitPanel({ repo, commit, allCommits, isLineageHighlighted,
       return copy
     })
   }
-
-  useEffect(() => {
-    if (isWorktree && view === 'all') setView('tree')
-  }, [isWorktree, view, setView])
 
   return (
     <aside
@@ -436,35 +425,6 @@ export function GitCommitPanel({ repo, commit, allCommits, isLineageHighlighted,
           </Button>
         </div>
       </header>
-      {topology?.isMerge ? (
-        <div className="flex items-center gap-1.5 border-b border-line bg-[var(--overlay-04)] px-3 py-1.5 text-xs font-mono">
-          <LuGitMerge className="size-3.5 shrink-0 text-accent" aria-hidden />
-          <span className="text-ink-soft">{t('git.commit.mergeLineage')}:</span>
-          <span className="font-medium text-accent">{topology.sourceBranchHint || 'feature'}</span>
-          <span className="text-ink-soft">➔</span>
-          <span className="font-medium text-ink">{topology.targetBranchHint || 'main'}</span>
-          {topology.commitsIncluded.length > 0 ? (
-            <button
-              type="button"
-              className={cn(
-                'ml-auto inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-sans font-medium transition-all duration-150 cursor-pointer outline-none focus-visible:ring-1 focus-visible:ring-accent',
-                isLineageHighlighted
-                  ? 'bg-accent text-accent-contrast shadow-sm'
-                  : 'bg-[color-mix(in_oklab,var(--accent)_15%,transparent)] text-accent hover:bg-[color-mix(in_oklab,var(--accent)_25%,transparent)]'
-              )}
-              title={isLineageHighlighted ? t('git.commit.clearHighlight') : t('git.commit.highlightLineage')}
-              onClick={() => {
-                onToggleHighlightLineage?.(isLineageHighlighted ? [] : topology.commitsIncluded)
-              }}
-            >
-              <span>
-                {topology.commitsIncluded.length} {t('git.commit.commitsCount')}
-              </span>
-              <span className="opacity-75">{isLineageHighlighted ? '✕' : '👁'}</span>
-            </button>
-          ) : null}
-        </div>
-      ) : null}
       {error ? (
         <p className="m-0 px-3 py-2 text-xs text-fail">{error}</p>
       ) : !changes || (view === 'all' && !allFiles) ? (
