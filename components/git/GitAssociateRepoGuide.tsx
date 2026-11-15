@@ -6,7 +6,7 @@ import { LuCheck, LuCopy, LuFolder, LuFolderPlus, LuGitBranch, LuHash, LuLayers 
 import { useT } from '@/components/i18n/LocaleProvider'
 import { Button } from '@/components/sk'
 import { copyToClipboard } from '@/lib/clipboard'
-import { getGitDriver } from '@/lib/git/driver'
+import { getDriverMode, getGitDriver } from '@/lib/git/driver'
 import { isFileSystemAccessSupported, saveDirectoryHandle, saveRepoAlias } from '@/lib/git/indexeddb-handles'
 import { makeShareUrl } from '@/lib/git/resolver'
 import type { GitProjectView } from '@/lib/git/types'
@@ -53,26 +53,33 @@ export function GitAssociateRepoGuide({ identity }: Props) {
     setPicking(true)
     setError('')
     try {
-      // 1. Try browser Web File System Access API first if supported
-      if (isFileSystemAccessSupported() && window.showDirectoryPicker) {
-        try {
-          const handle = await window.showDirectoryPicker({ mode: 'readwrite' })
-          if (handle) {
-            setLocalPath(handle.name)
-            await saveDirectoryHandle(identity.key, handle, handle.name)
-            await saveRepoAlias(identity.key, handle.name)
-            setPicking(false)
-            return
+      // 1. In Edge mode or when showDirectoryPicker is supported, use Web FS
+      if (getDriverMode() === 'edge' || isFileSystemAccessSupported()) {
+        if (window.showDirectoryPicker) {
+          try {
+            const handle = await window.showDirectoryPicker({ mode: 'readwrite' })
+            if (handle) {
+              setLocalPath(handle.name)
+              await saveDirectoryHandle(identity.key, handle, handle.name)
+              await saveRepoAlias(identity.key, handle.name)
+              setPicking(false)
+              return
+            }
+          } catch (e: unknown) {
+            if (e instanceof Error && e.name === 'AbortError') {
+              setPicking(false)
+              return
+            }
           }
-        } catch (e: unknown) {
-          if (e instanceof Error && e.name === 'AbortError') {
-            setPicking(false)
-            return
-          }
+        }
+        if (getDriverMode() === 'edge') {
+          setError(t('git.errors.unsupportedFileSystemAccess'))
+          setPicking(false)
+          return
         }
       }
 
-      // 2. Fallback to local server picker
+      // 2. Fallback to local server picker ONLY in Local mode
       const res = await fetch('/api/pick', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -106,15 +113,17 @@ export function GitAssociateRepoGuide({ identity }: Props) {
       const target = projects.find((p) => p.id === selectedProjectId)
       const targetPath = target?.localPath || selectedProjectId
 
-      // Also register on local server if available
-      try {
-        await fetch('/api/git/projects', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ path: targetPath, discover: false }),
-        })
-      } catch {
-        // Edge mode ignore
+      // Also register on local server if in Local mode
+      if (getDriverMode() === 'local') {
+        try {
+          await fetch('/api/git/projects', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path: targetPath, discover: false }),
+          })
+        } catch {
+          // Local mode ignore
+        }
       }
 
       // Redirect directly to the requested commit under the matched project
@@ -139,19 +148,21 @@ export function GitAssociateRepoGuide({ identity }: Props) {
     try {
       await saveRepoAlias(identity.key, path)
 
-      // Post to local server if available
-      try {
-        const res = await fetch('/api/git/projects', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ path, discover: false }),
-        })
-        if (!res.ok) {
-          const body = await res.json()
-          throw new Error(body.message || body.error || '关联失败')
+      // Post to local server if in Local mode
+      if (getDriverMode() === 'local') {
+        try {
+          const res = await fetch('/api/git/projects', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path, discover: false }),
+          })
+          if (!res.ok) {
+            const body = await res.json()
+            throw new Error(body.message || body.error || '关联失败')
+          }
+        } catch (err) {
+          throw err
         }
-      } catch {
-        // If in pure Edge mode without Node server, handle is saved in IndexedDB
       }
 
       const url = makeShareUrl(path, identity.commitHash, identity.remoteUrl)

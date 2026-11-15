@@ -11,6 +11,7 @@ import { GitDiffCodeText, useGitLineTokens } from '@/components/git/GitHighlight
 import { useT } from '@/components/i18n/LocaleProvider'
 import { Button, EmptyState, ScrollArea, SegmentedNav } from '@/components/sk'
 import { readApiErrorMessage } from '@/lib/api-error'
+import { getGitDriver } from '@/lib/git/driver'
 import type { GitCommitChanges } from '@/lib/git/types'
 import { useGitUiPref } from '@/lib/git/ui-prefs'
 import { cn } from '@/lib/utils'
@@ -323,19 +324,19 @@ export function GitFileDiff({ repo, hash, path, status = 'M', onClose }: Props) 
     setLoading(true)
     setError('')
     setChanges(null)
-    const params = new URLSearchParams({ repo, hash, path })
-    void fetch(`/api/git/commit?${params.toString()}`)
-      .then(async (response) => {
-        const body = (await response.json()) as GitCommitChanges & { ok?: boolean }
+    const driver = getGitDriver()
+    driver
+      .readCommitDiff({ repo, hash, file: path })
+      .then((body) => {
         if (cancelled) return
-        if (!response.ok || body.ok === false || typeof body.patch !== 'string') {
-          setError(readApiErrorMessage(body, t('git.errors.readChanges')))
+        if (!body || typeof body.patch !== 'string') {
+          setError(t('git.errors.readChanges'))
           return
         }
         setChanges(body)
       })
-      .catch(() => {
-        if (!cancelled) setError(t('git.errors.readChanges'))
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : t('git.errors.readChanges'))
       })
       .finally(() => {
         if (!cancelled) setLoading(false)

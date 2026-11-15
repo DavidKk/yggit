@@ -35,7 +35,7 @@
 
 | 维度 | 设计规范 | 核心收益 |
 |---|---|---|
-| **入口形态** | **居中悬浮药丸 (Floating Capsule Bar)** | 极简、不侵占主图谱空间；支持 `Cmd + K` 秒级呼出 |
+| **入口形态** | **底部居中悬浮药丸 (Bottom Floating Capsule)** | 极简、不侵占主图谱空间；支持 `Cmd/Ctrl + J` 秒级唤出 |
 | **存储模型** | **零存储纯内存 (Zero-Storage & In-Memory Only)** | 凭证仅存于当前 React State，刷新或关闭 Tab 即刻销毁，硬盘零残留，彻底规避泄露风险 |
 | **协议标准** | **轻量 OpenAPI (BYOP / BYOK)** | 纯原生 `fetch` 请求 `/v1/chat/completions`，零第三方 SDK 依赖，支持主流兼容代理 |
 | **执行闭环** | **一次往返直接出卡片 (One-shot Execution)** | 大模型仅负责意图与参数抽取，拿到工具指令后由本地 Git 引擎直接生成富交互卡片，节省 50% 耗时与 Token |
@@ -48,7 +48,7 @@
 
 ### 场景一：上线前分支污染排查与一键协同分享（核心场景）
 1. **发起诊断**：
-   - 开发者按下 `Cmd + K` 唤出居中药丸输入框，输入：`feat/cart 是否包含了 test 分支？`
+   - 开发者按下 `Cmd/Ctrl + J`（或点击底部药丸）唤出输入框，输入：`feat/cart 是否包含了 test 分支？`
 2. **意图解析与诊断**：
    - 浏览器直连用户配置的代理，Agent 返回调用工具 `check_branch_containment(source: "feat/cart", target: "test")`；
    - 本地 Git 引擎计算得出：`feat/cart` 误合入了 `test` 分支，定位到合入节点 `7a88b1` 及前置提交 `c128f9`。
@@ -109,10 +109,10 @@
 
 ### 5.1 视觉样式规范
 * **药丸常态 (Collapsed)**：
-  - 尺寸：高度 `36px`，圆角 `full`，内边距 `px-4`；
-  - 背景：`bg-[var(--panel)]/80` 搭配 `backdrop-blur-md`，边框 `border border-border/60`；
+  - 尺寸：高度 `40px`，圆角 `full`，内边距 `px-4`；
+  - 背景：`bg-[var(--panel)]/85` 搭配 `backdrop-blur-md`，边框 `border border-border/60`；
   - 阴影：`shadow-sm hover:shadow-md transition-all duration-200`；
-  - 位置：位于主视口顶部居中，`z-index: 40`。
+  - 位置：位于主视口底部水平居中 (`bottom: 20px`)，`z-index: 40`。全屏浏览 Diff 时具备 `opacity-80` 避让与 Hover 恢复。
 * **展开弹层 (Expanded Sheet)**：
   - 最大宽度 `640px`，上下留白居中弹出；
   - 背景：`bg-[var(--panel)]`，边框 `border border-border`，圆角 `rounded-2xl`，深层投影 `shadow-2xl`；

@@ -10,8 +10,11 @@ Welcome to the Yggit documentation repository. Yggit is a high-performance, orga
 - [Repository Identity & URL Routing Specification](../brain/794c2433-2f43-4553-8504-ac1ee92a392d/repository-identity-and-url-routing-design.md) - Stable Repo ID + Multi-Identity + Alias Resolver specification.
 - [Temporary Repository Access & Favorites PRD](prd/temporary-repository-and-favorites.md) - Product requirements for browsing public repositories without cloning first ("Browse First, Star to Save").
 - [Temporary Repository & Remote Provider Architecture](technical/temporary-repository-architecture.md) - Technical architecture for session-scoped temporary repos, Project Switcher favorites, and Remote Provider driver.
-- [Agent Spotlight & Interactive Sharing PRD](prd/agent-spotlight-and-interactive-sharing.md) - Product requirements for the center floating pill Agent bar, zero-storage OpenAPI driving, and diagnostic lineage sharing.
-- [Agent Spotlight & Zero-Storage OpenAPI Technical Architecture](technical/agent-spotlight-and-interactive-sharing.md) - Technical specification for the in-memory OpenAPI client, one-shot Git tool dispatcher, graph lineage highlighting/dimming, and stateless deep link sharing.
+- [Agent Spotlight & Interactive Sharing PRD (Sub-Req 1)](prd/agent-spotlight-and-interactive-sharing.md) - Sub-requirement 1: Product requirements for the center floating pill Agent bar, zero-storage OpenAPI driving, and diagnostic lineage sharing.
+- [Agent Spotlight & Zero-Storage OpenAPI Technical Architecture (Sub-Req 1)](technical/agent-spotlight-and-interactive-sharing.md) - Sub-requirement 1: Technical specification for the in-memory OpenAPI client, one-shot Git tool dispatcher, graph lineage highlighting/dimming, and stateless deep link sharing.
+- [Agent Dockable Workspace UX Specification](ux/agent-dockable-workspace-ux.md) - Interaction design for the bottom floating pill, in-place quick response cards, dockable side/bottom workspaces, and explicit dual-track context.
+- [Agent Git Graph Annotation & Spotlight PRD (Sub-Req 2)](prd/agent-git-graph-annotation-and-spotlight.md) - Sub-requirement 2: Product requirements for Agent-driven precise commit focusing, multi-target highlighting, graph annotation badges, multi-result stepper navigation, and evidence grading.
+- [Agent Git Graph Annotation & Spotlight Technical Architecture (Sub-Req 2)](technical/agent-git-graph-annotation-and-spotlight.md) - Sub-requirement 2: Technical specification for the spotlight context state machine, virtual window scroll coordination, annotation popover badges, and impact resolvers.
 
 ## Standards
 

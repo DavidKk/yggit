@@ -12,6 +12,8 @@ export type GitMessages = {
     cloneFailed: string
     readChanges: string
     readTree: string
+    unsupportedFileSystemAccess: string
+    cloneEdgeUnsupported: string
   }
   pickFolder: { multi: string; clone: string }
   page: {
@@ -254,7 +256,9 @@ export const gitZh: GitMessages = {
     deleteFolderFailed: "删除文件夹失败",
     cloneFailed: "克隆失败",
     readChanges: "读不到这次改动",
-    readTree: "读不到文件树"
+    readTree: "读不到文件树",
+    unsupportedFileSystemAccess: "当前浏览器不支持 Web File System API，请使用 Chrome/Edge 浏览器或切换至 Local 模式",
+    cloneEdgeUnsupported: "Edge 模式无需克隆到本地服务端，可直接添加本地文件夹或访问远程仓库"
   },
   pickFolder: {
     multi: "选择文件夹（可多选；将自动嗅探其中的 Git 仓库）",
@@ -513,7 +517,9 @@ export const gitCht: GitMessages = {
     deleteFolderFailed: "刪除資料夾失敗",
     cloneFailed: "複製失敗",
     readChanges: "讀不到這次變更",
-    readTree: "讀不到檔案樹"
+    readTree: "讀不到檔案樹",
+    unsupportedFileSystemAccess: "當前瀏覽器不支援 Web File System API，請使用 Chrome/Edge 瀏覽器或切換至 Local 模式",
+    cloneEdgeUnsupported: "Edge 模式無需複製到本機伺服端，可直接新增本機資料夾或存取遠端倉庫"
   },
   pickFolder: {
     multi: "選擇資料夾（可多選；將自動偵測其中的 Git 倉庫）",
@@ -772,7 +778,9 @@ export const gitEn: GitMessages = {
     deleteFolderFailed: "Failed to delete folder",
     cloneFailed: "Clone failed",
     readChanges: "Could not read these changes",
-    readTree: "Could not read file tree"
+    readTree: "Could not read file tree",
+    unsupportedFileSystemAccess: "Your browser does not support the Web File System API. Please use Chrome/Edge or switch to Local mode.",
+    cloneEdgeUnsupported: "Edge mode does not clone to a local server. You can add a local folder or connect directly to a remote repository."
   },
   pickFolder: {
     multi: "Choose folders (multi-select; Git repos inside will be discovered automatically)",
@@ -1031,7 +1039,9 @@ export const gitJa: GitMessages = {
     deleteFolderFailed: "フォルダの削除に失敗しました",
     cloneFailed: "クローンに失敗しました",
     readChanges: "この変更を読み取れません",
-    readTree: "ファイルツーを読み取れません"
+    readTree: "ファイルツーを読み取れません",
+    unsupportedFileSystemAccess: "お使いのブラウザは Web File System API をサポートしていません。Chrome/Edge を使用するか Local モードに切り替えてください。",
+    cloneEdgeUnsupported: "Edge モードではローカルサーバーへのクローンは不要です。直接ローカルフォルダを追加するかリモートリポジトリにアクセスしてください。"
   },
   pickFolder: {
     multi: "フォルダを選択（複数可；中の Git リポジトリを自動検出）",
@@ -1290,7 +1300,9 @@ export const gitFr: GitMessages = {
     deleteFolderFailed: "Échec de la suppression du dossier",
     cloneFailed: "Échec du clonage",
     readChanges: "Impossible de lire ces modifications",
-    readTree: "Impossible de lire l'arborescence des fichiers"
+    readTree: "Impossible de lire l'arborescence des fichiers",
+    unsupportedFileSystemAccess: "Votre navigateur ne prend pas en charge l'API Web File System. Veuillez utiliser Chrome/Edge ou passer en mode Local.",
+    cloneEdgeUnsupported: "Le mode Edge ne clone pas sur un serveur local. Vous pouvez ajouter un dossier local ou accéder directement au dépôt distant."
   },
   pickFolder: {
     multi: "Choisir des dossiers (sélection multiple ; les dépôts Git à l'intérieur seront découverts automatiquement)",
@@ -1549,7 +1561,9 @@ export const gitDe: GitMessages = {
     deleteFolderFailed: "Ordner konnte nicht gelöscht werden",
     cloneFailed: "Klonen fehlgeschlagen",
     readChanges: "Konnte diese Änderungen nicht lesen",
-    readTree: "Dateibaum konnte nicht gelesen werden"
+    readTree: "Dateibaum konnte nicht gelesen werden",
+    unsupportedFileSystemAccess: "Ihr Browser unterstützt die Web File System API nicht. Bitte verwenden Sie Chrome/Edge oder wechseln Sie in den Local-Modus.",
+    cloneEdgeUnsupported: "Im Edge-Modus ist kein Klonen auf den lokalen Server erforderlich. Sie können direkt einen lokalen Ordner hinzufügen oder auf ein Remote-Repository zugreifen."
   },
   pickFolder: {
     multi: "Ordner auswählen (Mehrfachauswahl; enthaltene Git-Repositories werden automatisch erkannt)",
@@ -1808,7 +1822,9 @@ export const gitEs: GitMessages = {
     deleteFolderFailed: "No se pudo eliminar la carpeta",
     cloneFailed: "Clonación fallida",
     readChanges: "No se pudieron leer estos cambios",
-    readTree: "No se pudo leer el árbol de archivos"
+    readTree: "No se pudo leer el árbol de archivos",
+    unsupportedFileSystemAccess: "Su navegador no admite la API Web File System. Utilice Chrome/Edge o cambie al modo Local.",
+    cloneEdgeUnsupported: "El modo Edge no clona en un servidor local. Puede agregar directamente una carpeta local o acceder a un repositorio remoto."
   },
   pickFolder: {
     multi: "Elige carpetas (selección múltiple; los repositorios Git dentro se descubrirán automáticamente)",
@@ -2067,7 +2083,9 @@ export const gitRu: GitMessages = {
     deleteFolderFailed: "Не удалось удалить папку",
     cloneFailed: "Клонирование не удалось",
     readChanges: "Не удалось прочитать эти изменения",
-    readTree: "Не удалось прочитать дерево файлов"
+    readTree: "Не удалось прочитать дерево файлов",
+    unsupportedFileSystemAccess: "Ваш браузер не поддерживает Web File System API. Используйте Chrome/Edge или переключитесь в режим Local.",
+    cloneEdgeUnsupported: "Режим Edge не требует клонирования на локальный сервер. Вы можете напрямую добавить локальную папку или удаленный репозиторий."
   },
   pickFolder: {
     multi: "Выберите папки (множественный выбор; репозитории Git внутри будут обнаружены автоматически)",
@@ -2326,7 +2344,9 @@ export const gitPtBR: GitMessages = {
     deleteFolderFailed: "Falha ao excluir a pasta",
     cloneFailed: "Falha na clonagem",
     readChanges: "Não foi possível ler essas alterações",
-    readTree: "Não foi possível ler a árvore de arquivos"
+    readTree: "Não foi possível ler a árvore de arquivos",
+    unsupportedFileSystemAccess: "Seu navegador não suporta a API Web File System. Use o Chrome/Edge ou alterne para o modo Local.",
+    cloneEdgeUnsupported: "O modo Edge não clona para um servidor local. Você pode adicionar diretamente uma pasta local ou acessar um repositório remoto."
   },
   pickFolder: {
     multi: "Escolha pastas (seleção múltipla; repositórios Git dentro serão descobertos automaticamente)",
@@ -2585,7 +2605,9 @@ export const gitKo: GitMessages = {
     deleteFolderFailed: "폴더 삭제 실패",
     cloneFailed: "복제 실패",
     readChanges: "이 변경 사항을 읽을 수 없습니다",
-    readTree: "파일 트리를 읽을 수 없습니다"
+    readTree: "파일 트리를 읽을 수 없습니다",
+    unsupportedFileSystemAccess: "현재 브라우저는 Web File System API를 지원하지 않습니다. Chrome/Edge를 사용하거나 Local 모드로 전환하세요.",
+    cloneEdgeUnsupported: "Edge 모드는 로컬 서버로 복제하지 않습니다. 로컬 폴더를 직접 추가하거나 원격 저장소에 접근할 수 있습니다."
   },
   pickFolder: {
     multi: "폴더 선택 (다중 선택 가능; 내부의 Git 저장소는 자동으로 탐지됩니다)",

@@ -27,7 +27,21 @@ export interface ReadBlobOptions {
 export interface AddProjectPayload {
   pathOrUrl: string
   name?: string
+  group?: string
   handle?: FileSystemDirectoryHandle
+}
+
+export interface GitDeleteFolderResult {
+  catalog: GitProjectCatalog
+  removedCount: number
+}
+
+export interface AddRemoteProjectOptions {
+  url: string
+  token?: string
+  syncAccount?: boolean
+  group?: string
+  name?: string
 }
 
 export interface IGitDriver {
@@ -62,4 +76,29 @@ export interface IGitDriver {
    * Register or associate a local handle or remote project
    */
   addProject(payload: AddProjectPayload): Promise<GitProjectView>
+
+  /**
+   * Create a new folder in project switcher
+   */
+  createFolder(name: string): Promise<GitProjectCatalog>
+
+  /**
+   * Delete a folder and remove all projects under it
+   */
+  deleteFolder(name: string): Promise<GitDeleteFolderResult>
+
+  /**
+   * Move project to another folder / reorder
+   */
+  moveProject(id: string, group: string, beforeId?: string): Promise<GitProjectCatalog>
+
+  /**
+   * Remove a single project from catalog
+   */
+  removeProject(id: string): Promise<GitProjectCatalog>
+
+  /**
+   * Add a remote repository by URL
+   */
+  addRemoteProject(input: AddRemoteProjectOptions): Promise<GitProjectCatalog>
 }

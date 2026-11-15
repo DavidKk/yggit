@@ -94,5 +94,28 @@ describe('GitDriver layer', () => {
         expect.stringContaining('/api/git/commit?repo=%2Fpath%2Fto%2Frepo&hash=abc1234&path=src%2Findex.ts&all=1')
       )
     })
+
+    it('calls /api/git/projects for createFolder and deleteFolder', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ ok: true, folders: ['新文件夹'], projects: [], removedCount: 1 }),
+      })
+      global.fetch = mockFetch
+
+      const driver = new LocalGitDriver()
+      const created = await driver.createFolder('新文件夹')
+      expect(mockFetch).toHaveBeenCalledWith('/api/git/projects', expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ action: 'createFolder', folder: '新文件夹' }),
+      }))
+      expect(created.folders).toContain('新文件夹')
+
+      const deleted = await driver.deleteFolder('新文件夹')
+      expect(mockFetch).toHaveBeenCalledWith('/api/git/projects', expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ action: 'deleteFolder', folder: '新文件夹' }),
+      }))
+      expect(deleted.removedCount).toBe(1)
+    })
   })
 })

@@ -9,6 +9,7 @@ import { GIT_FIND_EVENT } from '@/components/git/gitFind'
 import { GitGraph } from '@/components/git/GitGraph'
 import { useT } from '@/components/i18n/LocaleProvider'
 import { Button, TextInput } from '@/components/sk'
+import { getGitDriver } from '@/lib/git/driver'
 import { type GitCommit, type GitStash, gitStashAsCommit, type GitWorktree } from '@/lib/git/types'
 
 type Props = {
@@ -96,16 +97,21 @@ export function GitHistory({
     if (lockRef.current || !current.hasMore || !current.repo || !current.scope) return
     lockRef.current = true
     setLoading(true)
-    const params = new URLSearchParams({ repo: current.repo, ref: current.scope, skip: String(current.commits.length) })
-    void fetch(`/api/git/log?${params.toString()}`)
-      .then(async (response) => {
-        const body = (await response.json()) as { ok?: boolean; commits?: GitCommit[]; hasMore?: boolean }
-        if (!response.ok || body.ok === false || !body.commits) return
+    const driver = getGitDriver()
+    driver
+      .readLog({
+        repo: current.repo,
+        ref: current.scope,
+        skip: current.commits.length,
+      })
+      .then((body) => {
+        if (!body || !body.commits) return
         if (stateRef.current.repo !== current.repo || stateRef.current.scope !== current.scope) return
         const seen = new Set(current.commits.map((commit) => commit.hash))
         const next = current.commits.concat(body.commits.filter((commit) => !seen.has(commit.hash)))
         onPage(current.scope, next, body.hasMore === true)
       })
+      .catch(() => {})
       .finally(() => {
         lockRef.current = false
         setLoading(false)

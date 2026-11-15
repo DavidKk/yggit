@@ -1,6 +1,14 @@
 import type { GitCommitChanges, GitLogView, GitProjectCatalog, GitProjectView } from '@/lib/git/types'
 
-import type { AddProjectPayload, IGitDriver, ReadBlobOptions, ReadCommitDiffOptions, ReadLogOptions } from './types'
+import type {
+  AddProjectPayload,
+  AddRemoteProjectOptions,
+  GitDeleteFolderResult,
+  IGitDriver,
+  ReadBlobOptions,
+  ReadCommitDiffOptions,
+  ReadLogOptions,
+} from './types'
 
 export class LocalGitDriver implements IGitDriver {
   readonly mode = 'local' as const
@@ -95,5 +103,95 @@ export class LocalGitDriver implements IGitDriver {
     }
     const data = (await res.json()) as { ok?: boolean; project: GitProjectView }
     return data.project
+  }
+
+  async createFolder(name: string): Promise<GitProjectCatalog> {
+    const res = await fetch('/api/git/projects', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'createFolder', folder: name }),
+    })
+    const data = (await res.json()) as { ok?: boolean; message?: string; error?: string; projects?: GitProjectView[]; folders?: string[] }
+    if (!res.ok || data.ok === false) {
+      throw new Error(data.message || data.error || 'Failed to create folder')
+    }
+    return {
+      projects: data.projects || [],
+      folders: data.folders || [],
+    }
+  }
+
+  async deleteFolder(name: string): Promise<GitDeleteFolderResult> {
+    const res = await fetch('/api/git/projects', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'deleteFolder', folder: name }),
+    })
+    const data = (await res.json()) as {
+      ok?: boolean
+      message?: string
+      error?: string
+      projects?: GitProjectView[]
+      folders?: string[]
+      removedCount?: number
+    }
+    if (!res.ok || data.ok === false) {
+      throw new Error(data.message || data.error || 'Failed to delete folder')
+    }
+    return {
+      catalog: {
+        projects: data.projects || [],
+        folders: data.folders || [],
+      },
+      removedCount: data.removedCount || 0,
+    }
+  }
+
+  async moveProject(id: string, group: string, beforeId?: string): Promise<GitProjectCatalog> {
+    const res = await fetch('/api/git/projects', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'moveProject', id, group, beforeId }),
+    })
+    const data = (await res.json()) as { ok?: boolean; message?: string; error?: string; projects?: GitProjectView[]; folders?: string[] }
+    if (!res.ok || data.ok === false) {
+      throw new Error(data.message || data.error || 'Failed to move project')
+    }
+    return {
+      projects: data.projects || [],
+      folders: data.folders || [],
+    }
+  }
+
+  async removeProject(id: string): Promise<GitProjectCatalog> {
+    const res = await fetch('/api/git/projects', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'removeProject', id }),
+    })
+    const data = (await res.json()) as { ok?: boolean; message?: string; error?: string; projects?: GitProjectView[]; folders?: string[] }
+    if (!res.ok || data.ok === false) {
+      throw new Error(data.message || data.error || 'Failed to remove project')
+    }
+    return {
+      projects: data.projects || [],
+      folders: data.folders || [],
+    }
+  }
+
+  async addRemoteProject(input: AddRemoteProjectOptions): Promise<GitProjectCatalog> {
+    const res = await fetch('/api/git/projects', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    })
+    const data = (await res.json()) as { ok?: boolean; message?: string; error?: string; projects?: GitProjectView[]; folders?: string[] }
+    if (!res.ok || data.ok === false) {
+      throw new Error(data.message || data.error || 'Failed to add remote project')
+    }
+    return {
+      projects: data.projects || [],
+      folders: data.folders || [],
+    }
   }
 }

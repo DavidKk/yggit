@@ -1,13 +1,20 @@
 import {
+  createEdgeFolder,
+  deleteEdgeFolder,
   getDirectoryHandle,
+  getEdgeCatalog,
+  getEdgeFolders,
   isFileSystemAccessSupported,
   isIndexedDBSupported,
   listDirectoryHandles,
+  moveEdgeProject,
   openHandlesDatabase,
   removeDirectoryHandle,
+  removeEdgeProject,
   requestHandlePermission,
   resolveRepoAlias,
   saveDirectoryHandle,
+  saveEdgeRemoteProject,
   saveRepoAlias,
   verifyHandlePermission,
 } from '@/lib/git/indexeddb-handles'
@@ -73,6 +80,9 @@ describe('indexeddb-handles', () => {
       mockStoreData = {
         directory_handles: {},
         repo_aliases: {},
+        edge_folders: {},
+        edge_remote_projects: {},
+        edge_meta: {},
       }
 
       const mockDb = {
@@ -82,8 +92,8 @@ describe('indexeddb-handles', () => {
         createObjectStore: jest.fn(),
         transaction: (storeName: string, _mode: string) => ({
           objectStore: () => ({
-            put: (item: { id?: string; alias?: string }) => {
-              const key = item.id || item.alias || ''
+            put: (item: { id?: string; alias?: string; name?: string; key?: string }) => {
+              const key = item.id || item.alias || item.name || item.key || ''
               mockStoreData[storeName][key] = item
               const req: { onsuccess?: () => void; onerror?: () => void; error?: Error } = {}
               setTimeout(() => req.onsuccess?.(), 0)
@@ -171,6 +181,65 @@ describe('indexeddb-handles', () => {
 
       await removeDirectoryHandle('del-repo')
       expect(await getDirectoryHandle('del-repo')).toBeNull()
+    })
+
+    describe('edge folders & catalog management', () => {
+      it('seeds default folders when first initialized', async () => {
+        const folders = await getEdgeFolders()
+        expect(folders).toEqual(['工作项目', '个人项目'])
+      })
+
+      it('creates new edge folder', async () => {
+        await createEdgeFolder('测试文件夹')
+        const folders = await getEdgeFolders()
+        expect(folders).toContain('测试文件夹')
+      })
+
+      it('prevents creating duplicate edge folder', async () => {
+        await createEdgeFolder('公共组件')
+        await expect(createEdgeFolder('公共组件')).rejects.toThrow('文件夹已存在')
+      })
+
+      it('deletes edge folder and cascade-removes associated handles and remotes', async () => {
+        await createEdgeFolder('待删除分组')
+        const mockHandle = { name: 'handle-in-group' } as FileSystemDirectoryHandle
+        await saveDirectoryHandle('handle-1', mockHandle, 'handle-in-group', '待删除分组')
+
+        await saveEdgeRemoteProject({
+          id: 'remote-1',
+          name: 'remote-in-group',
+          url: 'https://github.com/foo/bar',
+          host: 'github',
+          group: '待删除分组',
+          updatedAt: Date.now(),
+        })
+
+        const beforeCatalog = await getEdgeCatalog()
+        expect(beforeCatalog.folders).toContain('待删除分组')
+        expect(beforeCatalog.projects.some((p) => p.name === 'handle-in-group')).toBe(true)
+        expect(beforeCatalog.projects.some((p) => p.name === 'remote-in-group')).toBe(true)
+
+        const deleteResult = await deleteEdgeFolder('待删除分组')
+        expect(deleteResult.removedCount).toBe(2)
+        expect(deleteResult.folders).not.toContain('待删除分组')
+
+        const afterCatalog = await getEdgeCatalog()
+        expect(afterCatalog.folders).not.toContain('待删除分组')
+        expect(afterCatalog.projects.some((p) => p.name === 'handle-in-group')).toBe(false)
+        expect(afterCatalog.projects.some((p) => p.name === 'remote-in-group')).toBe(false)
+      })
+
+      it('moves project between folders in Edge mode', async () => {
+        await createEdgeFolder('分组A')
+        await createEdgeFolder('分组B')
+        const mockHandle = { name: 'moveable-project' } as FileSystemDirectoryHandle
+        await saveDirectoryHandle('move-1', mockHandle, 'moveable-project', '分组A')
+
+        await moveEdgeProject('move-1', '分组B')
+        const catalog = await getEdgeCatalog()
+        const project = catalog.projects.find((p) => p.id === 'move-1')
+        expect(project?.group).toBe('分组B')
+      })
     })
   })
 })

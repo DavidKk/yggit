@@ -9,6 +9,7 @@ import { handleTreeExpandKey, handleTreeParentKey } from '@/components/git/treeE
 import { useT } from '@/components/i18n/LocaleProvider'
 import { Badge, Button, EmptyState, ScrollArea, SegmentedNav } from '@/components/sk'
 import { readApiErrorMessage } from '@/lib/api-error'
+import { getGitDriver } from '@/lib/git/driver'
 import { makeShareUrl } from '@/lib/git/resolver'
 import { formatIssueShareCard, makeIssueShareUrl } from '@/lib/git/share-card'
 import { analyzeMergeTopology } from '@/lib/git/topology'
@@ -329,48 +330,48 @@ export function GitCommitPanel({
     setAllFiles(null)
     setError('')
     setOpenPaths(new Set())
-    const params = new URLSearchParams({ repo, hash: commit.hash, tree: '1' })
-    void fetch(`/api/git/commit?${params.toString()}`)
-      .then(async (response) => {
-        const body = (await response.json()) as GitCommitChanges & { ok?: boolean }
+    const driver = getGitDriver()
+    driver
+      .readCommitDiff({ repo, hash: commit.hash, tree: true })
+      .then((body) => {
         if (cancelled) return
-        if (!response.ok || body.ok === false || !body.files) {
-          setError(readApiErrorMessage(body, t('git.errors.readChanges')))
+        if (!body || !body.files) {
+          setError(t('git.errors.readChanges'))
           return
         }
         setChanges(body)
         setOpenPaths(expandDefaultRef.current ? new Set(folderPaths(buildTree(body.files))) : new Set())
       })
-      .catch(() => {
-        if (!cancelled) setError(t('git.errors.readChanges'))
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : t('git.errors.readChanges'))
       })
     return () => {
       cancelled = true
     }
-  }, [repo, commit.hash])
+  }, [repo, commit.hash, t])
 
   useEffect(() => {
     if (view !== 'all' || allFiles || !changes) return
     let cancelled = false
-    const params = new URLSearchParams({ repo, hash: commit.hash, tree: '1', all: '1' })
-    void fetch(`/api/git/commit?${params.toString()}`)
-      .then(async (response) => {
-        const body = (await response.json()) as GitCommitChanges & { ok?: boolean }
+    const driver = getGitDriver()
+    driver
+      .readCommitDiff({ repo, hash: commit.hash, tree: true, all: true })
+      .then((body) => {
         if (cancelled) return
-        if (!response.ok || body.ok === false || !body.files) {
-          setError(readApiErrorMessage(body, t('git.errors.readTree')))
+        if (!body || !body.files) {
+          setError(t('git.errors.readTree'))
           return
         }
         setAllFiles(body.files)
         setOpenPaths(expandDefaultRef.current ? new Set(folderPaths(buildTree(body.files))) : new Set())
       })
-      .catch(() => {
-        if (!cancelled) setError(t('git.errors.readTree'))
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : t('git.errors.readTree'))
       })
     return () => {
       cancelled = true
     }
-  }, [view, allFiles, changes, repo, commit.hash])
+  }, [view, allFiles, changes, repo, commit.hash, t])
 
   const changedFiles = changes?.files || []
   const changedTree = useMemo(() => buildTree(changedFiles), [changedFiles])

@@ -15,7 +15,7 @@
 ```mermaid
 flowchart TD
     subgraph UI ["表现层 (Presentation Layer)"]
-        Pill["居中药丸组件 (GitAgentBar)<br/>常态胶囊 / 展开 Command Palette / ⌘K 唤出"]
+        Pill["底部药丸组件 (GitAgentBar)<br/>常态胶囊 / 展开 Quick Input / ⌘J 唤出"]
         ConfigDrawer["零存储配置抽屉 (AgentConfigDrawer)<br/>纯 React State / 绝不写入磁盘"]
         CardContainer["诊断结果卡片容器<br/>ContainmentCard | MergesCard | CommitCard"]
     end
@@ -205,12 +205,13 @@ const [focusRequest, setFocusRequest] = useState<{ hash: string } | null>(null)
 分享链接不依赖任何远程数据库，状态全部自包含在 URL 中：
 
 ```
-/repo/[...slug]?focus=<commitHash>&lineage=<hash1,hash2,...>&reason=<tag>&desc=<encodedSummary>
+/repo/[...slug]?focus=<commitHash>&lineage=<hash1,hash2,...>&targets=<hash:role,...>&reason=<tag>&desc=<encodedSummary>
 ```
 
-* **`focus`**：主聚焦的目标 Commit Hash（打开时居中高亮）；
-* **`lineage`**：逗号分隔的关联脉络提交列表（用于复原高亮链路并弱化其余分支）；
-* **`reason`**：诊断类型（例如 `branch-containment`、`merge-audit`、`author-check`）；
+* **`focus`**：主聚焦的目标 Commit Hash（打开时居中高亮并选中）；
+* **`lineage`**：逗号分隔的关联脉络提交列表（用于图谱快速连线加粗与弱化其余分支）；
+* **`targets`**：可选，细粒度角色映射（如 `hash:primary,hash:related,hash:candidate`），用于差异化光晕；
+* **`reason`**：诊断类型与标记类型（例如 `risk:test-leak`、`audit:merge-audit`、`info:author-check`）；
 * **`desc`**：可选，经 URI 编码的精简诊断摘要（例如 `feat/cart_contains_test`）。
 
 ### 5.2 接收端逆解析恢复流程 (`GitLogPage` 初始化)

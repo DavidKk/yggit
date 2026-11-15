@@ -138,9 +138,11 @@ export function GitLogPage({ initial, initialCommitHash, initialPersistence }: P
       const catalog = await driver.getProjects()
       applyCatalog(catalog)
     } catch {
-      const response = await fetch('/api/git/projects')
-      const body = (await response.json()) as { ok?: boolean; projects?: GitProjectView[]; folders?: string[] }
-      if (response.ok && body.ok !== false) applyCatalog(body)
+      if (getDriverMode() === 'local') {
+        const response = await fetch('/api/git/projects')
+        const body = (await response.json()) as { ok?: boolean; projects?: GitProjectView[]; folders?: string[] }
+        if (response.ok && body.ok !== false) applyCatalog(body)
+      }
     }
   }, [applyCatalog])
 
@@ -154,6 +156,7 @@ export function GitLogPage({ initial, initialCommitHash, initialPersistence }: P
   }, [refreshProjects, view?.repo])
 
   const probeRemotes = useCallback(async (repo: string) => {
+    if (getDriverMode() === 'edge') return
     setRemoteProbing(true)
     try {
       const params = new URLSearchParams({ repo })
@@ -407,21 +410,28 @@ export function GitLogPage({ initial, initialCommitHash, initialPersistence }: P
 
   async function chooseFolder() {
     setError('')
-    if (getDriverMode() === 'edge' && isFileSystemAccessSupported() && window.showDirectoryPicker) {
-      try {
-        const handle = await window.showDirectoryPicker({ mode: 'readwrite' })
-        if (handle) {
-          await saveDirectoryHandle(handle.name, handle, handle.name)
-          const driver = getGitDriver('edge')
-          await driver.addProject({ pathOrUrl: handle.name, handle })
-          await refreshProjects()
-          closeMenu()
-          await load(handle.name)
+    if (getDriverMode() === 'edge') {
+      if (isFileSystemAccessSupported() && window.showDirectoryPicker) {
+        try {
+          const handle = await window.showDirectoryPicker({ mode: 'readwrite' })
+          if (handle) {
+            const driver = getGitDriver('edge')
+            await driver.addProject({ pathOrUrl: handle.name, handle, name: handle.name })
+            await refreshProjects()
+            closeMenu()
+            await load(handle.name)
+            return
+          }
+        } catch (e: unknown) {
+          if (e instanceof Error && e.name === 'AbortError') return
+          setError(e instanceof Error ? e.message : t('git.errors.openFolder'))
           return
         }
-      } catch (e: unknown) {
-        if (e instanceof Error && e.name === 'AbortError') return
+      } else {
+        setError(t('git.errors.unsupportedFileSystemAccess'))
+        return
       }
+      return
     }
 
     const picked = await pickFolders(t('git.pickFolder.multi'), true)
@@ -457,17 +467,12 @@ export function GitLogPage({ initial, initialCommitHash, initialPersistence }: P
   async function addRemote(input: { url: string; token?: string; syncAccount?: boolean }) {
     setBusy(true)
     try {
-      const response = await fetch('/api/git/projects', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(input),
-      })
-      const body = (await response.json()) as { ok?: boolean; projects?: GitProjectView[]; folders?: string[] }
-      if (!response.ok || body.ok === false) return readApiErrorMessage(body, t('git.errors.addRemoteFailed'))
-      applyCatalog(body)
+      const driver = getGitDriver()
+      const catalog = await driver.addRemoteProject(input)
+      applyCatalog(catalog)
       return ''
-    } catch {
-      return t('git.errors.addRemoteFailed')
+    } catch (err) {
+      return err instanceof Error ? err.message : t('git.errors.addRemoteFailed')
     } finally {
       setBusy(false)
     }
@@ -476,17 +481,12 @@ export function GitLogPage({ initial, initialCommitHash, initialPersistence }: P
   async function createFolder(name: string) {
     setBusy(true)
     try {
-      const response = await fetch('/api/git/projects', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'createFolder', folder: name }),
-      })
-      const body = (await response.json()) as { ok?: boolean; projects?: GitProjectView[]; folders?: string[] }
-      if (!response.ok || body.ok === false) return readApiErrorMessage(body, t('git.errors.createFolderFailed'))
-      applyCatalog(body)
+      const driver = getGitDriver()
+      const catalog = await driver.createFolder(name)
+      applyCatalog(catalog)
       return ''
-    } catch {
-      return t('git.errors.createFolderFailed')
+    } catch (err) {
+      return err instanceof Error ? err.message : t('git.errors.createFolderFailed')
     } finally {
       setBusy(false)
     }
@@ -495,17 +495,12 @@ export function GitLogPage({ initial, initialCommitHash, initialPersistence }: P
   async function moveProject(id: string, group: string, beforeId?: string) {
     setBusy(true)
     try {
-      const response = await fetch('/api/git/projects', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'moveProject', id, group, beforeId }),
-      })
-      const body = (await response.json()) as { ok?: boolean; projects?: GitProjectView[]; folders?: string[] }
-      if (!response.ok || body.ok === false) return readApiErrorMessage(body, t('git.errors.moveFailed'))
-      applyCatalog(body)
+      const driver = getGitDriver()
+      const catalog = await driver.moveProject(id, group, beforeId)
+      applyCatalog(catalog)
       return ''
-    } catch {
-      return t('git.errors.moveFailed')
+    } catch (err) {
+      return err instanceof Error ? err.message : t('git.errors.moveFailed')
     } finally {
       setBusy(false)
     }
@@ -514,28 +509,22 @@ export function GitLogPage({ initial, initialCommitHash, initialPersistence }: P
   async function deleteFolder(name: string) {
     setBusy(true)
     try {
-      const response = await fetch('/api/git/projects', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'deleteFolder', folder: name }),
-      })
-      const body = (await response.json()) as {
-        ok?: boolean
-        projects?: GitProjectView[]
-        folders?: string[]
-        removedCount?: number
-      }
-      if (!response.ok || body.ok === false) return { error: readApiErrorMessage(body, t('git.errors.deleteFolderFailed')) }
-      applyCatalog(body)
-      return { error: '', removedCount: body.removedCount || 0 }
-    } catch {
-      return { error: t('git.errors.deleteFolderFailed') }
+      const driver = getGitDriver()
+      const result = await driver.deleteFolder(name)
+      applyCatalog(result.catalog)
+      return { error: '', removedCount: result.removedCount }
+    } catch (err) {
+      return { error: err instanceof Error ? err.message : t('git.errors.deleteFolderFailed') }
     } finally {
       setBusy(false)
     }
   }
 
   async function cloneProject(project: GitProjectView) {
+    if (getDriverMode() === 'edge') {
+      setError(t('git.errors.cloneEdgeUnsupported'))
+      return ''
+    }
     const parent = await pickFolder(t('git.pickFolder.clone'))
     if (!parent) return ''
     setBusy(true)

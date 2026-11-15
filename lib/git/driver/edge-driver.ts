@@ -1,9 +1,27 @@
-import { getDirectoryHandle, listDirectoryHandles, saveDirectoryHandle } from '@/lib/git/indexeddb-handles'
-import { getTemporaryRepos } from '@/lib/git/temporary-store'
-import type { GitCommitChanges, GitLogView, GitProjectCatalog, GitProjectView } from '@/lib/git/types'
+import {
+  createEdgeFolder,
+  deleteEdgeFolder,
+  getDirectoryHandle,
+  getEdgeCatalog,
+  getEdgeFolders,
+  moveEdgeProject,
+  removeEdgeProject,
+  saveDirectoryHandle,
+  saveEdgeRemoteProject,
+} from '@/lib/git/indexeddb-handles'
+import { parseRemoteUrl } from '@/lib/git/temporary-store'
+import type { GitCommitChanges, GitLogView, GitProjectCatalog, GitProjectHost, GitProjectView } from '@/lib/git/types'
 import { parseGitHubRepo, readRemoteCommitChanges, readRemoteGitLog } from '@/services/git/remote-provider'
 
-import type { AddProjectPayload, IGitDriver, ReadBlobOptions, ReadCommitDiffOptions, ReadLogOptions } from './types'
+import type {
+  AddProjectPayload,
+  AddRemoteProjectOptions,
+  GitDeleteFolderResult,
+  IGitDriver,
+  ReadBlobOptions,
+  ReadCommitDiffOptions,
+  ReadLogOptions,
+} from './types'
 
 export class EdgeGitDriver implements IGitDriver {
   readonly mode = 'edge' as const
@@ -27,10 +45,6 @@ export class EdgeGitDriver implements IGitDriver {
       throw new Error(`RESOURCE_UNRESOLVED: Directory handle for "${repo}" not found in browser storage.`)
     }
 
-    // If handle exists, read via isomorphic-git or browser filesystem
-    // We dynamically import isomorphic-git to avoid server-side bundle overhead
-    const git = await import('isomorphic-git')
-    // We can also leverage isomorphic-git's fs adapter or LightningFS
     try {
       // In browser with FileSystemDirectoryHandle, check permissions
       const perm = typeof handle.queryPermission === 'function' ? await handle.queryPermission({ mode: 'read' }) : 'granted'
@@ -57,7 +71,6 @@ export class EdgeGitDriver implements IGitDriver {
         // Fallback
       }
 
-      // Return synthetic view if full pack parse is deferred
       return {
         repo,
         displayPath: handle.name,
@@ -93,7 +106,6 @@ export class EdgeGitDriver implements IGitDriver {
       throw new Error(`RESOURCE_UNRESOLVED: Directory handle for "${repo}" not found.`)
     }
 
-    // Return empty changes fallback for local edge handle if not parsed
     return {
       hash,
       files: [],
@@ -107,7 +119,6 @@ export class EdgeGitDriver implements IGitDriver {
 
     const gh = parseGitHubRepo(repo)
     if (gh) {
-      // Fetch via raw.githubusercontent.com
       const rawUrl = `https://raw.githubusercontent.com/${gh.owner}/${gh.repo}/${hash}/${path}`
       const res = await fetch(rawUrl)
       if (!res.ok) {
@@ -124,7 +135,6 @@ export class EdgeGitDriver implements IGitDriver {
       throw new Error(`RESOURCE_UNRESOLVED: Directory handle for "${repo}" not found.`)
     }
 
-    // Resolve file from handle directly
     const pathParts = path.split('/').filter(Boolean)
     let curDir = handle
     for (let i = 0; i < pathParts.length - 1; i++) {
@@ -140,47 +150,20 @@ export class EdgeGitDriver implements IGitDriver {
   }
 
   async getProjects(): Promise<GitProjectCatalog> {
-    const handles = await listDirectoryHandles()
-    const tempRepos = getTemporaryRepos()
-
-    const handleProjects: GitProjectView[] = handles.map((h) => ({
-      id: h.id,
-      name: h.name,
-      group: '本地存储 (Web FS)',
-      host: 'local',
-      localPath: h.name,
-      httpsUrl: '',
-      local: true,
-      remote: false,
-      authorized: true,
-    }))
-
-    const tempProjects: GitProjectView[] = tempRepos.map((r) => ({
-      id: r.fingerprint,
-      name: r.name,
-      group: r.provider === 'github' ? 'GitHub (Edge)' : 'GitLab (Edge)',
-      host: r.provider === 'github' ? 'github' : 'gitlab',
-      localPath: '',
-      httpsUrl: r.remoteUrl,
-      local: false,
-      remote: true,
-      authorized: true,
-    }))
-
-    return {
-      projects: [...handleProjects, ...tempProjects],
-      folders: ['本地存储 (Web FS)', 'GitHub (Edge)', 'GitLab (Edge)'],
-    }
+    return getEdgeCatalog()
   }
 
   async addProject(payload: AddProjectPayload): Promise<GitProjectView> {
     const id = payload.pathOrUrl
+    const folders = await getEdgeFolders()
+    const group = payload.group || folders[0] || '工作项目'
+
     if (payload.handle) {
-      await saveDirectoryHandle(id, payload.handle, payload.name)
+      await saveDirectoryHandle(id, payload.handle, payload.name, group)
       return {
         id,
         name: payload.name || payload.handle.name || id,
-        group: '本地存储 (Web FS)',
+        group,
         host: 'local',
         localPath: payload.handle.name,
         httpsUrl: '',
@@ -193,7 +176,7 @@ export class EdgeGitDriver implements IGitDriver {
     return {
       id,
       name: payload.name || id,
-      group: '远程仓库 (Edge)',
+      group,
       host: id.includes('github') ? 'github' : 'gitlab',
       localPath: '',
       httpsUrl: id,
@@ -201,5 +184,52 @@ export class EdgeGitDriver implements IGitDriver {
       remote: true,
       authorized: true,
     }
+  }
+
+  async createFolder(name: string): Promise<GitProjectCatalog> {
+    await createEdgeFolder(name)
+    return getEdgeCatalog()
+  }
+
+  async deleteFolder(name: string): Promise<GitDeleteFolderResult> {
+    const result = await deleteEdgeFolder(name)
+    const catalog = await getEdgeCatalog()
+    return {
+      catalog,
+      removedCount: result.removedCount,
+    }
+  }
+
+  async moveProject(id: string, group: string, beforeId?: string): Promise<GitProjectCatalog> {
+    await moveEdgeProject(id, group, beforeId)
+    return getEdgeCatalog()
+  }
+
+  async removeProject(id: string): Promise<GitProjectCatalog> {
+    await removeEdgeProject(id)
+    return getEdgeCatalog()
+  }
+
+  async addRemoteProject(input: AddRemoteProjectOptions): Promise<GitProjectCatalog> {
+    const parsed = parseRemoteUrl(input.url)
+    const name = input.name || parsed?.name || input.url.split('/').pop()?.replace(/\.git$/, '') || 'remote-repo'
+    const id = parsed?.fingerprint || input.url
+    const host: GitProjectHost = parsed?.provider === 'gitlab' ? 'gitlab' : 'github'
+
+    const folders = await getEdgeFolders()
+    const group = input.group || folders[0] || '个人项目'
+
+    await saveEdgeRemoteProject({
+      id,
+      name,
+      url: parsed?.remoteUrl || input.url,
+      host,
+      group,
+      token: input.token,
+      order: Date.now(),
+      updatedAt: Date.now(),
+    })
+
+    return getEdgeCatalog()
   }
 }
