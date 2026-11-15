@@ -3,6 +3,16 @@
  * Implements persistent Web File System Access API handles for zero-prompt restoration.
  */
 
+declare global {
+  interface Window {
+    showDirectoryPicker?: (options?: unknown) => Promise<FileSystemDirectoryHandle>
+  }
+  interface FileSystemHandle {
+    queryPermission?(descriptor?: { mode?: 'read' | 'readwrite' }): Promise<PermissionState>
+    requestPermission?(descriptor?: { mode?: 'read' | 'readwrite' }): Promise<PermissionState>
+  }
+}
+
 export interface StoredRepoRecord {
   id: string
   name: string

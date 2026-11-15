@@ -10,6 +10,7 @@ import { GitDebug } from '@/components/git/GitDebug'
 import { GitFileDiff } from '@/components/git/GitFileDiff'
 import { GIT_FIND_EVENT, useGitFindShortcut } from '@/components/git/gitFind'
 import { GitHistory } from '@/components/git/GitHistory'
+import { GitModeSwitcher } from '@/components/git/GitModeSwitcher'
 import { GitProjectMenu } from '@/components/git/GitProjectMenu'
 import { GitSidebar } from '@/components/git/GitSidebar'
 import { PanelSplitter } from '@/components/git/PanelSplitter'
@@ -591,7 +592,9 @@ export function GitLogPage({ initial, initialCommitHash, initialPersistence }: P
               onMoveProject={moveProject}
             />
           </div>
-          <div className="ml-auto flex shrink-0 items-center gap-1">
+          <div className="ml-auto flex shrink-0 items-center gap-1.5">
+            <GitModeSwitcher />
+            <span className="mx-0.5 h-3.5 w-px shrink-0 bg-[color-mix(in_oklab,var(--ink)_14%,transparent)]" aria-hidden />
             <ThemeSwitcher compact />
             <LocaleSwitcher compact />
           </div>

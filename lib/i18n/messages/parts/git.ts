@@ -213,6 +213,27 @@ export type GitMessages = {
     remoteUrlPlaceholder: string
   }
   status: { add: string; delete: string; rename: string; modify: string }
+  driver: {
+    modeEdge: string
+    modeLocal: string
+    modeEdgeTip: string
+    modeLocalTip: string
+  }
+  associate: {
+    title: string
+    description: string
+    remoteIdentity: string
+    targetCommit: string
+    cloneReference: string
+    tabExisting: string
+    tabNewFolder: string
+    selectProject: string
+    selectPlaceholder: string
+    specifyPath: string
+    browseDirectory: string
+    backHome: string
+    associateAndOpen: string
+  }
 }
 
 export const gitZh: GitMessages = {
@@ -450,6 +471,27 @@ export const gitZh: GitMessages = {
     delete: "删除",
     rename: "重命名",
     modify: "修改"
+  },
+  driver: {
+    modeEdge: "Web / Edge 模式",
+    modeLocal: "本地 CLI 模式",
+    modeEdgeTip: "纯浏览器免安装运行，数据驻留本地与前端",
+    modeLocalTip: "使用本地 Node 与原生 Git CLI 极速引擎",
+  },
+  associate: {
+    title: "关联共享仓库",
+    description: "同事或团队向你分享了仓库资源，请在本地指定或选择对应项目以快速进入",
+    remoteIdentity: "远程标识",
+    targetCommit: "目标提交",
+    cloneReference: "克隆命令参考",
+    tabExisting: "从已有项目选择",
+    tabNewFolder: "指定新文件夹",
+    selectProject: "选择已有项目",
+    selectPlaceholder: "请选择匹配的项目...",
+    specifyPath: "指定本地文件夹路径",
+    browseDirectory: "浏览目录",
+    backHome: "返回首页",
+    associateAndOpen: "关联并打开",
   }
 }
 
@@ -688,6 +730,27 @@ export const gitCht: GitMessages = {
     delete: "刪除",
     rename: "重新命名",
     modify: "修改"
+  },
+  driver: {
+    modeEdge: "Web / Edge 模式",
+    modeLocal: "本地 CLI 模式",
+    modeEdgeTip: "純瀏覽器免安裝運行，數據駐留本地與前端",
+    modeLocalTip: "使用本地 Node 與原生 Git CLI 極速引擎",
+  },
+  associate: {
+    title: "關聯共享倉庫",
+    description: "同事或團隊向你分享了倉庫資源，請在本地指定或選擇對應項目以快速進入",
+    remoteIdentity: "遠程標識",
+    targetCommit: "目標提交",
+    cloneReference: "克隆命令參考",
+    tabExisting: "從已有項目選擇",
+    tabNewFolder: "指定新資料夾",
+    selectProject: "選擇已有項目",
+    selectPlaceholder: "請選擇匹配的項目...",
+    specifyPath: "指定本地資料夾路徑",
+    browseDirectory: "瀏覽目錄",
+    backHome: "返回首頁",
+    associateAndOpen: "關聯並開啟",
   }
 }
 
@@ -926,6 +989,27 @@ export const gitEn: GitMessages = {
     delete: "Deleted",
     rename: "Renamed",
     modify: "Modified"
+  },
+  driver: {
+    modeEdge: "Web / Edge Mode",
+    modeLocal: "Local CLI Mode",
+    modeEdgeTip: "Runs 100% in browser with zero install; data stays local",
+    modeLocalTip: "Uses local Node host and native Git CLI engine",
+  },
+  associate: {
+    title: "Associate Shared Repository",
+    description: "A teammate shared a repository resource with you. Select an existing project or pick a local folder to open it.",
+    remoteIdentity: "Remote Identity",
+    targetCommit: "Target Commit",
+    cloneReference: "Clone Command Reference",
+    tabExisting: "Select from Existing",
+    tabNewFolder: "Pick New Folder",
+    selectProject: "Choose Existing Project",
+    selectPlaceholder: "Select a matching project...",
+    specifyPath: "Specify Local Folder Path",
+    browseDirectory: "Browse Directory",
+    backHome: "Back to Home",
+    associateAndOpen: "Associate & Open",
   }
 }
 
@@ -1164,6 +1248,27 @@ export const gitJa: GitMessages = {
     delete: "削除",
     rename: "名前変更",
     modify: "変更"
+  },
+  driver: {
+    modeEdge: "Web / Edge モード",
+    modeLocal: "ローカル CLI モード",
+    modeEdgeTip: "インストール不要でブラウザ上で動作、データはローカルに保持",
+    modeLocalTip: "ローカル Node とネイティブ Git CLI エンジンを使用",
+  },
+  associate: {
+    title: "共有リポジトリの関連付け",
+    description: "チームメンバーからリポジトリが共有されました。既存のプロジェクトを選択するかローカルフォルダを指定してください。",
+    remoteIdentity: "リモート識別子",
+    targetCommit: "対象コミット",
+    cloneReference: "クローンコマンド参考",
+    tabExisting: "既存プロジェクトから選択",
+    tabNewFolder: "新しいフォルダを指定",
+    selectProject: "既存プロジェクトを選択",
+    selectPlaceholder: "一致するプロジェクトを選択...",
+    specifyPath: "ローカルフォルダパスを指定",
+    browseDirectory: "ディレクトリを参照",
+    backHome: "ホームに戻る",
+    associateAndOpen: "関連付けて開く",
   }
 }
 
@@ -1402,6 +1507,27 @@ export const gitFr: GitMessages = {
     delete: "Supprimé",
     rename: "Renommé",
     modify: "Modifié"
+  },
+  driver: {
+    modeEdge: "Mode Web / Edge",
+    modeLocal: "Mode CLI Local",
+    modeEdgeTip: "Fonctionne à 100% dans le navigateur sans installation, données locales",
+    modeLocalTip: "Utilise le serveur Node local et le moteur Git CLI natif",
+  },
+  associate: {
+    title: "Associer le dépôt partagé",
+    description: "Un coéquipier a partagé une ressource de dépôt avec vous. Choisissez un projet existant ou un dossier local pour l'ouvrir.",
+    remoteIdentity: "Identité distante",
+    targetCommit: "Commit cible",
+    cloneReference: "Référence de clone",
+    tabExisting: "Sélectionner parmi les existants",
+    tabNewFolder: "Nouveau dossier",
+    selectProject: "Choisir un projet existant",
+    selectPlaceholder: "Sélectionner un projet correspondant...",
+    specifyPath: "Spécifier le chemin du dossier local",
+    browseDirectory: "Parcourir le répertoire",
+    backHome: "Retour à l'accueil",
+    associateAndOpen: "Associer et ouvrir",
   }
 }
 
@@ -1640,6 +1766,27 @@ export const gitDe: GitMessages = {
     delete: "Gelöscht",
     rename: "Umbenannt",
     modify: "Modifiziert"
+  },
+  driver: {
+    modeEdge: "Web / Edge Modus",
+    modeLocal: "Lokaler CLI Modus",
+    modeEdgeTip: "Läuft zu 100% im Browser ohne Installation; Daten bleiben lokal",
+    modeLocalTip: "Nutzt lokalen Node-Host und native Git CLI Engine",
+  },
+  associate: {
+    title: "Geteiltes Repository zuordnen",
+    description: "Ein Teamkollege hat eine Repository-Ressource geteilt. Wählen Sie ein vorhandenes Projekt oder einen lokalen Ordner.",
+    remoteIdentity: "Remote-Kennung",
+    targetCommit: "Ziel-Commit",
+    cloneReference: "Clone-Befehlsreferenz",
+    tabExisting: "Aus vorhandenen wählen",
+    tabNewFolder: "Neuer Ordner",
+    selectProject: "Vorhandenes Projekt wählen",
+    selectPlaceholder: "Passendes Projekt auswählen...",
+    specifyPath: "Lokalen Ordnerpfad angeben",
+    browseDirectory: "Verzeichnis durchsuchen",
+    backHome: "Zurück zur Startseite",
+    associateAndOpen: "Zuordnen und öffnen",
   }
 }
 
@@ -1878,6 +2025,27 @@ export const gitEs: GitMessages = {
     delete: "Eliminado",
     rename: "Renombrado",
     modify: "modificado"
+  },
+  driver: {
+    modeEdge: "Modo Web / Edge",
+    modeLocal: "Modo CLI Local",
+    modeEdgeTip: "Funciona 100% en el navegador sin instalación; datos locales",
+    modeLocalTip: "Usa el host Node local y el motor Git CLI nativo",
+  },
+  associate: {
+    title: "Asociar repositorio compartido",
+    description: "Un compañero compartió un repositorio contigo. Elige un proyecto existente o una carpeta local para abrirlo.",
+    remoteIdentity: "Identidad remota",
+    targetCommit: "Commit de destino",
+    cloneReference: "Referencia de clonación",
+    tabExisting: "Seleccionar de existentes",
+    tabNewFolder: "Nueva carpeta local",
+    selectProject: "Elegir proyecto existente",
+    selectPlaceholder: "Seleccionar un proyecto coincidente...",
+    specifyPath: "Especificar ruta de carpeta local",
+    browseDirectory: "Explorar directorio",
+    backHome: "Volver al inicio",
+    associateAndOpen: "Asociar y abrir",
   }
 }
 
@@ -2116,6 +2284,27 @@ export const gitRu: GitMessages = {
     delete: "Удалено",
     rename: "Переименован",
     modify: "Изменённый"
+  },
+  driver: {
+    modeEdge: "Режим Web / Edge",
+    modeLocal: "Локальный режим CLI",
+    modeEdgeTip: "Работает на 100% в браузере без установки; данные остаются локальными",
+    modeLocalTip: "Использует локальный Node и нативный движок Git CLI",
+  },
+  associate: {
+    title: "Связать общий репозиторий",
+    description: "Коллега поделился с вами ресурсом репозитория. Выберите существующий проект или локальную папку для открытия.",
+    remoteIdentity: "Удаленный идентификатор",
+    targetCommit: "Целевой коммит",
+    cloneReference: "Команда клонирования",
+    tabExisting: "Выбрать из существующих",
+    tabNewFolder: "Новая локальная папка",
+    selectProject: "Выбрать проект",
+    selectPlaceholder: "Выберите подходящий проект...",
+    specifyPath: "Указать путь к папке",
+    browseDirectory: "Обзор каталога",
+    backHome: "На главную",
+    associateAndOpen: "Связать и открыть",
   }
 }
 
@@ -2354,6 +2543,27 @@ export const gitPtBR: GitMessages = {
     delete: "Excluído",
     rename: "Renomeado",
     modify: "Modificado"
+  },
+  driver: {
+    modeEdge: "Modo Web / Edge",
+    modeLocal: "Modo CLI Local",
+    modeEdgeTip: "Executa 100% no navegador sem instalação; dados ficam locais",
+    modeLocalTip: "Usa o host Node local e motor Git CLI nativo",
+  },
+  associate: {
+    title: "Associar Repositório Compartilhado",
+    description: "Um colega compartilhou um repositório com você. Escolha um projeto existente ou uma pasta local para abrir.",
+    remoteIdentity: "Identidade Remota",
+    targetCommit: "Commit de Destino",
+    cloneReference: "Referência de Clone",
+    tabExisting: "Selecionar de Existentes",
+    tabNewFolder: "Nova Pasta Local",
+    selectProject: "Escolher Projeto Existente",
+    selectPlaceholder: "Selecione um projeto correspondente...",
+    specifyPath: "Especificar Caminho da Pasta Local",
+    browseDirectory: "Procurar Diretório",
+    backHome: "Voltar ao Início",
+    associateAndOpen: "Associar e Abrir",
   }
 }
 
@@ -2592,6 +2802,27 @@ export const gitKo: GitMessages = {
     delete: "삭제됨",
     rename: "이름 변경됨",
     modify: "수정됨"
+  },
+  driver: {
+    modeEdge: "Web / Edge 모드",
+    modeLocal: "로컬 CLI 모드",
+    modeEdgeTip: "설치 없이 브라우저에서 100% 실행, 데이터는 로컬에 유지",
+    modeLocalTip: "로컬 Node 호스트 및 네이티브 Git CLI 엔진 사용",
+  },
+  associate: {
+    title: "공유 저장소 연결",
+    description: "동료가 저장소 리소스를 공유했습니다. 기존 프로젝트를 선택하거나 로컬 폴더를 지정하여 열어보세요.",
+    remoteIdentity: "원격 식별자",
+    targetCommit: "대상 커밋",
+    cloneReference: "클론 명령어 참고",
+    tabExisting: "기존 프로젝트에서 선택",
+    tabNewFolder: "새 로컬 폴더 지정",
+    selectProject: "기존 프로젝트 선택",
+    selectPlaceholder: "일치하는 프로젝트 선택...",
+    specifyPath: "로컬 폴더 경로 지정",
+    browseDirectory: "디렉터리 찾아보기",
+    backHome: "홈으로 돌아가기",
+    associateAndOpen: "연결 및 열기",
   }
 }
 
