@@ -4,7 +4,7 @@ import React from 'react'
 import { LuKeyRound, LuNetwork, LuShieldCheck, LuUserCheck } from 'react-icons/lu'
 
 import { useT } from '@/components/i18n/LocaleProvider'
-import { SwitchToggle, TextInput } from '@/components/sk'
+import { SwitchToggle, TagInput } from '@/components/sk'
 import { useAgent } from '@/lib/agent/agent-context'
 import { cn } from '@/lib/utils'
 
@@ -24,33 +24,19 @@ export function PrivacyRedactSection() {
     }))
   }
 
-  const handleCustomWordsChange = (text: string) => {
-    const words = text
-      .split(/[\n,]/)
-      .map((w) => w.trim())
-      .filter(Boolean)
-      .map((word) => ({ word, caseSensitive: false, wholeWord: false }))
-
+  const handleCustomWordsChange = (tags: string[]) => {
     setRedactionOptions((prev) => ({
       ...prev,
-      customWords: words,
+      customWords: tags.map((word) => ({ word, caseSensitive: false, wholeWord: false })),
     }))
   }
 
-  const handleAllowListChange = (text: string) => {
-    const allowList = text
-      .split(/[\n,]/)
-      .map((w) => w.trim())
-      .filter(Boolean)
-
+  const handleAllowListChange = (allowList: string[]) => {
     setRedactionOptions((prev) => ({
       ...prev,
       allowList,
     }))
   }
-
-  const customWordsText = redactionOptions.customWords.map((cw) => cw.word).join(', ')
-  const allowListText = redactionOptions.allowList.join(', ')
 
   return (
     <div className="flex flex-col gap-3">
@@ -134,28 +120,32 @@ export function PrivacyRedactSection() {
       {/* Card 3: Custom Words */}
       <SettingsSectionCard title={t('gitAgent.privacyCustomWords')} description="配置需要额外强制脱敏的项目特有专有词汇或敏感代号（发送前替换为语义占位符并在回复时自动还原）">
         <div className={cn('flex flex-col gap-2', !redactionOptions.enabled && 'pointer-events-none opacity-50')}>
-          <TextInput
-            fullWidth
-            value={customWordsText}
-            onChange={(e) => handleCustomWordsChange(e.target.value)}
-            placeholder={t('gitAgent.privacyCustomWordsPlaceholder')}
+          <TagInput
+            value={redactionOptions.customWords.map((cw) => cw.word)}
+            onChange={handleCustomWordsChange}
+            placeholder={t('gitAgent.privacyCustomWordsPlaceholder') || '输入敏感词后按 Enter 或逗号添加...'}
             disabled={!redactionOptions.enabled}
           />
-          <p className="text-xs text-ink-soft leading-relaxed">支持使用逗号或换行分隔多个敏感词，例如项目代号、内部组织名或特定业务密钥标识等。</p>
+          <p className="text-xs text-ink-soft leading-relaxed">
+            以标签形式管理多个项目敏感代号，支持通配符（如 <code className="font-mono text-ink">PROJ_*</code>、<code className="font-mono text-ink">secret_?</code>），按 Enter
+            或逗号添加，支持粘贴批量录入。
+          </p>
         </div>
       </SettingsSectionCard>
 
       {/* Card 4: Allowlist */}
       <SettingsSectionCard title={t('gitAgent.privacyAllowList')} description="配置即使命中内置脱敏规则也不被掩盖的豁免词汇">
         <div className={cn('flex flex-col gap-2', !redactionOptions.enabled && 'pointer-events-none opacity-50')}>
-          <TextInput
-            fullWidth
-            value={allowListText}
-            onChange={(e) => handleAllowListChange(e.target.value)}
-            placeholder={t('gitAgent.privacyAllowListPlaceholder')}
+          <TagInput
+            value={redactionOptions.allowList}
+            onChange={handleAllowListChange}
+            placeholder={t('gitAgent.privacyAllowListPlaceholder') || '输入豁免词后按 Enter 或逗号添加...'}
             disabled={!redactionOptions.enabled}
           />
-          <p className="text-xs text-ink-soft leading-relaxed">支持使用逗号或换行分隔多个豁免词，例如项目已公开的公共仓库名、公共第三方依赖库包名或公开 API 接口等。</p>
+          <p className="text-xs text-ink-soft leading-relaxed">
+            配置白名单标签，支持域名与名称通配符（如 <code className="font-mono text-ink">*.internal.net</code>、<code className="font-mono text-ink">public-*</code>
+            ），命中后将安全豁免脱敏。
+          </p>
         </div>
       </SettingsSectionCard>
     </div>

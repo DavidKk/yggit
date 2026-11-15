@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useState } from 'react'
-import { LuActivity, LuArrowLeft, LuCheck, LuCpu, LuPencil, LuPlus, LuSave } from 'react-icons/lu'
+import React, { useMemo, useState } from 'react'
+import { LuActivity, LuArrowLeft, LuCheck, LuCpu, LuPencil, LuPlus, LuRefreshCw, LuSave } from 'react-icons/lu'
 
 import { useT } from '@/components/i18n/LocaleProvider'
 import { Badge, Button, Select, TextInput } from '@/components/sk'
@@ -9,6 +9,7 @@ import { useAgent } from '@/lib/agent/agent-context'
 import type { AgentModelProfile } from '@/lib/agent/model-profiles'
 import { testAgentConnection } from '@/lib/agent/openapi-client'
 import { AGENT_PRESETS, type AgentProviderType, DEFAULT_AGENT_CONFIG } from '@/lib/agent/types'
+import { cn } from '@/lib/utils'
 
 import { ConfiguredSecretInput } from './ConfiguredSecretInput'
 import { PrivacyNoticeCallout } from './PrivacyNoticeCallout'
@@ -36,7 +37,7 @@ export function ModelChannelSection() {
         {profiles.map((profile) => (
           <li key={profile.id} className="flex flex-wrap items-center gap-3 py-3 first:pt-0 last:pb-0">
             <LuCpu className="size-4 shrink-0 text-accent" aria-hidden="true" />
-            <button type="button" className="min-w-0 flex-1 text-left hover:text-accent" onClick={() => setEditing(profile)}>
+            <button type="button" className="min-w-0 flex-1 text-left hover:text-accent cursor-pointer" onClick={() => setEditing(profile)}>
               <span className="block text-sm font-medium break-words">{profile.name}</span>
               <span className="block text-xs text-ink-soft break-all">
                 {profile.config.model} · {profile.config.baseUrl}
@@ -50,7 +51,7 @@ export function ModelChannelSection() {
                 {t('gitAgent.useModel')}
               </Button>
             )}
-            {AGENT_PRESETS[profile.config.provider].requiresKey && !profile.config.apiKey && <Badge tone="warn">{t('gitAgent.keyRequired')}</Badge>}
+            {AGENT_PRESETS[profile.config.provider]?.requiresKey && !profile.config.apiKey && <Badge tone="warn">{t('gitAgent.keyRequired')}</Badge>}
             <Button size="icon" variant="plain" aria-label={t('gitAgent.editModel')} onClick={() => setEditing(profile)}>
               <LuPencil aria-hidden="true" />
             </Button>
@@ -70,8 +71,24 @@ function ModelChannelEditor({ profile, onBack }: { profile: AgentModelProfile; o
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<{ ok: boolean; latencyMs?: number; error?: string } | null>(null)
   const [error, setError] = useState('')
-  const preset = AGENT_PRESETS[draft.config.provider]
+
+  // Remote models fetching state
+  const [fetchingModels, setFetchingModels] = useState(false)
+  const [remoteModels, setRemoteModels] = useState<Array<{ id: string; name: string }>>([])
+  const [modelsFetchMsg, setModelsFetchMsg] = useState('')
+
+  const preset = AGENT_PRESETS[draft.config.provider] || AGENT_PRESETS['byop']
   const config = { ...draft.config, apiKey: keyDraft.trim() || (clearKey ? '' : draft.config.apiKey) }
+
+  const availableModels = useMemo(() => {
+    const list = [...(preset.models || [])]
+    for (const rm of remoteModels) {
+      if (!list.some((item) => item.id === rm.id)) {
+        list.push(rm)
+      }
+    }
+    return list
+  }, [preset.models, remoteModels])
 
   function validationError() {
     if (!draft.name.trim() || !config.model.trim() || !config.baseUrl?.trim()) return t('gitAgent.requiredFields')
@@ -102,11 +119,44 @@ function ModelChannelEditor({ profile, onBack }: { profile: AgentModelProfile; o
     }
   }
 
+  async function handleFetchModels() {
+    if (!config.baseUrl) {
+      setModelsFetchMsg('请先填写接入地址')
+      return
+    }
+    setFetchingModels(true)
+    setModelsFetchMsg('')
+    try {
+      const res = await fetch('/api/git/agent/models', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          baseUrl: config.baseUrl,
+          apiKey: config.apiKey,
+          provider: config.provider,
+        }),
+      })
+      const data = await res.json().catch(() => null)
+      if (res.ok && data?.models && data.models.length > 0) {
+        setRemoteModels(data.models)
+        setModelsFetchMsg(`已成功读取 ${data.models.length} 个可用模型`)
+      } else {
+        setModelsFetchMsg(data?.message || '未能从服务端读取到模型列表，使用预设清单')
+      }
+    } catch {
+      setModelsFetchMsg('读取失败，请检查网络或接入地址')
+    } finally {
+      setFetchingModels(false)
+    }
+  }
+
   function updateConfig(patch: Partial<typeof draft.config>) {
     setDraft((previous) => ({ ...previous, config: { ...previous.config, ...patch } }))
     setTestResult(null)
     setError('')
   }
+
+  const showApiKeyField = config.provider !== 'ollama' && config.provider !== 'local-sdk'
 
   return (
     <SettingsSectionCard title={t('gitAgent.modelDetails')} description={t('gitAgent.modelDetailsDesc')}>
@@ -121,81 +171,157 @@ function ModelChannelEditor({ profile, onBack }: { profile: AgentModelProfile; o
           onBack()
         }}
       >
-        <fieldset disabled={testing} className="grid min-w-0 gap-3">
-          <div className="grid gap-1.5">
-            <label htmlFor="agent-model-name" className="text-xs font-medium">
-              {t('gitAgent.profileName')}
-            </label>
-            <TextInput id="agent-model-name" fullWidth value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} />
-          </div>
-          <div className="grid gap-1.5">
-            <span className="text-xs font-medium" id="agent-provider-label">
-              {t('gitAgent.modelProvider')}
-            </span>
-            <Select
-              aria-labelledby="agent-provider-label"
-              className="w-full"
-              value={config.provider}
-              options={(Object.keys(AGENT_PRESETS) as AgentProviderType[]).map((value) => ({ value, label: AGENT_PRESETS[value].name }))}
-              onChange={(value) => {
-                const provider = value as AgentProviderType
-                const next = AGENT_PRESETS[provider]
-                updateConfig({ provider, baseUrl: next.baseUrl, model: next.defaultModel, apiKey: '' })
-                setKeyDraft('')
-                setClearKey(false)
-              }}
-            />
-          </div>
-          {preset.noZdrNotice && <PrivacyNoticeCallout />}
-          <div className="grid gap-1.5">
-            <label htmlFor="agent-model-endpoint" className="text-xs font-medium">
-              {t('gitAgent.endpoint')}
-            </label>
-            <TextInput
-              id="agent-model-endpoint"
-              fullWidth
-              value={config.baseUrl || ''}
-              onChange={(event) => updateConfig({ baseUrl: event.target.value })}
-              placeholder={t('gitAgent.endpointPlaceholder')}
-            />
-          </div>
-          <div className="grid gap-1.5">
-            <label htmlFor="agent-model-id" className="text-xs font-medium">
-              {t('gitAgent.modelName')}
-            </label>
-            <TextInput id="agent-model-id" fullWidth list="agent-model-options" value={config.model} onChange={(event) => updateConfig({ model: event.target.value })} />
-            <datalist id="agent-model-options">
-              {preset.models.map((model) => (
-                <option key={model.id} value={model.id}>
-                  {model.name}
-                </option>
-              ))}
-            </datalist>
-          </div>
-          {config.provider !== 'ollama' && (
-            <div className="grid gap-1.5">
-              <label htmlFor="agent-api-key" className="text-xs font-medium">
-                {t('gitAgent.apiKey')}
+        <fieldset disabled={testing} className="divide-y divide-line/60">
+          {/* Row 1: Profile Name */}
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 first:pt-0 items-start">
+            <div className="md:col-span-5 min-w-0">
+              <label htmlFor="agent-model-name" className="text-xs font-semibold text-ink">
+                {t('gitAgent.profileName')}
               </label>
-              <ConfiguredSecretInput
-                key={config.provider}
-                configured={Boolean(draft.config.apiKey) && !clearKey}
-                value={keyDraft}
+              <p className="text-xs text-ink-soft leading-relaxed mt-1">为该配置指定一个直观易辨识的名称（例如：主力代码分析、轻量快速调试）。</p>
+            </div>
+            <div className="md:col-span-7 min-w-0">
+              <TextInput
+                id="agent-model-name"
+                fullWidth
+                value={draft.name}
+                onChange={(event) => setDraft({ ...draft, name: event.target.value })}
+                placeholder="例如：主力模型 / DeepSeek-V3"
+              />
+            </div>
+          </div>
+
+          {/* Row 2: Provider */}
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 items-start">
+            <div className="md:col-span-5 min-w-0">
+              <span className="text-xs font-semibold text-ink" id="agent-provider-label">
+                {t('gitAgent.modelProvider')}
+              </span>
+              <p className="text-xs text-ink-soft leading-relaxed mt-1">{preset.description || '选择大语言模型服务商协议或本地直连方式。'}</p>
+            </div>
+            <div className="md:col-span-7 min-w-0">
+              <Select
+                aria-labelledby="agent-provider-label"
+                className="w-full"
+                value={config.provider}
+                options={(Object.keys(AGENT_PRESETS) as AgentProviderType[]).map((value) => ({
+                  value,
+                  label: AGENT_PRESETS[value].name,
+                }))}
                 onChange={(value) => {
-                  setKeyDraft(value)
-                  setTestResult(null)
-                  setError('')
-                }}
-                onClear={() => {
+                  const provider = value as AgentProviderType
+                  const next = AGENT_PRESETS[provider]
+                  updateConfig({ provider, baseUrl: next.baseUrl, model: next.defaultModel, apiKey: '' })
                   setKeyDraft('')
-                  setClearKey(true)
-                  setTestResult(null)
+                  setClearKey(false)
+                  setRemoteModels([])
+                  setModelsFetchMsg('')
                 }}
               />
-              <p className="text-xs text-ink-soft">{t('gitAgent.apiKeyPlaceholder')}</p>
+            </div>
+          </div>
+
+          {preset.noZdrNotice && (
+            <div className="py-2">
+              <PrivacyNoticeCallout />
+            </div>
+          )}
+
+          {/* Row 3: API Endpoint */}
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 items-start">
+            <div className="md:col-span-5 min-w-0">
+              <label htmlFor="agent-model-endpoint" className="text-xs font-semibold text-ink">
+                {t('gitAgent.endpoint')}
+              </label>
+              <p className="text-xs text-ink-soft leading-relaxed mt-1">兼容 OpenAPI 规范的服务基地址，请求会自动附加并转发至 /chat/completions。</p>
+            </div>
+            <div className="md:col-span-7 min-w-0">
+              <TextInput
+                id="agent-model-endpoint"
+                fullWidth
+                value={config.baseUrl || ''}
+                onChange={(event) => updateConfig({ baseUrl: event.target.value })}
+                placeholder={t('gitAgent.endpointPlaceholder')}
+              />
+            </div>
+          </div>
+
+          {/* Row 4: Model Selection with Direct List & Dynamic Fetch */}
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 items-start">
+            <div className="md:col-span-5 min-w-0">
+              <label htmlFor="agent-model-id" className="text-xs font-semibold text-ink">
+                {t('gitAgent.modelName')}
+              </label>
+              <p className="text-xs text-ink-soft leading-relaxed mt-1">直接选择模型规格或从服务端读取实时模型列表，无需手动查找与输入模型代码。</p>
+            </div>
+            <div className="md:col-span-7 min-w-0 flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <Select
+                  aria-label="选择模型"
+                  className="flex-1 min-w-0"
+                  value={availableModels.some((m) => m.id === config.model) ? config.model : '__custom__'}
+                  options={[...availableModels.map((m) => ({ value: m.id, label: m.name })), { value: '__custom__', label: '自定义模型名称...' }]}
+                  onChange={(val) => {
+                    if (val !== '__custom__') {
+                      updateConfig({ model: val })
+                    }
+                  }}
+                />
+                <Button
+                  type="button"
+                  size="md"
+                  variant="default"
+                  loading={fetchingModels}
+                  onClick={handleFetchModels}
+                  title="从远程接口动态拉取模型列表"
+                  className="shrink-0 text-xs gap-1 cursor-pointer"
+                >
+                  <LuRefreshCw className={cn('size-3.5', fetchingModels && 'animate-spin')} />
+                  <span>读取列表</span>
+                </Button>
+              </div>
+
+              <TextInput
+                id="agent-model-id"
+                fullWidth
+                value={config.model}
+                onChange={(event) => updateConfig({ model: event.target.value })}
+                placeholder="模型名称（如 gpt-4o, deepseek-chat, qwen2.5-coder...）"
+              />
+              {modelsFetchMsg && <p className="text-[11px] text-ink-soft">{modelsFetchMsg}</p>}
+            </div>
+          </div>
+
+          {/* Row 5: API Key */}
+          {showApiKeyField && (
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 items-start">
+              <div className="md:col-span-5 min-w-0">
+                <label htmlFor="agent-api-key" className="text-xs font-semibold text-ink">
+                  {t('gitAgent.apiKey')}
+                </label>
+                <p className="text-xs text-ink-soft leading-relaxed mt-1">服务商 API Key 凭证。严格遵循零留存机制，仅保存在本地客户端内存中，不会持久化至服务端。</p>
+              </div>
+              <div className="md:col-span-7 min-w-0">
+                <ConfiguredSecretInput
+                  key={config.provider}
+                  configured={Boolean(draft.config.apiKey) && !clearKey}
+                  value={keyDraft}
+                  onChange={(value) => {
+                    setKeyDraft(value)
+                    setTestResult(null)
+                    setError('')
+                  }}
+                  onClear={() => {
+                    setKeyDraft('')
+                    setClearKey(true)
+                    setTestResult(null)
+                  }}
+                />
+              </div>
             </div>
           )}
         </fieldset>
+
         {error && (
           <p role="alert" className="text-xs text-danger">
             {error}

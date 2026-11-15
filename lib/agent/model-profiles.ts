@@ -1,4 +1,4 @@
-import { DEFAULT_AGENT_CONFIG, type EphemeralAgentConfig } from './types'
+import { AGENT_PRESETS, DEFAULT_AGENT_CONFIG, type EphemeralAgentConfig } from './types'
 
 export interface AgentModelProfile {
   id: string
@@ -34,7 +34,7 @@ export function parseModelProfiles(raw: string | null): { profiles: AgentModelPr
       if (!item || typeof item.id !== 'string' || ids.has(item.id) || typeof item.name !== 'string') throw new Error('Invalid profile')
       ids.add(item.id)
       const config = item.config
-      if (!config || !['vercel-free', 'byop', 'ollama'].includes(config.provider) || typeof config.model !== 'string') throw new Error('Invalid config')
+      if (!config || !(config.provider in AGENT_PRESETS) || typeof config.model !== 'string') throw new Error('Invalid config')
       if (config.baseUrl !== undefined && typeof config.baseUrl !== 'string') throw new Error('Invalid endpoint')
       return { id: item.id, name: item.name, config: { ...config, apiKey: undefined } }
     })

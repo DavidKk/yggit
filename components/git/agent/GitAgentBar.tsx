@@ -289,7 +289,7 @@ export function GitAgentBar({ repoPath, className }: Props) {
 
           {/* Settings Link */}
           <Link
-            href={repoPath ? `/settings?repo=${encodeURIComponent(repoPath)}` : '/settings'}
+            href="/settings"
             className="flex size-7 shrink-0 items-center justify-center rounded-full text-ink-soft hover:bg-[var(--overlay-06)] hover:text-ink active:scale-95 transition-all"
             title={t('gitAgent.settingsTitle')}
             aria-label={t('gitAgent.settingsTitle')}

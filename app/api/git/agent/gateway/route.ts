@@ -25,7 +25,12 @@ export const POST = defineApiRoute('post:/api/git/agent/gateway', async ({ reque
       ...customHeaders,
     }
 
-    if (apiKey) {
+    if (targetUrl.includes('anthropic.com')) {
+      if (apiKey) {
+        headers['x-api-key'] = apiKey
+        headers['anthropic-version'] = '2023-06-01'
+      }
+    } else if (apiKey) {
       headers['Authorization'] = `Bearer ${apiKey}`
     }
 
