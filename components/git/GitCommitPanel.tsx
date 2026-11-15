@@ -21,6 +21,8 @@ type Props = {
   remoteUrl?: string
   commit: GitCommit
   allCommits?: GitCommit[]
+  isLineageHighlighted?: boolean
+  onToggleHighlightLineage?: (hashes: string[]) => void
   width: number
   /** Panel heading; defaults to 「文件」. */
   title?: string
@@ -270,7 +272,19 @@ function PathRows({ groups, selected, onSelect }: { groups: PathGroup[]; selecte
   ))
 }
 
-export function GitCommitPanel({ repo, remoteUrl, commit, allCommits, width, title, selectedPath, onSelect, onClose }: Props) {
+export function GitCommitPanel({
+  repo,
+  remoteUrl,
+  commit,
+  allCommits,
+  isLineageHighlighted,
+  onToggleHighlightLineage,
+  width,
+  title,
+  selectedPath,
+  onSelect,
+  onClose,
+}: Props) {
   const t = useT()
   const topology = useMemo(() => {
     if (!commit.parents || commit.parents.length < 2) return null
@@ -489,9 +503,24 @@ export function GitCommitPanel({ repo, remoteUrl, commit, allCommits, width, tit
           <span className="text-ink-soft">➔</span>
           <span className="font-medium text-ink">{topology.targetBranchHint || 'main'}</span>
           {topology.commitsIncluded.length > 0 ? (
-            <Badge tone="accent" size="mini" dot={false} className="ml-auto text-[10px]">
-              {topology.commitsIncluded.length} {t('git.commit.commitsCount')}
-            </Badge>
+            <button
+              type="button"
+              className={cn(
+                'ml-auto inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-sans font-medium transition-all duration-150 cursor-pointer outline-none focus-visible:ring-1 focus-visible:ring-accent',
+                isLineageHighlighted
+                  ? 'bg-accent text-accent-contrast shadow-sm'
+                  : 'bg-[color-mix(in_oklab,var(--accent)_15%,transparent)] text-accent hover:bg-[color-mix(in_oklab,var(--accent)_25%,transparent)]'
+              )}
+              title={isLineageHighlighted ? t('git.commit.clearHighlight') : t('git.commit.highlightLineage')}
+              onClick={() => {
+                onToggleHighlightLineage?.(isLineageHighlighted ? [] : topology.commitsIncluded)
+              }}
+            >
+              <span>
+                {topology.commitsIncluded.length} {t('git.commit.commitsCount')}
+              </span>
+              <span className="opacity-75">{isLineageHighlighted ? '✕' : '👁'}</span>
+            </button>
           ) : null}
         </div>
       ) : null}

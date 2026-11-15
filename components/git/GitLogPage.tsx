@@ -1,6 +1,6 @@
 'use client'
 
-import { type CSSProperties, useCallback, useEffect, useRef, useState } from 'react'
+import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { LuChevronsUpDown, LuFolderGit2 } from 'react-icons/lu'
 
 import { BrandLogo } from '@/components/BrandLogo'
@@ -94,6 +94,8 @@ export function GitLogPage({ initial, initialCommitHash, initialPersistence }: P
   const [selectedHash, setSelectedHash] = useState(initialCommitHash || '')
   const [selectedFile, setSelectedFile] = useState('')
   const [selectedStatus, setSelectedStatus] = useState('')
+  const [lineageHashes, setLineageHashes] = useState<string[] | null>(null)
+  const lineageSet = useMemo(() => (lineageHashes && lineageHashes.length > 0 ? new Set(lineageHashes) : null), [lineageHashes])
   const [sidebarWidth, setSidebarWidth] = useGitUiPref('layout.sidebarWidth', 256, isPositiveNumber)
   const [treeWidth, setTreeWidth] = useGitUiPref('layout.treeWidth', 320, isPositiveNumber)
   const [remoteCheck, setRemoteCheck] = useState<GitRemoteCheck | null>(null)
@@ -674,6 +676,7 @@ export function GitLogPage({ initial, initialCommitHash, initialPersistence }: P
                       worktree={view.worktree}
                       stashes={view.stashes}
                       highlight={highlight}
+                      lineageHashes={lineageSet}
                       remoteNames={[...new Set(view.remotes.map((item) => item.remote))]}
                       worktreeBranches={view.worktrees.filter((item) => item.branch && !item.current).map((item) => item.branch)}
                       selectedHash={selectedHash}
@@ -682,11 +685,13 @@ export function GitLogPage({ initial, initialCommitHash, initialPersistence }: P
                         setSelectedHash(commit.hash)
                         setSelectedFile('')
                         setSelectedStatus('')
+                        setLineageHashes(null)
                       }}
                       onSelectWorktree={() => {
                         setSelectedHash(GIT_WORKTREE_HASH)
                         setSelectedFile('')
                         setSelectedStatus('')
+                        setLineageHashes(null)
                       }}
                       onPage={onPage}
                     />
@@ -711,6 +716,8 @@ export function GitLogPage({ initial, initialCommitHash, initialPersistence }: P
                   remoteUrl={view.remoteUrl}
                   commit={selected}
                   allCommits={commits}
+                  isLineageHighlighted={Boolean(lineageHashes && lineageHashes.length > 0)}
+                  onToggleHighlightLineage={setLineageHashes}
                   width={treeWidth}
                   title={selectedIsWorktree ? t('git.panel.worktree') : t('git.panel.files')}
                   selectedPath={selectedFile}
@@ -722,6 +729,7 @@ export function GitLogPage({ initial, initialCommitHash, initialPersistence }: P
                     setSelectedHash('')
                     setSelectedFile('')
                     setSelectedStatus('')
+                    setLineageHashes(null)
                   }}
                 />
               </>

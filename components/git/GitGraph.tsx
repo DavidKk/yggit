@@ -56,6 +56,7 @@ type Props = {
   worktree: GitWorktree | null
   stashes?: GitStash[]
   highlight: string
+  lineageHashes?: Set<string> | null
   remoteNames?: string[]
   worktreeBranches?: string[]
   selectedHash?: string
@@ -104,7 +105,8 @@ function defaultGraphView(contentWidth: number): number {
 }
 
 /** Memoized SVG tree branch strokes layer to prevent re-renders on hover or loading state. */
-const GraphStrokes = memo(function GraphStrokes({ strokes }: { strokes: Stroke[] }) {
+const GraphStrokes = memo(function GraphStrokes({ strokes, lineageHashes }: { strokes: Stroke[]; lineageHashes?: Set<string> | null }) {
+  const hasLineage = Boolean(lineageHashes && lineageHashes.size > 0)
   return (
     <>
       {strokes.map((stroke) => {
@@ -112,9 +114,11 @@ const GraphStrokes = memo(function GraphStrokes({ strokes }: { strokes: Stroke[]
         const hasGrad = stroke.startColor !== undefined && stroke.targetColor !== undefined && stroke.startColor !== stroke.targetColor
         const gradId = 'wt-grad-' + stroke.key.replace(/[^a-zA-Z0-9_-]/g, '_')
         const strokePaint = hasGrad ? `url(#${gradId})` : laneColor(stroke.color)
-        const strokeWidth = stroke.dashed ? 1.4 : isTrunk ? 2.5 : 1.8
+        const isLineage = hasLineage && lineageHashes!.has(stroke.hash)
+        const strokeWidth = isLineage ? (stroke.dashed ? 2.2 : isTrunk ? 3.5 : 2.8) : stroke.dashed ? 1.4 : isTrunk ? 2.5 : 1.8
+        const opacity = hasLineage ? (isLineage ? 1 : 0.25) : 1
         return (
-          <g key={stroke.key} fill="none">
+          <g key={stroke.key} fill="none" opacity={opacity} className="transition-opacity duration-200">
             {stroke.bridge && Math.abs((stroke.fromLane ?? 0) - (stroke.toLane ?? 0)) > 1 && (
               <path d={stroke.d} stroke="var(--panel)" strokeWidth={3} strokeLinecap="butt" strokeLinejoin="round" />
             )}
@@ -133,6 +137,7 @@ function GitGraphComponent({
   worktree,
   stashes = [],
   highlight,
+  lineageHashes,
   remoteNames = [],
   worktreeBranches = [],
   selectedHash,
@@ -629,15 +634,19 @@ function GitGraphComponent({
               const point = points[index]
               const color = point ? laneColor(point.color) : 'var(--accent)'
               const branch = branchAt.get(commit.hash) || ''
+              const isLineageActive = Boolean(lineageHashes && lineageHashes.size > 0)
+              const isLineageHit = isLineageActive && lineageHashes!.has(commit.hash)
               const isContextActive = contextMenu?.type === 'commit' && contextMenu.commit.hash === commit.hash
               const rowTintClass = cn(
                 selected
                   ? 'bg-[color-mix(in_oklab,var(--ink)_14%,transparent)]'
                   : isContextActive
                     ? 'bg-[color-mix(in_oklab,var(--ink)_10%,transparent)]'
-                    : marked
-                      ? 'bg-[color-mix(in_oklab,var(--ink)_8%,transparent)]'
-                      : 'group-hover/commit:bg-[color-mix(in_oklab,var(--ink)_6%,transparent)]'
+                    : isLineageHit
+                      ? 'bg-[color-mix(in_oklab,var(--accent)_16%,transparent)] ring-1 ring-inset ring-accent/35'
+                      : marked
+                        ? 'bg-[color-mix(in_oklab,var(--ink)_8%,transparent)]'
+                        : 'group-hover/commit:bg-[color-mix(in_oklab,var(--ink)_6%,transparent)]'
               )
               const isHovered = hoverHash === commit.hash || isContextActive
               return (
@@ -654,8 +663,9 @@ function GitGraphComponent({
                     aria-selected={selected}
                     data-git-commit-hash={commit.hash}
                     className={cn(
-                      'group/commit grid h-[26px] max-h-[26px] w-full min-w-0 cursor-pointer select-text items-center justify-start gap-0 rounded-none border-0 bg-transparent px-0 text-left leading-none font-normal outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent',
-                      findNeedle && !findHit && 'opacity-35'
+                      'group/commit grid h-[26px] max-h-[26px] w-full min-w-0 cursor-pointer select-text items-center justify-start gap-0 rounded-none border-0 bg-transparent px-0 text-left leading-none font-normal outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent transition-opacity duration-150',
+                      findNeedle && !findHit && 'opacity-35',
+                      isLineageActive && !isLineageHit && !selected && !isHovered && 'opacity-35 hover:opacity-100'
                     )}
                     style={{ gridTemplateColumns: columns }}
                     onClick={() => {
@@ -824,7 +834,7 @@ function GitGraphComponent({
                     )
                   })}
                 </defs>
-                <GraphStrokes strokes={scene.strokes} />
+                <GraphStrokes strokes={scene.strokes} lineageHashes={lineageHashes} />
                 {commits.map((commit, index) => {
                   const chips = refChips(commit.refs, remoteNames)
                   const branch = branchAt.get(commit.hash) || ''
@@ -904,8 +914,10 @@ function GitGraphComponent({
                 const y = scene.commitRow[index] * ROW + ROW / 2
                 const tint = laneColor(point.color)
                 const isMerge = commit.parents.length > 1
+                const isLineageHit = lineageHashes?.has(commit.hash)
                 const isHead = index === headIndex || commit.refs.some((r) => r === 'HEAD' || r.startsWith('HEAD -> '))
                 const isTagged = commit.refs.some((r) => r.startsWith('tag: '))
+                const isDimmed = Boolean(lineageHashes && lineageHashes.size > 0 && !isLineageHit && !isHead)
                 return (
                   <Tooltip key={commit.hash} content={commit.author} placement="top">
                     <span
@@ -913,7 +925,9 @@ function GitGraphComponent({
                       data-git-node-hash={commit.hash}
                       className={cn(
                         'absolute flex -translate-x-1/2 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full leading-none transition-all duration-200',
-                        !isMerge && 'text-[9px] font-semibold text-ink'
+                        !isMerge && 'text-[9px] font-semibold text-ink',
+                        isLineageHit && 'ring-2 ring-accent ring-offset-1 ring-offset-[var(--panel)] scale-110 z-10 shadow-[0_0_8px_var(--accent)]',
+                        isDimmed && 'opacity-35 hover:opacity-100'
                       )}
                       style={
                         isMerge

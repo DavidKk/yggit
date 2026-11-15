@@ -20,6 +20,7 @@ type Props = {
   worktree: GitWorktree | null
   stashes?: GitStash[]
   highlight: string
+  lineageHashes?: Set<string> | null
   remoteNames?: string[]
   worktreeBranches?: string[]
   selectedHash?: string
@@ -50,6 +51,7 @@ export function GitHistory({
   worktree,
   stashes,
   highlight,
+  lineageHashes,
   remoteNames,
   worktreeBranches,
   selectedHash,
@@ -272,6 +274,7 @@ export function GitHistory({
         worktree={worktree}
         stashes={stashes}
         highlight={highlight}
+        lineageHashes={lineageHashes}
         remoteNames={remoteNames}
         worktreeBranches={worktreeBranches}
         selectedHash={selectedHash}

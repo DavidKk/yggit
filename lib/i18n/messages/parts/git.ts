@@ -144,6 +144,8 @@ export type GitMessages = {
     mergeLineage: string
     copyIssueCard: string
     commitsCount: string
+    highlightLineage: string
+    clearHighlight: string
   }
   preview: {
     imageFailed: string
@@ -375,6 +377,8 @@ export const gitZh: GitMessages = {
     mergeLineage: "合并脉络",
     copyIssueCard: "复制问题排查卡片",
     commitsCount: "个提交",
+    highlightLineage: "高亮合入分支",
+    clearHighlight: "清除高亮",
   },
   preview: {
     imageFailed: "图片加载失败",
@@ -611,6 +615,8 @@ export const gitCht: GitMessages = {
     mergeLineage: "合併脈絡",
     copyIssueCard: "複製問題排查卡片",
     commitsCount: "個提交",
+    highlightLineage: "高亮合入分支",
+    clearHighlight: "清除高亮",
   },
   preview: {
     imageFailed: "圖片載入失敗",
@@ -847,6 +853,8 @@ export const gitEn: GitMessages = {
     mergeLineage: "Merge lineage",
     copyIssueCard: "Copy issue share card",
     commitsCount: "commits",
+    highlightLineage: "Highlight merged branch",
+    clearHighlight: "Clear highlight",
   },
   preview: {
     imageFailed: "Image failed to load",
@@ -1083,6 +1091,8 @@ export const gitJa: GitMessages = {
     mergeLineage: "マージの系譜",
     copyIssueCard: "問題共有カードをコピー",
     commitsCount: "コミット",
+    highlightLineage: "マージブランチを強調",
+    clearHighlight: "強調を解除",
   },
   preview: {
     imageFailed: "画像の読み込みに失敗",
@@ -1319,6 +1329,8 @@ export const gitFr: GitMessages = {
     mergeLineage: "Lignée de fusion",
     copyIssueCard: "Copier la carte de partage de problème",
     commitsCount: "commits",
+    highlightLineage: "Mettre en surbrillance la branche fusionnée",
+    clearHighlight: "Effacer la surbrillance",
   },
   preview: {
     imageFailed: "Échec du chargement de l'image",
@@ -1555,6 +1567,8 @@ export const gitDe: GitMessages = {
     mergeLineage: "Merge-Herkunft",
     copyIssueCard: "Issue-Freigabekarte kopieren",
     commitsCount: "Commits",
+    highlightLineage: "Gemergten Branch hervorheben",
+    clearHighlight: "Hervorhebung aufheben",
   },
   preview: {
     imageFailed: "Bild konnte nicht geladen werden",
@@ -1791,6 +1805,8 @@ export const gitEs: GitMessages = {
     mergeLineage: "Linaje de fusión",
     copyIssueCard: "Copiar tarjeta de problema",
     commitsCount: "commits",
+    highlightLineage: "Resaltar rama fusionada",
+    clearHighlight: "Borrar resaltado",
   },
   preview: {
     imageFailed: "Error al cargar la imagen",
@@ -2027,6 +2043,8 @@ export const gitRu: GitMessages = {
     mergeLineage: "Происхождение слияния",
     copyIssueCard: "Копировать карточку проблемы",
     commitsCount: "коммитов",
+    highlightLineage: "Выделить объединенную ветку",
+    clearHighlight: "Снять выделение",
   },
   preview: {
     imageFailed: "Не удалось загрузить изображение",
@@ -2263,6 +2281,8 @@ export const gitPtBR: GitMessages = {
     mergeLineage: "Linhagem de mesclagem",
     copyIssueCard: "Copiar cartão de problema",
     commitsCount: "commits",
+    highlightLineage: "Destacar branch mesclada",
+    clearHighlight: "Limpar destaque",
   },
   preview: {
     imageFailed: "Falha ao carregar a imagem",
@@ -2499,6 +2519,8 @@ export const gitKo: GitMessages = {
     mergeLineage: "병합 계보",
     copyIssueCard: "문제 공유 카드 복사",
     commitsCount: "커밋",
+    highlightLineage: "병합된 브랜치 강조",
+    clearHighlight: "강조 해제",
   },
   preview: {
     imageFailed: "이미지를 불러오지 못했습니다",
