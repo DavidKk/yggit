@@ -19,6 +19,8 @@ import { LocaleSwitcher } from '@/components/i18n/LocaleSwitcher'
 import { Button, EmptyState, Tooltip } from '@/components/sk'
 import { ThemeSwitcher } from '@/components/theme/ThemeSwitcher'
 import { readApiErrorMessage } from '@/lib/api-error'
+import { getDriverMode, getGitDriver } from '@/lib/git/driver'
+import { isFileSystemAccessSupported, saveDirectoryHandle } from '@/lib/git/indexeddb-handles'
 import { gitSelectionHash } from '@/lib/git/scope'
 import { addTemporaryRepo, parseRemoteUrl } from '@/lib/git/temporary-store'
 import {
@@ -131,13 +133,24 @@ export function GitLogPage({ initial, initialCommitHash, initialPersistence }: P
   }, [])
 
   const refreshProjects = useCallback(async () => {
-    const response = await fetch('/api/git/projects')
-    const body = (await response.json()) as { ok?: boolean; projects?: GitProjectView[]; folders?: string[] }
-    if (response.ok && body.ok !== false) applyCatalog(body)
+    try {
+      const driver = getGitDriver()
+      const catalog = await driver.getProjects()
+      applyCatalog(catalog)
+    } catch {
+      const response = await fetch('/api/git/projects')
+      const body = (await response.json()) as { ok?: boolean; projects?: GitProjectView[]; folders?: string[] }
+      if (response.ok && body.ok !== false) applyCatalog(body)
+    }
   }, [applyCatalog])
 
   useEffect(() => {
     void refreshProjects()
+    function onDriverModeChanged() {
+      void refreshProjects()
+    }
+    window.addEventListener('yggit:driver_mode_changed', onDriverModeChanged)
+    return () => window.removeEventListener('yggit:driver_mode_changed', onDriverModeChanged)
   }, [refreshProjects, view?.repo])
 
   const probeRemotes = useCallback(async (repo: string) => {
@@ -349,14 +362,8 @@ export function GitLogPage({ initial, initialCommitHash, initialPersistence }: P
     setBusy(true)
     setError('')
     try {
-      const params = new URLSearchParams()
-      if (repo) params.set('repo', repo)
-      const response = await fetch(`/api/git/log?${params.toString()}`)
-      const body = (await response.json()) as GitLogView & { ok?: boolean; error?: { message?: string } }
-      if (!response.ok || body.ok === false) {
-        setError(readApiErrorMessage(body, t('git.errors.readGit')))
-        return
-      }
+      const driver = getGitDriver()
+      const body = await driver.readLog({ repo })
       applyView(body)
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : t('git.errors.readGit'))
@@ -400,6 +407,23 @@ export function GitLogPage({ initial, initialCommitHash, initialPersistence }: P
 
   async function chooseFolder() {
     setError('')
+    if (getDriverMode() === 'edge' && isFileSystemAccessSupported() && window.showDirectoryPicker) {
+      try {
+        const handle = await window.showDirectoryPicker({ mode: 'readwrite' })
+        if (handle) {
+          await saveDirectoryHandle(handle.name, handle, handle.name)
+          const driver = getGitDriver('edge')
+          await driver.addProject({ pathOrUrl: handle.name, handle })
+          await refreshProjects()
+          closeMenu()
+          await load(handle.name)
+          return
+        }
+      } catch (e: unknown) {
+        if (e instanceof Error && e.name === 'AbortError') return
+      }
+    }
+
     const picked = await pickFolders(t('git.pickFolder.multi'), true)
     if (picked.length === 0) return
     setBusy(true)

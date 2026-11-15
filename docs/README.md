@@ -10,6 +10,8 @@ Welcome to the Yggit documentation repository. Yggit is a high-performance, orga
 - [Repository Identity & URL Routing Specification](../brain/794c2433-2f43-4553-8504-ac1ee92a392d/repository-identity-and-url-routing-design.md) - Stable Repo ID + Multi-Identity + Alias Resolver specification.
 - [Temporary Repository Access & Favorites PRD](prd/temporary-repository-and-favorites.md) - Product requirements for browsing public repositories without cloning first ("Browse First, Star to Save").
 - [Temporary Repository & Remote Provider Architecture](technical/temporary-repository-architecture.md) - Technical architecture for session-scoped temporary repos, Project Switcher favorites, and Remote Provider driver.
+- [Agent Spotlight & Interactive Sharing PRD](prd/agent-spotlight-and-interactive-sharing.md) - Product requirements for the center floating pill Agent bar, zero-storage OpenAPI driving, and diagnostic lineage sharing.
+- [Agent Spotlight & Zero-Storage OpenAPI Technical Architecture](technical/agent-spotlight-and-interactive-sharing.md) - Technical specification for the in-memory OpenAPI client, one-shot Git tool dispatcher, graph lineage highlighting/dimming, and stateless deep link sharing.
 
 ## Standards
 

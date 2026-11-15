@@ -14,8 +14,8 @@ function accessDir() {
 }
 
 function ensureAccessToken() {
-  const token = process.env.YGGIT_AUTH_TOKEN || process.env.CHAYA_AUTH_TOKEN
-  if (token) return token
+  const envToken = process.env.YGGIT_AUTH_TOKEN || process.env.CHAYA_AUTH_TOKEN
+  if (envToken) return envToken
   const dir = accessDir()
   const file = path.join(dir, 'token')
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 })

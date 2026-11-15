@@ -473,10 +473,10 @@ export const gitZh: GitMessages = {
     modify: "修改"
   },
   driver: {
-    modeEdge: "Web / Edge 模式",
-    modeLocal: "本地 CLI 模式",
-    modeEdgeTip: "纯浏览器免安装运行，数据驻留本地与前端",
-    modeLocalTip: "使用本地 Node 与原生 Git CLI 极速引擎",
+    modeEdge: "Edge",
+    modeLocal: "Local",
+    modeEdgeTip: "纯浏览器与边缘运行（免安装，数据驻留本地与前端）",
+    modeLocalTip: "本地主机与原生 Git 极速引擎",
   },
   associate: {
     title: "关联共享仓库",
@@ -732,10 +732,10 @@ export const gitCht: GitMessages = {
     modify: "修改"
   },
   driver: {
-    modeEdge: "Web / Edge 模式",
-    modeLocal: "本地 CLI 模式",
-    modeEdgeTip: "純瀏覽器免安裝運行，數據駐留本地與前端",
-    modeLocalTip: "使用本地 Node 與原生 Git CLI 極速引擎",
+    modeEdge: "Edge",
+    modeLocal: "Local",
+    modeEdgeTip: "純瀏覽器與邊緣運行（免安裝，數據駐留本地與前端）",
+    modeLocalTip: "本地主機與原生 Git 極速引擎",
   },
   associate: {
     title: "關聯共享倉庫",
@@ -991,10 +991,10 @@ export const gitEn: GitMessages = {
     modify: "Modified"
   },
   driver: {
-    modeEdge: "Web / Edge Mode",
-    modeLocal: "Local CLI Mode",
-    modeEdgeTip: "Runs 100% in browser with zero install; data stays local",
-    modeLocalTip: "Uses local Node host and native Git CLI engine",
+    modeEdge: "Edge",
+    modeLocal: "Local",
+    modeEdgeTip: "Runs 100% in browser & edge with zero install; data stays local",
+    modeLocalTip: "Uses local Node host & native Git CLI engine",
   },
   associate: {
     title: "Associate Shared Repository",
@@ -1250,8 +1250,8 @@ export const gitJa: GitMessages = {
     modify: "変更"
   },
   driver: {
-    modeEdge: "Web / Edge モード",
-    modeLocal: "ローカル CLI モード",
+    modeEdge: "Edge",
+    modeLocal: "Local",
     modeEdgeTip: "インストール不要でブラウザ上で動作、データはローカルに保持",
     modeLocalTip: "ローカル Node とネイティブ Git CLI エンジンを使用",
   },
@@ -1509,8 +1509,8 @@ export const gitFr: GitMessages = {
     modify: "Modifié"
   },
   driver: {
-    modeEdge: "Mode Web / Edge",
-    modeLocal: "Mode CLI Local",
+    modeEdge: "Edge",
+    modeLocal: "Local",
     modeEdgeTip: "Fonctionne à 100% dans le navigateur sans installation, données locales",
     modeLocalTip: "Utilise le serveur Node local et le moteur Git CLI natif",
   },
@@ -1768,8 +1768,8 @@ export const gitDe: GitMessages = {
     modify: "Modifiziert"
   },
   driver: {
-    modeEdge: "Web / Edge Modus",
-    modeLocal: "Lokaler CLI Modus",
+    modeEdge: "Edge",
+    modeLocal: "Local",
     modeEdgeTip: "Läuft zu 100% im Browser ohne Installation; Daten bleiben lokal",
     modeLocalTip: "Nutzt lokalen Node-Host und native Git CLI Engine",
   },
@@ -2027,8 +2027,8 @@ export const gitEs: GitMessages = {
     modify: "modificado"
   },
   driver: {
-    modeEdge: "Modo Web / Edge",
-    modeLocal: "Modo CLI Local",
+    modeEdge: "Edge",
+    modeLocal: "Local",
     modeEdgeTip: "Funciona 100% en el navegador sin instalación; datos locales",
     modeLocalTip: "Usa el host Node local y el motor Git CLI nativo",
   },
@@ -2286,8 +2286,8 @@ export const gitRu: GitMessages = {
     modify: "Изменённый"
   },
   driver: {
-    modeEdge: "Режим Web / Edge",
-    modeLocal: "Локальный режим CLI",
+    modeEdge: "Edge",
+    modeLocal: "Local",
     modeEdgeTip: "Работает на 100% в браузере без установки; данные остаются локальными",
     modeLocalTip: "Использует локальный Node и нативный движок Git CLI",
   },
@@ -2545,8 +2545,8 @@ export const gitPtBR: GitMessages = {
     modify: "Modificado"
   },
   driver: {
-    modeEdge: "Modo Web / Edge",
-    modeLocal: "Modo CLI Local",
+    modeEdge: "Edge",
+    modeLocal: "Local",
     modeEdgeTip: "Executa 100% no navegador sem instalação; dados ficam locais",
     modeLocalTip: "Usa o host Node local e motor Git CLI nativo",
   },
@@ -2804,8 +2804,8 @@ export const gitKo: GitMessages = {
     modify: "수정됨"
   },
   driver: {
-    modeEdge: "Web / Edge 모드",
-    modeLocal: "로컬 CLI 모드",
+    modeEdge: "Edge",
+    modeLocal: "Local",
     modeEdgeTip: "설치 없이 브라우저에서 100% 실행, 데이터는 로컬에 유지",
     modeLocalTip: "로컬 Node 호스트 및 네이티브 Git CLI 엔진 사용",
   },

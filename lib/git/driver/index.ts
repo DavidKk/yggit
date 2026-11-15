@@ -60,9 +60,13 @@ export function getGitDriver(mode?: GitDriverMode): IGitDriver {
  * React hook to observe and toggle Git driver mode in UI
  */
 export function useGitDriver() {
-  const [mode, setModeState] = useState<GitDriverMode>(() => getDriverMode())
+  const [mode, setModeState] = useState<GitDriverMode>('local')
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
+    setMounted(true)
+    setModeState(getDriverMode())
+
     function onModeChanged(e: Event) {
       const customEvent = e as CustomEvent<GitDriverMode>
       if (customEvent.detail === 'edge' || customEvent.detail === 'local') {
@@ -86,5 +90,6 @@ export function useGitDriver() {
     setMode,
     isEdge: mode === 'edge',
     isLocal: mode === 'local',
+    mounted,
   }
 }
