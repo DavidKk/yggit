@@ -1,0 +1,176 @@
+import {
+  getDirectoryHandle,
+  isFileSystemAccessSupported,
+  isIndexedDBSupported,
+  listDirectoryHandles,
+  openHandlesDatabase,
+  removeDirectoryHandle,
+  requestHandlePermission,
+  resolveRepoAlias,
+  saveDirectoryHandle,
+  saveRepoAlias,
+  verifyHandlePermission,
+} from '@/lib/git/indexeddb-handles'
+
+describe('indexeddb-handles', () => {
+  describe('environment detection', () => {
+    it('detects lack of file system access API when showDirectoryPicker is missing', () => {
+      expect(isFileSystemAccessSupported()).toBe(false)
+    })
+
+    it('handles non-browser or missing indexedDB gracefully', async () => {
+      const db = await openHandlesDatabase()
+      expect(db).toBeNull()
+      const handle = await getDirectoryHandle('any-repo')
+      expect(handle).toBeNull()
+      const list = await listDirectoryHandles()
+      expect(list).toEqual([])
+    })
+  })
+
+  describe('permission checks with mock handle', () => {
+    it('returns true when queryPermission returns granted', async () => {
+      const mockHandle = {
+        name: 'test-repo',
+        kind: 'directory',
+        queryPermission: jest.fn().mockResolvedValue('granted'),
+      } as unknown as FileSystemDirectoryHandle
+
+      const granted = await verifyHandlePermission(mockHandle)
+      expect(granted).toBe(true)
+      expect(mockHandle.queryPermission).toHaveBeenCalledWith({ mode: 'read' })
+    })
+
+    it('returns false when queryPermission returns prompt or denied', async () => {
+      const mockHandle = {
+        name: 'test-repo',
+        kind: 'directory',
+        queryPermission: jest.fn().mockResolvedValue('prompt'),
+      } as unknown as FileSystemDirectoryHandle
+
+      const granted = await verifyHandlePermission(mockHandle)
+      expect(granted).toBe(false)
+    })
+
+    it('requests permission and returns true when granted', async () => {
+      const mockHandle = {
+        name: 'test-repo',
+        kind: 'directory',
+        requestPermission: jest.fn().mockResolvedValue('granted'),
+      } as unknown as FileSystemDirectoryHandle
+
+      const result = await requestHandlePermission(mockHandle, 'readwrite')
+      expect(result).toBe(true)
+      expect(mockHandle.requestPermission).toHaveBeenCalledWith({ mode: 'readwrite' })
+    })
+  })
+
+  describe('with mock IndexedDB implementation', () => {
+    let mockStoreData: Record<string, Record<string, unknown>>
+    let originalIndexedDB: unknown
+
+    beforeEach(() => {
+      mockStoreData = {
+        directory_handles: {},
+        repo_aliases: {},
+      }
+
+      const mockDb = {
+        objectStoreNames: {
+          contains: (name: string) => name in mockStoreData,
+        },
+        createObjectStore: jest.fn(),
+        transaction: (storeName: string, _mode: string) => ({
+          objectStore: () => ({
+            put: (item: { id?: string; alias?: string }) => {
+              const key = item.id || item.alias || ''
+              mockStoreData[storeName][key] = item
+              const req: { onsuccess?: () => void; onerror?: () => void; error?: Error } = {}
+              setTimeout(() => req.onsuccess?.(), 0)
+              return req
+            },
+            get: (key: string) => {
+              const result = mockStoreData[storeName][key]
+              const req: { onsuccess?: () => void; onerror?: () => void; result?: unknown } = {}
+              setTimeout(() => {
+                req.result = result
+                req.onsuccess?.()
+              }, 0)
+              return req
+            },
+            getAll: () => {
+              const result = Object.values(mockStoreData[storeName])
+              const req: { onsuccess?: () => void; onerror?: () => void; result?: unknown } = {}
+              setTimeout(() => {
+                req.result = result
+                req.onsuccess?.()
+              }, 0)
+              return req
+            },
+            delete: (key: string) => {
+              delete mockStoreData[storeName][key]
+              const req: { onsuccess?: () => void; onerror?: () => void } = {}
+              setTimeout(() => req.onsuccess?.(), 0)
+              return req
+            },
+          }),
+        }),
+      }
+
+      const fakeIndexedDB = {
+        open: () => {
+          const req: { onsuccess?: () => void; onerror?: () => void; result?: unknown } = {
+            result: mockDb,
+          }
+          setTimeout(() => req.onsuccess?.(), 0)
+          return req
+        },
+      }
+      originalIndexedDB = (global as unknown as { indexedDB?: unknown }).indexedDB
+      ;(global as unknown as { indexedDB: unknown }).indexedDB = fakeIndexedDB
+      if (typeof window !== 'undefined') {
+        ;(window as unknown as { indexedDB: unknown }).indexedDB = fakeIndexedDB
+      }
+    })
+
+    afterEach(() => {
+      ;(global as unknown as { indexedDB: unknown }).indexedDB = originalIndexedDB
+      if (typeof window !== 'undefined') {
+        ;(window as unknown as { indexedDB: unknown }).indexedDB = originalIndexedDB
+      }
+    })
+
+    it('saves and retrieves directory handle', async () => {
+      const mockHandle = { name: 'my-project' } as FileSystemDirectoryHandle
+      await saveDirectoryHandle('repo-1', mockHandle, 'My Project')
+
+      const retrieved = await getDirectoryHandle('repo-1')
+      expect(retrieved).toBe(mockHandle)
+
+      const list = await listDirectoryHandles()
+      expect(list).toHaveLength(1)
+      expect(list[0]).toMatchObject({ id: 'repo-1', name: 'My Project' })
+    })
+
+    it('resolves alias correctly when retrieving handle', async () => {
+      const mockHandle = { name: 'gitlab-project' } as FileSystemDirectoryHandle
+      await saveDirectoryHandle('canonical-id', mockHandle, 'GitLab Project')
+      await saveRepoAlias('gitlab.corp/team/repo', 'canonical-id')
+
+      const resolvedCanonical = await resolveRepoAlias('gitlab.corp/team/repo')
+      expect(resolvedCanonical).toBe('canonical-id')
+
+      const handle = await getDirectoryHandle('gitlab.corp/team/repo')
+      expect(handle).toBe(mockHandle)
+    })
+
+    it('removes directory handle', async () => {
+      const mockHandle = { name: 'to-delete' } as FileSystemDirectoryHandle
+      await saveDirectoryHandle('del-repo', mockHandle)
+      expect(await getDirectoryHandle('del-repo')).toBe(mockHandle)
+
+      await removeDirectoryHandle('del-repo')
+      expect(await getDirectoryHandle('del-repo')).toBeNull()
+    })
+  })
+})
