@@ -1,6 +1,6 @@
 'use client'
 
-import { type DragEvent, type RefObject, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { type DragEvent, type RefObject, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { AiOutlineCloudSync } from 'react-icons/ai'
 import { LuChevronDown, LuChevronRight, LuCloud, LuFolder, LuGithub, LuGitlab, LuGlobe, LuHardDrive, LuStar, LuTrash2, LuX } from 'react-icons/lu'
 import { TbFolderPlus } from 'react-icons/tb'
@@ -190,7 +190,7 @@ export function GitProjectMenu({
     onClose()
   }
 
-  function closeRemoteModal() {
+  const closeRemoteModal = useCallback(() => {
     setRemoteOpen(false)
     setFormError('')
     setFieldInvalid({})
@@ -198,14 +198,14 @@ export function GitProjectMenu({
     setToken('')
     setTokenUnlocked(true)
     setSyncAccount(false)
-  }
+  }, [])
 
-  function closeFolderModal() {
+  const closeFolderModal = useCallback(() => {
     setFolderOpen(false)
     setFolderName('')
     setFormError('')
     setFieldInvalid({})
-  }
+  }, [])
 
   async function submitFolder() {
     setFormError('')
@@ -708,7 +708,6 @@ export function GitProjectMenu({
       <Modal
         open={folderOpen}
         title={t('git.project.newFolderTitle')}
-        description={t('git.project.newFolderDesc')}
         busy={busy}
         onClose={closeFolderModal}
         footer={
@@ -726,6 +725,7 @@ export function GitProjectMenu({
           <label className={formTitle} htmlFor={folderId}>
             {t('git.project.name')}
           </label>
+          <p className={formDesc}>{t('git.project.newFolderDesc')}</p>
           <div className={formControl}>
             <TextInput
               ref={folderRef}

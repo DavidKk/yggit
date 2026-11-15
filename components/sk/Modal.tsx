@@ -71,6 +71,10 @@ export function Modal({
   const descId = useId()
   const panelRef = useRef<HTMLDivElement>(null)
   const restoreFocusRef = useRef<HTMLElement | null>(null)
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
+  const busyRef = useRef(busy)
+  busyRef.current = busy
 
   useEffect(() => {
     if (!open) return
@@ -89,10 +93,10 @@ export function Modal({
 
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') {
-        if (isImeComposing(e) || busy) return
+        if (isImeComposing(e) || busyRef.current) return
         e.preventDefault()
         e.stopPropagation()
-        onClose()
+        onCloseRef.current()
         return
       }
       if (e.key !== 'Tab' || !panelRef.current) return
@@ -124,7 +128,7 @@ export function Modal({
       if (prev && document.contains(prev)) prev.focus()
       restoreFocusRef.current = null
     }
-  }, [busy, onClose, open])
+  }, [open])
 
   if (!open || typeof document === 'undefined') return null
 
