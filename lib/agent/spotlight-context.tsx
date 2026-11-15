@@ -17,6 +17,7 @@ export interface SpotlightContextValue {
   prevTarget: () => void
   focusTarget: (hash: string) => void
   setFocusedHash: (hash: string | null) => void
+  registerNavigateHandler: (handler: (hash: string) => void) => () => void
 }
 
 const SpotlightContext = createContext<SpotlightContextValue | null>(null)
@@ -25,6 +26,28 @@ export function SpotlightProvider({ children, onNavigateCommit }: { children: Re
   const [targets, setTargets] = useState<SpotlightTarget[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [focusedHash, setFocusedHash] = useState<string | null>(null)
+
+  const navigateCallbackRef = React.useRef<((hash: string) => void) | undefined>(onNavigateCommit)
+  React.useEffect(() => {
+    if (onNavigateCommit) {
+      navigateCallbackRef.current = onNavigateCommit
+    }
+  }, [onNavigateCommit])
+
+  const registerNavigateHandler = useCallback((handler: (hash: string) => void) => {
+    navigateCallbackRef.current = handler
+    return () => {
+      if (navigateCallbackRef.current === handler) {
+        navigateCallbackRef.current = undefined
+      }
+    }
+  }, [])
+
+  const notifyNavigate = useCallback((hash: string) => {
+    if (navigateCallbackRef.current) {
+      navigateCallbackRef.current(hash)
+    }
+  }, [])
 
   const active = targets.length > 0
 
@@ -50,14 +73,12 @@ export function SpotlightProvider({ children, onNavigateCommit }: { children: Re
       setCurrentIndex(0)
       if (newTargets.length > 0) {
         setFocusedHash(newTargets[0].hash)
-        if (onNavigateCommit) {
-          onNavigateCommit(newTargets[0].hash)
-        }
+        notifyNavigate(newTargets[0].hash)
       } else {
         setFocusedHash(null)
       }
     },
-    [onNavigateCommit]
+    [notifyNavigate]
   )
 
   const clearSpotlight = useCallback(() => {
@@ -72,12 +93,10 @@ export function SpotlightProvider({ children, onNavigateCommit }: { children: Re
       if (idx >= 0) {
         setCurrentIndex(idx)
         setFocusedHash(targets[idx].hash)
-        if (onNavigateCommit) {
-          onNavigateCommit(targets[idx].hash)
-        }
+        notifyNavigate(targets[idx].hash)
       }
     },
-    [targets, onNavigateCommit]
+    [targets, notifyNavigate]
   )
 
   const nextTarget = useCallback(() => {
@@ -86,10 +105,8 @@ export function SpotlightProvider({ children, onNavigateCommit }: { children: Re
     setCurrentIndex(nextIdx)
     const target = targets[nextIdx]
     setFocusedHash(target.hash)
-    if (onNavigateCommit) {
-      onNavigateCommit(target.hash)
-    }
-  }, [targets, currentIndex, onNavigateCommit])
+    notifyNavigate(target.hash)
+  }, [targets, currentIndex, notifyNavigate])
 
   const prevTarget = useCallback(() => {
     if (targets.length === 0) return
@@ -97,10 +114,8 @@ export function SpotlightProvider({ children, onNavigateCommit }: { children: Re
     setCurrentIndex(prevIdx)
     const target = targets[prevIdx]
     setFocusedHash(target.hash)
-    if (onNavigateCommit) {
-      onNavigateCommit(target.hash)
-    }
-  }, [targets, currentIndex, onNavigateCommit])
+    notifyNavigate(target.hash)
+  }, [targets, currentIndex, notifyNavigate])
 
   const value = useMemo(
     () => ({
@@ -116,8 +131,9 @@ export function SpotlightProvider({ children, onNavigateCommit }: { children: Re
       prevTarget,
       focusTarget,
       setFocusedHash,
+      registerNavigateHandler,
     }),
-    [active, targets, targetsMap, currentIndex, currentTarget, focusedHash, setSpotlightTargets, clearSpotlight, nextTarget, prevTarget, focusTarget]
+    [active, targets, targetsMap, currentIndex, currentTarget, focusedHash, setSpotlightTargets, clearSpotlight, nextTarget, prevTarget, focusTarget, registerNavigateHandler]
   )
 
   return <SpotlightContext.Provider value={value}>{children}</SpotlightContext.Provider>

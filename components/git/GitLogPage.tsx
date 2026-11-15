@@ -4,6 +4,9 @@ import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState }
 import { LuCheck, LuChevronsUpDown, LuFolderGit2, LuShare2 } from 'react-icons/lu'
 
 import { BrandLogo } from '@/components/BrandLogo'
+import { AgentWorkspace } from '@/components/git/agent/AgentWorkspace'
+import { GitAgentBar } from '@/components/git/agent/GitAgentBar'
+import { AgentSpotlightNavigator } from '@/components/git/agent/spotlight/AgentSpotlightNavigator'
 import { measurePanelFit } from '@/components/git/fitColumn'
 import { GitCommitPanel } from '@/components/git/GitCommitPanel'
 import { GitDebug } from '@/components/git/GitDebug'
@@ -18,6 +21,7 @@ import { useT } from '@/components/i18n/LocaleProvider'
 import { LocaleSwitcher } from '@/components/i18n/LocaleSwitcher'
 import { Button, EmptyState, Tooltip } from '@/components/sk'
 import { ThemeSwitcher } from '@/components/theme/ThemeSwitcher'
+import { useOptionalSpotlight } from '@/lib/agent/spotlight-context'
 import { readApiErrorMessage } from '@/lib/api-error'
 import { getDriverMode, getGitDriver } from '@/lib/git/driver'
 import { isFileSystemAccessSupported } from '@/lib/git/indexeddb-handles'
@@ -35,12 +39,6 @@ import {
 } from '@/lib/git/types'
 import { isPositiveNumber, readGitUiPref, repoPrefKey, useGitUiPref, useGitUiReady } from '@/lib/git/ui-prefs'
 import { cn } from '@/lib/utils'
-import { SpotlightProvider } from '@/lib/agent/spotlight-context'
-import { AgentProvider } from '@/lib/agent/agent-context'
-import { GitAgentBar } from '@/components/git/agent/GitAgentBar'
-import { AgentWorkspace } from '@/components/git/agent/AgentWorkspace'
-import { AgentSettingsModal } from '@/components/git/agent/settings/AgentSettingsModal'
-import { AgentSpotlightNavigator } from '@/components/git/agent/spotlight/AgentSpotlightNavigator'
 
 function isGitSelection(value: unknown): value is GitSelection {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false
@@ -117,6 +115,16 @@ export function GitLogPage({ initial, initialCommitHash, initialPersistence: _in
   const anchorRef = useRef<HTMLButtonElement>(null)
   const projectFindRef = useRef<HTMLDivElement>(null)
   useGitFindShortcut(worldRef)
+
+  const spotlight = useOptionalSpotlight()
+  useEffect(() => {
+    if (spotlight?.registerNavigateHandler) {
+      return spotlight.registerNavigateHandler((hash) => {
+        setSelectedHash(hash)
+        setFocusRequest({ hash })
+      })
+    }
+  }, [spotlight])
 
   useEffect(() => {
     const host = projectFindRef.current
@@ -595,24 +603,17 @@ export function GitLogPage({ initial, initialCommitHash, initialPersistence: _in
   const scopeMiss = Boolean(view && commits.length === 0)
 
   return (
-    <SpotlightProvider
-      onNavigateCommit={(hash) => {
-        setSelectedHash(hash)
-        setFocusRequest({ hash })
+    <div
+      ref={worldRef}
+      data-git-world-tree
+      className="flex h-full min-h-0 flex-1 flex-col bg-paper text-ink"
+      style={{
+        backgroundImage:
+          'radial-gradient(ellipse 70% 45% at 12% -10%, color-mix(in oklab, var(--wt-primary) 12%, transparent), transparent 55%), radial-gradient(ellipse 50% 40% at 88% 110%, color-mix(in oklab, var(--wt-secondary) 14%, transparent), transparent 50%)',
       }}
     >
-      <AgentProvider currentRepo={view?.repo}>
-        <div
-          ref={worldRef}
-          data-git-world-tree
-          className="flex h-full min-h-0 flex-1 flex-col bg-paper text-ink"
-          style={{
-            backgroundImage:
-              'radial-gradient(ellipse 70% 45% at 12% -10%, color-mix(in oklab, var(--wt-primary) 12%, transparent), transparent 55%), radial-gradient(ellipse 50% 40% at 88% 110%, color-mix(in oklab, var(--wt-secondary) 14%, transparent), transparent 50%)',
-          }}
-        >
-          {process.env.NODE_ENV === 'development' ? <GitDebug /> : null}
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-panel/80">
+      {process.env.NODE_ENV === 'development' ? <GitDebug /> : null}
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-panel/80">
         <header className="flex shrink-0 items-center gap-3 border-b border-line bg-panel-2/60 px-3 py-1.5">
           <BrandLogo
             href="/"
@@ -836,12 +837,9 @@ export function GitLogPage({ initial, initialCommitHash, initialPersistence: _in
         )}
         {/* Git Agent Floating Entry & Spotlight Navigation */}
         <AgentSpotlightNavigator />
-        <AgentSettingsModal />
         <GitAgentBar repoPath={view?.repo} />
         <AgentWorkspace repoPath={view?.repo} />
       </div>
     </div>
-    </AgentProvider>
-  </SpotlightProvider>
   )
 }

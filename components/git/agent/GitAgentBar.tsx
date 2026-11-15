@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import React, { useEffect, useRef, useState } from 'react'
 import { LuBot, LuExternalLink, LuSend, LuSettings, LuSparkles, LuX } from 'react-icons/lu'
 
@@ -15,7 +16,7 @@ interface Props {
 
 export function GitAgentBar({ repoPath, className }: Props) {
   const t = useT()
-  const { sendMessage, isProcessing, messages, setIsSettingsOpen, dockMode, setDockMode } = useAgent()
+  const { sendMessage, isProcessing, messages, dockMode, setDockMode } = useAgent()
 
   const [input, setInput] = useState('')
   const [quickCardOpen, setQuickCardOpen] = useState(false)
@@ -133,16 +134,15 @@ export function GitAgentBar({ repoPath, className }: Props) {
           <kbd className="hidden sm:inline-flex items-center rounded border border-border/60 bg-muted/30 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground/70">⌘J</kbd>
         )}
 
-        {/* Settings Gear Button */}
-        <button
-          type="button"
-          onClick={() => setIsSettingsOpen(true)}
+        {/* Settings Gear Link */}
+        <Link
+          href={repoPath ? `/settings?repo=${encodeURIComponent(repoPath)}` : '/settings'}
           className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted/40 hover:text-foreground active:scale-95 transition-all"
           title={t('gitAgent.settingsTitle')}
           aria-label={t('gitAgent.settingsTitle')}
         >
           <LuSettings className="h-4 w-4" />
-        </button>
+        </Link>
 
         {/* Send Button */}
         <button

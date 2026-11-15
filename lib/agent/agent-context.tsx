@@ -20,8 +20,6 @@ export interface AgentContextValue {
   setDockMode: (mode: AgentDockMode) => void
   messages: AgentChatMessage[]
   isProcessing: boolean
-  isSettingsOpen: boolean
-  setIsSettingsOpen: (open: boolean) => void
   sendMessage: (content: string, repoPath?: string) => Promise<void>
   clearMessages: () => void
   activeResultSummary: string | null
@@ -47,7 +45,6 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
   const [dockMode, setDockMode] = useState<AgentDockMode>('collapsed')
   const [messages, setMessages] = useState<AgentChatMessage[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [activeResultSummary, setActiveResultSummary] = useState<string | null>(null)
 
   const redactionSessionRef = useRef<RedactionSession>(createRedactionSession())
@@ -222,13 +219,11 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
       setDockMode,
       messages,
       isProcessing,
-      isSettingsOpen,
-      setIsSettingsOpen,
       sendMessage,
       clearMessages,
       activeResultSummary,
     }),
-    [config, redactionOptions, dockMode, messages, isProcessing, isSettingsOpen, sendMessage, clearMessages, activeResultSummary]
+    [config, redactionOptions, dockMode, messages, isProcessing, sendMessage, clearMessages, activeResultSummary]
   )
 
   return <AgentContext.Provider value={value}>{children}</AgentContext.Provider>
