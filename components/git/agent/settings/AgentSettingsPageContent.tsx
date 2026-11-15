@@ -49,7 +49,7 @@ export function AgentSettingsPageContent() {
     models: {
       title: t('gitAgent.tabModels'),
       desc: '配置大模型推理服务渠道与接口协议，默认可使用 Vercel AI Gateway 提供的免凭证公共模型。',
-      icon: <LuCpu className="size-4.5 text-accent" aria-hidden="true" />,
+      icon: <LuCpu className="size-4 text-accent" aria-hidden="true" />,
       actionBadge: (
         <Badge tone="neutral" className="font-mono text-xs">
           {config.provider === 'vercel-free' ? '公共免费渠道' : config.provider}
@@ -59,7 +59,7 @@ export function AgentSettingsPageContent() {
     privacy: {
       title: t('gitAgent.tabPrivacy'),
       desc: '在客户端本地完成密钥、邮箱、拓扑与自定义敏感词的双向可逆掩盖，防范敏感资产外泄。',
-      icon: <LuShieldCheck className="size-4.5 text-accent" aria-hidden="true" />,
+      icon: <LuShieldCheck className="size-4 text-accent" aria-hidden="true" />,
       actionBadge: (
         <Badge tone={redactionOptions.enabled ? 'ok' : 'neutral'} className="text-xs">
           {redactionOptions.enabled ? '脱敏已启用' : '脱敏已停用'}
@@ -110,9 +110,9 @@ export function AgentSettingsPageContent() {
           <div className="shrink-0 border-b border-line bg-paper-2 px-4 py-3 md:px-6">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
                   {currentMeta.icon}
-                  <h1 className="text-sm font-semibold tracking-tight text-ink md:text-base">{currentMeta.title}</h1>
+                  <h1 className="text-sm font-bold tracking-tight text-ink">{currentMeta.title}</h1>
                 </div>
                 <p className="mt-0.5 text-xs text-ink-soft leading-relaxed">{currentMeta.desc}</p>
               </div>

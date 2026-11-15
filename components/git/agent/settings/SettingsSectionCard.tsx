@@ -33,7 +33,7 @@ export function SettingsSectionCard({ title, description, descriptionTooltip, ti
     >
       <div className="flex items-center justify-between gap-3 border-b border-line/50 pb-3">
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-ink">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-ink">
             <span>{title}</span>
             {descriptionTooltip ? (
               <Tooltip content={descriptionTooltip} placement="bottom">
