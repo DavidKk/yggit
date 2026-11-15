@@ -50,15 +50,39 @@ flowchart TD
 
 ---
 
-## 2. 零存储凭证模型 (Zero-Storage Security Specification)
+## 2. 零存储凭证模型与通道预设规范 (Zero-Storage & Presets Specification)
 
-为保障企业代码协作安全并杜绝在共享设备、会议室大屏或同事电脑上残留敏感密钥，凭证生命周期严格规范如下：
+为保障企业代码协作安全并杜绝在共享设备、会议室大屏或同事电脑上残留敏感密钥，凭证生命周期与预设结构规范如下：
 
 ```typescript
+export type AgentProviderType = 'vercel-free' | 'byop' | 'ollama'
+
 export interface EphemeralAgentConfig {
-  endpoint: string // e.g. "https://my-proxy.vercel.app/v1"
-  apiKey?: string // e.g. "sk-..."
-  model: string // e.g. "gemini-1.5-flash" or "deepseek-chat"
+  provider: AgentProviderType
+  endpoint: string // e.g. "/api/git/agent/gateway" or "https://ai-gateway.vercel.sh/v1"
+  apiKey?: string // e.g. "AI_GATEWAY_API_KEY" or "sk-..."
+  model: string // e.g. "reflection/beam-free" or "qwen2.5:7b"
+}
+
+export const AGENT_PRESETS: Record<AgentProviderType, { label: string; endpoint: string; defaultModel: string; note: string }> = {
+  'vercel-free': {
+    label: '⚡ Vercel 免费模型 (Beam 1.0)',
+    endpoint: '/api/git/agent/gateway', // 通过本地同源转发避开浏览器 CORS
+    defaultModel: 'reflection/beam-free',
+    note: '1M 上下文，支持 Tool Calling，免费且零额外 Token 计费',
+  },
+  byop: {
+    label: '🛠 自定义 OpenAPI / BYOP',
+    endpoint: 'https://my-proxy.vercel.app/v1',
+    defaultModel: 'gemini-1.5-flash',
+    note: '连接自建 Vercel 代理、Cloudflare Worker 或第三方 OpenAPI 网关',
+  },
+  ollama: {
+    label: '💻 本地 Ollama 离线通道',
+    endpoint: 'http://localhost:11434/v1',
+    defaultModel: 'qwen2.5:7b',
+    note: '完全本地运行，100% 离线脱网与数据私密',
+  },
 }
 ```
 
@@ -66,9 +90,11 @@ export interface EphemeralAgentConfig {
   - `EphemeralAgentConfig` 只能作为局部状态存在于 React Context 或 `GitAgentBar` 的内部 `useState` 中；
   - **严禁**调用 `localStorage.setItem`、`sessionStorage.setItem`、`document.cookie`、IndexedDB 或发送给 Yggit 后端保存；
   - 页面刷新（F5）、标签页关闭、或点击面板上的“清空”按钮，凭证立即随内存回收彻底抹除。
-- **CORS 友好型错误捕获**：
-  - 若用户填写的直连 API（如未开启跨域的官方域名）触发了浏览器的 `TypeError: Failed to fetch` (CORS 错误)，客户端拦截并明确提示：
-    > _“网络请求被浏览器拦截（CORS 跨域错误）。请使用已开启 CORS 的代理地址（如自建的 vercel-gemini-proxy 或 Cloudflare Worker 代理）。”_
+- **CORS 友好型代理与错误捕获**：
+  - 对于 Vercel AI Gateway，直接走同源 Next.js 服务端路由 `/api/git/agent/gateway` 转发至 `https://ai-gateway.vercel.sh/v1`，天然解决浏览器 CORS 限制；
+  - 若用户在 BYOP 模式填写的直连 API 触发了 `TypeError: Failed to fetch`，客户端拦截并给出明确指引。
+- **连通性测试服务 (`testAgentConnection`)**：
+  - 配置面板提供 `[测试连接]` 动作，通过发送极轻量的测试包验证鉴权与可用性，实时反馈状态与延迟（ms）。
 
 ---
 
@@ -272,14 +298,19 @@ export function formatAgentDiagnosticShareCard(options: { repoName: string; titl
 
 ```
 components/git/agent/
-├── GitAgentBar.tsx             # 页面居中药丸入口 + 展开 Command Palette 弹层
-├── AgentConfigDrawer.tsx       # 零存储内存配置插槽 (Base URL, Key, Model)
+├── GitAgentBar.tsx             # 页面底部药丸入口 + 展开 Command Palette 弹层
+├── AgentConfigModal.tsx        # 独立模型通道配置面板 (预设切换、Key、连通性测试)
+├── AgentConfigDrawer.tsx       # 药丸内部折叠式轻量配置插槽
 ├── AgentPromptChips.tsx        # 快捷气泡 (今日合并、分支包含、查作者)
 ├── AgentResultContainer.tsx    # 诊断卡片容器
 └── cards/
     ├── BranchContainmentCard.tsx # 分支包含诊断卡片（带高亮按钮 & 一键复制卡片）
     ├── TodayMergesCard.tsx       # 今日合并列表卡片（带分支来源与高亮切换）
     └── CommitDetailsCard.tsx     # 提交作者详情卡片
+
+app/api/git/agent/
+└── gateway/
+    └── route.ts                # Next.js 极简同源转发器（解决 Vercel AI Gateway 浏览器 CORS）
 
 lib/agent/
 ├── types.ts                    # Agent 与 Tool 调用类型定义

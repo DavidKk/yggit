@@ -85,9 +85,15 @@
   - 常态：页面水平居中悬浮半透明毛玻璃药丸，展示占位文案及快捷键标识 `[ ✦ 问问 Yggit Agent... ⌘K ]`；
   - 展开态：点击或快捷键展开为 Command Palette 浮层，支持对话流输出、ESC 退出、外部点击自动收起；
   - 快捷 Action 气泡：提供今日合并、分支包含、Commit 溯源三个快捷引导按钮。
-- **F2 零存储 OpenAPI 内存驱动 (`AgentOpenApiClient`)**：
-  - 展开面板内提供极轻量的三项输入：`Base URL`（如 `vercel-gemini-proxy`）、`API Key`、`Model`；
-  - 遵循 **Zero-Storage** 规范，仅由 React State 持有，严禁写入 `localStorage`、`IndexedDB`、Cookie 或服务端；
+- **F2 模型通道与独立配置面板 (`AgentConfigModal` & `AgentOpenApiClient`)**：
+  - **通道预设 (Provider Presets)**：提供三套开箱即用的一键预设通道：
+    1. **⚡ Vercel AI Gateway 免费通道 (默认首选)**：预设 Base URL 为 `https://ai-gateway.vercel.sh/v1`（或由本地服务转发防跨域），默认模型 `reflection/beam-free`（0元免费，1M 上下文，支持 Tool Calling）；
+    2. **🛠 自定义 OpenAPI / BYOP**：支持用户填写自建 `vercel-gemini-proxy`、Cloudflare Worker 或第三方聚合网关；
+    3. **💻 本地 Ollama 通道**：一键预设 `http://localhost:11434/v1`，无需网络，100% 离线私密。
+  - **独立配置面板 (Settings Modal / View)**：
+    - 入口：药丸面板右上角 ⚙️ 图标、首次打开未配置时的引导卡片；
+    - 支持一键连通性测试（`测试连接` 按钮），实时反馈 HTTP 状态码与延迟；
+    - 明确标识 **Zero-Storage 纯内存安全机制**：提示密钥仅在当前标签页内存中生效，刷新即清空，绝不落盘；
   - 基于原生 `fetch` 与标准 `/v1/chat/completions` 通信，无需加载重型 npm SDK。
 - **F3 核心 Git 诊断工具集 (`services/git/agent-tools`)**：
   - `check_branch_containment(sourceBranch, targetBranch)`：计算分支包含与拓扑偏差点；
