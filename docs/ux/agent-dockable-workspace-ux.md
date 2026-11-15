@@ -205,7 +205,7 @@ Git Graph、Commit Diff 和代码是核心主体。Agent 是辅助工作区，�
 
 ---
 
-### 3.5 Configuration Modal — 独立模型通道配置面板 (`AgentConfigModal`)
+### 3.5 Configuration Modal — 独立模型通道配置面板 (`AgentSettingsModal`)
 
 参考 `CHAYA` (`SettingsShell` + `SettingsSectionNav`) 与工单系统 (`ticket-janitor`) 的经典设计规范，设置中心采用 **左侧 ICON 子导航栏 + 右侧左对齐表单内容区** 的二级双栏架构。
 

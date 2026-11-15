@@ -292,7 +292,31 @@ export class StreamingUnmasker {
     return result
   }
 }
+
+/** 深度反向还原 Tool Call 参数字典（保证本地 Git CLI 能用真实参数查询） */
+export function unmaskToolArguments(args: Record<string, unknown>, session: RedactionSession): Record<string, unknown> {
+  const result: Record<string, unknown> = {}
+  for (const [key, val] of Object.entries(args)) {
+    if (typeof val === 'string') {
+      let unmaskedVal = val
+      session.placeholderToOriginal.forEach((original, placeholder) => {
+        unmaskedVal = unmaskedVal.replaceAll(placeholder, original)
+      })
+      result[key] = unmaskedVal
+    } else if (typeof val === 'object' && val !== null) {
+      result[key] = unmaskToolArguments(val as Record<string, unknown>, session)
+    } else {
+      result[key] = val
+    }
+  }
+  return result
+}
 ```
+
+### 4.3 Git SHA 防误伤与白名单保护机制 (False-Positive Guard)
+
+- **Git SHA 保护规则**：7~40 位的十六进制 Hash（如 `7a88b1f`, `f092e4...`）严禁被通用密码或 Token 规则误伤为占位符，否则会导致图谱节点匹配与聚焦彻底失效；
+- **内置白名单**：系统将当前仓库加载的所有 Commit Hash、分支名默认注入 `allowList`，确保 Git 核心拓扑标识 100% 免疫脱敏。
 
 ---
 

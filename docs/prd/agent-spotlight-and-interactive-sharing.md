@@ -85,7 +85,7 @@
   - 常态：页面水平居中悬浮半透明毛玻璃药丸，展示占位文案及快捷键标识 `[ ✦ 问问 Yggit Agent... ⌘K ]`；
   - 展开态：点击或快捷键展开为 Command Palette 浮层，支持对话流输出、ESC 退出、外部点击自动收起；
   - 快捷 Action 气泡：提供今日合并、分支包含、Commit 溯源三个快捷引导按钮。
-- **F2 模型通道与独立配置中心 (`AgentConfigModal` & `AgentOpenApiClient`)**：
+- **F2 模型通道与独立配置中心 (`AgentSettingsModal` & `AgentOpenApiClient`)**：
   - **二级导航双栏布局**：参考 `CHAYA` 与工单系统 (`ticket-janitor`) 规范，配置中心采用 **左侧纯 ICON 垂直子导航 + 右侧左对齐表单区** 架构：
     - 左侧子导航包含三个二级分类：🤖 **模型通道 (`models`)**、🛡️ **隐私与合规 (`privacy`)**、⚙️ **通用偏好 (`general`)**；
     - 右侧内容区严格采用左对齐排布，限制最大表单宽度为 `max-w-2xl`，视觉聚拢舒适。
