@@ -42,7 +42,7 @@ export const AGENT_PRESETS: Record<AgentProviderType, ModelPresetDefinition> = {
     ],
     requiresKey: true,
     noZdrNotice: false,
-    description: '通过 OpenAI 官方 OpenAPI 标准接口接入，支持 GPT-4o、o1 等顶尖大模型。',
+    description: 'OpenAI 官方 OpenAPI 标准接口。',
   },
   claude: {
     name: 'Anthropic Claude (OpenAPI)',
@@ -57,7 +57,7 @@ export const AGENT_PRESETS: Record<AgentProviderType, ModelPresetDefinition> = {
     ],
     requiresKey: true,
     noZdrNotice: false,
-    description: '通过 Anthropic 协议或兼容网关接入 Claude 模型，具备业界领先的代码理解能力。',
+    description: 'Anthropic 协议或兼容网关端点。',
   },
   gemini: {
     name: 'Google Gemini (OpenAPI)',
@@ -73,7 +73,7 @@ export const AGENT_PRESETS: Record<AgentProviderType, ModelPresetDefinition> = {
     ],
     requiresKey: true,
     noZdrNotice: false,
-    description: '使用 Google 官方 OpenAI 兼容 OpenAPI 端点，具备超长上下文窗口与快速响应。',
+    description: 'Google Gemini OpenAPI 兼容端点。',
   },
   deepseek: {
     name: 'DeepSeek (OpenAPI)',
@@ -86,7 +86,7 @@ export const AGENT_PRESETS: Record<AgentProviderType, ModelPresetDefinition> = {
     ],
     requiresKey: true,
     noZdrNotice: false,
-    description: 'DeepSeek 官方 OpenAI 兼容接口，极高性价比的代码生成与深度思维链推理。',
+    description: 'DeepSeek 官方 OpenAI 兼容接口。',
   },
   ollama: {
     name: 'Ollama (Local 本地)',
@@ -102,7 +102,7 @@ export const AGENT_PRESETS: Record<AgentProviderType, ModelPresetDefinition> = {
     requiresKey: false,
     noZdrNotice: false,
     isLocal: true,
-    description: '在本地直接运行开源模型，数据无需出局域网，绝对隐私与离线可用。',
+    description: '本地离线运行开源模型，数据不出内网。',
   },
   'local-sdk': {
     name: 'Local SDK (本地直连 / LM Studio / vLLM)',
@@ -118,7 +118,7 @@ export const AGENT_PRESETS: Record<AgentProviderType, ModelPresetDefinition> = {
     requiresKey: false,
     noZdrNotice: false,
     isLocal: true,
-    description: '通过本地 SDK / 本地服务端口（如 LM Studio、LocalAI、vLLM）零跳跃直接接入。',
+    description: '本地端口（LM Studio、vLLM）零跳跃直连。',
   },
   byop: {
     name: 'Custom OpenAI-Compatible (自定义端点)',
@@ -132,7 +132,7 @@ export const AGENT_PRESETS: Record<AgentProviderType, ModelPresetDefinition> = {
     ],
     requiresKey: true,
     noZdrNotice: false,
-    description: '连接企业自建中转网关、OneAPI、NewAPI 或第三方兼容服务端点。',
+    description: '自建中转网关或第三方兼容服务端点。',
   },
   'vercel-free': {
     name: 'Vercel AI Gateway (Free)',
@@ -142,7 +142,7 @@ export const AGENT_PRESETS: Record<AgentProviderType, ModelPresetDefinition> = {
     models: [{ id: 'reflection/beam-free', name: 'Reflection Beam 1.0 (Free, 1M Context)' }],
     requiresKey: false,
     noZdrNotice: true,
-    description: '开箱即用免配置的免费测试服务，适合初次体验与演示。',
+    description: '开箱即用免配置的免费测试服务。',
   },
 }
 

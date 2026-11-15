@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from 'next/navigation'
 import React, { useState } from 'react'
-import { LuCpu, LuShieldCheck } from 'react-icons/lu'
+import { LuCpu, LuShieldCheck, LuSlidersHorizontal } from 'react-icons/lu'
 import { MdOutlineExitToApp } from 'react-icons/md'
 
 import { BrandLogo } from '@/components/BrandLogo'
@@ -10,6 +10,7 @@ import { useT } from '@/components/i18n/LocaleProvider'
 import { LocaleSwitcher } from '@/components/i18n/LocaleSwitcher'
 import { ThemeSwitcher } from '@/components/theme/ThemeSwitcher'
 
+import { GeneralSettingsSection } from './GeneralSettingsSection'
 import { ModelChannelSection } from './ModelChannelSection'
 import { PrivacyRedactSection } from './PrivacyRedactSection'
 import { type SettingsSectionKey, SettingsSideNav } from './SettingsSideNav'
@@ -29,7 +30,7 @@ export function AgentSettingsPageContent() {
   const searchParams = useSearchParams()
   const tabParam = searchParams.get('tab') as SettingsSectionKey | null
 
-  const [activeSection, setActiveSection] = useState<SettingsSectionKey>(tabParam && ['models', 'privacy'].includes(tabParam) ? tabParam : 'models')
+  const [activeSection, setActiveSection] = useState<SettingsSectionKey>(tabParam && ['models', 'privacy', 'general'].includes(tabParam) ? tabParam : 'models')
 
   const handleBack = () => {
     if (typeof window !== 'undefined' && window.history.length > 1) {
@@ -56,6 +57,11 @@ export function AgentSettingsPageContent() {
       title: t('gitAgent.tabPrivacy'),
       desc: '在客户端本地完成密钥、邮箱、拓扑与自定义敏感词的双向可逆掩盖，防范敏感资产外泄。',
       icon: <LuShieldCheck className="size-4 text-accent" aria-hidden="true" />,
+    },
+    general: {
+      title: t('gitAgent.tabGeneral') || '通用设置',
+      desc: '管理外观主题、语言偏好、Git 视图交互及底层执行模式。',
+      icon: <LuSlidersHorizontal className="size-4 text-accent" aria-hidden="true" />,
     },
   }
 
@@ -113,6 +119,7 @@ export function AgentSettingsPageContent() {
             <div className="grid w-full max-w-4xl gap-3">
               {activeSection === 'models' && <ModelChannelSection />}
               {activeSection === 'privacy' && <PrivacyRedactSection />}
+              {activeSection === 'general' && <GeneralSettingsSection />}
             </div>
           </div>
         </main>

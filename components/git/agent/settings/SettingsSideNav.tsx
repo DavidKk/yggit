@@ -1,13 +1,13 @@
 'use client'
 
 import React from 'react'
-import { LuCpu, LuShieldCheck } from 'react-icons/lu'
+import { LuCpu, LuShieldCheck, LuSlidersHorizontal } from 'react-icons/lu'
 
 import { useT } from '@/components/i18n/LocaleProvider'
 import { Tooltip } from '@/components/sk'
 import { cn } from '@/lib/utils'
 
-export type SettingsSectionKey = 'models' | 'privacy'
+export type SettingsSectionKey = 'models' | 'privacy' | 'general'
 
 interface Props {
   activeSection: SettingsSectionKey
@@ -27,6 +27,11 @@ export function SettingsSideNav({ activeSection, onSelectSection }: Props) {
       id: 'privacy' as const,
       label: t('gitAgent.tabPrivacy'),
       icon: <LuShieldCheck className="h-4.5 w-4.5" aria-hidden="true" />,
+    },
+    {
+      id: 'general' as const,
+      label: t('gitAgent.tabGeneral') || '通用设置',
+      icon: <LuSlidersHorizontal className="h-4.5 w-4.5" aria-hidden="true" />,
     },
   ]
 

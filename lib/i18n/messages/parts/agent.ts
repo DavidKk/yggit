@@ -4,7 +4,7 @@ export const gitAgentZh: { gitAgent: GitAgentMessages } = {
   gitAgent: {
     barPlaceholder: '向 Git Agent 提问（如：查询今日 merge / 分支污染排查）...',
     barAria: 'Git Agent 智能助手',
-    settingsTitle: 'Git Agent 设置',
+    settingsTitle: '设置',
     backToGraph: '返回图谱',
     modelList: '模型接入列表',
     modelListDesc: '管理多个模型接入配置，选择当前 Git Agent 使用的模型。',
@@ -71,7 +71,7 @@ export const gitAgentEn: { gitAgent: GitAgentMessages } = {
   gitAgent: {
     barPlaceholder: 'Ask Git Agent (e.g. check branch pollution / today merges)...',
     barAria: 'Git Agent Assistant',
-    settingsTitle: 'Git Agent Settings',
+    settingsTitle: 'Settings',
     backToGraph: 'Back to graph',
     modelList: 'Model connections',
     modelListDesc: 'Manage model connections and select the one used by Git Agent.',
@@ -139,7 +139,7 @@ export const gitAgentCht: { gitAgent: GitAgentMessages } = {
   gitAgent: {
     ...gitAgentZh.gitAgent,
     barPlaceholder: '向 Git Agent 提問（如：查詢今日 merge / 分支污染排查）...',
-    settingsTitle: 'Git Agent 設定',
+    settingsTitle: '設定',
     backToGraph: '返回圖譜',
     modelList: '模型接入清單',
     modelListDesc: '管理多個模型接入設定，選擇目前 Git Agent 使用的模型。',
@@ -207,7 +207,7 @@ export const gitAgentJa: { gitAgent: GitAgentMessages } = {
     ...gitAgentEn.gitAgent,
     barPlaceholder: 'Git Agent に質問する (例: 本日のマージ確認 / ブランチ汚染調査)...',
     barAria: 'Git Agent アシスタント',
-    settingsTitle: 'Git Agent 設定',
+    settingsTitle: '設定',
     tabModels: 'モデル接続',
     tabPrivacy: 'プライバシーとマスキング',
     tabGeneral: '一般設定',
@@ -244,7 +244,7 @@ export const gitAgentKo: { gitAgent: GitAgentMessages } = {
     ...gitAgentEn.gitAgent,
     barPlaceholder: 'Git Agent에게 질문하기 (예: 오늘 머지 확인 / 브랜치 오염 조사)...',
     barAria: 'Git Agent 도우미',
-    settingsTitle: 'Git Agent 설정',
+    settingsTitle: '설정',
     tabModels: '모델 제공자',
     tabPrivacy: '개인정보 및 마스킹',
     tabGeneral: '일반 설정',
@@ -280,7 +280,7 @@ export const gitAgentFr: { gitAgent: GitAgentMessages } = {
   gitAgent: {
     ...gitAgentEn.gitAgent,
     barPlaceholder: 'Poser une question à Git Agent (ex: merges du jour, pollution de branche)...',
-    settingsTitle: 'Paramètres Git Agent',
+    settingsTitle: 'Paramètres',
     tabModels: 'Modèles',
     tabPrivacy: 'Confidentialité',
     tabGeneral: 'Général',
@@ -297,7 +297,7 @@ export const gitAgentDe: { gitAgent: GitAgentMessages } = {
   gitAgent: {
     ...gitAgentEn.gitAgent,
     barPlaceholder: 'Git Agent fragen (z. B. heutige Merges / Branch-Verschmutzung)...',
-    settingsTitle: 'Git Agent Einstellungen',
+    settingsTitle: 'Einstellungen',
     tabModels: 'Modellanbieter',
     tabPrivacy: 'Datenschutz & Maskierung',
     tabGeneral: 'Allgemein',
@@ -314,7 +314,7 @@ export const gitAgentEs: { gitAgent: GitAgentMessages } = {
   gitAgent: {
     ...gitAgentEn.gitAgent,
     barPlaceholder: 'Preguntar a Git Agent (ej: merges de hoy / revisión de ramas)...',
-    settingsTitle: 'Configuración de Git Agent',
+    settingsTitle: 'Configuración',
     tabModels: 'Modelos',
     tabPrivacy: 'Privacidad y Redacción',
     tabGeneral: 'General',
@@ -331,7 +331,7 @@ export const gitAgentRu: { gitAgent: GitAgentMessages } = {
   gitAgent: {
     ...gitAgentEn.gitAgent,
     barPlaceholder: 'Спросить Git Agent (например, сегодняшние слияния / проверка веток)...',
-    settingsTitle: 'Настройки Git Agent',
+    settingsTitle: 'Настройки',
     tabModels: 'Модели',
     tabPrivacy: 'Приватность и маскирование',
     tabGeneral: 'Общие',
@@ -348,7 +348,7 @@ export const gitAgentPtBR: { gitAgent: GitAgentMessages } = {
   gitAgent: {
     ...gitAgentEn.gitAgent,
     barPlaceholder: 'Perguntar ao Git Agent (ex: merges de hoje / verificação de branches)...',
-    settingsTitle: 'Configurações do Git Agent',
+    settingsTitle: 'Configurações',
     tabModels: 'Provedor de Modelos',
     tabPrivacy: 'Privacidade e Redação',
     tabGeneral: 'Geral',

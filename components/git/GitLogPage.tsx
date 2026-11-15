@@ -1,7 +1,8 @@
 'use client'
 
+import Link from 'next/link'
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { LuCheck, LuChevronsUpDown, LuFolderGit2, LuShare2 } from 'react-icons/lu'
+import { LuCheck, LuChevronsUpDown, LuFolderGit2, LuSettings, LuShare2 } from 'react-icons/lu'
 
 import { BrandLogo } from '@/components/BrandLogo'
 import { AgentWorkspace } from '@/components/git/agent/AgentWorkspace'
@@ -21,6 +22,7 @@ import { PanelSplitter } from '@/components/git/PanelSplitter'
 import { useT } from '@/components/i18n/LocaleProvider'
 import { LocaleSwitcher } from '@/components/i18n/LocaleSwitcher'
 import { Button, EmptyState, Spinner, Tooltip } from '@/components/sk'
+import { dropdownTriggerClass } from '@/components/sk/dropdownMenu'
 import { ThemeSwitcher } from '@/components/theme/ThemeSwitcher'
 import { useOptionalSpotlight } from '@/lib/agent/spotlight-context'
 import { readApiErrorMessage } from '@/lib/api-error'
@@ -735,6 +737,12 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
             <span className="mx-0.5 h-3.5 w-px shrink-0 bg-[color-mix(in_oklab,var(--ink)_14%,transparent)]" aria-hidden />
             <ThemeSwitcher compact />
             <LocaleSwitcher compact />
+            <Tooltip content={t('gitAgent.settingsTitle')} placement="bottom">
+              <Link href="/settings" className={cn(dropdownTriggerClass, 'px-2')} aria-label={t('gitAgent.settingsTitle')}>
+                <LuSettings className="size-4 shrink-0" aria-hidden="true" />
+                <span className="sr-only sm:not-sr-only">{t('gitAgent.settingsTitle')}</span>
+              </Link>
+            </Tooltip>
           </div>
         </header>
 

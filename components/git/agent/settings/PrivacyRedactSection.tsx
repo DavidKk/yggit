@@ -78,12 +78,7 @@ export function PrivacyRedactSection() {
                 <p className="text-[11px] text-ink-soft">匹配 AWS/GitHub/GitLab Token、私钥与数据库连接串等</p>
               </div>
             </div>
-            <SwitchToggle
-              size="sm"
-              checked={redactionOptions.categories.secrets}
-              onCheckedChange={() => handleToggleCategory('secrets')}
-              aria-label={t('gitAgent.privacySecrets')}
-            />
+            <SwitchToggle checked={redactionOptions.categories.secrets} onCheckedChange={() => handleToggleCategory('secrets')} aria-label={t('gitAgent.privacySecrets')} />
           </div>
 
           {/* PII */}
@@ -95,7 +90,7 @@ export function PrivacyRedactSection() {
                 <p className="text-[11px] text-ink-soft">掩盖 Commit 作者邮箱、电话号码与用户个人识别符</p>
               </div>
             </div>
-            <SwitchToggle size="sm" checked={redactionOptions.categories.pii} onCheckedChange={() => handleToggleCategory('pii')} aria-label={t('gitAgent.privacyPii')} />
+            <SwitchToggle checked={redactionOptions.categories.pii} onCheckedChange={() => handleToggleCategory('pii')} aria-label={t('gitAgent.privacyPii')} />
           </div>
 
           {/* Network */}
@@ -107,12 +102,7 @@ export function PrivacyRedactSection() {
                 <p className="text-[11px] text-ink-soft">掩盖内网 RFC1918 私有 IP、内部集群域名等拓扑资产</p>
               </div>
             </div>
-            <SwitchToggle
-              size="sm"
-              checked={redactionOptions.categories.network}
-              onCheckedChange={() => handleToggleCategory('network')}
-              aria-label={t('gitAgent.privacyNetwork')}
-            />
+            <SwitchToggle checked={redactionOptions.categories.network} onCheckedChange={() => handleToggleCategory('network')} aria-label={t('gitAgent.privacyNetwork')} />
           </div>
         </div>
       </SettingsSectionCard>

@@ -159,7 +159,7 @@ function ModelChannelEditor({ profile, onBack }: { profile: AgentModelProfile; o
   const showApiKeyField = config.provider !== 'ollama' && config.provider !== 'local-sdk'
 
   return (
-    <SettingsSectionCard title={t('gitAgent.modelDetails')} description={t('gitAgent.modelDetailsDesc')}>
+    <SettingsSectionCard title={t('gitAgent.modelDetails')} description="配置服务渠道、接口地址、默认模型与 API 密钥。">
       <form
         className="grid gap-3"
         onSubmit={(event) => {
@@ -178,9 +178,9 @@ function ModelChannelEditor({ profile, onBack }: { profile: AgentModelProfile; o
               <label htmlFor="agent-model-name" className="text-xs font-semibold text-ink">
                 {t('gitAgent.profileName')}
               </label>
-              <p className="text-xs text-ink-soft leading-relaxed mt-1">为该配置指定一个直观易辨识的名称（例如：主力代码分析、轻量快速调试）。</p>
+              <p className="text-xs text-ink-soft leading-relaxed mt-0.5">便于辨识的配置别名。</p>
             </div>
-            <div className="md:col-span-7 min-w-0">
+            <div className="md:col-span-7 min-w-0 max-w-[460px]">
               <TextInput
                 id="agent-model-name"
                 fullWidth
@@ -197,9 +197,9 @@ function ModelChannelEditor({ profile, onBack }: { profile: AgentModelProfile; o
               <span className="text-xs font-semibold text-ink" id="agent-provider-label">
                 {t('gitAgent.modelProvider')}
               </span>
-              <p className="text-xs text-ink-soft leading-relaxed mt-1">{preset.description || '选择大语言模型服务商协议或本地直连方式。'}</p>
+              <p className="text-xs text-ink-soft leading-relaxed mt-0.5">{preset.description || '服务商协议或本地直连方式。'}</p>
             </div>
-            <div className="md:col-span-7 min-w-0">
+            <div className="md:col-span-7 min-w-0 max-w-[460px] flex flex-col gap-2">
               <Select
                 aria-labelledby="agent-provider-label"
                 className="w-full"
@@ -218,14 +218,9 @@ function ModelChannelEditor({ profile, onBack }: { profile: AgentModelProfile; o
                   setModelsFetchMsg('')
                 }}
               />
+              {preset.noZdrNotice && <PrivacyNoticeCallout />}
             </div>
           </div>
-
-          {preset.noZdrNotice && (
-            <div className="py-2">
-              <PrivacyNoticeCallout />
-            </div>
-          )}
 
           {/* Row 3: API Endpoint */}
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 items-start">
@@ -233,9 +228,9 @@ function ModelChannelEditor({ profile, onBack }: { profile: AgentModelProfile; o
               <label htmlFor="agent-model-endpoint" className="text-xs font-semibold text-ink">
                 {t('gitAgent.endpoint')}
               </label>
-              <p className="text-xs text-ink-soft leading-relaxed mt-1">兼容 OpenAPI 规范的服务基地址，请求会自动附加并转发至 /chat/completions。</p>
+              <p className="text-xs text-ink-soft leading-relaxed mt-0.5">OpenAPI 规范的服务基地址。</p>
             </div>
-            <div className="md:col-span-7 min-w-0">
+            <div className="md:col-span-7 min-w-0 max-w-[460px]">
               <TextInput
                 id="agent-model-endpoint"
                 fullWidth
@@ -252,9 +247,9 @@ function ModelChannelEditor({ profile, onBack }: { profile: AgentModelProfile; o
               <label htmlFor="agent-model-id" className="text-xs font-semibold text-ink">
                 {t('gitAgent.defaultModel') || '默认模型'}
               </label>
-              <p className="text-xs text-ink-soft leading-relaxed mt-1">直接选择常用推荐规格，或输入自定义模型名称进行实时筛选，选中即可生效。</p>
+              <p className="text-xs text-ink-soft leading-relaxed mt-0.5">预设规格或输入自定义模型代码。</p>
             </div>
-            <div className="md:col-span-7 min-w-0 flex flex-col gap-2">
+            <div className="md:col-span-7 min-w-0 max-w-[460px] flex flex-col gap-2">
               <div className="flex items-center gap-2">
                 <InputSuggestion
                   id="agent-model-id"
@@ -288,9 +283,9 @@ function ModelChannelEditor({ profile, onBack }: { profile: AgentModelProfile; o
                 <label htmlFor="agent-api-key" className="text-xs font-semibold text-ink">
                   {t('gitAgent.apiKey')}
                 </label>
-                <p className="text-xs text-ink-soft leading-relaxed mt-1">服务商 API Key 凭证。严格遵循零留存机制，仅保存在本地客户端内存中，不会持久化至服务端。</p>
+                <p className="text-xs text-ink-soft leading-relaxed mt-0.5">仅在客户端内存暂存，刷新即清空。</p>
               </div>
-              <div className="md:col-span-7 min-w-0">
+              <div className="md:col-span-7 min-w-0 max-w-[460px]">
                 <ConfiguredSecretInput
                   key={config.provider}
                   configured={Boolean(draft.config.apiKey) && !clearKey}
