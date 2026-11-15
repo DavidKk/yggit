@@ -1,4 +1,5 @@
 import { execFile } from 'node:child_process'
+import fs from 'node:fs'
 import os from 'node:os'
 import { promisify } from 'node:util'
 
@@ -8,7 +9,7 @@ import { parseGitBranches, parseGitLog, parseGitRemotes, parseGitStashes, parseG
 import type { GitCommit, GitLogView, GitWorktree } from '@/lib/git/types'
 
 import { readBranchMarks } from './marks'
-import { originUrl, rememberLocalProject, writeLastOpenedRepo } from './projects'
+import { listGitProjects, originUrl, rememberLocalProject, writeLastOpenedRepo } from './projects'
 import { parseGitHubRepo, readRemoteGitLog } from './remote-provider'
 
 const execFileAsync = promisify(execFile)
@@ -47,9 +48,28 @@ function displayPath(repo: string): string {
 }
 
 export async function resolveGitRepo(input?: string): Promise<string> {
-  const start = (input || ROOT_PATH).trim() || ROOT_PATH
+  const raw = (input || '').trim()
+  if (raw) {
+    try {
+      return (await git(raw, ['rev-parse', '--show-toplevel'])).trim()
+    } catch {
+      // Check registered projects if input was a project name or ID
+      const projects = listGitProjects()
+      const match = projects.find(
+        (p) => p.name.toLowerCase() === raw.toLowerCase() || p.id.toLowerCase() === raw.toLowerCase()
+      )
+      if (match?.localPath && fs.existsSync(match.localPath)) {
+        try {
+          return (await git(match.localPath, ['rev-parse', '--show-toplevel'])).trim()
+        } catch {
+          // Fall through
+        }
+      }
+    }
+  }
+  const fallback = raw || ROOT_PATH
   try {
-    return (await git(start, ['rev-parse', '--show-toplevel'])).trim()
+    return (await git(fallback, ['rev-parse', '--show-toplevel'])).trim()
   } catch (error) {
     throw new Error(gitFailure(error))
   }

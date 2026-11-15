@@ -43,6 +43,15 @@ function parseLsRemoteHeads(raw: string, remote: string): Map<string, string> {
 
 /** Compare remote tips via `git ls-remote` against local `refs/remotes/*` — no fetch. */
 export async function checkGitRemotes(repoInput?: string): Promise<GitRemoteCheck> {
+  const trimmed = (repoInput || '').trim()
+  if (/^https?:\/\//i.test(trimmed) || /^git@/i.test(trimmed)) {
+    return {
+      checkedAt: new Date().toISOString(),
+      remotes: [],
+      updates: [],
+      errors: [],
+    }
+  }
   const repo = await resolveGitRepo(repoInput)
   let remoteNames: string[] = []
   try {

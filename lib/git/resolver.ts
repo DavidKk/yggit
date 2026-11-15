@@ -14,7 +14,14 @@ export interface ParsedRepoSlug {
   subPath?: string
 }
 
-export function parseRepoSlug(slugParts: string[]): ParsedRepoSlug | null {
+export interface MakeShareUrlOptions {
+  hash?: string
+  file?: string
+  lines?: string
+  remoteUrl?: string
+}
+
+export function parseRepoSlug(slugParts: string[], remoteQueryParam?: string): ParsedRepoSlug | null {
   if (!slugParts || slugParts.length === 0) return null
 
   const parts = slugParts.map((p) => decodeURIComponent(p.trim())).filter(Boolean)
@@ -25,29 +32,42 @@ export function parseRepoSlug(slugParts: string[]): ParsedRepoSlug | null {
   let provider: 'github' | 'gitlab' | 'generic' | undefined
   let owner: string | undefined
   let repo: string | undefined
-  let remoteUrl: string | undefined
+  let remoteUrl: string | undefined = remoteQueryParam?.trim() || undefined
 
-  // 1. Check if provider prefix: /repo/github/owner/repo or /repo/gitlab/owner/repo
-  if ((parts[0] === 'github' || parts[0] === 'gitlab') && parts.length >= 3) {
-    provider = parts[0]
-    owner = parts[1]
-    repo = parts[2]
-    repoKey = `${provider}.com/${owner}/${repo}`
-    remoteUrl = `https://${provider}.com/${owner}/${repo}.git`
-    remainingIndex = 3
-  } else if (parts[0].includes('.') && parts.length >= 3) {
-    // 2. Custom host with dot, e.g. /repo/git.corp.com/group/project
-    const host = parts[0].toLowerCase()
+  // Find where the resource keyword begins ('commit', 'branch', 'blob', 'diff')
+  const keywordIndex = parts.findIndex((p) => ['commit', 'branch', 'blob', 'diff'].includes(p.toLowerCase()))
+  const repoSlugParts = keywordIndex >= 0 ? parts.slice(0, keywordIndex) : parts
+  remainingIndex = keywordIndex >= 0 ? keywordIndex : parts.length
+
+  // Check provider or host
+  if ((repoSlugParts[0] === 'github' || repoSlugParts[0] === 'gitlab') && repoSlugParts.length >= 2) {
+    provider = repoSlugParts[0]
+    repo = repoSlugParts[repoSlugParts.length - 1]
+    owner = repoSlugParts.slice(1, repoSlugParts.length - 1).join('/')
+    repoKey = `${provider}.com/${owner ? `${owner}/` : ''}${repo}`
+    if (!remoteUrl) {
+      remoteUrl = `https://${provider}.com/${owner ? `${owner}/` : ''}${repo}.git`
+    }
+  } else if (repoSlugParts[0].includes('.')) {
+    // Custom domain, e.g. gitlab.mycorp.com/team/subgroup/ticket-janitor
+    const host = repoSlugParts[0].toLowerCase()
     provider = host.includes('github') ? 'github' : host.includes('gitlab') ? 'gitlab' : 'generic'
-    owner = parts[1]
-    repo = parts[2]
-    repoKey = `${host}/${owner}/${repo}`
-    remoteUrl = `https://${host}/${owner}/${repo}.git`
-    remainingIndex = 3
+    if (repoSlugParts.length >= 2) {
+      repo = repoSlugParts[repoSlugParts.length - 1]
+      owner = repoSlugParts.slice(1, repoSlugParts.length - 1).join('/')
+      repoKey = `${host}/${owner ? `${owner}/` : ''}${repo}`
+      if (!remoteUrl) {
+        remoteUrl = `https://${host}/${owner ? `${owner}/` : ''}${repo}.git`
+      }
+    } else {
+      repoKey = repoSlugParts.join('/')
+      if (!remoteUrl) {
+        remoteUrl = `https://${repoSlugParts.join('/')}.git`
+      }
+    }
   } else {
-    // 3. Opaque key or local/remote hash, e.g. /repo/r_xxx or /repo/l_xxx
-    repoKey = parts[0]
-    remainingIndex = 1
+    // Opaque key or local/remote hash, e.g. /repo/r_xxx or /repo/l_xxx
+    repoKey = repoSlugParts.join('/')
   }
 
   let resourceType: 'commit' | 'branch' | 'blob' | 'diff' | null = null
@@ -92,31 +112,59 @@ export function generateRepoKey(remoteUrlOrKey: string): string {
   return `l_${projectId(remoteUrlOrKey)}`
 }
 
-export function makeShareUrl(repoPathOrUrl: string, hash?: string, remoteUrl?: string): string {
-  const remoteTarget = remoteUrl || repoPathOrUrl
+export function makeShareUrl(
+  repoPathOrUrl: string,
+  optionsOrHash?: string | MakeShareUrlOptions,
+  explicitRemoteUrl?: string
+): string {
+  const options: MakeShareUrlOptions =
+    typeof optionsOrHash === 'string'
+      ? { hash: optionsOrHash, remoteUrl: explicitRemoteUrl }
+      : optionsOrHash || {}
+
+  const remoteTarget = options.remoteUrl || explicitRemoteUrl || repoPathOrUrl
   const identity = normalizeRemote(remoteTarget)
+
+  let base = ''
   if (identity) {
     if (identity.host === 'github.com') {
       const parts = identity.key.replace(/^github\.com\//, '').split('/')
       if (parts.length >= 2) {
-        const owner = parts[0]
-        const repo = parts.slice(1).join('/')
-        return hash ? `/repo/github/${owner}/${repo}/commit/${hash}` : `/repo/github/${owner}/${repo}`
+        const owner = parts.slice(0, parts.length - 1).join('/')
+        const repo = parts[parts.length - 1]
+        base = options.hash ? `/repo/github/${owner}/${repo}/commit/${options.hash}` : `/repo/github/${owner}/${repo}`
       }
-    }
-    if (identity.host === 'gitlab.com') {
+    } else if (identity.host === 'gitlab.com') {
       const parts = identity.key.replace(/^gitlab\.com\//, '').split('/')
       if (parts.length >= 2) {
-        const owner = parts[0]
-        const repo = parts.slice(1).join('/')
-        return hash ? `/repo/gitlab/${owner}/${repo}/commit/${hash}` : `/repo/gitlab/${owner}/${repo}`
+        const owner = parts.slice(0, parts.length - 1).join('/')
+        const repo = parts[parts.length - 1]
+        base = options.hash ? `/repo/gitlab/${owner}/${repo}/commit/${options.hash}` : `/repo/gitlab/${owner}/${repo}`
       }
+    } else {
+      // Enterprise self-hosted GitLab / Custom host
+      base = options.hash ? `/repo/${identity.key}/commit/${options.hash}` : `/repo/${identity.key}`
     }
-    // Generic or corporate git host: /repo/{host}/{path}/commit/{hash}
-    return hash ? `/repo/${identity.key}/commit/${hash}` : `/repo/${identity.key}`
   }
 
-  // Pure offline local repository
-  const repoKey = `l_${projectId(repoPathOrUrl)}`
-  return hash ? `/repo/${repoKey}/commit/${hash}` : `/repo/${repoKey}`
+  if (!base) {
+    // Pure offline local repository
+    const repoKey = `l_${projectId(repoPathOrUrl)}`
+    base = options.hash ? `/repo/${repoKey}/commit/${options.hash}` : `/repo/${repoKey}`
+  }
+
+  const url = new URL(base, 'http://localhost')
+  if (options.file) {
+    url.searchParams.set('file', options.file)
+  }
+  // Include explicit remote clone url for corporate or custom self-hosted GitLab/Git hosts
+  if (identity && identity.host !== 'github.com' && identity.host !== 'gitlab.com') {
+    url.searchParams.set('remote', identity.httpsUrl)
+  }
+
+  let finalPath = `${url.pathname}${url.search}`
+  if (options.lines) {
+    finalPath += `#L${options.lines}`
+  }
+  return finalPath
 }

@@ -9,6 +9,7 @@ import { handleTreeExpandKey, handleTreeParentKey } from '@/components/git/treeE
 import { useT } from '@/components/i18n/LocaleProvider'
 import { Badge, Button, EmptyState, ScrollArea, SegmentedNav } from '@/components/sk'
 import { readApiErrorMessage } from '@/lib/api-error'
+import { copyToClipboard } from '@/lib/clipboard'
 import { getGitDriver } from '@/lib/git/driver'
 import { makeShareUrl } from '@/lib/git/resolver'
 import { formatIssueShareCard, makeIssueShareUrl } from '@/lib/git/share-card'
@@ -483,7 +484,7 @@ export function GitCommitPanel({
                   },
                   fullShareUrl
                 )
-                void navigator.clipboard.writeText(card.markdown)
+                void copyToClipboard(card.markdown)
                 setCopiedShare(true)
                 setTimeout(() => setCopiedShare(false), 2000)
               }}

@@ -21,8 +21,8 @@ export interface ResolvedRepo {
   }
 }
 
-export function resolveRepoSlug(slugParts: string[]): { parsed: ParsedRepoSlug; resolved: ResolvedRepo } {
-  const parsed = parseRepoSlug(slugParts)
+export function resolveRepoSlug(slugParts: string[], remoteQueryParam?: string): { parsed: ParsedRepoSlug; resolved: ResolvedRepo } {
+  const parsed = parseRepoSlug(slugParts, remoteQueryParam)
   if (!parsed) {
     return {
       parsed: { repoKey: '', resourceType: null },

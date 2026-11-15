@@ -46,22 +46,32 @@ export function formatIssueShareCard(payload: IssueSharePayload, fullShareUrl: s
     topologyPlain = `合并脉络: ${src} -> ${tgt}`
   }
 
+  const platform = payload.remoteUrl?.includes('gitlab')
+    ? 'GitLab'
+    : payload.remoteUrl?.includes('github')
+      ? 'GitHub'
+      : 'Git'
+  const remoteInfo = payload.remoteUrl ? `- **远程源**：\`${payload.remoteUrl}\`` : ''
+  const remotePlain = payload.remoteUrl ? `远程源: ${payload.remoteUrl}` : ''
+
   const markdownParts = [
     `🔍 **[Yggit 代码问题排查]**`,
-    `- **仓库**：${repoName}`,
+    `- **平台与仓库**：${platform} · \`${repoName}\``,
+    remoteInfo,
     `- **提交**：\`${commit.short}\` — ${subject}`,
     topologyMarkdown,
     file ? `- **问题文件**：\`${file}\`${linesInfo}` : '',
-    `👉 **[点击在 Yggit 中交互式排查拓扑与差异](${fullShareUrl})**`,
+    `👉 **[点击在 Yggit 中交互式排查拓扑与代码差异](${fullShareUrl})**`,
   ].filter(Boolean)
 
   const plainParts = [
     `[Yggit 代码问题排查]`,
-    `仓库: ${repoName}`,
+    `平台与仓库: ${platform} - ${repoName}`,
+    remotePlain,
     `提交: ${commit.short} - ${subject}`,
     topologyPlain,
     file ? `问题文件: ${file}${linesInfo}` : '',
-    `在线查看: ${fullShareUrl}`,
+    `在线排查: ${fullShareUrl}`,
   ].filter(Boolean)
 
   return {

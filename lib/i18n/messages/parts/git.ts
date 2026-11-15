@@ -1,6 +1,11 @@
 export type GitMessages = {
   explore: { diving: string }
-  header: { noRepo: string; pickRepo: string }
+  header: {
+    noRepo: string
+    pickRepo: string
+    share: string
+    shareTip: string
+  }
   errors: {
     readGit: string
     openFolder: string
@@ -244,7 +249,9 @@ export const gitZh: GitMessages = {
   },
   header: {
     noRepo: "未打开仓库",
-    pickRepo: "选择一个本地 Git 仓库"
+    pickRepo: "选择一个本地 Git 仓库",
+    share: "分享",
+    shareTip: "复制当前仓库 / 提交的精准共享链接与排查卡片"
   },
   errors: {
     readGit: "无法读取 Git",
@@ -505,7 +512,9 @@ export const gitCht: GitMessages = {
   },
   header: {
     noRepo: "未開啟倉庫",
-    pickRepo: "選擇一個本機 Git 倉庫"
+    pickRepo: "選擇一個本機 Git 倉庫",
+    share: "分享",
+    shareTip: "複製當前倉庫 / 提交的精準共享連結與排查卡片"
   },
   errors: {
     readGit: "無法讀取 Git",
@@ -766,7 +775,9 @@ export const gitEn: GitMessages = {
   },
   header: {
     noRepo: "No repository open",
-    pickRepo: "Choose a local Git repository"
+    pickRepo: "Choose a local Git repository",
+    share: "Share",
+    shareTip: "Copy precise share link and diagnostic issue card"
   },
   errors: {
     readGit: "Could not read Git",
@@ -1027,7 +1038,9 @@ export const gitJa: GitMessages = {
   },
   header: {
     noRepo: "リポジトリ未オープン",
-    pickRepo: "ローカルの Git リポジトリを選択"
+    pickRepo: "ローカルの Git リポジトリを選択",
+    share: "共有",
+    shareTip: "現在のリポジトリ/コミットの共有リンクと診断カードをコピー"
   },
   errors: {
     readGit: "Git を読み取れません",
@@ -1288,7 +1301,9 @@ export const gitFr: GitMessages = {
   },
   header: {
     noRepo: "Aucun dépôt ouvert",
-    pickRepo: "Choisir un dépôt Git local"
+    pickRepo: "Choisir un dépôt Git local",
+    share: "Partager",
+    shareTip: "Copier le lien de partage précis et la fiche de diagnostic"
   },
   errors: {
     readGit: "Impossible de lire Git",
@@ -1549,7 +1564,9 @@ export const gitDe: GitMessages = {
   },
   header: {
     noRepo: "Kein Repository geöffnet",
-    pickRepo: "Wählen Sie ein lokales Git-Repository"
+    pickRepo: "Wählen Sie ein lokales Git-Repository",
+    share: "Teilen",
+    shareTip: "Präzisen Freigabelink und Diagnosekarte kopieren"
   },
   errors: {
     readGit: "Git konnte nicht gelesen werden",
@@ -1810,7 +1827,9 @@ export const gitEs: GitMessages = {
   },
   header: {
     noRepo: "Ningún repositorio abierto",
-    pickRepo: "Elige un repositorio Git local"
+    pickRepo: "Elige un repositorio Git local",
+    share: "Compartir",
+    shareTip: "Copiar enlace de uso compartido preciso y tarjeta de diagnóstico"
   },
   errors: {
     readGit: "No se pudo leer Git",
@@ -2071,7 +2090,9 @@ export const gitRu: GitMessages = {
   },
   header: {
     noRepo: "Нет открытого репозитория",
-    pickRepo: "Выберите локальный репозиторий Git"
+    pickRepo: "Выберите локальный репозиторий Git",
+    share: "Поделиться",
+    shareTip: "Скопировать точную ссылку и диагностическую карточку"
   },
   errors: {
     readGit: "Не удалось прочитать Git",
@@ -2332,7 +2353,9 @@ export const gitPtBR: GitMessages = {
   },
   header: {
     noRepo: "Nenhum repositório aberto",
-    pickRepo: "Escolha um repositório Git local"
+    pickRepo: "Escolha um repositório Git local",
+    share: "Compartilhar",
+    shareTip: "Copiar link de compartilhamento preciso e cartão de diagnóstico"
   },
   errors: {
     readGit: "Não foi possível ler o Git",
@@ -2593,7 +2616,9 @@ export const gitKo: GitMessages = {
   },
   header: {
     noRepo: "열려 있는 저장소가 없습니다",
-    pickRepo: "로컬 Git 저장소 선택"
+    pickRepo: "로컬 Git 저장소 선택",
+    share: "공유",
+    shareTip: "현재 저장소/커밋의 정확한 공유 링크 및 진단 카드 복사"
   },
   errors: {
     readGit: "Git을 읽을 수 없습니다",

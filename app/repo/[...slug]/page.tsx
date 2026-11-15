@@ -14,9 +14,10 @@ interface Props {
   searchParams?: Promise<{ [key: string]: string | undefined }>
 }
 
-export default async function RepoPage({ params }: Props) {
+export default async function RepoPage({ params, searchParams }: Props) {
   const { slug } = await params
-  const { parsed, resolved } = resolveRepoSlug(slug)
+  const search = (await searchParams) || {}
+  const { parsed, resolved } = resolveRepoSlug(slug, search.remote)
 
   if (resolved.error === 'UNRESOLVED_REMOTE' && resolved.unresolvedIdentity) {
     return (

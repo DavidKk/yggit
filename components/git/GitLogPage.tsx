@@ -1,7 +1,7 @@
 'use client'
 
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { LuChevronsUpDown, LuFolderGit2 } from 'react-icons/lu'
+import { LuCheck, LuChevronsUpDown, LuFolderGit2, LuShare2 } from 'react-icons/lu'
 
 import { BrandLogo } from '@/components/BrandLogo'
 import { measurePanelFit } from '@/components/git/fitColumn'
@@ -45,7 +45,9 @@ function isGitSelection(value: unknown): value is GitSelection {
   return false
 }
 
+import { copyToClipboard } from '@/lib/clipboard'
 import { makeShareUrl, type RepositoryPersistence } from '@/lib/git/resolver'
+import { formatIssueShareCard } from '@/lib/git/share-card'
 
 type Props = {
   initial: GitLogView | { error: string; repo: string }
@@ -103,6 +105,7 @@ export function GitLogPage({ initial, initialCommitHash, initialPersistence }: P
   const [treeWidth, setTreeWidth] = useGitUiPref('layout.treeWidth', 320, isPositiveNumber)
   const [remoteCheck, setRemoteCheck] = useState<GitRemoteCheck | null>(null)
   const [remoteProbing, setRemoteProbing] = useState(false)
+  const [copiedHeaderShare, setCopiedHeaderShare] = useState(false)
   const worldRef = useRef<HTMLDivElement>(null)
   const frameRef = useRef<HTMLDivElement>(null)
   const anchorRef = useRef<HTMLButtonElement>(null)
@@ -270,21 +273,46 @@ export function GitLogPage({ initial, initialCommitHash, initialPersistence }: P
 
   useEffect(() => {
     if (typeof window === 'undefined' || !view?.repo) return
-    const path = window.location.pathname
-    if (path.startsWith('/repo/')) {
-      const shareUrl = makeShareUrl(view.repo, selectedHash || undefined, view.remoteUrl)
-      if (window.location.pathname !== shareUrl) {
-        window.history.replaceState(window.history.state, '', shareUrl)
-      }
-    } else {
-      const url = new URL(window.location.href)
-      if (selectedHash) url.searchParams.set('commit', selectedHash)
-      else url.searchParams.delete('commit')
-      if (url.toString() !== window.location.href) {
-        window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}`)
-      }
+    const canonicalUrl = makeShareUrl(view.repo, {
+      hash: selectedHash || undefined,
+      remoteUrl: view.remoteUrl,
+      file: selectedFile || undefined,
+    })
+    const current = window.location.pathname + window.location.search
+    if (current !== canonicalUrl) {
+      window.history.replaceState(window.history.state, '', canonicalUrl)
     }
-  }, [selectedHash, view?.repo, view?.remoteUrl])
+  }, [selectedHash, selectedFile, view?.repo, view?.remoteUrl])
+
+  const handleHeaderShare = useCallback(() => {
+    if (!view?.repo) return
+    const canonicalPath = makeShareUrl(view.repo, {
+      hash: selectedHash || undefined,
+      remoteUrl: view.remoteUrl,
+      file: selectedFile || undefined,
+    })
+    const fullUrl = `${window.location.origin}${canonicalPath}`
+
+    const currentCommit = commits.find((c) => c.hash === selectedHash)
+    if (currentCommit) {
+      const card = formatIssueShareCard(
+        {
+          repoName: repoName(view.repo),
+          repoPathOrUrl: view.repo,
+          remoteUrl: view.remoteUrl,
+          commit: currentCommit,
+          file: selectedFile || undefined,
+        },
+        fullUrl
+      )
+      void copyToClipboard(card.markdown)
+    } else {
+      void copyToClipboard(fullUrl)
+    }
+
+    setCopiedHeaderShare(true)
+    setTimeout(() => setCopiedHeaderShare(false), 2000)
+  }, [commits, selectedFile, selectedHash, view?.repo, view?.remoteUrl])
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -605,6 +633,24 @@ export function GitLogPage({ initial, initialCommitHash, initialPersistence }: P
               onMoveProject={moveProject}
             />
           </div>
+          {view?.repo ? (
+            <Tooltip content={copiedHeaderShare ? t('common.copied') : t('git.header.shareTip')} placement="bottom">
+              <Button
+                variant="plain"
+                className={cn(
+                  'h-8 gap-1.5 rounded-lg border-transparent px-2.5 text-xs font-medium transition-colors',
+                  copiedHeaderShare
+                    ? 'bg-ok/15 text-ok hover:bg-ok/20'
+                    : 'text-ink-soft hover:enabled:bg-[color-mix(in_oklab,var(--ink)_7%,transparent)] hover:enabled:text-ink'
+                )}
+                aria-label={t('git.header.share')}
+                onClick={handleHeaderShare}
+              >
+                {copiedHeaderShare ? <LuCheck className="size-3.5 text-ok" aria-hidden /> : <LuShare2 className="size-3.5" aria-hidden />}
+                <span>{copiedHeaderShare ? t('common.copied') : t('git.header.share')}</span>
+              </Button>
+            </Tooltip>
+          ) : null}
           <div className="ml-auto flex shrink-0 items-center gap-1.5">
             <GitModeSwitcher />
             <span className="mx-0.5 h-3.5 w-px shrink-0 bg-[color-mix(in_oklab,var(--ink)_14%,transparent)]" aria-hidden />
