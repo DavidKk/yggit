@@ -1,16 +1,14 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { LuChevronDown, LuChevronRight, LuChevronsDownUp, LuChevronsUpDown, LuFolderTree, LuGitMerge, LuList, LuPencil, LuShare2, LuX } from 'react-icons/lu'
+import { LuChevronDown, LuChevronRight, LuChevronsDownUp, LuChevronsUpDown, LuFolderTree, LuGitMerge, LuList, LuPencil, LuX } from 'react-icons/lu'
 import { TbFileStack } from 'react-icons/tb'
 import { TiMinusOutline, TiPlusOutline } from 'react-icons/ti'
 
 import { handleTreeExpandKey, handleTreeParentKey } from '@/components/git/treeExpandKey'
 import { useT } from '@/components/i18n/LocaleProvider'
 import { Badge, Button, EmptyState, ScrollArea, SegmentedNav } from '@/components/sk'
-import { copyToClipboard } from '@/lib/clipboard'
 import { getGitDriver } from '@/lib/git/driver'
-import { formatIssueShareCard, makeIssueShareUrl } from '@/lib/git/share-card'
 import { analyzeMergeTopology } from '@/lib/git/topology'
 import { GIT_WORKTREE_HASH, type GitCommit, type GitCommitChanges, type GitFileChange } from '@/lib/git/types'
 import { isBoolean, useGitUiPref } from '@/lib/git/ui-prefs'
@@ -272,7 +270,7 @@ function PathRows({ groups, selected, onSelect }: { groups: PathGroup[]; selecte
   ))
 }
 
-export function GitCommitPanel({ repo, remoteUrl, commit, allCommits, isLineageHighlighted, onToggleHighlightLineage, width, title, selectedPath, onSelect, onClose }: Props) {
+export function GitCommitPanel({ repo, commit, allCommits, isLineageHighlighted, onToggleHighlightLineage, width, title, selectedPath, onSelect, onClose }: Props) {
   const t = useT()
   const topology = useMemo(() => {
     if (!commit.parents || commit.parents.length < 2) return null
@@ -296,7 +294,6 @@ export function GitCommitPanel({ repo, remoteUrl, commit, allCommits, isLineageH
   const [error, setError] = useState('')
   const [view, setView] = useGitUiPref('commit.fileView', 'tree' as FileView, isFileView)
   const [expandDefault, setExpandDefault] = useGitUiPref('commit.treeExpandDefault', true, isBoolean)
-  const [copiedShare, setCopiedShare] = useState(false)
   const [openPaths, setOpenPaths] = useState<Set<string>>(() => new Set())
   const expandDefaultRef = useRef(expandDefault)
   expandDefaultRef.current = expandDefault
@@ -432,50 +429,6 @@ export function GitCommitPanel({ repo, remoteUrl, commit, allCommits, isLineageH
               }}
             >
               {allOpen ? <LuChevronsDownUp aria-hidden /> : <LuChevronsUpDown aria-hidden />}
-            </Button>
-          ) : null}
-          {commit.hash !== GIT_WORKTREE_HASH ? (
-            <Button
-              variant="plain"
-              size="icon"
-              aria-label={t('git.commit.copyIssueCard')}
-              tooltip={copiedShare ? t('common.copied') : t('git.commit.copyIssueCard')}
-              onClick={() => {
-                const fullShareUrl =
-                  typeof window !== 'undefined'
-                    ? `${window.location.origin}${makeIssueShareUrl({
-                        repoName: repo.split('/').pop() || repo,
-                        repoPathOrUrl: repo,
-                        remoteUrl,
-                        commit,
-                        file: selectedPath || undefined,
-                        topology: topology || undefined,
-                      })}`
-                    : makeIssueShareUrl({
-                        repoName: repo.split('/').pop() || repo,
-                        repoPathOrUrl: repo,
-                        remoteUrl,
-                        commit,
-                        file: selectedPath || undefined,
-                        topology: topology || undefined,
-                      })
-                const card = formatIssueShareCard(
-                  {
-                    repoName: repo.split('/').pop() || repo,
-                    repoPathOrUrl: repo,
-                    remoteUrl,
-                    commit,
-                    file: selectedPath || undefined,
-                    topology: topology || undefined,
-                  },
-                  fullShareUrl
-                )
-                void copyToClipboard(card.markdown)
-                setCopiedShare(true)
-                setTimeout(() => setCopiedShare(false), 2000)
-              }}
-            >
-              <LuShare2 className="size-3.5" aria-hidden />
             </Button>
           ) : null}
           <Button variant="plain" size="icon" aria-label={t('git.commit.closeTree')} onClick={onClose}>

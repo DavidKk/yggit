@@ -1,7 +1,8 @@
 'use client'
 
-import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react'
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 
+import { type AgentModelProfile, DEFAULT_MODEL_PROFILE, MODEL_PROFILES_STORAGE_KEY, parseModelProfiles, serializeModelProfiles } from './model-profiles'
 import { sendAgentCompletion } from './openapi-client'
 import { createRedactionSession } from './redact/engine'
 import { RedactionEngine } from './redact/engine'
@@ -9,11 +10,13 @@ import type { RedactionOptions, RedactionSession } from './redact/types'
 import { useOptionalSpotlight } from './spotlight-context'
 import { AGENT_GIT_TOOLS, executeAgentTool } from './tools'
 import type { AgentChatMessage, AgentDockMode, EphemeralAgentConfig } from './types'
-import { DEFAULT_AGENT_CONFIG } from './types'
 
 export interface AgentContextValue {
   config: EphemeralAgentConfig
-  setConfig: React.Dispatch<React.SetStateAction<EphemeralAgentConfig>>
+  profiles: AgentModelProfile[]
+  activeProfileId: string
+  saveProfile: (profile: AgentModelProfile) => void
+  selectProfile: (id: string) => void
   redactionOptions: RedactionOptions
   setRedactionOptions: React.Dispatch<React.SetStateAction<RedactionOptions>>
   dockMode: AgentDockMode
@@ -40,7 +43,37 @@ export const DEFAULT_REDACTION_OPTIONS: RedactionOptions = {
 }
 
 export function AgentProvider({ children, currentRepo }: { children: React.ReactNode; currentRepo?: string }) {
-  const [config, setConfig] = useState<EphemeralAgentConfig>(DEFAULT_AGENT_CONFIG)
+  const [profiles, setProfiles] = useState<AgentModelProfile[]>([DEFAULT_MODEL_PROFILE])
+  const [activeProfileId, selectProfile] = useState(DEFAULT_MODEL_PROFILE.id)
+  const [profilesLoaded, setProfilesLoaded] = useState(false)
+  const config = (profiles.find((profile) => profile.id === activeProfileId) || profiles[0]).config
+
+  useEffect(() => {
+    try {
+      const stored = parseModelProfiles(localStorage.getItem(MODEL_PROFILES_STORAGE_KEY))
+      if (stored) {
+        setProfiles(stored.profiles)
+        selectProfile(stored.activeId)
+      }
+    } catch {
+      // Keep the in-memory defaults when browser storage is unavailable.
+    }
+    setProfilesLoaded(true)
+  }, [])
+
+  useEffect(() => {
+    if (!profilesLoaded) return
+    try {
+      localStorage.setItem(MODEL_PROFILES_STORAGE_KEY, serializeModelProfiles(profiles, activeProfileId))
+    } catch {
+      // Profiles remain usable for this session when browser storage is unavailable.
+    }
+  }, [profiles, activeProfileId, profilesLoaded])
+
+  const saveProfile = useCallback((profile: AgentModelProfile) => {
+    setProfiles((previous) => (previous.some((item) => item.id === profile.id) ? previous.map((item) => (item.id === profile.id ? profile : item)) : [...previous, profile]))
+    selectProfile(profile.id)
+  }, [])
   const [redactionOptions, setRedactionOptions] = useState<RedactionOptions>(DEFAULT_REDACTION_OPTIONS)
   const [dockMode, setDockMode] = useState<AgentDockMode>('collapsed')
   const [messages, setMessages] = useState<AgentChatMessage[]>([])
@@ -212,7 +245,10 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
   const value = useMemo(
     () => ({
       config,
-      setConfig,
+      profiles,
+      activeProfileId,
+      saveProfile,
+      selectProfile,
       redactionOptions,
       setRedactionOptions,
       dockMode,
@@ -223,7 +259,7 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
       clearMessages,
       activeResultSummary,
     }),
-    [config, redactionOptions, dockMode, messages, isProcessing, sendMessage, clearMessages, activeResultSummary]
+    [config, profiles, activeProfileId, saveProfile, redactionOptions, dockMode, messages, isProcessing, sendMessage, clearMessages, activeResultSummary]
   )
 
   return <AgentContext.Provider value={value}>{children}</AgentContext.Provider>

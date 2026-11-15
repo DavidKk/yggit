@@ -5,6 +5,23 @@ export type GitAgentMessages = {
   barPlaceholder: string
   barAria: string
   settingsTitle: string
+  backToGraph: string
+  modelList: string
+  modelListDesc: string
+  addModel: string
+  editModel: string
+  activeModel: string
+  useModel: string
+  keyRequired: string
+  modelDetails: string
+  modelDetailsDesc: string
+  profileName: string
+  requiredFields: string
+  invalidEndpoint: string
+  showKey: string
+  hideKey: string
+  clearKey: string
+  backToModels: string
   tabModels: string
   tabPrivacy: string
   tabGeneral: string

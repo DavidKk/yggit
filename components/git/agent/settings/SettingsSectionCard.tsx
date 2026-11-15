@@ -27,10 +27,7 @@ export interface SettingsSectionCardProps {
  */
 export function SettingsSectionCard({ title, description, descriptionTooltip, titleAction, compact = false, className, children }: SettingsSectionCardProps) {
   return (
-    <section
-      data-settings-card=""
-      className={cn('grid w-full min-w-0 rounded-lg border border-line bg-panel shadow-sm [&>*]:min-w-0', compact ? 'gap-3 p-3' : 'gap-4 p-4', className)}
-    >
+    <section data-settings-card="" className={cn('grid w-full min-w-0 rounded-lg border border-line bg-panel p-3 shadow-sm [&>*]:min-w-0', compact ? 'gap-2' : 'gap-3', className)}>
       <div className="flex items-center justify-between gap-3 border-b border-line/50 pb-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 text-xs font-bold text-ink">
@@ -51,7 +48,7 @@ export function SettingsSectionCard({ title, description, descriptionTooltip, ti
         </div>
         {titleAction ? <div className="shrink-0">{titleAction}</div> : null}
       </div>
-      <div className="flex flex-col gap-4">{children}</div>
+      <div className="flex flex-col gap-3">{children}</div>
     </section>
   )
 }

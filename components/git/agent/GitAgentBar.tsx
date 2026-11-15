@@ -1,8 +1,7 @@
 'use client'
 
-import Link from 'next/link'
 import React, { useEffect, useRef, useState } from 'react'
-import { LuBot, LuExternalLink, LuSend, LuSettings, LuSparkles, LuX } from 'react-icons/lu'
+import { LuBot, LuExternalLink, LuSparkles, LuX } from 'react-icons/lu'
 
 import { useT } from '@/components/i18n/LocaleProvider'
 import { Spinner } from '@/components/sk'
@@ -19,14 +18,21 @@ export function GitAgentBar({ repoPath, className }: Props) {
   const { sendMessage, isProcessing, messages, dockMode, setDockMode } = useAgent()
 
   const [input, setInput] = useState('')
+  const [expanded, setExpanded] = useState(false)
   const [quickCardOpen, setQuickCardOpen] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const toggleRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    if (expanded) inputRef.current?.focus()
+  }, [expanded])
 
   // Global hotkey: ⌘J / Ctrl+J
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && (e.key === 'j' || e.key === 'J')) {
         e.preventDefault()
+        setExpanded(true)
         inputRef.current?.focus()
       }
     }
@@ -108,54 +114,54 @@ export function GitAgentBar({ repoPath, className }: Props) {
       {/* 2. Bottom-Centered Pill Bar */}
       <form
         onSubmit={handleSubmit}
+        onClick={() => {
+          setExpanded(true)
+          inputRef.current?.focus()
+        }}
+        onBlur={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget) && input.length === 0) {
+            setExpanded(false)
+          }
+        }}
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') {
+            event.preventDefault()
+            setExpanded(false)
+            toggleRef.current?.focus()
+          }
+        }}
         aria-label={t('gitAgent.barAria')}
         className={cn(
-          'fixed bottom-5 left-1/2 -translate-x-1/2 z-40 flex h-[44px] w-[90vw] max-w-[620px] items-center gap-2 rounded-full border border-border/70 bg-background/85 px-3 py-1.5 shadow-xl backdrop-blur-md transition-all focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/30',
+          'fixed bottom-5 left-1/2 -translate-x-1/2 z-40 flex h-11 items-center overflow-hidden rounded-full border border-border/70 bg-background/85 shadow-lg backdrop-blur-md transition-[width,padding,box-shadow] duration-[240ms] ease-[cubic-bezier(0.22,0.9,0.32,1.06)] focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20 motion-reduce:transition-none',
+          expanded ? 'w-[min(90vw,480px)] gap-2 px-2.5 py-1' : 'w-24 cursor-pointer justify-center p-0',
           className
         )}
       >
-        {/* Left Agent Icon */}
-        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent">
-          <LuBot className="h-4 w-4" />
-        </div>
-
-        {/* Input Field */}
-        <input
-          ref={inputRef}
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder={t('gitAgent.barPlaceholder')}
-          className="min-w-0 flex-1 bg-transparent text-xs text-foreground placeholder:text-muted-foreground/70 focus:outline-none"
-        />
-
-        {/* Shortcut Badge */}
-        {!input && (
-          <kbd className="hidden sm:inline-flex items-center rounded border border-border/60 bg-muted/30 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground/70">⌘J</kbd>
-        )}
-
-        {/* Settings Gear Link */}
-        <Link
-          href={repoPath ? `/settings?repo=${encodeURIComponent(repoPath)}` : '/settings'}
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted/40 hover:text-foreground active:scale-95 transition-all"
-          title={t('gitAgent.settingsTitle')}
-          aria-label={t('gitAgent.settingsTitle')}
-        >
-          <LuSettings className="h-4 w-4" />
-        </Link>
-
-        {/* Send Button */}
+        {/* Keep the agent icon as the only control in the collapsed pill. */}
         <button
-          type="submit"
-          disabled={!input.trim() || isProcessing}
-          className={cn(
-            'flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-all active:scale-95',
-            input.trim() && !isProcessing ? 'bg-accent text-accent-foreground shadow-sm hover:brightness-110' : 'text-muted-foreground/40 cursor-not-allowed'
-          )}
-          aria-label="Send query"
+          ref={toggleRef}
+          type="button"
+          aria-expanded={expanded}
+          aria-label={t('gitAgent.barAria')}
+          title={t('gitAgent.barAria')}
+          className={cn('flex shrink-0 items-center justify-center rounded-full text-accent outline-none', expanded ? 'h-7 w-7 bg-accent/15' : 'h-full w-full cursor-pointer')}
         >
-          {isProcessing ? <Spinner className="h-3.5 w-3.5" /> : <LuSend className="h-3.5 w-3.5" />}
+          {isProcessing ? <Spinner className="h-4 w-4" /> : <LuBot className="h-4 w-4" />}
         </button>
+
+        {expanded && (
+          <>
+            {/* Input Field */}
+            <input
+              ref={inputRef}
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder={t('gitAgent.barPlaceholder')}
+              className="min-w-0 flex-1 bg-transparent text-xs text-foreground placeholder:text-muted-foreground/70 focus:outline-none"
+            />
+          </>
+        )}
       </form>
     </>
   )

@@ -53,7 +53,7 @@ export function PrivacyRedactSection() {
   const allowListText = redactionOptions.allowList.join(', ')
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       {/* Card 1: Master Redaction Engine Switch */}
       <SettingsSectionCard
         title={t('gitAgent.privacyRedactTitle')}
@@ -67,12 +67,12 @@ export function PrivacyRedactSection() {
         }
       >
         {redactionOptions.enabled ? (
-          <div className="flex items-center gap-2 rounded-md border border-ok/30 bg-ok/10 px-3 py-2 text-xs text-ink">
+          <div className="flex items-center gap-2 rounded-md border border-ok/30 bg-ok/10 p-3 text-xs text-ink">
             <LuShieldCheck className="size-4 shrink-0 text-ok" aria-hidden="true" />
             <span>脱敏引擎已激活：敏感实体将在出站请求时自动掩盖，并在模型流式返回时实时解密。</span>
           </div>
         ) : (
-          <div className="flex items-center gap-2 rounded-md border border-line bg-muted/20 px-3 py-2 text-xs text-ink-soft">
+          <div className="flex items-center gap-2 rounded-md border border-line bg-muted/20 p-3 text-xs text-ink-soft">
             <span>脱敏引擎已停用：发送给大模型的内容将包含原始上下文，适合私有化自部署环境。</span>
           </div>
         )}
@@ -84,7 +84,7 @@ export function PrivacyRedactSection() {
       <SettingsSectionCard title="内置规则分类" description="启用或停用特定分类的自动敏感实体识别与掩盖">
         <div className={cn('flex flex-col divide-y divide-line rounded-md border border-line bg-panel-2', !redactionOptions.enabled && 'pointer-events-none opacity-50')}>
           {/* Secrets */}
-          <div className="flex items-center justify-between px-3 py-2.5">
+          <div className="flex items-center justify-between p-3">
             <div className="flex items-center gap-2.5">
               <LuKeyRound className="size-3.5 shrink-0 text-warn" aria-hidden="true" />
               <div>
@@ -101,7 +101,7 @@ export function PrivacyRedactSection() {
           </div>
 
           {/* PII */}
-          <div className="flex items-center justify-between px-3 py-2.5">
+          <div className="flex items-center justify-between p-3">
             <div className="flex items-center gap-2.5">
               <LuUserCheck className="size-3.5 shrink-0 text-accent" aria-hidden="true" />
               <div>
@@ -113,7 +113,7 @@ export function PrivacyRedactSection() {
           </div>
 
           {/* Network */}
-          <div className="flex items-center justify-between px-3 py-2.5">
+          <div className="flex items-center justify-between p-3">
             <div className="flex items-center gap-2.5">
               <LuNetwork className="size-3.5 shrink-0 text-ok" aria-hidden="true" />
               <div>
