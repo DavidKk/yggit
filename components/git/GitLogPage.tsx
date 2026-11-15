@@ -369,6 +369,7 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
+      if (busy) return
       if (event.key !== 'Escape') return
       if (event.defaultPrevented) return
 
@@ -390,7 +391,7 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [menuOpen])
+  }, [menuOpen, busy])
   const limitWidth = useCallback((next: number, other: number, min: number) => {
     const total = frameRef.current?.clientWidth ?? next + other + MAIN_MIN
     const max = Math.max(min, total - other - MAIN_MIN)
@@ -635,6 +636,7 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
     <div
       ref={worldRef}
       data-git-world-tree
+      aria-busy={busy || undefined}
       className="flex h-full min-h-0 flex-1 flex-col bg-paper text-ink"
       style={{
         backgroundImage:
@@ -832,13 +834,6 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                   )}
                   {/* Git Agent Floating Entry anchored to GitLog bottom */}
                   <GitAgentBar repoPath={view?.repo} />
-                  {/* Loading indicator when switching repository */}
-                  {busy ? (
-                    <div className="pointer-events-none absolute inset-0 z-30 flex flex-col items-center justify-center gap-2 bg-paper/60 backdrop-blur-xs transition-opacity duration-200">
-                      <Spinner className="size-6 text-accent" />
-                      <span className="text-xs font-medium text-ink-soft">{t('common.loading') || '正在加载仓库数据...'}</span>
-                    </div>
-                  ) : null}
                 </section>
               </>
             )}
@@ -882,6 +877,32 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
         {/* Git Agent Floating Entry & Spotlight Navigation */}
         <AgentSpotlightNavigator />
         <AgentWorkspace repoPath={view?.repo} />
+
+        {/* Full-Page Blocking Loading Overlay when switching or loading repository */}
+        {busy ? (
+          <div
+            role="status"
+            aria-live="polite"
+            aria-label={t('git.page.switchingProject')}
+            className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-canvas/60 backdrop-blur-xs select-none cursor-wait transition-opacity duration-200"
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+            }}
+            onMouseDown={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+            }}
+          >
+            <div className="flex flex-col items-center gap-3 rounded-2xl border border-line/80 bg-panel/95 px-6 py-5 shadow-2xl backdrop-blur-md animate-in fade-in zoom-in-95 duration-200">
+              <Spinner className="size-7 text-accent" />
+              <div className="flex flex-col items-center gap-1">
+                <span className="text-sm font-semibold text-ink">{t('git.page.switchingProject')}</span>
+                <span className="text-xs text-ink-soft">{t('git.page.switchingProjectHint')}</span>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   )

@@ -33,6 +33,8 @@ export type GitMessages = {
     noCommits: string
     noBranchHint: string
     noCommitsHint: string
+    switchingProject: string
+    switchingProjectHint: string
   }
   history: {
     findCommit: string
@@ -149,6 +151,8 @@ export type GitMessages = {
     allFilesAria: string
     treeAria: string
     mergeLineage: string
+    sourceBranch: string
+    targetBranch: string
     copyIssueCard: string
     commitsCount: string
     highlightLineage: string
@@ -164,6 +168,10 @@ export type GitMessages = {
     truncated: string
   }
   project: {
+    sourcePermission: string
+    sourceLocal: string
+    sourceOnline: string
+    sourceAssociate: string
     switcher: string
     addLocal: string
     addLocalTip: string
@@ -283,6 +291,8 @@ export const gitZh: GitMessages = {
     noCommits: '没有提交',
     noBranchHint: '在左侧切换其它 Worktree，或换一个仓库。',
     noCommitsHint: '试试左侧其它分支、远程或标签。',
+    switchingProject: '正在切换项目...',
+    switchingProjectHint: '正在加载分支与提交图谱，请稍候',
   },
   history: {
     findCommit: '查找提交',
@@ -407,6 +417,8 @@ export const gitZh: GitMessages = {
     allFilesAria: '所有文件',
     treeAria: '树级视图',
     mergeLineage: '合并脉络',
+    sourceBranch: '来源分支',
+    targetBranch: '目标分支',
     copyIssueCard: '复制问题排查卡片',
     commitsCount: '个提交',
     highlightLineage: '高亮合入分支',
@@ -422,6 +434,10 @@ export const gitZh: GitMessages = {
     truncated: '文件过长，只显示了前面一部分。',
   },
   project: {
+    sourcePermission: '需目录授权',
+    sourceLocal: '本地读取',
+    sourceOnline: '在线读取',
+    sourceAssociate: '需关联本地',
     switcher: '项目切换器',
     addLocal: '添加本地',
     addLocalTip: '添加本地（可多选并嗅探 Git 仓库）',
@@ -546,6 +562,8 @@ export const gitCht: GitMessages = {
     noCommits: '沒有提交',
     noBranchHint: '在左側切換其他 Worktree，或換一個倉庫。',
     noCommitsHint: '試試左側其他分支、遠端或標籤。',
+    switchingProject: '正在切換專案...',
+    switchingProjectHint: '正在載入分支與提交圖譜，請稍候',
   },
   history: {
     findCommit: '尋找提交',
@@ -670,6 +688,8 @@ export const gitCht: GitMessages = {
     allFilesAria: '所有檔案',
     treeAria: '樹狀檢視',
     mergeLineage: '合併脈絡',
+    sourceBranch: '來源分支',
+    targetBranch: '目標分支',
     copyIssueCard: '複製問題排查卡片',
     commitsCount: '個提交',
     highlightLineage: '高亮合入分支',
@@ -685,6 +705,10 @@ export const gitCht: GitMessages = {
     truncated: '檔案過長，只顯示前面一部分。',
   },
   project: {
+    sourcePermission: '需目錄授權',
+    sourceLocal: '本機讀取',
+    sourceOnline: '線上讀取',
+    sourceAssociate: '需關聯本機',
     switcher: '專案切換器',
     addLocal: '新增本機',
     addLocalTip: '新增本機（可多選並偵測 Git 倉庫）',
@@ -809,6 +833,8 @@ export const gitEn: GitMessages = {
     noCommits: 'No commits',
     noBranchHint: 'Try another worktree on the left, or switch repositories.',
     noCommitsHint: 'Try other branches, remotes, or tags on the left.',
+    switchingProject: 'Switching repository...',
+    switchingProjectHint: 'Parsing Git branches and commit graph, please wait',
   },
   history: {
     findCommit: 'Find commit',
@@ -933,6 +959,8 @@ export const gitEn: GitMessages = {
     allFilesAria: 'All files',
     treeAria: 'Tree view',
     mergeLineage: 'Merge lineage',
+    sourceBranch: 'Source branch',
+    targetBranch: 'Target branch',
     copyIssueCard: 'Copy issue share card',
     commitsCount: 'commits',
     highlightLineage: 'Highlight merged branch',
@@ -948,6 +976,10 @@ export const gitEn: GitMessages = {
     truncated: 'File is too long; only the beginning is shown.',
   },
   project: {
+    sourcePermission: 'Folder permission needed',
+    sourceLocal: 'Local',
+    sourceOnline: 'Online',
+    sourceAssociate: 'Link local',
     switcher: 'Project switcher',
     addLocal: 'Add local',
     addLocalTip: 'Add local (multi-select; discover Git repos)',
@@ -1072,6 +1104,8 @@ export const gitJa: GitMessages = {
     noCommits: 'コミットなし',
     noBranchHint: '左で別の Worktree に切り替えるか、別のリポジトリにしてください。',
     noCommitsHint: '左で別のブランチ、リモート、またはタグを試してください。',
+    switchingProject: 'プロジェクトを切替中...',
+    switchingProjectHint: 'ブランチとコミット履歴を解析しています',
   },
   history: {
     findCommit: 'コミットを検索',
@@ -1196,6 +1230,8 @@ export const gitJa: GitMessages = {
     allFilesAria: 'すべてのファイル',
     treeAria: 'ツリー表示',
     mergeLineage: 'マージの系譜',
+    sourceBranch: 'マージ元ブランチ',
+    targetBranch: 'マージ先ブランチ',
     copyIssueCard: '問題共有カードをコピー',
     commitsCount: 'コミット',
     highlightLineage: 'マージブランチを強調',
@@ -1211,6 +1247,10 @@ export const gitJa: GitMessages = {
     truncated: 'ファイルが長いため、先頭のみ表示しています。',
   },
   project: {
+    sourcePermission: 'フォルダーの許可が必要',
+    sourceLocal: 'ローカル',
+    sourceOnline: 'オンライン',
+    sourceAssociate: 'ローカル連携',
     switcher: 'プロジェクト切替',
     addLocal: 'ローカルを追加',
     addLocalTip: 'ローカル追加（複数可・Git を検出）',
@@ -1335,6 +1375,8 @@ export const gitFr: GitMessages = {
     noCommits: 'Aucun commit',
     noBranchHint: 'Essayez un autre worktree à gauche, ou changez de dépôt.',
     noCommitsHint: "Essayez d'autres branches, dépôts distants ou étiquettes à gauche.",
+    switchingProject: 'Changement de projet en cours...',
+    switchingProjectHint: 'Chargement des branches et du graphe de commits',
   },
   history: {
     findCommit: 'Trouver le commit',
@@ -1459,6 +1501,8 @@ export const gitFr: GitMessages = {
     allFilesAria: 'Tous les fichiers',
     treeAria: 'Vue en arbre',
     mergeLineage: 'Lignée de fusion',
+    sourceBranch: 'Branche source',
+    targetBranch: 'Branche cible',
     copyIssueCard: 'Copier la carte de partage de problème',
     commitsCount: 'commits',
     highlightLineage: 'Mettre en surbrillance la branche fusionnée',
@@ -1474,6 +1518,10 @@ export const gitFr: GitMessages = {
     truncated: 'Le fichier est trop long ; seul le début est affiché.',
   },
   project: {
+    sourcePermission: 'Autoriser le dossier',
+    sourceLocal: 'Local',
+    sourceOnline: 'En ligne',
+    sourceAssociate: 'Lier en local',
     switcher: 'Changeur de projet',
     addLocal: 'Ajouter local',
     addLocalTip: 'Ajouter local (sélection multiple ; découvrir les dépôts Git)',
@@ -1600,6 +1648,8 @@ export const gitDe: GitMessages = {
     noCommits: 'Keine Commits',
     noBranchHint: 'Versuchen Sie einen anderen Worktree auf der linken Seite oder wechseln Sie das Repository.',
     noCommitsHint: 'Versuchen Sie andere Zweige, Remotes oder Tags auf der linken Seite.',
+    switchingProject: 'Projekt wird gewechselt...',
+    switchingProjectHint: 'Zweige und Commit-Graph werden geladen',
   },
   history: {
     findCommit: 'Commit finden',
@@ -1724,6 +1774,8 @@ export const gitDe: GitMessages = {
     allFilesAria: 'Alle Dateien',
     treeAria: 'Baumansicht',
     mergeLineage: 'Merge-Herkunft',
+    sourceBranch: 'Quellbranch',
+    targetBranch: 'Zielbranch',
     copyIssueCard: 'Issue-Freigabekarte kopieren',
     commitsCount: 'Commits',
     highlightLineage: 'Gemergten Branch hervorheben',
@@ -1739,6 +1791,10 @@ export const gitDe: GitMessages = {
     truncated: 'Die Datei ist zu lang; es wird nur der Anfang angezeigt.',
   },
   project: {
+    sourcePermission: 'Ordnerzugriff nötig',
+    sourceLocal: 'Lokal',
+    sourceOnline: 'Online',
+    sourceAssociate: 'Lokal verknüpfen',
     switcher: 'Projektwechsler',
     addLocal: 'Lokal hinzufügen',
     addLocalTip: 'Lokal hinzufügen (Mehrfachauswahl; Git-Repos entdecken)',
@@ -1864,6 +1920,8 @@ export const gitEs: GitMessages = {
     noCommits: 'Sin commits',
     noBranchHint: 'Prueba con otro árbol de trabajo a la izquierda, o cambia de repositorio.',
     noCommitsHint: 'Prueba otras ramas, remotos o etiquetas a la izquierda.',
+    switchingProject: 'Cambiando de proyecto...',
+    switchingProjectHint: 'Cargando ramas y grafo de commits',
   },
   history: {
     findCommit: 'Buscar commit',
@@ -1988,6 +2046,8 @@ export const gitEs: GitMessages = {
     allFilesAria: 'Todos los archivos',
     treeAria: 'Vista de árbol',
     mergeLineage: 'Linaje de fusión',
+    sourceBranch: 'Rama de origen',
+    targetBranch: 'Rama de destino',
     copyIssueCard: 'Copiar tarjeta de problema',
     commitsCount: 'commits',
     highlightLineage: 'Resaltar rama fusionada',
@@ -2003,6 +2063,10 @@ export const gitEs: GitMessages = {
     truncated: 'El archivo es demasiado largo; solo se muestra el principio.',
   },
   project: {
+    sourcePermission: 'Autorizar carpeta',
+    sourceLocal: 'Local',
+    sourceOnline: 'En línea',
+    sourceAssociate: 'Vincular local',
     switcher: 'Selector de proyectos',
     addLocal: 'Agregar local',
     addLocalTip: 'Agregar local (selección múltiple; descubrir repositorios Git)',
@@ -2127,6 +2191,8 @@ export const gitRu: GitMessages = {
     noCommits: 'Нет коммитов',
     noBranchHint: 'Попробуйте другую рабочую область слева или переключитесь на другой репозиторий.',
     noCommitsHint: 'Попробуйте другие ветки, удалённые репозитории или теги слева.',
+    switchingProject: 'Переключение проекта...',
+    switchingProjectHint: 'Загрузка веток и графа коммитов',
   },
   history: {
     findCommit: 'Найти коммит',
@@ -2251,6 +2317,8 @@ export const gitRu: GitMessages = {
     allFilesAria: 'Все файлы',
     treeAria: 'Древовидный вид',
     mergeLineage: 'Происхождение слияния',
+    sourceBranch: 'Исходная ветка',
+    targetBranch: 'Целевая ветка',
     copyIssueCard: 'Копировать карточку проблемы',
     commitsCount: 'коммитов',
     highlightLineage: 'Выделить объединенную ветку',
@@ -2266,6 +2334,10 @@ export const gitRu: GitMessages = {
     truncated: 'Файл слишком длинный; показана только начальная часть.',
   },
   project: {
+    sourcePermission: 'Нужен доступ к папке',
+    sourceLocal: 'Локально',
+    sourceOnline: 'Онлайн',
+    sourceAssociate: 'Связать локально',
     switcher: 'Переключатель проектов',
     addLocal: 'Добавить локальный',
     addLocalTip: 'Добавить локальный (мультивыбор; обнаружить Git репозитории)',
@@ -2390,6 +2462,8 @@ export const gitPtBR: GitMessages = {
     noCommits: 'Sem commits',
     noBranchHint: 'Tente outro worktree à esquerda ou troque de repositório.',
     noCommitsHint: 'Tente outros ramos, remotos ou tags à esquerda.',
+    switchingProject: 'Alternando projeto...',
+    switchingProjectHint: 'Carregando branches e gráfico de commits',
   },
   history: {
     findCommit: 'Encontrar commit',
@@ -2514,6 +2588,8 @@ export const gitPtBR: GitMessages = {
     allFilesAria: 'Todos os arquivos',
     treeAria: 'Exibição em árvore',
     mergeLineage: 'Linhagem de mesclagem',
+    sourceBranch: 'Branch de origem',
+    targetBranch: 'Branch de destino',
     copyIssueCard: 'Copiar cartão de problema',
     commitsCount: 'commits',
     highlightLineage: 'Destacar branch mesclada',
@@ -2529,6 +2605,10 @@ export const gitPtBR: GitMessages = {
     truncated: 'O arquivo é muito longo; apenas o início é exibido.',
   },
   project: {
+    sourcePermission: 'Autorizar pasta',
+    sourceLocal: 'Local',
+    sourceOnline: 'Online',
+    sourceAssociate: 'Vincular local',
     switcher: 'Alternador de projeto',
     addLocal: 'Adicionar local',
     addLocalTip: 'Adicionar local (seleção múltipla; descobrir repositórios Git)',
@@ -2653,6 +2733,8 @@ export const gitKo: GitMessages = {
     noCommits: '커밋 없음',
     noBranchHint: '왼쪽에서 다른 작업 트리를 시도하거나, 저장소를 전환하세요.',
     noCommitsHint: '왼쪽에서 다른 브랜치, 원격 저장소 또는 태그를 시도해 보세요.',
+    switchingProject: '프로젝트 전환 중...',
+    switchingProjectHint: '브랜치 및 커밋 그래프를 불러오는 중입니다',
   },
   history: {
     findCommit: '커밋 찾기',
@@ -2777,6 +2859,8 @@ export const gitKo: GitMessages = {
     allFilesAria: '모든 파일',
     treeAria: '트리 보기',
     mergeLineage: '병합 계보',
+    sourceBranch: '소스 브랜치',
+    targetBranch: '대상 브랜치',
     copyIssueCard: '문제 공유 카드 복사',
     commitsCount: '커밋',
     highlightLineage: '병합된 브랜치 강조',
@@ -2792,6 +2876,10 @@ export const gitKo: GitMessages = {
     truncated: '파일이 너무 길어 앞부분만 표시합니다.',
   },
   project: {
+    sourcePermission: '폴더 권한 필요',
+    sourceLocal: '로컬',
+    sourceOnline: '온라인',
+    sourceAssociate: '로컬 연결 필요',
     switcher: '프로젝트 전환',
     addLocal: '로컬 추가',
     addLocalTip: '로컬 추가(다중 선택; Git 저장소 자동 탐색)',
