@@ -9,6 +9,7 @@ import type { GitCommit, GitLogView, GitWorktree } from '@/lib/git/types'
 
 import { readBranchMarks } from './marks'
 import { rememberLocalProject, writeLastOpenedRepo } from './projects'
+import { parseGitHubRepo, readRemoteGitLog } from './remote-provider'
 
 const execFileAsync = promisify(execFile)
 const LOG_FORMAT = '%H%x1f%h%x1f%P%x1f%an%x1f%ad%x1f%D%x1f%s%x1e'
@@ -121,6 +122,9 @@ export async function readGitHistory(input: { repo?: string; ref?: string; skip?
 }
 
 export async function readGitLog(input?: { repo?: string; branch?: string; ref?: string; skip?: number }): Promise<GitLogView> {
+  if (input?.repo && parseGitHubRepo(input.repo)) {
+    return await readRemoteGitLog(input.repo, input.branch || input.ref)
+  }
   const repo = await resolveGitRepo(input?.repo)
   writeLastOpenedRepo(repo)
   const head = await readHead(repo)

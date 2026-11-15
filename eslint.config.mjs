@@ -19,20 +19,6 @@ const eslintConfig = defineConfig([
     'logs/**',
     'data/**',
     'node_modules/**',
-    'plugins/dist/**',
-    'plugins/mv/dist/**',
-    'plugins/rgss/dist/**',
-    'native/bin/chaya-cache-worker.mjs',
-    'native/bin/chaya-storage-daemon.mjs',
-    'native/bin/chaya-storage-client.mjs',
-    'native/bin/chaya-rgss-extract-worker.mjs',
-    'native/bin/chaya-seed-inventory-worker.mjs',
-    'native/bin/chaya-seed-job-worker.mjs',
-    // 翻译管线 lib 仍为 @ts-nocheck 风格，避免假阳性
-    'services/translate/lib/**',
-    // local MVP smoke / demo
-    '.mvp-demo-game/**',
-    'mvp-demo-game/**',
     'demos/**',
     // Agent 约定只在 .agents/；跳过本地 .cursor
     '.cursor/**',

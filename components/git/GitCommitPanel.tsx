@@ -1,9 +1,9 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { LuChevronDown, LuChevronRight, LuChevronsDownUp, LuChevronsUpDown, LuFolderTree, LuList, LuMinus, LuPencil, LuX } from 'react-icons/lu'
+import { LuChevronDown, LuChevronRight, LuChevronsDownUp, LuChevronsUpDown, LuFolderTree, LuList, LuPencil, LuX } from 'react-icons/lu'
 import { TbFileStack } from 'react-icons/tb'
-import { TiPlusOutline } from 'react-icons/ti'
+import { TiMinusOutline, TiPlusOutline } from 'react-icons/ti'
 
 import { handleTreeExpandKey, handleTreeParentKey } from '@/components/git/treeExpandKey'
 import { useT } from '@/components/i18n/LocaleProvider'
@@ -52,7 +52,7 @@ function statusKind(status: string): keyof ChangeCounts | null {
 function statusOf(status: string, t: TFn): { label: string; className: string; Icon: typeof TiPlusOutline; kind: keyof ChangeCounts } | null {
   if (!status) return null
   if (status === 'A' || status === 'C') return { label: t('git.status.add'), className: 'text-ok', Icon: TiPlusOutline, kind: 'add' }
-  if (status === 'D') return { label: t('git.status.delete'), className: 'text-fail', Icon: LuMinus, kind: 'del' }
+  if (status === 'D') return { label: t('git.status.delete'), className: 'text-fail', Icon: TiMinusOutline, kind: 'del' }
   return {
     label: status === 'R' ? t('git.status.rename') : t('git.status.modify'),
     className: 'text-warn',
@@ -148,7 +148,7 @@ function CountMarks({ counts }: { counts: ChangeCounts }) {
       ) : null}
       {counts.del > 0 ? (
         <span className="inline-flex items-center gap-0.5 text-fail">
-          <LuMinus className="size-3" aria-hidden />
+          <TiMinusOutline className="size-3" aria-hidden />
           {counts.del}
         </span>
       ) : null}

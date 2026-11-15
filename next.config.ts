@@ -19,9 +19,9 @@ function allowedDevHosts(): string[] {
 
 function buildTarget(phase: string): BuildTarget {
   if (phase === PHASE_DEVELOPMENT_SERVER) return 'dev'
-  const explicit = process.env.CHAYA_TARGET?.trim().toLowerCase()
+  const explicit = (process.env.YGGIT_TARGET || process.env.CHAYA_TARGET)?.trim().toLowerCase()
   if (explicit && explicit !== 'cloud' && explicit !== 'server') {
-    throw new Error(`CHAYA_TARGET 配置无效：${process.env.CHAYA_TARGET}；只支持 cloud、server`)
+    throw new Error(`YGGIT_TARGET 配置无效：${explicit}；只支持 cloud、server`)
   }
   if (process.env.VERCEL === '1' || explicit === 'cloud') return 'cloud'
   return 'server'
@@ -39,12 +39,12 @@ function pageExtensions(target: BuildTarget): string[] {
 
 export default function nextConfig(phase: string): NextConfig {
   const target = buildTarget(phase)
-  const electron = process.env.CHAYA_ELECTRON_BUILD === '1'
-  if (electron && target === 'cloud') throw new Error('CHAYA_ELECTRON_BUILD 需要 server 构建，不能与 cloud 同时开启')
+  const electron = (process.env.YGGIT_ELECTRON_BUILD || process.env.CHAYA_ELECTRON_BUILD) === '1'
+  if (electron && target === 'cloud') throw new Error('YGGIT_ELECTRON_BUILD 需要 server 构建，不能与 cloud 同时开启')
   return {
     allowedDevOrigins: allowedDevHosts(),
     pageExtensions: pageExtensions(target),
-    env: { NEXT_PUBLIC_CHAYA_TARGET: target },
+    env: { NEXT_PUBLIC_YGGIT_TARGET: target, NEXT_PUBLIC_CHAYA_TARGET: target },
     devIndicators: false,
     async redirects() {
       return [

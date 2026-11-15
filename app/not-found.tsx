@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useT } from '@/components/i18n/LocaleProvider'
 import { cn } from '@/lib/utils'
 
-/** 全局 404：跟 Chaya 深色主题与 accent，避免 Next 默认白底页 */
+/** 全局 404：跟 Yggit 深色主题与 accent，避免 Next 默认白底页 */
 export default function NotFound() {
   const t = useT()
   return (
@@ -31,7 +31,7 @@ export default function NotFound() {
               'transition-[filter,box-shadow] duration-100 hover:brightness-110'
             )}
           >
-            {t('notFound.backLibrary')}
+            {t('notFound.backHome')}
           </Link>
         </div>
       </div>

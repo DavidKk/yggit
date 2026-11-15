@@ -879,7 +879,7 @@ export type MessageTree = {
     cliKindStdio: string
     cliKindPty: string
     cliKindOrphan: string
-    cliSourceChaya: string
+    cliSourceYggit: string
     cliSourceSystem: string
     cliIncludeSystem: string
     cliSystemEmptyMsg: string

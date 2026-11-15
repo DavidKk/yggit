@@ -17,6 +17,7 @@
 /dist/
 /tmp/
 .jest-yggit-root/
+.playwright-mcp/
 
 # Misc
 .DS_Store

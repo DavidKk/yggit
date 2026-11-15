@@ -50,8 +50,11 @@ process.env.PORT = String(port)
 
 await ensureListenPort(port)
 
-if (process.env.CHAYA_SERVICE !== 'remote' && process.env.VERCEL !== '1') {
-  process.env.CHAYA_AUTH_TOKEN = localAccess.ensureAccessToken()
+const serviceMode = process.env.YGGIT_SERVICE || process.env.CHAYA_SERVICE
+if (serviceMode !== 'remote' && process.env.VERCEL !== '1') {
+  const token = localAccess.ensureAccessToken()
+  process.env.YGGIT_AUTH_TOKEN = token
+  process.env.CHAYA_AUTH_TOKEN = token
   console.log(`[Yggdrasil] console: ${listenAddress.serviceUrl(host, port, lanIp)}`)
 }
 const child = spawn(process.execPath, [nextBin, ...args], {

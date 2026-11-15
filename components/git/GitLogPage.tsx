@@ -19,6 +19,7 @@ import { Button, EmptyState, Tooltip } from '@/components/sk'
 import { ThemeSwitcher } from '@/components/theme/ThemeSwitcher'
 import { readApiErrorMessage } from '@/lib/api-error'
 import { gitSelectionHash } from '@/lib/git/scope'
+import { addTemporaryRepo, parseRemoteUrl } from '@/lib/git/temporary-store'
 import {
   GIT_WORKTREE_COMMIT,
   GIT_WORKTREE_HASH,
@@ -45,8 +46,8 @@ type Props = {
   initial: GitLogView | { error: string; repo: string }
 }
 
-const SIDEBAR_MIN = 180
-const TREE_MIN = 200
+const SIDEBAR_MIN = 200
+const TREE_MIN = 220
 const MAIN_MIN = 240
 
 function isError(value: Props['initial']): value is { error: string; repo: string } {
@@ -215,6 +216,34 @@ export function GitLogPage({ initial }: Props) {
     document.documentElement.style.setProperty('--git-sidebar-w', `${sidebarWidth}px`)
     document.documentElement.style.setProperty('--git-tree-w', `${treeWidth}px`)
   }, [sidebarWidth, treeWidth])
+
+  useEffect(() => {
+    if (view && view.repo) {
+      const parsed = parseRemoteUrl(view.repo)
+      if (parsed) {
+        const isSaved = projects.some((p) => (p.httpsUrl && p.httpsUrl === parsed.remoteUrl) || p.name === parsed.name)
+        if (!isSaved) {
+          addTemporaryRepo(parsed)
+        }
+      }
+    }
+  }, [view, projects])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const targetUrl = params.get('url') || params.get('repo')
+    if (targetUrl && parseRemoteUrl(targetUrl)) {
+      const parsed = parseRemoteUrl(targetUrl)!
+      const existing = projects.find((p) => (p.httpsUrl && p.httpsUrl === parsed.remoteUrl) || p.name === parsed.name)
+      if (existing?.localPath) {
+        void load(existing.localPath)
+      } else {
+        addTemporaryRepo(parsed)
+        void load(parsed.remoteUrl)
+      }
+    }
+  }, [])
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -545,9 +574,29 @@ export function GitLogPage({ initial }: Props) {
         </header>
 
         {error && !view ? (
-          <EmptyState title={t('git.page.repoUnreadable')} message={error} hint={t('git.page.repoUnreadableHint')} />
+          <EmptyState title={t('git.page.repoUnreadable')} message={error} hint={t('git.page.repoUnreadableHint')}>
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+              <Button variant="accent" size="md" onClick={() => void chooseFolder()}>
+                <LuFolderGit2 className="size-4" aria-hidden />
+                {t('git.project.addLocal')}
+              </Button>
+              <Button variant="default" size="md" onClick={() => setMenuOpen(true)}>
+                {t('git.project.switcher')}
+              </Button>
+            </div>
+          </EmptyState>
         ) : !view ? (
-          <EmptyState title={t('git.page.noProject')} message={t('git.page.noProjectMessage')} hint={t('git.page.noProjectHint')} />
+          <EmptyState title={t('git.page.noProject')} message={t('git.page.noProjectMessage')} hint={t('git.page.noProjectHint')}>
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+              <Button variant="accent" size="md" onClick={() => void chooseFolder()}>
+                <LuFolderGit2 className="size-4" aria-hidden />
+                {t('git.project.addLocal')}
+              </Button>
+              <Button variant="default" size="md" onClick={() => setMenuOpen(true)}>
+                {t('git.project.switcher')}
+              </Button>
+            </div>
+          </EmptyState>
         ) : (
           <div ref={frameRef} className="flex min-h-0 flex-1 overflow-hidden" style={frameStyle}>
             {selected && selectedFile ? (

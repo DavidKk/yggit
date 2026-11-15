@@ -19,7 +19,7 @@ await ensureListenPort(port)
 
 const child = spawn(process.execPath, [path.join(root, 'scripts/server/next-listen.mjs'), 'start', '-p', port, '-H', host], {
   cwd: root,
-  env: { ...process.env, CHAYA_API_LAN: apiLan },
+  env: { ...process.env, YGGIT_API_LAN: apiLan, CHAYA_API_LAN: apiLan },
   stdio: 'inherit',
 })
 

@@ -37,7 +37,7 @@ const commands = [
     command: `node scripts/server/next-listen.mjs dev ${webpackFlag}-p ${port} -H ${host}`,
     name: 'next',
     prefixColor: 'blue',
-    env: { CHAYA_SERVICE: service, CHAYA_API_LAN: apiLan },
+    env: { YGGIT_SERVICE: service, YGGIT_API_LAN: apiLan, CHAYA_SERVICE: service, CHAYA_API_LAN: apiLan },
   },
 ]
 

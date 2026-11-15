@@ -19,7 +19,7 @@ interface TooltipProps {
 }
 
 const TOOLTIP_HOVER_MEDIA_QUERY = '(hover: hover) and (pointer: fine) and (min-width: 768px)'
-const TOOLTIP_PORTAL_ATTR = 'data-chaya-tooltip-root'
+const TOOLTIP_PORTAL_ATTR = 'data-yggit-tooltip-root'
 
 /**
  * 网页挂 document.body；局内 GameEdit 在 Shadow 内，须挂回同一 Shadow，

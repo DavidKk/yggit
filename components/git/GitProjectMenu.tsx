@@ -2,7 +2,7 @@
 
 import { type DragEvent, type RefObject, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { AiOutlineCloudSync } from 'react-icons/ai'
-import { LuChevronDown, LuChevronRight, LuCloud, LuFolder, LuGithub, LuGitlab, LuHardDrive, LuTrash2 } from 'react-icons/lu'
+import { LuChevronDown, LuChevronRight, LuCloud, LuFolder, LuGithub, LuGitlab, LuGlobe, LuHardDrive, LuStar, LuTrash2, LuX } from 'react-icons/lu'
 import { TbFolderPlus } from 'react-icons/tb'
 
 const FOLDER_EXPAND_MS = 450
@@ -15,6 +15,7 @@ import { GIT_SEARCH_DROPDOWN_ATTR, GitSearchDropdown } from '@/components/git/Gi
 import { useT } from '@/components/i18n/LocaleProvider'
 import { formControl, formDesc, formField, formFieldInlineDense, formTitle, formTitleInline } from '@/components/layoutClasses'
 import { ApiKeyInput, Badge, Button, EmptyState, Modal, ScrollArea, SwitchToggle, TextInput } from '@/components/sk'
+import { addTemporaryRepo, parseRemoteUrl, removeTemporaryRepo, useTemporaryRepos, type TemporaryRepo } from '@/lib/git/temporary-store'
 import type { GitProjectHost, GitProjectView } from '@/lib/git/types'
 import { isRecordBoolean, useGitUiPref } from '@/lib/git/ui-prefs'
 import { cn } from '@/lib/utils'
@@ -42,9 +43,10 @@ type DropTarget = { group: string; beforeId: string | null }
 
 const PROJECT_MIME = 'application/x-yggdrasil-project-id'
 
-function HostIcon({ host }: { host: GitProjectHost }) {
+function HostIcon({ host }: { host: GitProjectHost | 'generic' }) {
   if (host === 'github') return <LuGithub className="size-3.5 shrink-0 text-ink" aria-hidden />
   if (host === 'gitlab') return <LuGitlab className="size-3.5 shrink-0 text-ink" aria-hidden />
+  if (host === 'generic') return <LuGlobe className="size-3.5 shrink-0 text-accent" aria-hidden />
   return <LuHardDrive className="size-3.5 shrink-0 text-ink-soft" aria-hidden />
 }
 
@@ -150,6 +152,28 @@ export function GitProjectMenu({
     if (!needle) return folders
     return folders.filter((folder) => listed.some((project) => project.group === folder))
   }, [folders, listed, needle])
+
+  const temporaryRepos = useTemporaryRepos()
+  const parsedRemoteInput = useMemo(() => parseRemoteUrl(query), [query])
+  const [favoriteLoadingId, setFavoriteLoadingId] = useState<string | null>(null)
+
+  const handleFavoriteTemporary = async (temp: TemporaryRepo) => {
+    setFavoriteLoadingId(temp.id)
+    try {
+      await onAddRemote({ url: temp.remoteUrl })
+      removeTemporaryRepo(temp.id)
+    } finally {
+      setFavoriteLoadingId(null)
+    }
+  }
+
+  const handleOpenRemoteTemporary = (parsed: ReturnType<typeof parseRemoteUrl>) => {
+    if (!parsed) return
+    const temp = addTemporaryRepo(parsed)
+    onOpen(temp.remoteUrl)
+    setQuery('')
+    onClose()
+  }
 
   function closeRemoteModal() {
     setRemoteOpen(false)
@@ -475,14 +499,94 @@ export function GitProjectMenu({
           />
         </div>
       </div>
-      {visibleFolders.length === 0 && projects.length === 0 ? (
+      {parsedRemoteInput ? (
+        <div className="border-b border-line bg-[color-mix(in_oklab,var(--accent)_12%,transparent)] p-1.5">
+          <Button
+            variant="plain"
+            className="h-8 w-full justify-start gap-2 px-2 text-xs font-medium text-accent hover:enabled:bg-[color-mix(in_oklab,var(--accent)_20%,transparent)]"
+            onClick={() => handleOpenRemoteTemporary(parsedRemoteInput)}
+          >
+            <LuGlobe className="size-4 shrink-0 text-accent" />
+            <span className="min-w-0 flex-1 truncate text-left">
+              {t('git.project.openRemoteTemporary')}: <strong className="font-semibold text-ink">{parsedRemoteInput.name}</strong>
+            </span>
+          </Button>
+        </div>
+      ) : null}
+      {visibleFolders.length === 0 && projects.length === 0 && temporaryRepos.length === 0 ? (
         <EmptyState className="min-h-0 flex-1" title={t('git.project.noProjects')} message={t('git.project.noProjectsMsg')} hint={t('git.project.noProjectsHint')} />
-      ) : listed.length === 0 && needle ? (
+      ) : listed.length === 0 && temporaryRepos.length === 0 && needle && !parsedRemoteInput ? (
         <EmptyState className="min-h-0 flex-1" title={t('git.project.noMatches')} message={t('git.project.noMatchesMsg')} />
-      ) : visibleFolders.length === 0 ? (
-        <EmptyState className="min-h-0 flex-1" title={t('git.project.noFolders')} message={t('git.project.noFoldersMsg')} />
       ) : (
         <ScrollArea className="min-h-0 flex-1" reserveGutter={false} scrollRef={listScrollRef} scrollProps={{ onDragOver: onListDragOver }}>
+          {temporaryRepos.length > 0 ? (
+            <section className="border-b border-line pb-2 mb-2">
+              <div className="flex h-8 w-full items-center px-2">
+                <span className="flex min-w-0 flex-1 items-center gap-1.5 text-xs font-medium text-ink-soft">
+                  <LuGlobe className="size-3.5 text-accent" aria-hidden />
+                  {t('git.project.temporary')}
+                  <Badge tone="neutral" size="mini" dot={false} className="shrink-0">
+                    {temporaryRepos.length}
+                  </Badge>
+                </span>
+              </div>
+              {temporaryRepos.map((temp) => {
+                const current = currentPath === temp.remoteUrl || currentPath === temp.id
+                const isFavoriting = favoriteLoadingId === temp.id
+                return (
+                  <div key={temp.id} className="group/temp relative flex h-8 w-full items-center pr-1 hover:bg-[var(--overlay-06)]">
+                    <Button
+                      variant="plain"
+                      aria-current={current ? 'true' : undefined}
+                      className={cn(
+                        'h-8 min-w-0 flex-1 justify-start gap-1.5 rounded-none px-2 pl-4 font-normal text-ink',
+                        current && 'bg-[color-mix(in_oklab,var(--accent)_18%,transparent)] hover:enabled:bg-[color-mix(in_oklab,var(--accent)_24%,transparent)]'
+                      )}
+                      onClick={() => {
+                        onOpen(temp.remoteUrl)
+                        onClose()
+                      }}
+                    >
+                      <HostIcon host={temp.provider} />
+                      <span className="min-w-0 flex-1 truncate whitespace-nowrap text-left">{temp.name}</span>
+                      <Badge tone="neutral" size="mini" dot={false} className="shrink-0 text-[10px]">
+                        {t('git.project.temporaryBadge')}
+                      </Badge>
+                    </Button>
+                    <div className="flex shrink-0 items-center gap-0.5 opacity-80 group-hover/temp:opacity-100">
+                      <Button
+                        variant="plain"
+                        size="mini"
+                        className="size-6 text-warn hover:bg-warn/15"
+                        aria-label={t('git.project.favoriteProject')}
+                        tooltip={t('git.project.favoriteProject')}
+                        loading={isFavoriting}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          void handleFavoriteTemporary(temp)
+                        }}
+                      >
+                        <LuStar className="size-3.5 fill-warn/30 text-warn" aria-hidden />
+                      </Button>
+                      <Button
+                        variant="plain"
+                        size="mini"
+                        className="size-6 text-ink-soft hover:bg-[var(--overlay-08)] hover:text-fail"
+                        aria-label={t('git.project.removeTemporary')}
+                        tooltip={t('git.project.removeTemporary')}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          removeTemporaryRepo(temp.id)
+                        }}
+                      >
+                        <LuX className="size-3.5" aria-hidden />
+                      </Button>
+                    </div>
+                  </div>
+                )
+              })}
+            </section>
+          ) : null}
           {visibleFolders.map((group) => {
             const items = listed.filter((project) => project.group === group)
             if (needle && items.length === 0) return null

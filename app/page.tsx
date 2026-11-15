@@ -7,9 +7,9 @@ export const metadata = {
   description: '查看仓库提交',
 }
 
-export default async function Home({ searchParams }: { searchParams?: Promise<{ repo?: string; branch?: string }> } = {}) {
+export default async function Home({ searchParams }: { searchParams?: Promise<{ repo?: string; branch?: string; url?: string }> } = {}) {
   const resolved = (await searchParams) ?? {}
-  const explicit = resolved.repo?.trim() || ''
+  const explicit = (resolved.url || resolved.repo)?.trim() || ''
   if (!explicit) {
     return (
       <>

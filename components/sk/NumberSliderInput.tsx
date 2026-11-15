@@ -17,8 +17,8 @@ export type NumberSliderInputProps = Omit<NumberInputProps, 'min' | 'max'> & {
 }
 
 const SLIDE_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'])
-const SLIDER_PORTAL_ATTR = 'data-chaya-slider-root'
-export const GAME_EDIT_PANEL_HIDE_EVENT = 'chaya:game-edit-panel-hide'
+const SLIDER_PORTAL_ATTR = 'data-yggit-slider-root'
+export const PANEL_HIDE_EVENT = 'yggit:panel-hide'
 
 /**
  * 网页挂 document.body；局内 GameEdit 在 Shadow 内，须挂回同一 Shadow，
@@ -158,8 +158,8 @@ export function NumberSliderInput({ value, onValueChange, onSlideEnd, min, max, 
       setOpen(false)
       setDragging(false)
     }
-    root.addEventListener(GAME_EDIT_PANEL_HIDE_EVENT, close)
-    return () => root.removeEventListener(GAME_EDIT_PANEL_HIDE_EVENT, close)
+    root.addEventListener(PANEL_HIDE_EVENT, close)
+    return () => root.removeEventListener(PANEL_HIDE_EVENT, close)
   }, [open])
 
   useEffect(() => {

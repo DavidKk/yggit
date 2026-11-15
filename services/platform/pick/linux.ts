@@ -24,7 +24,7 @@ async function whichLinuxDialog(): Promise<LinuxDialogTool | null> {
 async function linuxPickFolder(tool: LinuxDialogTool, label: string, multiple: boolean): Promise<string | null> {
   try {
     if (tool === 'kdialog') {
-      const args = ['--title', 'Chaya', '--getexistingdirectory', os.homedir(), label]
+      const args = ['--title', 'Yggit', '--getexistingdirectory', os.homedir(), label]
       if (multiple) args.unshift('--multiple', '--separate-output')
       const { stdout } = await execFileAsync('kdialog', args, {
         timeout: 180_000,

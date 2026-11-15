@@ -16,7 +16,7 @@ export const panelsZh = {
       orientationDesc: '横向一行或纵向一列；也可以在管理面板上直接切换',
       horizontal: '横向',
       vertical: '纵向',
-      unavailable: '仅在 Chaya App 或本机服务中可用',
+      unavailable: '仅在 Yggit App 或本机服务中可用',
     },
     items: {
       title: '显示的按钮',
@@ -76,7 +76,7 @@ export const panelsEn = {
       orientationDesc: 'One row or one column; you can also switch it on the manager itself',
       horizontal: 'Horizontal',
       vertical: 'Vertical',
-      unavailable: 'Only available in the Chaya app or the local service',
+      unavailable: 'Only available in the Yggit app or the local service',
     },
     items: {
       title: 'Buttons',
@@ -136,7 +136,7 @@ export const panelsJa = {
       orientationDesc: '横一行または縦一列。管理パネル上でも切り替えられます',
       horizontal: '横',
       vertical: '縦',
-      unavailable: 'Chaya アプリまたはローカルサービスでのみ利用できます',
+      unavailable: 'Yggit アプリまたはローカルサービスでのみ利用できます',
     },
     items: {
       title: '表示するボタン',
@@ -196,7 +196,7 @@ export const panelsKo = {
       orientationDesc: '가로 한 줄 또는 세로 한 열. 관리 패널에서도 바로 바꿀 수 있습니다',
       horizontal: '가로',
       vertical: '세로',
-      unavailable: 'Chaya 앱 또는 로컬 서비스에서만 사용할 수 있습니다',
+      unavailable: 'Yggit 앱 또는 로컬 서비스에서만 사용할 수 있습니다',
     },
     items: {
       title: '표시할 버튼',

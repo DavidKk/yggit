@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { LuCodeXml, LuColumns2, LuEye, LuFileText, LuGitCompareArrows, LuListTree, LuMinus, LuPencil, LuRows3, LuX } from 'react-icons/lu'
-import { TiPlusOutline } from 'react-icons/ti'
+import { LuCodeXml, LuColumns2, LuEye, LuFileText, LuGitCompareArrows, LuListTree, LuPencil, LuRows3, LuX } from 'react-icons/lu'
+import { TiMinusOutline, TiPlusOutline } from 'react-icons/ti'
 import type { ThemedToken } from 'shiki'
 
 import { gitFileKind } from '@/components/git/fileKind'
@@ -263,7 +263,7 @@ function CountMarks({ counts }: { counts: ChangeCounts }) {
       ) : null}
       {counts.del > 0 ? (
         <span className="inline-flex items-center gap-0.5 text-fail">
-          <LuMinus className="size-3" aria-hidden />
+          <TiMinusOutline className="size-3" aria-hidden />
           {counts.del}
         </span>
       ) : null}
@@ -275,7 +275,7 @@ type TFn = ReturnType<typeof useT>
 
 function fileStatus(status: string, t: TFn): { label: string; className: string; Icon: typeof TiPlusOutline } {
   if (status === 'A' || status === 'C') return { label: t('git.status.add'), className: 'text-ok', Icon: TiPlusOutline }
-  if (status === 'D') return { label: t('git.status.delete'), className: 'text-fail', Icon: LuMinus }
+  if (status === 'D') return { label: t('git.status.delete'), className: 'text-fail', Icon: TiMinusOutline }
   return { label: status === 'R' ? t('git.status.rename') : t('git.status.modify'), className: 'text-warn', Icon: LuPencil }
 }
 

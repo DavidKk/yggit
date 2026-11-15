@@ -17,7 +17,7 @@ export const legalZh = {
     agent: 'AI 助手将读取游戏状态并代为执行操作，相关内容将传输至用户配置的模型服务；AI 生成的结果可能有误，开发者不承担责任。',
     integration: '经授权接入的外部 AI 客户端可读取并操作游戏，请仅连接可信任的客户端；由此产生的后果由用户自行承担。',
     library: '安装插件将向游戏目录写入文件，请事先备份，并核对作品条款及相关权利。',
-    marketing: 'Chaya 为开源免费的技术工具，不提供游戏或译文，与 RPG Maker 及各作品权利人无关联。使用风险详见',
+    marketing: 'Yggit 为开源免费的技术工具，不提供游戏或译文，与 RPG Maker 及各作品权利人无关联。使用风险详见',
   },
 } as const satisfies LegalPart
 
@@ -39,7 +39,7 @@ export const legalEn = {
     integration: 'Authorized external AI clients can read and control the game. Connect only trusted clients; you bear all resulting consequences.',
     library: 'Installing the plugin writes files into the game folder; back up beforehand and check the work’s terms and applicable rights.',
     marketing:
-      'Chaya is a free, open-source technical tool. It provides no games or translations and is not affiliated with RPG Maker or any rights holder. For usage risks, see the',
+      'Yggit is a free, open-source technical tool. It provides no games or translations and is not affiliated with RPG Maker or any rights holder. For usage risks, see the',
   },
 } as const satisfies LegalPart
 
@@ -60,7 +60,7 @@ export const legalJa = {
       'AI アシスタントはゲームの状態を読み取り代わりに操作を実行し、関連内容は利用者が設定したモデルサービスへ送信されます。AI の生成結果には誤りが含まれる可能性があり、開発者は責任を負いません。',
     integration: '許可された外部 AI クライアントはゲームを読み取り・操作できます。信頼できるクライアントのみを接続してください。その結果は利用者が負担します。',
     library: 'プラグインの導入はゲームフォルダにファイルを書き込みます。事前にバックアップし、作品の規約と権利をご確認ください。',
-    marketing: 'Chaya は無償のオープンソース技術ツールであり、ゲームや訳文を提供せず、RPG Maker および各権利者とは無関係です。利用上のリスクについては次をご覧ください：',
+    marketing: 'Yggit は無償のオープンソース技術ツールであり、ゲームや訳文を提供せず、RPG Maker および各権利者とは無関係です。利用上のリスクについては次をご覧ください：',
   },
 } as const satisfies LegalPart
 
@@ -81,6 +81,6 @@ export const legalKo = {
       'AI 도우미는 게임 상태를 읽고 대신 조작을 수행하며, 관련 내용은 사용자가 설정한 모델 서비스로 전송됩니다. AI 생성 결과에는 오류가 있을 수 있으며 개발자는 책임지지 않습니다.',
     integration: '허가된 외부 AI 클라이언트는 게임을 읽고 조작할 수 있습니다. 신뢰하는 클라이언트만 연결하십시오. 그 결과는 사용자가 부담합니다.',
     library: '플러그인 설치 시 게임 폴더에 파일이 기록되니 미리 백업하고 작품 약관과 관련 권리를 확인하십시오.',
-    marketing: 'Chaya는 무료 오픈소스 기술 도구로서 게임이나 번역문을 제공하지 않으며 RPG Maker 및 각 권리자와 무관합니다. 사용상의 위험은 다음을 참조하십시오:',
+    marketing: 'Yggit는 무료 오픈소스 기술 도구로서 게임이나 번역문을 제공하지 않으며 RPG Maker 및 각 권리자와 무관합니다. 사용상의 위험은 다음을 참조하십시오:',
   },
 } as const satisfies LegalPart

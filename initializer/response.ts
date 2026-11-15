@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 export { readApiErrorMessage } from '@/lib/api-error'
 
 /**
- * Chaya HTTP 返回信封（对齐工单服务 `{ ok, error? }` 思路；鉴权由 controller 处理）。
+ * Yggit HTTP 返回信封（对齐工单服务 `{ ok, error? }` 思路；鉴权由 controller 处理）。
  *
  * handler 返回 `apiOk` / `apiError` / 纯数据，或 `throw apiErrorBody(...)`；
  * `initializer/controller` 用 `packApiRouteResult` / `packApiRouteThrown` 打包。

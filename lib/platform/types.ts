@@ -3,11 +3,11 @@
  * - HostOs：本机操作系统（windows / linux / osx）
  * - RuntimeLane：服务通道（local = 本机盘能力；remote = 远程无盘）
  *
- * `CHAYA_SERVICE=app` 与 `local` 同属 local lane（共用 DiskOps 实现）。
+ * `YGGIT_SERVICE=app` 与 `local` 同属 local lane（共用 DiskOps 实现）。
  */
 export type HostOs = 'windows' | 'linux' | 'osx'
 
-/** local：本机 / Toolkit App；remote：远程服务或 CHAYA_SERVICE=remote 模拟 */
+/** local：本机 / Toolkit App；remote：远程服务或 YGGIT_SERVICE=remote 模拟 */
 export type RuntimeLane = 'local' | 'remote'
 
 export type PlatformContext = {

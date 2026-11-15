@@ -41,10 +41,10 @@ type GraphContextMenu =
       anchor: FloatingAnchor
     }
 
-const BRANCH_MIN = 88
-const MESSAGE_MIN = 120
-const BRANCH_DEFAULT = 156
-const GRAPH_MIN = 48
+const BRANCH_MIN = 130
+const MESSAGE_MIN = 140
+const BRANCH_DEFAULT = 160
+const GRAPH_MIN = 80
 const GRAPH_DEFAULT_LANES = 5
 
 type Props = {
@@ -293,15 +293,17 @@ function GitGraphComponent({
   const fitBranch = () => {
     const frame = frameRef.current
     if (!frame) return
-    const fitted = Math.max(BRANCH_MIN, measureCellsFit(frame, '[data-git-branch-cell]'))
+    const measured = measureCellsFit(frame, '[data-git-branch-cell]')
+    const fitted = Math.max(BRANCH_MIN, measured)
     const max = Math.max(BRANCH_MIN, room() - graphRef.current - MESSAGE_MIN)
-    const next = Math.min(max, fitted)
+    const next = Math.max(BRANCH_MIN, Math.min(max, fitted))
     applyBranch(next)
     setBranchWidth(next)
   }
   const fitGraph = () => {
     const max = Math.max(GRAPH_MIN, room() - branchRef.current - MESSAGE_MIN)
-    const next = Math.min(max, contentWidth)
+    const target = Math.max(GRAPH_MIN, contentWidth)
+    const next = Math.max(GRAPH_MIN, Math.min(max, target))
     applyGraph(next)
     setGraphView(next)
     const node = graphScrollRef.current
@@ -362,10 +364,28 @@ function GitGraphComponent({
 
   return (
     <div ref={frameRef} className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden" style={frameStyle}>
-      <header className="relative z-20 shrink-0 bg-panel">
+      <header className="relative z-20 shrink-0 select-none bg-panel">
         <div className="grid h-8 items-center text-xs text-ink-soft" style={{ gridTemplateColumns: columns }}>
-          <span className="px-2 text-left">{t('git.graph.colBranch')}</span>
-          <span className="px-2">{t('git.graph.colGraph')}</span>
+          <span
+            className="cursor-pointer px-2 text-left transition-colors hover:text-ink"
+            title={t('git.graph.resizeBranch')}
+            onDoubleClick={(e) => {
+              e.preventDefault()
+              fitBranch()
+            }}
+          >
+            {t('git.graph.colBranch')}
+          </span>
+          <span
+            className="cursor-pointer px-2 transition-colors hover:text-ink"
+            title={t('git.graph.resizeGraph')}
+            onDoubleClick={(e) => {
+              e.preventDefault()
+              fitGraph()
+            }}
+          >
+            {t('git.graph.colGraph')}
+          </span>
           <span className="min-w-0 truncate pl-2">{t('git.graph.colMessage')}</span>
         </div>
         <div className="absolute inset-y-0 left-[var(--git-branch-w)] z-30 w-0">

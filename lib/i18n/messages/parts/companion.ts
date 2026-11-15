@@ -44,7 +44,7 @@ export const companionZh = {
     character: '角色',
     turnOn: '开启 {name}',
     turnOff: '关闭 {name}',
-    unavailable: '仅在 Chaya App 或本机服务中可用',
+    unavailable: '仅在 Yggit App 或本机服务中可用',
   },
 } as const satisfies CompanionPart
 
@@ -89,7 +89,7 @@ export const companionEn = {
     character: 'Character',
     turnOn: 'Turn on {name}',
     turnOff: 'Turn off {name}',
-    unavailable: 'Only available in the Chaya app or the local service',
+    unavailable: 'Only available in the Yggit app or the local service',
   },
 } as const satisfies CompanionPart
 
@@ -134,7 +134,7 @@ export const companionJa = {
     character: 'キャラクター',
     turnOn: '{name}をオン',
     turnOff: '{name}をオフ',
-    unavailable: 'Chaya アプリまたはローカルサービスでのみ利用できます',
+    unavailable: 'Yggit アプリまたはローカルサービスでのみ利用できます',
   },
 } as const satisfies CompanionPart
 
@@ -179,6 +179,6 @@ export const companionKo = {
     character: '캐릭터',
     turnOn: '{name} 켜기',
     turnOff: '{name} 끄기',
-    unavailable: 'Chaya 앱 또는 로컬 서비스에서만 사용할 수 있습니다',
+    unavailable: 'Yggit 앱 또는 로컬 서비스에서만 사용할 수 있습니다',
   },
 } as const satisfies CompanionPart

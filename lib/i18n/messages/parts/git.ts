@@ -199,6 +199,12 @@ export type GitMessages = {
     errFolderName: string
     errRepoUrl: string
     errTokenRequired: string
+    temporary: string
+    temporaryBadge: string
+    favoriteProject: string
+    removeTemporary: string
+    openRemoteTemporary: string
+    remoteUrlPlaceholder: string
   }
   status: { add: string; delete: string; rename: string; modify: string }
 }
@@ -419,7 +425,13 @@ export const gitZh: GitMessages = {
     deleteFolderConfirmEmpty: "仅移除分组；不会删除磁盘上的仓库。",
     errFolderName: "填写文件夹名称",
     errRepoUrl: "填写仓库地址",
-    errTokenRequired: "同步账号需要 Access Token"
+    errTokenRequired: "同步账号需要 Access Token",
+    temporary: "临时访问",
+    temporaryBadge: "临时",
+    favoriteProject: "收藏项目",
+    removeTemporary: "从临时列表移除",
+    openRemoteTemporary: "以临时模式打开公开仓库",
+    remoteUrlPlaceholder: "搜索项目或粘贴 Git 仓库 URL (https://...)",
   },
   status: {
     add: "新增",
@@ -645,7 +657,13 @@ export const gitCht: GitMessages = {
     deleteFolderConfirmEmpty: "僅移除分組；不會刪除磁碟上的倉庫。",
     errFolderName: "填寫資料夾名稱",
     errRepoUrl: "填寫倉庫位址",
-    errTokenRequired: "同步帳號需要 Access Token"
+    errTokenRequired: "同步帳號需要 Access Token",
+    temporary: "臨時存取",
+    temporaryBadge: "臨時",
+    favoriteProject: "收藏專案",
+    removeTemporary: "從臨時列表移除",
+    openRemoteTemporary: "以臨時模式打開公開倉庫",
+    remoteUrlPlaceholder: "搜尋專案或貼上 Git 倉庫 URL (https://...)",
   },
   status: {
     add: "新增",
@@ -871,7 +889,13 @@ export const gitEn: GitMessages = {
     deleteFolderConfirmEmpty: "Only removes the group; repos on disk are not deleted.",
     errFolderName: "Enter a folder name",
     errRepoUrl: "Enter a repository URL",
-    errTokenRequired: "Access Token required for account sync"
+    errTokenRequired: "Access Token required for account sync",
+    temporary: "Temporary",
+    temporaryBadge: "Temp",
+    favoriteProject: "Star project",
+    removeTemporary: "Remove from temporary list",
+    openRemoteTemporary: "Open public repository in temporary mode",
+    remoteUrlPlaceholder: "Search projects or paste Git URL (https://...)",
   },
   status: {
     add: "Added",
@@ -1097,7 +1121,13 @@ export const gitJa: GitMessages = {
     deleteFolderConfirmEmpty: "グループのみ削除します。ディスク上のリポジトリは削除しません。",
     errFolderName: "フォルダ名を入力してください",
     errRepoUrl: "リポジトリ URL を入力してください",
-    errTokenRequired: "アカウント同期には Access Token が必要です"
+    errTokenRequired: "アカウント同期には Access Token が必要です",
+    temporary: "一時アクセス",
+    temporaryBadge: "一時",
+    favoriteProject: "プロジェクトをお気に入りに追加",
+    removeTemporary: "一時リストから削除",
+    openRemoteTemporary: "公開リポジトリを一時モードで開く",
+    remoteUrlPlaceholder: "プロジェクトを検索または Git URL を貼り付け",
   },
   status: {
     add: "追加",
@@ -1323,7 +1353,13 @@ export const gitFr: GitMessages = {
     deleteFolderConfirmEmpty: "Supprime uniquement le groupe ; les dépôts sur le disque ne sont pas supprimés.",
     errFolderName: "Entrez un nom de dossier",
     errRepoUrl: "Entrez une URL de dépôt",
-    errTokenRequired: "Jeton d'accès requis pour la synchronisation du compte"
+    errTokenRequired: "Jeton d'accès requis pour la synchronisation du compte",
+    temporary: "Accès temporaire",
+    temporaryBadge: "Temp",
+    favoriteProject: "Ajouter aux favoris",
+    removeTemporary: "Retirer des favoris temporaires",
+    openRemoteTemporary: "Ouvrir le dépôt public en mode temporaire",
+    remoteUrlPlaceholder: "Rechercher des projets ou coller l’URL Git",
   },
   status: {
     add: "Ajouté",
@@ -1549,7 +1585,13 @@ export const gitDe: GitMessages = {
     deleteFolderConfirmEmpty: "Entfernt nur die Gruppe; Repos auf der Festplatte werden nicht gelöscht.",
     errFolderName: "Geben Sie einen Ordnernamen ein",
     errRepoUrl: "Geben Sie eine Repository-URL ein",
-    errTokenRequired: "Zugriffstoken erforderlich für Konto-Synchronisation"
+    errTokenRequired: "Zugriffstoken erforderlich für Konto-Synchronisation",
+    temporary: "Temporärer Zugriff",
+    temporaryBadge: "Temp",
+    favoriteProject: "Projekt favorisieren",
+    removeTemporary: "Aus temporärer Liste entfernen",
+    openRemoteTemporary: "Öffentliches Repository temporär öffnen",
+    remoteUrlPlaceholder: "Projekte suchen oder Git-URL einfügen",
   },
   status: {
     add: "Hinzugefügt",
@@ -1775,7 +1817,13 @@ export const gitEs: GitMessages = {
     deleteFolderConfirmEmpty: "Solo elimina el grupo; los repositorios en el disco no se borran.",
     errFolderName: "Ingrese un nombre de carpeta",
     errRepoUrl: "Introduzca una URL de repositorio",
-    errTokenRequired: "Se requiere token de acceso para la sincronización de la cuenta"
+    errTokenRequired: "Se requiere token de acceso para la sincronización de la cuenta",
+    temporary: "Acceso temporal",
+    temporaryBadge: "Temp",
+    favoriteProject: "Guardar en favoritos",
+    removeTemporary: "Quitar de lista temporal",
+    openRemoteTemporary: "Abrir repositorio público en modo temporal",
+    remoteUrlPlaceholder: "Buscar proyectos o pegar URL de Git",
   },
   status: {
     add: "Añadido",
@@ -2001,7 +2049,13 @@ export const gitRu: GitMessages = {
     deleteFolderConfirmEmpty: "Только удаляет группу; репозитории на диске не удаляются.",
     errFolderName: "Введите имя папки",
     errRepoUrl: "Введите URL репозитория",
-    errTokenRequired: "Требуется токен доступа для синхронизации аккаунта"
+    errTokenRequired: "Требуется токен доступа для синхронизации аккаунта",
+    temporary: "Временный доступ",
+    temporaryBadge: "Врем.",
+    favoriteProject: "Добавить в избранное",
+    removeTemporary: "Удалить из временного списка",
+    openRemoteTemporary: "Открыть публичный репозиторий временно",
+    remoteUrlPlaceholder: "Поиск проектов или вставьте Git URL",
   },
   status: {
     add: "Добавлено",
@@ -2227,7 +2281,13 @@ export const gitPtBR: GitMessages = {
     deleteFolderConfirmEmpty: "Remove apenas o grupo; os repositórios no disco não são excluídos.",
     errFolderName: "Digite um nome de pasta",
     errRepoUrl: "Digite um URL de repositório",
-    errTokenRequired: "Token de acesso necessário para sincronização de conta"
+    errTokenRequired: "Token de acesso necessário para sincronização de conta",
+    temporary: "Acesso temporário",
+    temporaryBadge: "Temp",
+    favoriteProject: "Favoritar projeto",
+    removeTemporary: "Remover da lista temporária",
+    openRemoteTemporary: "Abrir repositório público em modo temporário",
+    remoteUrlPlaceholder: "Buscar projetos ou colar URL do Git",
   },
   status: {
     add: "Adicionado",
@@ -2453,7 +2513,13 @@ export const gitKo: GitMessages = {
     deleteFolderConfirmEmpty: "그룹만 제거됩니다. 디스크의 저장소는 삭제되지 않습니다.",
     errFolderName: "폴더 이름을 입력하세요",
     errRepoUrl: "저장소 URL을 입력하세요",
-    errTokenRequired: "계정 동기화에는 Access Token이 필요합니다"
+    errTokenRequired: "계정 동기화에는 Access Token이 필요합니다",
+    temporary: "임시 접근",
+    temporaryBadge: "임시",
+    favoriteProject: "프로젝트 즐겨찾기",
+    removeTemporary: "임시 목록에서 제거",
+    openRemoteTemporary: "공개 저장소를 임시 모드로 열기",
+    remoteUrlPlaceholder: "프로젝트 검색 또는 Git URL 붙여넣기",
   },
   status: {
     add: "추가됨",

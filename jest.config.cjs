@@ -17,7 +17,6 @@ module.exports = {
     // Specific mocks before `@/*` so they win (Jest uses first matching pattern)
     '^@/constants/paths$': '<rootDir>/__tests__/mocks/constants-paths.ts',
     ...pathsToModuleNameMapper(paths, { prefix: '<rootDir>/' }),
-    '^@chaya-lib/(.*)$': '<rootDir>/lib/$1',
   },
   transform: {
     '^.+\\.tsx?$': [

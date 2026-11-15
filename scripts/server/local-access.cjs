@@ -5,15 +5,17 @@ const fs = require('node:fs')
 const path = require('node:path')
 
 function accessDir() {
-  if (process.env.CHAYA_DATA_DIR) return path.join(path.resolve(process.env.CHAYA_DATA_DIR), 'access')
+  const dataDir = process.env.YGGIT_DATA_DIR || process.env.CHAYA_DATA_DIR
+  if (dataDir) return path.join(path.resolve(dataDir), 'access')
   if (process.platform === 'darwin' && process.env.HOME) {
-    return path.join(process.env.HOME, 'Library', 'Application Support', 'Chaya', 'data', 'access')
+    return path.join(process.env.HOME, 'Library', 'Application Support', 'Yggit', 'data', 'access')
   }
   return path.resolve(__dirname, '../../data/access')
 }
 
 function ensureAccessToken() {
-  if (process.env.CHAYA_AUTH_TOKEN) return process.env.CHAYA_AUTH_TOKEN
+  const token = process.env.YGGIT_AUTH_TOKEN || process.env.CHAYA_AUTH_TOKEN
+  if (token) return token
   const dir = accessDir()
   const file = path.join(dir, 'token')
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 })

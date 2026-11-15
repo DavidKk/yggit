@@ -11,7 +11,7 @@ function multiFolderScript(title: string): string {
 Add-Type -TypeDefinition @"
 using System;
 using System.Runtime.InteropServices;
-public class ChayaFolderPicker {
+public class YggitFolderPicker {
   [Flags] enum FOS : uint { PICKFOLDERS = 0x20, FORCEFILESYSTEM = 0x40, ALLOWMULTISELECT = 0x200 }
   const uint SIGDN_FILESYSPATH = 0x80058000;
   [ComImport, Guid("DC1C5A9C-E88A-4dde-A5A1-60F82A20AEF7")] class FileOpenDialogRCW {}
@@ -61,7 +61,7 @@ public class ChayaFolderPicker {
 }
 "@
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-$paths = [ChayaFolderPicker]::Show(${title})
+$paths = [YggitFolderPicker]::Show(${title})
 if (-not $paths -or $paths.Length -eq 0) { exit 2 }
 [Console]::Out.Write(($paths -join [Environment]::NewLine))
 `.trim()

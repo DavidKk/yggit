@@ -10,11 +10,10 @@ export type LocalePreference = Locale | 'auto'
 
 /**
  * 只存用户明确的选择；localStorage 与 cookie 共用（SSR 读 cookie）。
- * 旧键 `chaya.locale` 会在首次访问时自动写入，无法区分是否为用户选择，故弃用。
  */
-export const LOCALE_STORAGE_KEY = 'chaya.localePref'
+export const LOCALE_STORAGE_KEY = 'yggit.localePref'
 export const LOCALE_COOKIE_KEY = LOCALE_STORAGE_KEY
-const LEGACY_LOCALE_KEY = 'chaya.locale'
+const LEGACY_LOCALE_KEYS = ['chaya.localePref', 'chaya.locale']
 
 const LOCALE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365
 
@@ -98,7 +97,7 @@ export function localeForPreference(preference: LocalePreference, systemLocale: 
 export function readStoredLocale(): Locale | null {
   if (typeof window === 'undefined') return null
   try {
-    const raw = window.localStorage.getItem(LOCALE_STORAGE_KEY)
+    const raw = window.localStorage.getItem(LOCALE_STORAGE_KEY) || window.localStorage.getItem('chaya.localePref')
     return isLocale(raw) ? raw : null
   } catch {
     return null
@@ -116,18 +115,24 @@ export function writeStoredLocale(preference: LocalePreference) {
   try {
     if (preference === 'auto') window.localStorage.removeItem(LOCALE_STORAGE_KEY)
     else window.localStorage.setItem(LOCALE_STORAGE_KEY, preference)
+    for (const key of LEGACY_LOCALE_KEYS) window.localStorage.removeItem(key)
   } catch {
     /* ignore quota / private mode */
   }
   setCookie(LOCALE_COOKIE_KEY, preference === 'auto' ? '' : preference, preference === 'auto' ? 0 : LOCALE_COOKIE_MAX_AGE)
+  for (const key of LEGACY_LOCALE_KEYS) setCookie(key, '', 0)
 }
 
 export function clearLegacyLocale() {
   if (typeof window === 'undefined') return
   try {
-    window.localStorage.removeItem(LEGACY_LOCALE_KEY)
+    for (const key of LEGACY_LOCALE_KEYS) window.localStorage.removeItem(key)
   } catch {
     /* */
   }
-  if (typeof document !== 'undefined' && document.cookie.includes(`${LEGACY_LOCALE_KEY}=`)) setCookie(LEGACY_LOCALE_KEY, '', 0)
+  if (typeof document !== 'undefined') {
+    for (const key of LEGACY_LOCALE_KEYS) {
+      if (document.cookie.includes(`${key}=`)) setCookie(key, '', 0)
+    }
+  }
 }
