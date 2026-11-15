@@ -90,6 +90,15 @@ export const AGENT_PRESETS: Record<AgentProviderType, { label: string; endpoint:
   - `EphemeralAgentConfig` 只能作为局部状态存在于 React Context 或 `GitAgentBar` 的内部 `useState` 中；
   - **严禁**调用 `localStorage.setItem`、`sessionStorage.setItem`、`document.cookie`、IndexedDB 或发送给 Yggit 后端保存；
   - 页面刷新（F5）、标签页关闭、或点击面板上的“清空”按钮，凭证立即随内存回收彻底抹除。
+- **免费模型数据合规与隐私警示 (Privacy & Data Retention Notice)**：
+  - 针对 `vercel-free` 等公共免费模型，定义结构化合规告知文案并在表单顶部渲染：
+  ```typescript
+  export const FREE_MODEL_PRIVACY_NOTICE = {
+    title: '数据使用与隐私须知 (免费通道提示)',
+    content:
+      '当前选择的免费模型通道为第三方公共赞助服务，不保证零数据留存（No Zero Data Retention）。查询内容与代码上下文可能被服务商用于模型训练或改进。涉及敏感商业机密时请使用自建私有网关或本地 Ollama。',
+  }
+  ```
 - **CORS 友好型代理与错误捕获**：
   - 对于 Vercel AI Gateway，直接走同源 Next.js 服务端路由 `/api/git/agent/gateway` 转发至 `https://ai-gateway.vercel.sh/v1`，天然解决浏览器 CORS 限制；
   - 若用户在 BYOP 模式填写的直连 API 触发了 `TypeError: Failed to fetch`，客户端拦截并给出明确指引。
@@ -299,10 +308,13 @@ export function formatAgentDiagnosticShareCard(options: { repoName: string; titl
 ```
 components/git/agent/
 ├── GitAgentBar.tsx             # 页面底部药丸入口 + 展开 Command Palette 弹层
-├── AgentConfigModal.tsx        # 独立模型通道配置面板 (预设切换、Key、连通性测试)
-├── AgentConfigDrawer.tsx       # 药丸内部折叠式轻量配置插槽
 ├── AgentPromptChips.tsx        # 快捷气泡 (今日合并、分支包含、查作者)
 ├── AgentResultContainer.tsx    # 诊断卡片容器
+├── settings/                   # 独立配置中心 (参考 CHAYA 与 ticket-janitor 二级双栏规范)
+│   ├── AgentSettingsModal.tsx  # 弹窗 Shell 外壳 (双栏容器)
+│   ├── SettingsSideNav.tsx     # 左侧 ICON 垂直子导航 (models / privacy / general)
+│   ├── ModelChannelSection.tsx # 右侧左对齐表单区 (预设卡片、Key输入、连通性测试)
+│   └── PrivacyNoticeCallout.tsx# 免费模型数据收集与隐私警示卡片
 └── cards/
     ├── BranchContainmentCard.tsx # 分支包含诊断卡片（带高亮按钮 & 一键复制卡片）
     ├── TodayMergesCard.tsx       # 今日合并列表卡片（带分支来源与高亮切换）

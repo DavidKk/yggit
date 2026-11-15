@@ -85,15 +85,20 @@
   - 常态：页面水平居中悬浮半透明毛玻璃药丸，展示占位文案及快捷键标识 `[ ✦ 问问 Yggit Agent... ⌘K ]`；
   - 展开态：点击或快捷键展开为 Command Palette 浮层，支持对话流输出、ESC 退出、外部点击自动收起；
   - 快捷 Action 气泡：提供今日合并、分支包含、Commit 溯源三个快捷引导按钮。
-- **F2 模型通道与独立配置面板 (`AgentConfigModal` & `AgentOpenApiClient`)**：
-  - **通道预设 (Provider Presets)**：提供三套开箱即用的一键预设通道：
+- **F2 模型通道与独立配置中心 (`AgentConfigModal` & `AgentOpenApiClient`)**：
+  - **二级导航双栏布局**：参考 `CHAYA` 与工单系统 (`ticket-janitor`) 规范，配置中心采用 **左侧纯 ICON 垂直子导航 + 右侧左对齐表单区** 架构：
+    - 左侧子导航包含三个二级分类：🤖 **模型通道 (`models`)**、🛡️ **隐私与合规 (`privacy`)**、⚙️ **通用偏好 (`general`)**；
+    - 右侧内容区严格采用左对齐排布，限制最大表单宽度为 `max-w-2xl`，视觉聚拢舒适。
+  - **免费模型数据收集提示 (Data Collection Warning)**：
+    - 针对 `Vercel 免费` 或其他第三方免费模型，在表单显要位置固定展示警示卡片：
+      > _“⚠️ 数据使用须知：当前免费模型通道为公共赞助服务，不包含零数据留存（Zero Data Retention）保证。您的提问与分析上下文（包括代码/提交片段）可能会被服务提供商用于模型训练或服务改进。若排查涉及企业核心代码或商业机密，建议切换至私有 BYOP 或本地 Ollama 通道。”_
+  - **三大通道预设 (Provider Presets)**：
     1. **⚡ Vercel AI Gateway 免费通道 (默认首选)**：预设 Base URL 为 `https://ai-gateway.vercel.sh/v1`（或由本地服务转发防跨域），默认模型 `reflection/beam-free`（0元免费，1M 上下文，支持 Tool Calling）；
     2. **🛠 自定义 OpenAPI / BYOP**：支持用户填写自建 `vercel-gemini-proxy`、Cloudflare Worker 或第三方聚合网关；
     3. **💻 本地 Ollama 通道**：一键预设 `http://localhost:11434/v1`，无需网络，100% 离线私密。
-  - **独立配置面板 (Settings Modal / View)**：
-    - 入口：药丸面板右上角 ⚙️ 图标、首次打开未配置时的引导卡片；
-    - 支持一键连通性测试（`测试连接` 按钮），实时反馈 HTTP 状态码与延迟；
-    - 明确标识 **Zero-Storage 纯内存安全机制**：提示密钥仅在当前标签页内存中生效，刷新即清空，绝不落盘；
+  - **连通性测试与零存储安全**：
+    - 提供一键 `[测试连接]` 探测按钮，实时反馈 HTTP 状态码与握手延迟；
+    - 明确标识 **Zero-Storage 纯内存安全机制**：密钥仅在当前标签页内存中生效，刷新即清空，绝不落盘；
   - 基于原生 `fetch` 与标准 `/v1/chat/completions` 通信，无需加载重型 npm SDK。
 - **F3 核心 Git 诊断工具集 (`services/git/agent-tools`)**：
   - `check_branch_containment(sourceBranch, targetBranch)`：计算分支包含与拓扑偏差点；
