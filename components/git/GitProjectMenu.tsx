@@ -93,6 +93,7 @@ export function GitProjectMenu({
   const expandGroupRef = useRef('')
   const autoExpandedRef = useRef<Set<string>>(new Set())
   const dropHandledRef = useRef(false)
+  const folderComposingRef = useRef(false)
   const scrollRafRef = useRef(0)
   const scrollDirRef = useRef(0)
   const urlId = useId()
@@ -737,8 +738,19 @@ export function GitProjectMenu({
                 setFolderName(event.target.value)
                 if (fieldInvalid.folder) setFieldInvalid({})
               }}
+              onCompositionStart={() => {
+                folderComposingRef.current = true
+              }}
+              onCompositionEnd={() => {
+                setTimeout(() => {
+                  folderComposingRef.current = false
+                }, 50)
+              }}
               onKeyDown={(event) => {
                 if (event.key === 'Enter') {
+                  if (event.nativeEvent.isComposing || event.keyCode === 229 || folderComposingRef.current) {
+                    return
+                  }
                   event.preventDefault()
                   void submitFolder()
                 }

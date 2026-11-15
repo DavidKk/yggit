@@ -1,5 +1,6 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { LuCheck, LuCopy, LuFolder, LuFolderPlus, LuHash, LuLayers } from 'react-icons/lu'
 
@@ -7,7 +8,7 @@ import { useT } from '@/components/i18n/LocaleProvider'
 import { Button } from '@/components/sk'
 import { copyToClipboard } from '@/lib/clipboard'
 import { getDriverMode, getGitDriver } from '@/lib/git/driver'
-import { isFileSystemAccessSupported, saveDirectoryHandle, saveRepoAlias } from '@/lib/git/indexeddb-handles'
+import { getDirectoryHandle, isFileSystemAccessSupported, saveDirectoryHandle, saveRepoAlias } from '@/lib/git/indexeddb-handles'
 import { makeShareUrl } from '@/lib/git/resolver'
 import type { GitProjectView } from '@/lib/git/types'
 import { cn } from '@/lib/utils'
@@ -23,6 +24,7 @@ interface Props {
 
 export function GitAssociateRepoGuide({ identity }: Props) {
   const t = useT()
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState<'existing' | 'new'>('existing')
   const [projects, setProjects] = useState<GitProjectView[]>([])
   const [selectedProjectId, setSelectedProjectId] = useState('')
@@ -31,6 +33,27 @@ export function GitAssociateRepoGuide({ identity }: Props) {
   const [picking, setPicking] = useState(false)
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
+
+  // Check if this repository handle is already stored in browser storage (Edge mode)
+  useEffect(() => {
+    let active = true
+    async function checkExistingHandle() {
+      if (typeof window === 'undefined') return
+      try {
+        const handle = await getDirectoryHandle(identity.key)
+        if (handle && active) {
+          window.location.replace(`/?repo=${encodeURIComponent(handle.name)}`)
+          return
+        }
+      } catch {
+        // Continue showing association guide
+      }
+    }
+    void checkExistingHandle()
+    return () => {
+      active = false
+    }
+  }, [identity.key])
 
   // Load registered projects on mount
   useEffect(() => {
@@ -278,7 +301,7 @@ export function GitAssociateRepoGuide({ identity }: Props) {
                 variant="plain"
                 size="md"
                 onClick={() => {
-                  window.location.href = '/'
+                  router.push('/')
                 }}
               >
                 {t('git.associate.backHome')}
@@ -316,7 +339,7 @@ export function GitAssociateRepoGuide({ identity }: Props) {
                 variant="plain"
                 size="md"
                 onClick={() => {
-                  window.location.href = '/'
+                  router.push('/')
                 }}
               >
                 {t('git.associate.backHome')}

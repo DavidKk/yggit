@@ -44,8 +44,11 @@ export function resolveRepoSlug(slugParts: string[], remoteQueryParam?: string):
     const localValid = Boolean(project.localPath && fs.existsSync(project.localPath))
     const projectUrl = localValid ? project.localPath : project.httpsUrl
 
-    // Direct ID or Local Hash match
-    if (project.id.toLowerCase() === key || `l_${project.id}`.toLowerCase() === key) {
+    // Direct ID, Name, or Local Hash match (e.g. l_projectId)
+    const localHash = `l_${project.id}`.toLowerCase()
+    const nameHash = `l_${projectId(project.name)}`.toLowerCase()
+    const pathHash = project.localPath ? `l_${projectId(project.localPath)}`.toLowerCase() : ''
+    if (project.id.toLowerCase() === key || localHash === key || nameHash === key || pathHash === key || project.name.toLowerCase() === key) {
       return {
         parsed,
         resolved: {

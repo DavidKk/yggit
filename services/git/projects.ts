@@ -16,7 +16,7 @@ const CREDENTIALS = path.join(DIR, 'credentials.json')
 const LAST = path.join(DIR, 'last.json')
 const DEFAULT_FOLDERS = ['工作项目', '个人项目'] as const
 /** Used when the last folder is deleted but projects still need a home. Never equals a just-deleted name. */
-const UNGROUPED_FOLDER = '未分组'
+const UNGROUPED_FOLDER = '未分类'
 
 type StoredProject = {
   id: string
@@ -102,11 +102,14 @@ function writeCatalog(projects: StoredProject[], folders = readFolders()) {
   for (const name of folders.map(normalizeFolderName).filter(Boolean)) {
     if (!names.includes(name)) names.push(name)
   }
+  if (projects.length > 0 && names.length === 0) {
+    names.push(UNGROUPED_FOLDER)
+  }
   for (const project of projects) {
     let group = normalizeFolderName(project.group)
-    // Keep an intentionally empty catalog empty — do not invent 个人项目/未分组.
+    // If no group is assigned, fallback to first available folder or 未分类
     if (!group) {
-      group = names[0] || ''
+      group = names[0] || UNGROUPED_FOLDER
       project.group = group
       continue
     }
@@ -304,7 +307,7 @@ export async function rememberLocalProject(repo: string, options?: { create?: bo
   }
 
   const folders = readFolders()
-  const home = folders[0] || '个人项目'
+  const home = folders[0] || UNGROUPED_FOLDER
   const created: StoredProject = {
     id: projectId(`local:${absolute}`),
     name: label,
@@ -478,6 +481,8 @@ export async function addRemoteProject(input: { url: string; token?: string; syn
     return { ...catalog, projectId: projectId(remote.key) }
   }
   const catalog = readCatalog()
+  const folders = readFolders()
+  const targetGroup = folders[0] || UNGROUPED_FOLDER
   upsertRemote(
     catalog,
     {
@@ -485,11 +490,11 @@ export async function addRemoteProject(input: { url: string; token?: string; syn
       remoteKey: remote.key,
       httpsUrl: remote.httpsUrl,
       host: remote.kind,
-      group: '个人项目',
+      group: targetGroup,
     },
     credential?.id || ''
   )
-  writeCatalog(catalog)
+  writeCatalog(catalog, folders.length > 0 ? folders : [targetGroup])
   return { ...listGitCatalog(), projectId: projectId(remote.key) }
 }
 

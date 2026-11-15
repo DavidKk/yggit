@@ -395,6 +395,13 @@ export async function getEdgeRemoteProjects(): Promise<StoredRemoteProjectRecord
 export async function saveEdgeRemoteProject(record: StoredRemoteProjectRecord): Promise<void> {
   const db = await openHandlesDatabase()
   if (!db) return
+  const folders = await getEdgeFolders()
+  if (folders.length === 0) {
+    await createEdgeFolder('未分类')
+    record.group = '未分类'
+  } else if (!record.group || !folders.includes(record.group)) {
+    record.group = folders[0] || '未分类'
+  }
   await putInStore(db, REMOTE_PROJECTS_STORE, record)
 }
 
@@ -470,7 +477,13 @@ export async function saveDirectoryHandle(repoId: string, handle: FileSystemDire
   if (!db) return
 
   const folders = await getEdgeFolders()
-  const defaultGroup = folders[0] || '工作项目'
+  let targetGroup = group
+  if (folders.length === 0) {
+    targetGroup = '未分类'
+    await createEdgeFolder('未分类')
+  } else if (!targetGroup || !folders.includes(targetGroup)) {
+    targetGroup = folders[0] || '未分类'
+  }
 
   return new Promise((resolve, reject) => {
     try {
@@ -483,7 +496,7 @@ export async function saveDirectoryHandle(repoId: string, handle: FileSystemDire
           id: repoId,
           name: name || handle.name || repoId,
           handle,
-          group: group || existing?.group || defaultGroup,
+          group: targetGroup || existing?.group || '未分类',
           order: existing?.order ?? 0,
           updatedAt: Date.now(),
         }

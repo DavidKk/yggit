@@ -328,7 +328,13 @@ export class EdgeGitDriver implements IGitDriver {
   async addProject(payload: AddProjectPayload): Promise<GitProjectView> {
     const id = payload.pathOrUrl
     const folders = await getEdgeFolders()
-    const group = payload.group || folders[0] || '工作项目'
+    let group = payload.group
+    if (folders.length === 0) {
+      await createEdgeFolder('未分类')
+      group = '未分类'
+    } else if (!group || !folders.includes(group)) {
+      group = folders[0] || '未分类'
+    }
 
     if (payload.handle) {
       await saveDirectoryHandle(id, payload.handle, payload.name, group)
@@ -396,7 +402,13 @@ export class EdgeGitDriver implements IGitDriver {
     const host: GitProjectHost = parsed?.provider === 'gitlab' ? 'gitlab' : 'github'
 
     const folders = await getEdgeFolders()
-    const group = input.group || folders[0] || '个人项目'
+    let group = input.group
+    if (folders.length === 0) {
+      await createEdgeFolder('未分类')
+      group = '未分类'
+    } else if (!group || !folders.includes(group)) {
+      group = folders[0] || '未分类'
+    }
 
     await saveEdgeRemoteProject({
       id,

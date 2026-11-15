@@ -1,4 +1,6 @@
+import { projectId } from '@/lib/git/identity'
 import { makeShareUrl, parseRepoSlug } from '@/lib/git/resolver'
+import { resolveRepoSlug } from '@/services/git/resolver'
 
 describe('resolver', () => {
   it('parses repo key slugs accurately', () => {
@@ -70,5 +72,19 @@ describe('resolver', () => {
     const shareUrlOffline = makeShareUrl('/Users/david/offline-project', '321aedc')
     expect(shareUrlOffline).toContain('/repo/l_')
     expect(shareUrlOffline).toContain('/commit/321aedc')
+
+    // 7. Deterministic local project name hash (e.g. ticket-janitor -> l_5b8a0f89229d44ed)
+    expect(projectId('ticket-janitor')).toBe('5b8a0f89229d44ed')
+    const ticketShareUrl = makeShareUrl('ticket-janitor')
+    expect(ticketShareUrl).toBe('/repo/l_5b8a0f89229d44ed')
+  })
+
+  it('resolves l_projectId slug matching local project name', () => {
+    const res = resolveRepoSlug(['l_5b8a0f89229d44ed'])
+    expect(res.parsed.repoKey).toBe('l_5b8a0f89229d44ed')
+    if (res.resolved.project) {
+      expect(res.resolved.name).toBe('ticket-janitor')
+      expect(res.resolved.persistence).toBe('saved')
+    }
   })
 })

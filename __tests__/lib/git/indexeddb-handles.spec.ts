@@ -238,6 +238,50 @@ describe('indexeddb-handles', () => {
         const project = catalog.projects.find((p) => p.id === 'move-1')
         expect(project?.group).toBe('分组B')
       })
+
+      it('automatically creates and assigns to "未分类" when adding a project with no folders existing', async () => {
+        // Delete all folders
+        const folders = await getEdgeFolders()
+        for (const f of folders) {
+          await deleteEdgeFolder(f)
+        }
+        const emptyFolders = await getEdgeFolders()
+        expect(emptyFolders).toEqual([])
+
+        // Save a new directory handle without specifying folder
+        const mockHandle = { name: 'ticket-janitor' } as FileSystemDirectoryHandle
+        await saveDirectoryHandle('handle-uncategorized', mockHandle, 'ticket-janitor')
+
+        const catalog = await getEdgeCatalog()
+        expect(catalog.folders).toContain('未分类')
+        const proj = catalog.projects.find((p) => p.name === 'ticket-janitor')
+        expect(proj?.group).toBe('未分类')
+
+        // getDirectoryHandle can find it by l_{projectId}
+        const found = await getDirectoryHandle('l_5b8a0f89229d44ed')
+        expect(found).toBe(mockHandle)
+      })
+
+      it('automatically creates and assigns to "未分类" when adding a remote project with no folders existing', async () => {
+        // Delete all folders
+        const folders = await getEdgeFolders()
+        for (const f of folders) {
+          await deleteEdgeFolder(f)
+        }
+
+        await saveEdgeRemoteProject({
+          id: 'remote-uncategorized',
+          name: 'backend-api',
+          url: 'https://gitlab.com/corp/backend-api.git',
+          host: 'gitlab',
+          updatedAt: Date.now(),
+        })
+
+        const catalog = await getEdgeCatalog()
+        expect(catalog.folders).toContain('未分类')
+        const proj = catalog.projects.find((p) => p.name === 'backend-api')
+        expect(proj?.group).toBe('未分类')
+      })
     })
   })
 })
