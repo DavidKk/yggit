@@ -65,6 +65,7 @@ export function RefChipsCell({
   dimmed = false,
   onBranchHoverStart,
   onBranchHoverEnd,
+  onSelectCommit,
 }: {
   chips: RefChip[]
   commit?: GitCommit
@@ -73,6 +74,7 @@ export function RefChipsCell({
   dimmed?: boolean
   onBranchHoverStart?: (name: string) => void
   onBranchHoverEnd?: () => void
+  onSelectCommit?: (commit: GitCommit) => void
 }) {
   const t = useT()
   const notify = useNotification()
@@ -193,12 +195,18 @@ export function RefChipsCell({
         }}
         onClick={(event) => {
           event.stopPropagation()
+          if (commit && onSelectCommit) {
+            onSelectCommit(commit)
+          }
           openDropdown()
         }}
         onKeyDown={(event) => {
           if (event.key !== 'Enter' && event.key !== ' ') return
           event.preventDefault()
           event.stopPropagation()
+          if (commit && onSelectCommit) {
+            onSelectCommit(commit)
+          }
           openDropdown()
         }}
         onContextMenu={(event) => {

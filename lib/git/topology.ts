@@ -158,7 +158,10 @@ export function getBranchCommitHashes(branchName: string, commits: GitCommit[]):
   const result = new Set<string>()
   if (!branchName || commits.length === 0) return result
 
-  const cleanName = branchName.replace(/^refs\/(heads|remotes)\//, '')
+  const cleanName = branchName
+    .replace(/^refs\/(heads|remotes)\//, '')
+    .replace(/^HEAD -> /, '')
+    .trim()
   const startHashes: string[] = []
 
   for (const commit of commits) {

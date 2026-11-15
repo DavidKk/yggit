@@ -764,7 +764,7 @@ function GitGraphComponent({
                       findNeedle && !findHit && 'opacity-35',
                       isLineageActive && !isLineageHit && !selected && !isHovered && 'opacity-35 hover:opacity-100',
                       isSpotlightDimmed && !selected && !isHovered && 'opacity-35 hover:opacity-100',
-                      isBranchDimmed && !selected && !isHovered && 'opacity-25 hover:opacity-100'
+                      isBranchDimmed && !selected && 'opacity-20'
                     )}
                     style={{ gridTemplateColumns: columns }}
                     onClick={() => {
@@ -800,6 +800,7 @@ function GitGraphComponent({
                             color={color}
                             onBranchHoverStart={handleBranchPointerEnter}
                             onBranchHoverEnd={handleBranchPointerLeave}
+                            onSelectCommit={onSelect}
                           />
                           {spotlightTarget && <AnnotationBadge target={spotlightTarget} className="ml-1 shrink-0" />}
                           <span
@@ -819,6 +820,10 @@ function GitGraphComponent({
                             )}
                             style={{ height: BADGE_H, color, background: `color-mix(in oklab, ${color} 18%, transparent)` }}
                             title={branch}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onSelect?.(commit)
+                            }}
                             onPointerEnter={() => handleBranchPointerEnter(branch)}
                             onPointerLeave={handleBranchPointerLeave}
                           >
@@ -850,7 +855,11 @@ function GitGraphComponent({
                     </span>
                     <span className="flex h-[26px] min-h-0 min-w-0 items-center">
                       <span
-                        className={cn('flex min-w-0 flex-1 items-center truncate pr-3 pl-2 text-sm leading-none font-normal text-ink select-text cursor-pointer', rowTintClass)}
+                        className={cn(
+                          'flex min-w-0 flex-1 items-center truncate pr-3 pl-2 text-sm leading-none font-normal select-text cursor-pointer transition-colors duration-150',
+                          isBranchActive ? (isBranchHit ? 'text-ink font-semibold' : 'text-ink-soft/40') : 'text-ink',
+                          rowTintClass
+                        )}
                         style={{ height: DOT }}
                         title={commit.date ? `${commit.subject} (${commit.date})` : commit.subject}
                       >
@@ -1054,7 +1063,7 @@ function GitGraphComponent({
                         isLineageHit && 'ring-2 ring-accent ring-offset-1 ring-offset-[var(--panel)] scale-110 z-10 shadow-[0_0_8px_var(--accent)]',
                         isSpotlightHit && 'ring-2 ring-accent ring-offset-1 ring-offset-[var(--panel)] scale-125 z-20 shadow-[0_0_12px_var(--accent)]',
                         isBranchHit && 'ring-2 ring-accent ring-offset-1 ring-offset-[var(--panel)] scale-125 z-20 shadow-[0_0_12px_var(--accent)]',
-                        isDimmed && 'opacity-25 hover:opacity-100'
+                        isBranchDimmed ? 'opacity-20' : isDimmed ? 'opacity-25 hover:opacity-100' : ''
                       )}
                       style={
                         isMerge

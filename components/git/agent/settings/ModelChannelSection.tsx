@@ -3,15 +3,15 @@
 import React, { useMemo, useState } from 'react'
 import { LuActivity, LuArrowLeft, LuCheck, LuCpu, LuPencil, LuPlus, LuRefreshCw, LuSave } from 'react-icons/lu'
 
+import { ConfiguredSecretInput } from '@/components/ConfiguredSecretInput/configured-secret-input'
 import { useT } from '@/components/i18n/LocaleProvider'
-import { Badge, Button, Select, TextInput } from '@/components/sk'
+import { Badge, Button, InputSuggestion, Select, TextInput } from '@/components/sk'
 import { useAgent } from '@/lib/agent/agent-context'
 import type { AgentModelProfile } from '@/lib/agent/model-profiles'
 import { testAgentConnection } from '@/lib/agent/openapi-client'
 import { AGENT_PRESETS, type AgentProviderType, DEFAULT_AGENT_CONFIG } from '@/lib/agent/types'
 import { cn } from '@/lib/utils'
 
-import { ConfiguredSecretInput } from './ConfiguredSecretInput'
 import { PrivacyNoticeCallout } from './PrivacyNoticeCallout'
 import { SettingsSectionCard } from './SettingsSectionCard'
 
@@ -246,26 +246,23 @@ function ModelChannelEditor({ profile, onBack }: { profile: AgentModelProfile; o
             </div>
           </div>
 
-          {/* Row 4: Model Selection with Direct List & Dynamic Fetch */}
+          {/* Row 4: Default Model with InputSuggestion & Dynamic Fetch */}
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 items-start">
             <div className="md:col-span-5 min-w-0">
               <label htmlFor="agent-model-id" className="text-xs font-semibold text-ink">
-                {t('gitAgent.modelName')}
+                {t('gitAgent.defaultModel') || '默认模型'}
               </label>
-              <p className="text-xs text-ink-soft leading-relaxed mt-1">直接选择模型规格或从服务端读取实时模型列表，无需手动查找与输入模型代码。</p>
+              <p className="text-xs text-ink-soft leading-relaxed mt-1">直接选择常用推荐规格，或输入自定义模型名称进行实时筛选，选中即可生效。</p>
             </div>
             <div className="md:col-span-7 min-w-0 flex flex-col gap-2">
               <div className="flex items-center gap-2">
-                <Select
-                  aria-label="选择模型"
+                <InputSuggestion
+                  id="agent-model-id"
                   className="flex-1 min-w-0"
-                  value={availableModels.some((m) => m.id === config.model) ? config.model : '__custom__'}
-                  options={[...availableModels.map((m) => ({ value: m.id, label: m.name })), { value: '__custom__', label: '自定义模型名称...' }]}
-                  onChange={(val) => {
-                    if (val !== '__custom__') {
-                      updateConfig({ model: val })
-                    }
-                  }}
+                  value={config.model}
+                  onChange={(val) => updateConfig({ model: val })}
+                  options={availableModels.map((m) => ({ value: m.id, label: m.name }))}
+                  placeholder="选择或输入默认模型（如 gpt-4o, deepseek-chat...）"
                 />
                 <Button
                   type="button"
@@ -280,14 +277,6 @@ function ModelChannelEditor({ profile, onBack }: { profile: AgentModelProfile; o
                   <span>读取列表</span>
                 </Button>
               </div>
-
-              <TextInput
-                id="agent-model-id"
-                fullWidth
-                value={config.model}
-                onChange={(event) => updateConfig({ model: event.target.value })}
-                placeholder="模型名称（如 gpt-4o, deepseek-chat, qwen2.5-coder...）"
-              />
               {modelsFetchMsg && <p className="text-[11px] text-ink-soft">{modelsFetchMsg}</p>}
             </div>
           </div>

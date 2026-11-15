@@ -310,21 +310,6 @@ export function GitAgentBar({ repoPath, className }: Props) {
               {isProcessing ? <Spinner className="size-3" /> : <LuSend className="size-3.5" />}
             </button>
           ) : null}
-
-          {/* Close Button */}
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation()
-              closeBar()
-            }}
-            className="flex size-7 shrink-0 items-center justify-center rounded-full text-ink-soft hover:bg-[var(--overlay-06)] hover:text-ink active:scale-95 transition-all cursor-pointer"
-            aria-label="Collapse"
-            title={t('common.close') || '收起'}
-            tabIndex={contentVisible ? 0 : -1}
-          >
-            <LuX className="size-3.5" />
-          </button>
         </div>
       </form>
     </>

@@ -28,6 +28,7 @@ export type GitAgentMessages = {
   tabShortcuts: string
   modelProvider: string
   modelName: string
+  defaultModel: string
   apiKey: string
   apiKeyPlaceholder: string
   endpoint: string

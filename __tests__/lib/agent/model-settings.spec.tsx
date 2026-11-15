@@ -33,6 +33,30 @@ jest.mock('@/components/sk', () => ({
       ))}
     </select>
   ),
+  InputSuggestion: ({
+    id,
+    value,
+    onChange,
+    placeholder,
+    options = [],
+  }: {
+    id?: string
+    value: string
+    onChange: (val: string) => void
+    placeholder?: string
+    options?: { value: string; label: string }[]
+  }) => (
+    <div>
+      <input id={id} value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
+      <select value={value} onChange={(e) => onChange(e.target.value)}>
+        {options.map((opt) => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  ),
 }))
 
 let root: Root

@@ -108,7 +108,7 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(function Tag
       onClick={() => inputRef.current?.focus()}
       className={cn(
         formControlChrome,
-        'h-auto min-h-9 flex-wrap items-center gap-1.5 p-1.5 cursor-text transition-colors',
+        'h-auto min-h-9 flex flex-wrap items-center gap-x-2 gap-y-1.5 px-2.5 py-[5px] cursor-text transition-colors',
         invalid && 'border-fail',
         disabled && controlDisabledShell,
         className
@@ -117,9 +117,9 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(function Tag
       {value.map((tag, idx) => (
         <span
           key={`${tag}-${idx}`}
-          className="inline-flex items-center gap-1 rounded bg-[var(--overlay-06)] border border-line/70 px-2 py-0.5 text-xs text-ink font-mono select-none"
+          className="inline-flex h-6 items-center gap-1 rounded bg-[var(--overlay-06)] border border-line/70 px-2 py-0 text-xs text-ink font-mono select-none"
         >
-          <span className="max-w-[180px] truncate">{tag}</span>
+          <span className="max-w-[180px] truncate leading-none">{tag}</span>
           {!disabled && (
             <button
               type="button"
@@ -148,7 +148,10 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(function Tag
         onBlur={handleBlur}
         placeholder={value.length === 0 ? placeholder : ''}
         aria-label={ariaLabel || placeholder}
-        className={cn('min-w-[5.5rem] flex-1 appearance-none border-none bg-transparent px-1 text-xs text-ink placeholder:text-ink-soft/70 outline-none', controlDisabled)}
+        className={cn(
+          'h-6 min-w-[5.5rem] flex-1 appearance-none border-none bg-transparent px-1 text-xs leading-normal text-ink placeholder:text-ink-soft/70 outline-none',
+          controlDisabled
+        )}
       />
     </div>
   )
