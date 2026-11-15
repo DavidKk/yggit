@@ -36,9 +36,7 @@ describe('git log parse', () => {
 
   it('reads stash entries', () => {
     const raw = ['stash@{0}', 'abc', 'parent1 parent2', '2024-01-02T03:04:05+00:00', 'wip'].join('\x1f') + '\n'
-    expect(parseGitStashes(raw)).toEqual([
-      { name: 'stash@{0}', hash: 'abc', base: 'parent1', date: '2024-01-02T03:04:05+00:00', subject: 'wip' },
-    ])
+    expect(parseGitStashes(raw)).toEqual([{ name: 'stash@{0}', hash: 'abc', base: 'parent1', date: '2024-01-02T03:04:05+00:00', subject: 'wip' }])
   })
 
   it('reads worktrees and submodules', () => {

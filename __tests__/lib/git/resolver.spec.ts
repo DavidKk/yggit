@@ -1,4 +1,4 @@
-import { generateRepoKey, makeShareUrl, parseRepoSlug } from '@/lib/git/resolver'
+import { makeShareUrl, parseRepoSlug } from '@/lib/git/resolver'
 
 describe('resolver', () => {
   it('parses repo key slugs accurately', () => {

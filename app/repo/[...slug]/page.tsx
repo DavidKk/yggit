@@ -56,11 +56,7 @@ export default async function RepoPage({ params, searchParams }: Props) {
   return (
     <>
       <GitUiBootScript />
-      <GitLogPage
-        initial={initial}
-        initialCommitHash={initialCommitHash}
-        initialPersistence={resolved.persistence}
-      />
+      <GitLogPage initial={initial} initialCommitHash={initialCommitHash} initialPersistence={resolved.persistence} />
     </>
   )
 }

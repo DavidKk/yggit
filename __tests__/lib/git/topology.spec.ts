@@ -18,7 +18,7 @@ describe('topology', () => {
     })
 
     it('parses pull request merge messages', () => {
-      const res = parseBranchIntents("Merge pull request #128 from owner/feature/billing")
+      const res = parseBranchIntents('Merge pull request #128 from owner/feature/billing')
       expect(res.pr).toBe(128)
       expect(res.source).toBe('feature/billing')
     })

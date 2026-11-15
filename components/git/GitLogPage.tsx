@@ -20,7 +20,7 @@ import { Button, EmptyState, Tooltip } from '@/components/sk'
 import { ThemeSwitcher } from '@/components/theme/ThemeSwitcher'
 import { readApiErrorMessage } from '@/lib/api-error'
 import { getDriverMode, getGitDriver } from '@/lib/git/driver'
-import { isFileSystemAccessSupported, saveDirectoryHandle } from '@/lib/git/indexeddb-handles'
+import { isFileSystemAccessSupported } from '@/lib/git/indexeddb-handles'
 import { gitSelectionHash } from '@/lib/git/scope'
 import { addTemporaryRepo, parseRemoteUrl } from '@/lib/git/temporary-store'
 import {
@@ -79,7 +79,7 @@ function highlightOf(view: GitLogView, selection: GitSelection): string {
   return ''
 }
 
-export function GitLogPage({ initial, initialCommitHash, initialPersistence }: Props) {
+export function GitLogPage({ initial, initialCommitHash, initialPersistence: _initialPersistence }: Props) {
   const t = useT()
   const failed = isError(initial)
   const [view, setView] = useState<GitLogView | null>(failed ? null : initial)
@@ -259,14 +259,24 @@ export function GitLogPage({ initial, initialCommitHash, initialPersistence }: P
     if (typeof window === 'undefined') return
     const params = new URLSearchParams(window.location.search)
     const targetUrl = params.get('url') || params.get('repo')
-    if (targetUrl && parseRemoteUrl(targetUrl)) {
-      const parsed = parseRemoteUrl(targetUrl)!
-      const existing = projects.find((p) => (p.httpsUrl && p.httpsUrl === parsed.remoteUrl) || p.name === parsed.name)
-      if (existing?.localPath) {
-        void load(existing.localPath)
+    if (targetUrl) {
+      const parsed = parseRemoteUrl(targetUrl)
+      if (parsed) {
+        const existing = projects.find((p) => (p.httpsUrl && p.httpsUrl === parsed.remoteUrl) || p.name === parsed.name)
+        if (existing?.localPath) {
+          void load(existing.localPath)
+        } else {
+          addTemporaryRepo(parsed)
+          void load(parsed.remoteUrl)
+        }
       } else {
-        addTemporaryRepo(parsed)
-        void load(parsed.remoteUrl)
+        // Local repo path or Edge handle name
+        void load(targetUrl)
+      }
+    } else if (getDriverMode() === 'edge' && (!view || failed)) {
+      const pathParts = window.location.pathname.split('/').filter(Boolean)
+      if (pathParts[0] === 'repo' && pathParts[1]) {
+        void load(pathParts[1])
       }
     }
   }, [])
@@ -591,7 +601,22 @@ export function GitLogPage({ initial, initialCommitHash, initialPersistence }: P
       {process.env.NODE_ENV === 'development' ? <GitDebug /> : null}
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-panel/80">
         <header className="flex shrink-0 items-center gap-3 border-b border-line bg-panel-2/60 px-3 py-1.5">
-          <BrandLogo href="/" className="shrink-0" markClassName="size-7" wordmarkClassName="text-[0.95rem]" />
+          <BrandLogo
+            href="/"
+            className="shrink-0"
+            markClassName="size-7"
+            wordmarkClassName="text-[0.95rem]"
+            onClick={(e) => {
+              e.preventDefault()
+              setView(null)
+              setError('')
+              setSelectedHash('')
+              setSelectedFile('')
+              if (typeof window !== 'undefined') {
+                window.location.href = '/'
+              }
+            }}
+          />
           <span className="h-4 w-px shrink-0 bg-[color-mix(in_oklab,var(--ink)_16%,transparent)]" aria-hidden />
           <div ref={projectFindRef} data-git-find="project-switcher" className="relative min-w-0">
             <Tooltip content={view?.displayPath || view?.repo || t('git.header.pickRepo')} placement="bottom" suppressed={menuOpen || !view}>
@@ -639,9 +664,7 @@ export function GitLogPage({ initial, initialCommitHash, initialPersistence }: P
                 variant="plain"
                 className={cn(
                   'h-8 gap-1.5 rounded-lg border-transparent px-2.5 text-xs font-medium transition-colors',
-                  copiedHeaderShare
-                    ? 'bg-ok/15 text-ok hover:bg-ok/20'
-                    : 'text-ink-soft hover:enabled:bg-[color-mix(in_oklab,var(--ink)_7%,transparent)] hover:enabled:text-ink'
+                  copiedHeaderShare ? 'bg-ok/15 text-ok hover:bg-ok/20' : 'text-ink-soft hover:enabled:bg-[color-mix(in_oklab,var(--ink)_7%,transparent)] hover:enabled:text-ink'
                 )}
                 aria-label={t('git.header.share')}
                 onClick={handleHeaderShare}

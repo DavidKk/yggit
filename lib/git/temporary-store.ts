@@ -72,7 +72,13 @@ function saveTemporaryRepos(list: TemporaryRepo[]) {
   }
 }
 
-export function addTemporaryRepo(input: { name: string; remoteUrl: string; fingerprint: string; provider?: 'github' | 'gitlab' | 'generic'; defaultBranch?: string }): TemporaryRepo {
+export function addTemporaryRepo(input: {
+  name: string
+  remoteUrl: string
+  fingerprint: string
+  provider?: 'github' | 'gitlab' | 'generic'
+  defaultBranch?: string
+}): TemporaryRepo {
   const current = getTemporaryRepos()
   const existing = current.find((r) => r.fingerprint === input.fingerprint)
   if (existing) return existing

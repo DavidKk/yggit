@@ -1,19 +1,6 @@
 'use client'
 
-import {
-  type CSSProperties,
-  forwardRef,
-  type HTMLAttributes,
-  type ReactNode,
-  type Ref,
-  type UIEvent,
-  useCallback,
-  useContext,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from 'react'
+import { type CSSProperties, forwardRef, type HTMLAttributes, type ReactNode, type Ref, type UIEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import { registerScrollRestoration } from '@/lib/ui/navigation-restoration'
 import { cn } from '@/lib/utils'

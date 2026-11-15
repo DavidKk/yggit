@@ -40,11 +40,7 @@ export const POST = defineApiRoute('post:/api/git/projects', async ({ request })
       return deleteGitFolder(String(body.folder || ''))
     }
     if (body?.action === 'moveProject') {
-      return moveGitProject(
-        String(body.id || ''),
-        String(body.group || ''),
-        typeof body.beforeId === 'string' ? body.beforeId : undefined
-      )
+      return moveGitProject(String(body.id || ''), String(body.group || ''), typeof body.beforeId === 'string' ? body.beforeId : undefined)
     }
     if (body?.action === 'removeProject') {
       return removeGitProject(String(body.id || ''))

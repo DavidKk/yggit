@@ -6,8 +6,8 @@ import { IoCheckmark, IoMoonOutline, IoSunnyOutline } from 'react-icons/io5'
 import { LuMonitor } from 'react-icons/lu'
 
 import { useT } from '@/components/i18n/LocaleProvider'
-import { useTheme } from '@/components/theme/ThemeProvider'
 import { dropdownItemClass, dropdownPopupClass, dropdownTriggerClass } from '@/components/sk/dropdownMenu'
+import { useTheme } from '@/components/theme/ThemeProvider'
 import { isThemePreference, type ThemePreference } from '@/lib/theme'
 import { cn } from '@/lib/utils'
 

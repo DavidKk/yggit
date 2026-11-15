@@ -112,15 +112,8 @@ export function generateRepoKey(remoteUrlOrKey: string): string {
   return `l_${projectId(remoteUrlOrKey)}`
 }
 
-export function makeShareUrl(
-  repoPathOrUrl: string,
-  optionsOrHash?: string | MakeShareUrlOptions,
-  explicitRemoteUrl?: string
-): string {
-  const options: MakeShareUrlOptions =
-    typeof optionsOrHash === 'string'
-      ? { hash: optionsOrHash, remoteUrl: explicitRemoteUrl }
-      : optionsOrHash || {}
+export function makeShareUrl(repoPathOrUrl: string, optionsOrHash?: string | MakeShareUrlOptions, explicitRemoteUrl?: string): string {
+  const options: MakeShareUrlOptions = typeof optionsOrHash === 'string' ? { hash: optionsOrHash, remoteUrl: explicitRemoteUrl } : optionsOrHash || {}
 
   const remoteTarget = options.remoteUrl || explicitRemoteUrl || repoPathOrUrl
   const identity = normalizeRemote(remoteTarget)

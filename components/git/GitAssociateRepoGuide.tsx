@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { LuCheck, LuCopy, LuFolder, LuFolderPlus, LuGitBranch, LuHash, LuLayers } from 'react-icons/lu'
+import { LuCheck, LuCopy, LuFolder, LuFolderPlus, LuHash, LuLayers } from 'react-icons/lu'
 
 import { useT } from '@/components/i18n/LocaleProvider'
 import { Button } from '@/components/sk'
@@ -215,9 +215,7 @@ export function GitAssociateRepoGuide({ identity }: Props) {
           {identity.remoteUrl ? (
             <div className="flex items-center justify-between border-t border-line/40 pt-2 text-[11px]">
               <span className="text-ink-soft">{t('git.associate.cloneReference')}：</span>
-              <span className="font-mono text-ink-soft/80 select-all truncate max-w-[280px]">
-                git clone {identity.remoteUrl}
-              </span>
+              <span className="font-mono text-ink-soft/80 select-all truncate max-w-[280px]">git clone {identity.remoteUrl}</span>
             </div>
           ) : null}
         </div>
@@ -228,9 +226,7 @@ export function GitAssociateRepoGuide({ identity }: Props) {
             type="button"
             className={cn(
               'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium cursor-pointer transition-all',
-              activeTab === 'existing'
-                ? 'bg-accent/15 text-accent font-semibold'
-                : 'text-ink-soft hover:bg-[color-mix(in_oklab,var(--ink)_6%,transparent)]'
+              activeTab === 'existing' ? 'bg-accent/15 text-accent font-semibold' : 'text-ink-soft hover:bg-[color-mix(in_oklab,var(--ink)_6%,transparent)]'
             )}
             onClick={() => {
               setActiveTab('existing')
@@ -244,9 +240,7 @@ export function GitAssociateRepoGuide({ identity }: Props) {
             type="button"
             className={cn(
               'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium cursor-pointer transition-all',
-              activeTab === 'new'
-                ? 'bg-accent/15 text-accent font-semibold'
-                : 'text-ink-soft hover:bg-[color-mix(in_oklab,var(--ink)_6%,transparent)]'
+              activeTab === 'new' ? 'bg-accent/15 text-accent font-semibold' : 'text-ink-soft hover:bg-[color-mix(in_oklab,var(--ink)_6%,transparent)]'
             )}
             onClick={() => {
               setActiveTab('new')
@@ -261,9 +255,7 @@ export function GitAssociateRepoGuide({ identity }: Props) {
         {activeTab === 'existing' ? (
           <div className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-ink-soft mb-1.5">
-                {t('git.associate.selectProject')}：
-              </label>
+              <label className="block text-xs font-medium text-ink-soft mb-1.5">{t('git.associate.selectProject')}：</label>
               <select
                 value={selectedProjectId}
                 onChange={(e) => setSelectedProjectId(e.target.value)}
@@ -291,15 +283,7 @@ export function GitAssociateRepoGuide({ identity }: Props) {
               >
                 {t('git.associate.backHome')}
               </Button>
-              <Button
-                type="button"
-                variant="accent"
-                size="md"
-                loading={loading}
-                disabled={!selectedProjectId}
-                onClick={handleAssociateExisting}
-                className="gap-1.5"
-              >
+              <Button type="button" variant="accent" size="md" loading={loading} disabled={!selectedProjectId} onClick={handleAssociateExisting} className="gap-1.5">
                 <LuFolderPlus className="size-4" />
                 {t('git.associate.associateAndOpen')}
               </Button>
@@ -308,9 +292,7 @@ export function GitAssociateRepoGuide({ identity }: Props) {
         ) : (
           <form onSubmit={handleAssociateNewFolder} className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-ink-soft mb-1.5">
-                {t('git.associate.specifyPath')}：
-              </label>
+              <label className="block text-xs font-medium text-ink-soft mb-1.5">{t('git.associate.specifyPath')}：</label>
               <div className="flex gap-2">
                 <input
                   type="text"
@@ -319,14 +301,7 @@ export function GitAssociateRepoGuide({ identity }: Props) {
                   placeholder="/Users/.../your-project"
                   className="h-9 flex-1 rounded-md border border-line bg-bg px-3 text-xs font-mono outline-none focus:border-accent"
                 />
-                <Button
-                  type="button"
-                  variant="default"
-                  size="md"
-                  className="h-9 shrink-0 gap-1.5"
-                  loading={picking}
-                  onClick={handlePickFolder}
-                >
+                <Button type="button" variant="default" size="md" className="h-9 shrink-0 gap-1.5" loading={picking} onClick={handlePickFolder}>
                   <LuFolder className="size-3.5" />
                   {t('git.associate.browseDirectory')}
                 </Button>

@@ -30,9 +30,9 @@ export function DebugMenu({ children }: { children?: React.ReactNode }) {
         entry.actions.map((action) => ({
           ...action,
           key: `${entry.id}:${action.id}`,
-        })),
+        }))
       ),
-    [entries],
+    [entries]
   )
   const customs = useMemo(() => entries.filter((entry) => entry.custom), [entries])
   const hasActive = actions.some((action) => action.active)
@@ -158,7 +158,7 @@ export function DebugMenu({ children }: { children?: React.ReactNode }) {
                         'flex w-full items-center gap-2 rounded-[0.2rem] px-1.5 py-1 text-left text-[11px] text-ink outline-none',
                         'hover:bg-[var(--overlay-08)] focus-visible:bg-[var(--overlay-08)]',
                         action.active && 'text-accent',
-                        action.disabled && 'cursor-not-allowed opacity-45',
+                        action.disabled && 'cursor-not-allowed opacity-45'
                       )}
                       onMouseDown={(event) => {
                         // Keep focus in the popup so outside-press dismiss does not eat the click.

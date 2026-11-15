@@ -96,9 +96,7 @@ export async function readRemoteGitLog(urlOrPath: string, branchName?: string): 
   const defaultBranch = branchName || repoInfo.default_branch || 'main'
 
   // Fetch commits for target branch
-  const commitsData = await fetchGitHubApi<GitHubCommitItem[]>(
-    `/repos/${owner}/${repo}/commits?sha=${encodeURIComponent(defaultBranch)}&per_page=100`
-  ).catch(() => [])
+  const commitsData = await fetchGitHubApi<GitHubCommitItem[]>(`/repos/${owner}/${repo}/commits?sha=${encodeURIComponent(defaultBranch)}&per_page=100`).catch(() => [])
 
   // Map to GitBranch and GitRemoteBranch
   const branches: GitBranch[] = branchesData.map((b) => ({

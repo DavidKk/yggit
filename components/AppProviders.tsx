@@ -28,13 +28,10 @@ export function AppProviders({
       <ThemeProvider initialTheme={theme} initialPreference={themePreference}>
         <NotificationProvider>
           <ConfirmProvider>
-            <UnsavedChangesProvider>
-              {children}
-            </UnsavedChangesProvider>
+            <UnsavedChangesProvider>{children}</UnsavedChangesProvider>
           </ConfirmProvider>
         </NotificationProvider>
       </ThemeProvider>
     </LocaleProvider>
   )
 }
-

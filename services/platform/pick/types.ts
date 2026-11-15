@@ -12,4 +12,3 @@ export interface PickPathCapability {
   readonly id: 'pickPath'
   pick(kind: PickKind, prompt?: string, options?: PickPathOptions): Promise<PickResult>
 }
-

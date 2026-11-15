@@ -29,7 +29,10 @@ export function makeIssueShareUrl(payload: IssueSharePayload): string {
   return fullPath
 }
 
-export function formatIssueShareCard(payload: IssueSharePayload, fullShareUrl: string): {
+export function formatIssueShareCard(
+  payload: IssueSharePayload,
+  fullShareUrl: string
+): {
   markdown: string
   plain: string
 } {
@@ -46,11 +49,7 @@ export function formatIssueShareCard(payload: IssueSharePayload, fullShareUrl: s
     topologyPlain = `合并脉络: ${src} -> ${tgt}`
   }
 
-  const platform = payload.remoteUrl?.includes('gitlab')
-    ? 'GitLab'
-    : payload.remoteUrl?.includes('github')
-      ? 'GitHub'
-      : 'Git'
+  const platform = payload.remoteUrl?.includes('gitlab') ? 'GitLab' : payload.remoteUrl?.includes('github') ? 'GitHub' : 'Git'
   const remoteInfo = payload.remoteUrl ? `- **远程源**：\`${payload.remoteUrl}\`` : ''
   const remotePlain = payload.remoteUrl ? `远程源: ${payload.remoteUrl}` : ''
 

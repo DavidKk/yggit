@@ -15,7 +15,7 @@ import { GIT_SEARCH_DROPDOWN_ATTR, GitSearchDropdown } from '@/components/git/Gi
 import { useT } from '@/components/i18n/LocaleProvider'
 import { formControl, formDesc, formField, formFieldInlineDense, formTitle, formTitleInline } from '@/components/layoutClasses'
 import { ApiKeyInput, Badge, Button, EmptyState, Modal, ScrollArea, SwitchToggle, TextInput } from '@/components/sk'
-import { addTemporaryRepo, parseRemoteUrl, removeTemporaryRepo, useTemporaryRepos, type TemporaryRepo } from '@/lib/git/temporary-store'
+import { addTemporaryRepo, parseRemoteUrl, removeTemporaryRepo, type TemporaryRepo, useTemporaryRepos } from '@/lib/git/temporary-store'
 import type { GitProjectHost, GitProjectView } from '@/lib/git/types'
 import { isRecordBoolean, useGitUiPref } from '@/lib/git/ui-prefs'
 import { cn } from '@/lib/utils'

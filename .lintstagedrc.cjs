@@ -1,5 +1,4 @@
-const RUNTIME_PATH_RE =
-  /(^|\/)(data|logs|coverage|out|build|dist|tmp|\.next|\.jest-yggit-root|\.cursor|\.husky)(\/|$)/
+const RUNTIME_PATH_RE = /(^|\/)(data|logs|coverage|out|build|dist|tmp|\.next|\.jest-yggit-root|\.cursor|\.husky)(\/|$)/
 const GENERATED_FILE_RE = /(^|\/)next-env\.d\.ts$/
 
 function isSourcePath(file) {

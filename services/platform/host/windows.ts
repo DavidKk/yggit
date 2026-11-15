@@ -26,4 +26,3 @@ export class WindowsHostShell implements HostShellCapability {
     return spawnDetached(shellApp, [path.resolve(contentRoot)], { cwd: path.dirname(shellApp) })
   }
 }
-

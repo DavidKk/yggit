@@ -8,10 +8,8 @@ import { TiMinusOutline, TiPlusOutline } from 'react-icons/ti'
 import { handleTreeExpandKey, handleTreeParentKey } from '@/components/git/treeExpandKey'
 import { useT } from '@/components/i18n/LocaleProvider'
 import { Badge, Button, EmptyState, ScrollArea, SegmentedNav } from '@/components/sk'
-import { readApiErrorMessage } from '@/lib/api-error'
 import { copyToClipboard } from '@/lib/clipboard'
 import { getGitDriver } from '@/lib/git/driver'
-import { makeShareUrl } from '@/lib/git/resolver'
 import { formatIssueShareCard, makeIssueShareUrl } from '@/lib/git/share-card'
 import { analyzeMergeTopology } from '@/lib/git/topology'
 import { GIT_WORKTREE_HASH, type GitCommit, type GitCommitChanges, type GitFileChange } from '@/lib/git/types'
@@ -274,19 +272,7 @@ function PathRows({ groups, selected, onSelect }: { groups: PathGroup[]; selecte
   ))
 }
 
-export function GitCommitPanel({
-  repo,
-  remoteUrl,
-  commit,
-  allCommits,
-  isLineageHighlighted,
-  onToggleHighlightLineage,
-  width,
-  title,
-  selectedPath,
-  onSelect,
-  onClose,
-}: Props) {
+export function GitCommitPanel({ repo, remoteUrl, commit, allCommits, isLineageHighlighted, onToggleHighlightLineage, width, title, selectedPath, onSelect, onClose }: Props) {
   const t = useT()
   const topology = useMemo(() => {
     if (!commit.parents || commit.parents.length < 2) return null

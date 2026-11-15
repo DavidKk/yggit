@@ -82,6 +82,4 @@ describe('POST /api/reveal', () => {
       fs.unlinkSync(tmpFile)
     }
   })
-
-
 })

@@ -92,12 +92,12 @@ export interface IGitDriver {
 
 ```mermaid
 flowchart LR
-    Commit["Merge Commit (例如 7f0b0d8)<br/>parents: [P1, P2]"] 
+    Commit["Merge Commit (例如 7f0b0d8)<br/>parents: [P1, P2]"]
     --> Split{"Parent 角色判定"}
-    
+
     Split -->|Parent 1 (第一父提交)| TargetBranch["🎯 接收分支 (Target / Base)<br/>例如 main / master"]
     Split -->|Parent 2 (第二父提交)| SourceBranch["🌿 合入分支 (Source / Feature)<br/>例如 feature/pay-v2"]
-    
+
     TargetBranch & SourceBranch --> Trace["双向拓扑回溯"]
     Trace --> FindBase["计算分歧基准点 (Merge Base Commit)"]
     FindBase --> CommitsRange["计算本次合入包含的所有提交清单 (P2..P1)"]
@@ -108,10 +108,10 @@ flowchart LR
 ```typescript
 export interface MergeTopologyInfo {
   isMerge: boolean
-  targetBranchHint?: string   // 目标接收分支（如 main）
-  sourceBranchHint?: string   // 被合并的功能分支（如 feature/user-auth）
-  mergeBaseHash?: string      // 两分支的分歧点 Commit
-  commitsIncluded: string[]   // 该合并引入的具体提交 Hash 列表
+  targetBranchHint?: string // 目标接收分支（如 main）
+  sourceBranchHint?: string // 被合并的功能分支（如 feature/user-auth）
+  mergeBaseHash?: string // 两分支的分歧点 Commit
+  commitsIncluded: string[] // 该合并引入的具体提交 Hash 列表
 }
 
 export function analyzeMergeTopology(commit: GitCommit, commitMap: Map<string, GitCommit>): MergeTopologyInfo {
@@ -169,16 +169,9 @@ export function analyzeMergeTopology(commit: GitCommit, commitMap: Map<string, G
 在 `lib/git/share-card.ts` 中实现剪贴板标准卡片生成：
 
 ```typescript
-export function formatIssueShareCard(payload: {
-  repoName: string
-  commit: GitCommit
-  file?: string
-  lines?: string
-  url: string
-  topology?: MergeTopologyInfo
-}): string {
+export function formatIssueShareCard(payload: { repoName: string; commit: GitCommit; file?: string; lines?: string; url: string; topology?: MergeTopologyInfo }): string {
   const linesInfo = payload.lines ? ` (L${payload.lines})` : ''
-  const topologyInfo = payload.topology?.isMerge 
+  const topologyInfo = payload.topology?.isMerge
     ? `\n- **合并脉络**：\`${payload.topology.sourceBranchHint || 'feature'}\` ➔ \`${payload.topology.targetBranchHint || 'target'}\``
     : ''
 
@@ -188,8 +181,10 @@ export function formatIssueShareCard(payload: {
     `- **提交**：\`${payload.commit.short}\` — ${payload.commit.subject}`,
     topologyInfo,
     payload.file ? `- **问题文件**：\`${payload.file}\`${linesInfo}` : '',
-    `👉 **[点击在 Yggit 中交互式审查拓扑与差异]**(${payload.url})`
-  ].filter(Boolean).join('\n')
+    `👉 **[点击在 Yggit 中交互式审查拓扑与差异]**(${payload.url})`,
+  ]
+    .filter(Boolean)
+    .join('\n')
 }
 ```
 
@@ -236,6 +231,7 @@ export async function getDirectoryHandle(repoId: string): Promise<FileSystemDire
 ### 5.3 统一资源未定位、路径迁移与重新授权机制 (Resource Re-association Engine)
 
 在去中心化 Web 架构中，系统将以下场景归一化为**统一的未定位状态（RESOURCE_UNRESOLVED）**：
+
 1. 打开未曾绑定的私有/自建 GitLab 仓库分享链接；
 2. 本地目录被移动（从 `/Users/.../dev` 迁移到 `/Users/.../work`）；
 3. 操作系统文件夹被重命名或磁盘句柄失效；
@@ -245,14 +241,14 @@ export async function getDirectoryHandle(repoId: string): Promise<FileSystemDire
 flowchart TD
     Req["请求仓库: identity (如 gitlab.corp/fe/pay)"] --> QueryDB["查询 IndexedDB 别名映射与句柄"]
     QueryDB --> CheckExist{"句柄是否存在且能读取？"}
-    
+
     CheckExist -- 存在且正常 --> OpenRepo["秒级加载并恢复视图"]
-    
+
     CheckExist -- 找不到 / 路径已迁移 / 首次访问 --> TriggerGuide["触发统一重新关联与重新授权面板<br/>(GitAssociateRepoGuide)"]
-    
+
     TriggerGuide --> OptionA["选项 A: 从已有项目列表中手动选取映射"]
     TriggerGuide --> OptionB["选项 B: 重新调用 showDirectoryPicker() 选定新目录"]
-    
+
     OptionA & OptionB --> UpdateAlias["更新 IndexedDB 别名与句柄绑定"] --> OpenRepo
 ```
 
@@ -261,6 +257,7 @@ flowchart TD
 ### 5.4 本地工作区修改（Uncommitted Changes）的高性能感知策略 (Worktree Fast Diff)
 
 针对纯浏览器在缺少原生 `fsevents` 文件监听时如何快速查看本地修改的痛点，系统设计三级快速比对引擎：
+
 1. **切回窗口聚焦事件驱动（Focus-Driven Auto-Refresh）**：
    监听 `window.addEventListener('focus', onWindowFocus)`。当开发者在 VS Code / Cursor 编辑代码后切回 Yggit 网页标签，系统自动静默触发工作区比对。
 2. **mtime 预过滤与局部哈希扫描（Fast mtime Pruning）**：

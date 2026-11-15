@@ -10,7 +10,6 @@ import { type GitFilePane, GitFilePreview } from '@/components/git/GitFilePrevie
 import { GitDiffCodeText, useGitLineTokens } from '@/components/git/GitHighlightedCode'
 import { useT } from '@/components/i18n/LocaleProvider'
 import { Button, EmptyState, ScrollArea, SegmentedNav } from '@/components/sk'
-import { readApiErrorMessage } from '@/lib/api-error'
 import { getGitDriver } from '@/lib/git/driver'
 import type { GitCommitChanges } from '@/lib/git/types'
 import { useGitUiPref } from '@/lib/git/ui-prefs'

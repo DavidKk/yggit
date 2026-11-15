@@ -1,3 +1,5 @@
+import git from 'isomorphic-git'
+
 import {
   createEdgeFolder,
   deleteEdgeFolder,
@@ -10,18 +12,11 @@ import {
   saveEdgeRemoteProject,
 } from '@/lib/git/indexeddb-handles'
 import { parseRemoteUrl } from '@/lib/git/temporary-store'
-import type { GitCommitChanges, GitLogView, GitProjectCatalog, GitProjectHost, GitProjectView } from '@/lib/git/types'
+import type { GitCommit, GitCommitChanges, GitFileChange, GitLogView, GitProjectCatalog, GitProjectHost, GitProjectView, GitRemoteBranch } from '@/lib/git/types'
 import { parseGitHubRepo, readRemoteCommitChanges, readRemoteGitLog } from '@/services/git/remote-provider'
 
-import type {
-  AddProjectPayload,
-  AddRemoteProjectOptions,
-  GitDeleteFolderResult,
-  IGitDriver,
-  ReadBlobOptions,
-  ReadCommitDiffOptions,
-  ReadLogOptions,
-} from './types'
+import { createDirectoryHandleFs } from './handle-fs'
+import type { AddProjectPayload, AddRemoteProjectOptions, GitDeleteFolderResult, IGitDriver, ReadBlobOptions, ReadCommitDiffOptions, ReadLogOptions } from './types'
 
 export class EdgeGitDriver implements IGitDriver {
   readonly mode = 'edge' as const
@@ -46,43 +41,166 @@ export class EdgeGitDriver implements IGitDriver {
     }
 
     try {
-      // In browser with FileSystemDirectoryHandle, check permissions
-      const perm = typeof handle.queryPermission === 'function' ? await handle.queryPermission({ mode: 'read' }) : 'granted'
+      // Check and request permission if needed
+      let perm = typeof handle.queryPermission === 'function' ? await handle.queryPermission({ mode: 'read' }) : 'granted'
+      if (perm !== 'granted' && typeof handle.requestPermission === 'function') {
+        try {
+          perm = await handle.requestPermission({ mode: 'read' })
+        } catch {
+          // ignore user gesture rejection
+        }
+      }
       if (perm !== 'granted') {
         throw new Error(`PERMISSION_REQUIRED: Read permission needed for directory "${handle.name}".`)
       }
 
-      // Check for .git directory inside handle
-      let gitDirHandle: FileSystemDirectoryHandle | null = null
+      const fs = createDirectoryHandleFs(handle)
+
+      // Verify that this is a git directory
       try {
-        gitDirHandle = await handle.getDirectoryHandle('.git')
+        await fs.promises.stat('/.git')
       } catch {
         throw new Error(`NOT_A_GIT_REPO: Directory "${handle.name}" does not contain a .git folder.`)
       }
 
-      // Read HEAD
-      let head = 'main'
+      // 1. Current Branch
+      let currentBranch = 'main'
       try {
-        const headFileHandle = await gitDirHandle.getFileHandle('HEAD')
-        const file = await headFileHandle.getFile()
-        const text = (await file.text()).trim()
-        head = text.replace(/^ref:\s*refs\/heads\//, '')
+        currentBranch = (await git.currentBranch({ fs, dir: '/' })) || 'main'
       } catch {
         // Fallback
       }
 
+      // 2. Local Branches
+      let branchNames: string[] = []
+      try {
+        branchNames = await git.listBranches({ fs, dir: '/' })
+      } catch {
+        branchNames = [currentBranch]
+      }
+      if (!branchNames.includes(currentBranch)) {
+        branchNames.unshift(currentBranch)
+      }
+
+      const branches = await Promise.all(
+        branchNames.map(async (name) => {
+          let tip = ''
+          try {
+            tip = await git.resolveRef({ fs, dir: '/', ref: name })
+          } catch {
+            // ignore
+          }
+          return {
+            name,
+            current: name === currentBranch,
+            tip,
+            upstream: '',
+          }
+        })
+      )
+
+      // 3. Tags
+      let tags: { name: string; tip: string }[] = []
+      try {
+        const tagNames = await git.listTags({ fs, dir: '/' })
+        tags = await Promise.all(
+          tagNames.map(async (name) => {
+            let tip = ''
+            try {
+              tip = await git.resolveRef({ fs, dir: '/', ref: name })
+            } catch {
+              // ignore
+            }
+            return { name, tip }
+          })
+        )
+      } catch {
+        // ignore
+      }
+
+      // 4. Remotes & Origin URL
+      let remotes: GitRemoteBranch[] = []
+      let remoteUrl = ''
+      try {
+        const rawRemotes = await git.listRemotes({ fs, dir: '/' })
+        remotes = rawRemotes.map((r) => ({
+          name: `${r.remote}/HEAD`,
+          remote: r.remote,
+          branch: 'HEAD',
+          tip: '',
+        }))
+        const origin = rawRemotes.find((r) => r.remote === 'origin') || rawRemotes[0]
+        if (origin) {
+          remoteUrl = origin.url
+        } else {
+          const cfgUrl = await git.getConfig({ fs, dir: '/', path: 'remote.origin.url' })
+          if (cfgUrl && typeof cfgUrl === 'string') {
+            remoteUrl = cfgUrl
+          }
+        }
+      } catch {
+        // ignore
+      }
+
+      // 5. Commits
+      const targetRef = branch || ref || currentBranch || 'HEAD'
+      let commits: GitCommit[] = []
+      try {
+        const rawCommits = await git.log({
+          fs,
+          dir: '/',
+          ref: targetRef === '*' ? currentBranch : targetRef,
+          depth: 100,
+        })
+
+        const branchTips = new Map<string, string[]>()
+        for (const b of branches) {
+          if (b.tip) {
+            const list = branchTips.get(b.tip) || []
+            list.push(b.name)
+            branchTips.set(b.tip, list)
+          }
+        }
+        for (const t of tags) {
+          if (t.tip) {
+            const list = branchTips.get(t.tip) || []
+            list.push(`tag: ${t.name}`)
+            branchTips.set(t.tip, list)
+          }
+        }
+
+        commits = rawCommits.map((item) => {
+          const oid = item.oid
+          const c = item.commit
+          const refs = branchTips.get(oid) || []
+          return {
+            hash: oid,
+            short: oid.slice(0, 7),
+            parents: c.parent || [],
+            author: c.author?.name || 'Unknown',
+            date: c.author?.timestamp ? new Date(c.author.timestamp * 1000).toISOString() : new Date().toISOString(),
+            subject: (c.message || '').split('\n')[0] || '',
+            body: c.message || '',
+            refs,
+          }
+        })
+      } catch {
+        // Fallback or empty commits if log fails
+      }
+
       return {
         repo,
+        remoteUrl,
         displayPath: handle.name,
-        head,
-        branch: head,
-        branches: [{ name: head, current: true, tip: '', upstream: '' }],
-        remotes: [],
-        tags: [],
+        head: currentBranch,
+        branch: currentBranch,
+        branches,
+        remotes,
+        tags,
         stashes: [],
         worktrees: [],
         submodules: [],
-        commits: [],
+        commits,
         hasMore: false,
         marks: {},
         worktree: null,
@@ -106,9 +224,43 @@ export class EdgeGitDriver implements IGitDriver {
       throw new Error(`RESOURCE_UNRESOLVED: Directory handle for "${repo}" not found.`)
     }
 
+    const fs = createDirectoryHandleFs(handle)
+    const files: GitFileChange[] = []
+
+    try {
+      const commitObj = await git.readCommit({ fs, dir: '/', oid: hash })
+      const parentOid = commitObj?.commit?.parent?.[0]
+
+      await git.walk({
+        fs,
+        dir: '/',
+        trees: [git.TREE({ ref: parentOid || undefined }), git.TREE({ ref: hash })],
+        map: async function (filepath, [parentEntry, headEntry]) {
+          if (filepath === '.') return
+          const parentType = parentEntry ? await parentEntry.type() : null
+          const headType = headEntry ? await headEntry.type() : null
+          if (parentType === 'tree' || headType === 'tree') return
+
+          if (!parentEntry && headEntry) {
+            files.push({ path: filepath, status: 'add', oldPath: filepath })
+          } else if (parentEntry && !headEntry) {
+            files.push({ path: filepath, status: 'delete', oldPath: filepath })
+          } else if (parentEntry && headEntry) {
+            const pOid = await parentEntry.oid()
+            const hOid = await headEntry.oid()
+            if (pOid !== hOid) {
+              files.push({ path: filepath, status: 'modify', oldPath: filepath })
+            }
+          }
+        },
+      })
+    } catch {
+      // Fallback
+    }
+
     return {
       hash,
-      files: [],
+      files,
       patch: '',
       truncated: false,
     }
@@ -135,17 +287,37 @@ export class EdgeGitDriver implements IGitDriver {
       throw new Error(`RESOURCE_UNRESOLVED: Directory handle for "${repo}" not found.`)
     }
 
-    const pathParts = path.split('/').filter(Boolean)
-    let curDir = handle
-    for (let i = 0; i < pathParts.length - 1; i++) {
-      curDir = await curDir.getDirectoryHandle(pathParts[i])
-    }
-    const fileHandle = await curDir.getFileHandle(pathParts[pathParts.length - 1])
-    const file = await fileHandle.getFile()
-    const text = await file.text()
-    return {
-      content: text,
-      binary: false,
+    const fs = createDirectoryHandleFs(handle)
+    try {
+      const { blob } = await git.readBlob({ fs, dir: '/', oid: hash, filepath: path })
+      // Check for binary by looking for null bytes in sample
+      const sample = blob.subarray(0, 8000)
+      let isBinary = false
+      for (let i = 0; i < sample.length; i++) {
+        if (sample[i] === 0) {
+          isBinary = true
+          break
+        }
+      }
+      if (isBinary) {
+        return { content: '', binary: true }
+      }
+      const text = new TextDecoder('utf-8').decode(blob)
+      return { content: text, binary: false }
+    } catch {
+      // Fallback: read directly from directory handle if git object read fails
+      const pathParts = path.split('/').filter(Boolean)
+      let curDir = handle
+      for (let i = 0; i < pathParts.length - 1; i++) {
+        curDir = await curDir.getDirectoryHandle(pathParts[i])
+      }
+      const fileHandle = await curDir.getFileHandle(pathParts[pathParts.length - 1])
+      const file = await fileHandle.getFile()
+      const text = await file.text()
+      return {
+        content: text,
+        binary: false,
+      }
     }
   }
 
@@ -212,7 +384,14 @@ export class EdgeGitDriver implements IGitDriver {
 
   async addRemoteProject(input: AddRemoteProjectOptions): Promise<GitProjectCatalog> {
     const parsed = parseRemoteUrl(input.url)
-    const name = input.name || parsed?.name || input.url.split('/').pop()?.replace(/\.git$/, '') || 'remote-repo'
+    const name =
+      input.name ||
+      parsed?.name ||
+      input.url
+        .split('/')
+        .pop()
+        ?.replace(/\.git$/, '') ||
+      'remote-repo'
     const id = parsed?.fingerprint || input.url
     const host: GitProjectHost = parsed?.provider === 'gitlab' ? 'gitlab' : 'github'
 

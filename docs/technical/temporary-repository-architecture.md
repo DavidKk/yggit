@@ -49,19 +49,21 @@ flowchart TD
 临时项目仅保存在当前会话，确保不会写入本地物理磁盘配置 `data/git-projects/catalog.json`。
 
 #### 数据结构
+
 ```typescript
 export interface TemporaryRepo {
-  id: string               // e.g. "temp_github_davidkk_yggit"
-  name: string             // e.g. "DavidKk/yggit"
-  remoteUrl: string        // e.g. "https://github.com/DavidKk/yggit"
-  fingerprint: string      // e.g. "github.com/davidkk/yggit"
+  id: string // e.g. "temp_github_davidkk_yggit"
+  name: string // e.g. "DavidKk/yggit"
+  remoteUrl: string // e.g. "https://github.com/DavidKk/yggit"
+  fingerprint: string // e.g. "github.com/davidkk/yggit"
   provider: 'github' | 'gitlab' | 'generic'
-  defaultBranch?: string   // e.g. "main"
-  createdAt: number        // timestamp
+  defaultBranch?: string // e.g. "main"
+  createdAt: number // timestamp
 }
 ```
 
 #### 会话生命周期与客户端同步
+
 - **读取**：客户端通过 `useSyncExternalStore` 或 `useState` + `useEffect` 挂载 `sessionStorage.getItem('yggit.temporary_repos')`，规避 SSR / CSR 水合不一致。
 - **添加**：用户打开分享 URL 或在切换器输入远程 URL 时，通过指纹比对：
   - 若 `SavedProjectStore` 已存在相同 `fingerprint`，则直接切换到该已保存项目，不增加临时条目。
@@ -80,6 +82,7 @@ export interface TemporaryRepo {
 当用户访问尚未克隆的公开 GitHub 仓库时，系统通过轻量化 Remote Provider 提供 Git 历史、提交信息与 Diff 视图，无需在本地执行全量 `git clone`。
 
 #### 核心能力支持
+
 1. **Commit Log 分页获取**：
    - 目标：对接 `https://api.github.com/repos/{owner}/{repo}/commits`。
    - 映射为统一的 `GitCommit` 结构（hash, parentHashes, subject, author, date, refs）。
@@ -93,6 +96,7 @@ export interface TemporaryRepo {
    - 支持通过 API 获取单个文件的 patch 或 raw blob 内容，无缝喂入 `GitFileDiff` 和 `GitFilePreview`。
 
 #### 降级与限流保障
+
 - **内存缓存 (Memory Cache)**：对同一 commit sha 和 ref 设置 5 分钟 LRU 缓存，避免频繁翻页触发 API 限流。
 - **未认证降级**：当未配置 PAT 且达到 60 req/hr 阈值时，返回清晰的 `429 Too Many Requests`，前端展示友好提示框，引导用户提供只读 Token 或点击「一键克隆至本地」。
 
@@ -101,6 +105,7 @@ export interface TemporaryRepo {
 ### 2.3 项目切换器 (Project Switcher) 组件重构
 
 在 `components/git/GitProjectMenu.tsx` 中做如下增强：
+
 1. **搜索栏 URL 嗅探**：
    - 实时判断搜索框文本是否匹配 `http(s)://` 或 `git@` 远程仓库格式。
    - 若匹配且当前目录不存在，动态在下拉面板首行显示：
@@ -125,22 +130,24 @@ flowchart TD
     ShareBtn["用户 A 复制分享链接"] --> GenURL["生成规范化语义 URL<br/>/repo/{host}/{owner}/{repo}/commit/{sha}"]
     GenURL --> UserB["用户 B 打开该分享链接"]
     UserB --> ResolveSlug["解析器匹配本地 catalog.json"]
-    
+
     ResolveSlug -->|场景一：已添加过该仓库 / 本地存在克隆| LocalMatch["Local-First: 命中本地项目<br/>直接打开用户 B 的本地目录"]
-    
+
     ResolveSlug -->|场景二 A：未添加，但属于公开仓库| RemoteProvider["Remote-First: 调用远程 Git API<br/>免克隆进入临时模式 (打开即看)"]
-    
+
     ResolveSlug -->|场景二 B：未添加，且属于企业私有/内网自建仓库| AssociateGuide["关联引导: GitAssociateRepoGuide<br/>展示远程标识与目标 Commit，一键指定本地克隆目录关联"]
     AssociateGuide --> RegisterLocal["写入 catalog.json 建立映射"] --> LocalMatch
 ```
 
 #### 场景 1：公共仓库 (Public Repositories)
+
 - **分享链接格式**：`/repo/github/{owner}/{repo}/commit/{sha}`
 - **接收方行为**：
   - 若接收方本机已经导入或克隆了该仓库：**本地优先（Local-First）**，直接秒开本地磁盘工程，无需外部网络请求；
   - 若接收方本机未导入：自动降级为 **Temporary 模式**，通过远程 Git Provider API 实时加载，用户无需克隆代码即可浏览 Commit 演进与 Diff，并可随时点击 ⭐ 收藏。
 
 #### 场景 2：都拥有的私有/企业仓库 (Shared Private / Corporate Repositories)
+
 - **业务痛点**：用户 A 的本地目录为 `/Users/alice/work/billing`，用户 B 为 `/Users/bob/dev/billing`，物理绝对路径完全不同，但两者拥有共同的 Remote Origin（如 `git@gitlab.corp.com:team/billing.git`）。
 - **统一身份计算**：通过 `normalizeRemote(origin)` 提取跨平台唯一键（如 `gitlab.corp.com/team/billing`），生成标准化分享链接：`/repo/gitlab.corp.com/team/billing/commit/{sha}`。
 - **自动对齐与引导**：
@@ -153,9 +160,9 @@ flowchart TD
 
 在方案设计与预审过程中，识别出以下潜在风险及修正对策：
 
-| 发现问题 / 潜在缺陷 | 影响范围 | 修正对策 |
-|---|---|---|
-| **CR-1: URL 状态污染与前进后退** | 浏览器历史记录 | 临时仓库使用 `/repo?remote={url}` 或在 URL 参数保留指纹，使用 `window.history.pushState`，确保浏览器前进/后退能正确恢复临时仓库上下文。 |
+| 发现问题 / 潜在缺陷                            | 影响范围              | 修正对策                                                                                                                                                                                                         |
+| ---------------------------------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **CR-1: URL 状态污染与前进后退**               | 浏览器历史记录        | 临时仓库使用 `/repo?remote={url}` 或在 URL 参数保留指纹，使用 `window.history.pushState`，确保浏览器前进/后退能正确恢复临时仓库上下文。                                                                          |
 | **CR-2: 远程 API 数据格式与本地 Git CLI 差异** | `GitHistory` 图谱连线 | 远程 API 返回的提交列表可能只有 parents sha，没有本地完整的 `git log --graph` 拓扑。系统复用已实现的客户端 DAG 布局计算器 `graphScene()`，以 parent 关系为基准纯前端计算连线与泳道，确保两端渲染效果 100% 一致。 |
-| **CR-3: 离线环境与测试环境** | 自动化测试与离线运行 | `services/git/remote-provider.ts` 内置 Mock/Fixture 机制，在无网络连接或离线测试模式下，可自动降级或使用离线沙箱数据，保障测试用例稳定跑通。 |
-| **CR-4: 收藏后重复创建** | 数据完整性 | 收藏 API 在执行写入前强制执行规范化指纹匹配检查。若已存在直接返回已保存项目，杜绝产生重复冗余条目。 |
+| **CR-3: 离线环境与测试环境**                   | 自动化测试与离线运行  | `services/git/remote-provider.ts` 内置 Mock/Fixture 机制，在无网络连接或离线测试模式下，可自动降级或使用离线沙箱数据，保障测试用例稳定跑通。                                                                     |
+| **CR-4: 收藏后重复创建**                       | 数据完整性            | 收藏 API 在执行写入前强制执行规范化指纹匹配检查。若已存在直接返回已保存项目，杜绝产生重复冗余条目。                                                                                                              |

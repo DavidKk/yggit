@@ -1,14 +1,6 @@
 import type { GitCommitChanges, GitLogView, GitProjectCatalog, GitProjectView } from '@/lib/git/types'
 
-import type {
-  AddProjectPayload,
-  AddRemoteProjectOptions,
-  GitDeleteFolderResult,
-  IGitDriver,
-  ReadBlobOptions,
-  ReadCommitDiffOptions,
-  ReadLogOptions,
-} from './types'
+import type { AddProjectPayload, AddRemoteProjectOptions, GitDeleteFolderResult, IGitDriver, ReadBlobOptions, ReadCommitDiffOptions, ReadLogOptions } from './types'
 
 export class LocalGitDriver implements IGitDriver {
   readonly mode = 'local' as const

@@ -4,8 +4,9 @@
  * Manages Edge mode folders, project handles, and remote repositories client-side.
  */
 
-import type { GitProjectCatalog, GitProjectHost, GitProjectView } from '@/lib/git/types'
+import { projectId } from '@/lib/git/identity'
 import { getTemporaryRepos } from '@/lib/git/temporary-store'
+import type { GitProjectCatalog, GitProjectHost, GitProjectView } from '@/lib/git/types'
 
 declare global {
   interface Window {
@@ -291,9 +292,7 @@ export async function createEdgeFolder(name: string): Promise<string[]> {
 /**
  * Delete a folder in Edge mode, along with any repositories inside it
  */
-export async function deleteEdgeFolder(
-  name: string
-): Promise<{ folders: string[]; removedCount: number }> {
+export async function deleteEdgeFolder(name: string): Promise<{ folders: string[]; removedCount: number }> {
   const db = await openHandlesDatabase()
   if (!db) return { folders: [], removedCount: 0 }
 
@@ -466,12 +465,7 @@ export async function getEdgeCatalog(): Promise<GitProjectCatalog> {
 /**
  * Save or update a directory handle in IndexedDB
  */
-export async function saveDirectoryHandle(
-  repoId: string,
-  handle: FileSystemDirectoryHandle,
-  name?: string,
-  group?: string
-): Promise<void> {
+export async function saveDirectoryHandle(repoId: string, handle: FileSystemDirectoryHandle, name?: string, group?: string): Promise<void> {
   const db = await openHandlesDatabase()
   if (!db) return
 
@@ -521,7 +515,28 @@ export async function getDirectoryHandle(repoId: string): Promise<FileSystemDire
       const request = store.get(canonicalId)
       request.onsuccess = () => {
         const record = request.result as StoredRepoRecord | undefined
-        resolve(record?.handle || null)
+        if (record?.handle) {
+          resolve(record.handle)
+          return
+        }
+
+        // Fallback: search all records by name, folderName, or projectId
+        const allReq = store.getAll()
+        allReq.onsuccess = () => {
+          const records = (allReq.result || []) as StoredRepoRecord[]
+          const raw = repoId.trim()
+          const basename = raw.split(/[/\\]/).filter(Boolean).pop() || raw
+          const match = records.find((r) => {
+            if (r.id.toLowerCase() === raw.toLowerCase()) return true
+            if (r.name.toLowerCase() === raw.toLowerCase()) return true
+            if (r.name.toLowerCase() === basename.toLowerCase()) return true
+            if (`l_${projectId(r.name)}`.toLowerCase() === raw.toLowerCase()) return true
+            if (`l_${projectId(r.id)}`.toLowerCase() === raw.toLowerCase()) return true
+            return false
+          })
+          resolve(match?.handle || null)
+        }
+        allReq.onerror = () => resolve(null)
       }
       request.onerror = () => reject(request.error)
     } catch (err) {
@@ -533,9 +548,7 @@ export async function getDirectoryHandle(repoId: string): Promise<FileSystemDire
 /**
  * List all saved directory handles metadata (without loading full handles)
  */
-export async function listDirectoryHandles(): Promise<
-  Array<{ id: string; name: string; group?: string; order?: number; updatedAt: number }>
-> {
+export async function listDirectoryHandles(): Promise<Array<{ id: string; name: string; group?: string; order?: number; updatedAt: number }>> {
   const db = await openHandlesDatabase()
   if (!db) return []
 
@@ -634,10 +647,7 @@ export async function resolveRepoAlias(alias: string): Promise<string | null> {
 /**
  * Verify whether permission is currently granted for the handle
  */
-export async function verifyHandlePermission(
-  handle: FileSystemDirectoryHandle,
-  mode: 'read' | 'readwrite' = 'read'
-): Promise<boolean> {
+export async function verifyHandlePermission(handle: FileSystemDirectoryHandle, mode: 'read' | 'readwrite' = 'read'): Promise<boolean> {
   if (typeof handle.queryPermission !== 'function') return true
   try {
     const status = await handle.queryPermission({ mode })
@@ -650,10 +660,7 @@ export async function verifyHandlePermission(
 /**
  * Request user permission for a handle if not already granted
  */
-export async function requestHandlePermission(
-  handle: FileSystemDirectoryHandle,
-  mode: 'read' | 'readwrite' = 'read'
-): Promise<boolean> {
+export async function requestHandlePermission(handle: FileSystemDirectoryHandle, mode: 'read' | 'readwrite' = 'read'): Promise<boolean> {
   if (typeof handle.requestPermission !== 'function') return true
   try {
     const status = await handle.requestPermission({ mode })

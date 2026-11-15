@@ -2,15 +2,7 @@
 
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 
-import {
-  applyDocumentTheme,
-  detectSystemTheme,
-  readStoredTheme,
-  type ThemeMode,
-  type ThemePreference,
-  themeForPreference,
-  writeStoredTheme,
-} from '@/lib/theme'
+import { applyDocumentTheme, detectSystemTheme, readStoredTheme, themeForPreference, type ThemeMode, type ThemePreference, writeStoredTheme } from '@/lib/theme'
 
 type ThemeContextValue = {
   theme: ThemeMode
@@ -30,9 +22,7 @@ type Props = {
 export function ThemeProvider({ children, initialTheme = 'dark', initialPreference = 'auto' }: Props) {
   const [preference, setPreference] = useState<ThemePreference>(initialPreference)
   // Client must match boot script / system immediately; SSR keeps cookie or dark default.
-  const [systemTheme, setSystemTheme] = useState<ThemeMode>(() =>
-    typeof window !== 'undefined' ? detectSystemTheme() : initialTheme,
-  )
+  const [systemTheme, setSystemTheme] = useState<ThemeMode>(() => (typeof window !== 'undefined' ? detectSystemTheme() : initialTheme))
   const theme = themeForPreference(preference, systemTheme)
 
   useEffect(() => {

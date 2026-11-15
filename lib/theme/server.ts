@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers'
 
-import { isThemeMode, type ThemeMode, type ThemePreference, THEME_COOKIE_KEY } from '@/lib/theme'
+import { isThemeMode, THEME_COOKIE_KEY, type ThemeMode, type ThemePreference } from '@/lib/theme'
 
 /** Resolve theme preference from cookie; default `auto` (follow system on client / dark on SSR). */
 export async function resolveRequestTheme(): Promise<{ theme: ThemeMode; preference: ThemePreference }> {

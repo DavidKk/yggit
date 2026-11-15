@@ -11,6 +11,7 @@ type Props = {
   priority?: boolean
   href?: string
   animated?: boolean
+  onClick?: (event: React.MouseEvent<HTMLAnchorElement>) => void
 }
 
 /** Product mark. `animated` is accepted so existing call sites stay valid. */
@@ -31,7 +32,7 @@ function Wordmark({ className }: { className?: string }) {
 }
 
 /** Shared mark and wordmark for dark application surfaces. */
-export function BrandLogo({ className, markClassName, wordmarkClassName, priority = false, href, animated = false }: Props) {
+export function BrandLogo({ className, markClassName, wordmarkClassName, priority = false, href, animated = false, onClick }: Props) {
   const mark = <BrandMark className={markClassName} priority={priority} animated={animated} />
 
   const content = (
@@ -47,6 +48,7 @@ export function BrandLogo({ className, markClassName, wordmarkClassName, priorit
     return (
       <Link
         href={href}
+        onClick={onClick}
         aria-label={`${PRODUCT_DISPLAY_NAME} 首页`}
         className={cn(
           logoClassName,

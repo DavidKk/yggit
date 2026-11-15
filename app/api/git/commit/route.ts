@@ -15,13 +15,7 @@ export const GET = defineApiRoute('get:/api/git/commit', async ({ request }) => 
       return await readRemoteCommitChanges(repo, hash)
     }
 
-    return await readCommitChanges(
-      repo,
-      hash,
-      url.searchParams.get('tree') === '1',
-      url.searchParams.get('path') || '',
-      url.searchParams.get('all') === '1'
-    )
+    return await readCommitChanges(repo, hash, url.searchParams.get('tree') === '1', url.searchParams.get('path') || '', url.searchParams.get('all') === '1')
   } catch (error) {
     return apiBadRequest(error instanceof Error ? error.message : 'git 失败')
   }

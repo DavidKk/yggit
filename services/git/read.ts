@@ -55,9 +55,7 @@ export async function resolveGitRepo(input?: string): Promise<string> {
     } catch {
       // Check registered projects if input was a project name or ID
       const projects = listGitProjects()
-      const match = projects.find(
-        (p) => p.name.toLowerCase() === raw.toLowerCase() || p.id.toLowerCase() === raw.toLowerCase()
-      )
+      const match = projects.find((p) => p.name.toLowerCase() === raw.toLowerCase() || p.id.toLowerCase() === raw.toLowerCase())
       if (match?.localPath && fs.existsSync(match.localPath)) {
         try {
           return (await git(match.localPath, ['rev-parse', '--show-toplevel'])).trim()
