@@ -2,7 +2,7 @@
 
 import { type DragEvent, type RefObject, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { AiOutlineCloudSync } from 'react-icons/ai'
-import { LuChevronDown, LuChevronRight, LuCloud, LuFolder, LuGithub, LuGitlab, LuGlobe, LuHardDrive, LuStar, LuTrash2, LuX } from 'react-icons/lu'
+import { LuChevronDown, LuChevronRight, LuClock3, LuFolder, LuGithub, LuGitlab, LuGlobe, LuHardDrive, LuLink, LuLockKeyhole, LuStar, LuTrash2, LuX } from 'react-icons/lu'
 import { TbFolderPlus } from 'react-icons/tb'
 
 const FOLDER_EXPAND_MS = 450
@@ -14,7 +14,8 @@ import { GIT_FIND_EVENT } from '@/components/git/gitFind'
 import { GIT_SEARCH_DROPDOWN_ATTR, GitSearchDropdown } from '@/components/git/GitSearchDropdown'
 import { useT } from '@/components/i18n/LocaleProvider'
 import { formControl, formDesc, formField, formFieldInlineDense, formTitle, formTitleInline } from '@/components/layoutClasses'
-import { ApiKeyInput, Badge, Button, EmptyState, Modal, ScrollArea, SwitchToggle, TextInput } from '@/components/sk'
+import { ApiKeyInput, Badge, Button, EmptyState, Modal, ScrollArea, SwitchToggle, TextInput, Tooltip } from '@/components/sk'
+import { hasSavedRemote, projectOpenTarget, projectSource, remoteIdentity } from '@/lib/git/project-access'
 import { addTemporaryRepo, parseRemoteUrl, removeTemporaryRepo, type TemporaryRepo, useTemporaryRepos } from '@/lib/git/temporary-store'
 import type { GitProjectHost, GitProjectView } from '@/lib/git/types'
 import { isRecordBoolean, useGitUiPref } from '@/lib/git/ui-prefs'
@@ -146,7 +147,7 @@ export function GitProjectMenu({
   const needle = query.trim().toLowerCase()
   const listed = useMemo(() => {
     if (!needle) return projects
-    return projects.filter((project) => project.name.toLowerCase().includes(needle))
+    return projects.filter((project) => `${project.name} ${projectSource(project)}`.toLowerCase().includes(needle))
   }, [needle, projects])
 
   const visibleFolders = useMemo(() => {
@@ -160,9 +161,8 @@ export function GitProjectMenu({
   const [temporaryExpanded, setTemporaryExpanded] = useState(true)
 
   const listedTemporary = useMemo(() => {
-    if (!needle) return temporaryRepos
-    return temporaryRepos.filter((t) => t.name.toLowerCase().includes(needle) || t.remoteUrl.toLowerCase().includes(needle))
-  }, [needle, temporaryRepos])
+    return temporaryRepos.filter((repo) => !hasSavedRemote(projects, repo.remoteUrl) && (!needle || `${repo.name} ${repo.remoteUrl}`.toLowerCase().includes(needle)))
+  }, [needle, projects, temporaryRepos])
 
   const handleFavoriteTemporary = async (temp: TemporaryRepo) => {
     setFavoriteLoadingId(temp.id)
@@ -177,7 +177,7 @@ export function GitProjectMenu({
   const handleRemoveTemporary = (temp: TemporaryRepo) => {
     removeTemporaryRepo(temp.id)
     if (currentPath === temp.remoteUrl || currentPath === temp.id) {
-      const fallback = projects[0]?.localPath || ''
+      const fallback = projects.map(projectOpenTarget).find(Boolean) || ''
       onOpen(fallback)
     }
   }
@@ -206,6 +206,20 @@ export function GitProjectMenu({
     setFormError('')
     setFieldInvalid({})
   }, [])
+
+  const handleOpenLocalFolder = async (e: React.MouseEvent, localPath?: string) => {
+    e.stopPropagation()
+    if (!localPath) return
+    try {
+      await fetch('/api/reveal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: localPath }),
+      })
+    } catch {
+      // Gracefully fall back to badge indicator
+    }
+  }
 
   async function submitFolder() {
     setFormError('')
@@ -530,7 +544,7 @@ export function GitProjectMenu({
       ) : null}
       {visibleFolders.length === 0 && projects.length === 0 && temporaryRepos.length === 0 ? (
         <EmptyState className="min-h-0 flex-1" title={t('git.project.noProjects')} message={t('git.project.noProjectsMsg')} hint={t('git.project.noProjectsHint')} />
-      ) : listed.length === 0 && temporaryRepos.length === 0 && needle && !parsedRemoteInput ? (
+      ) : listed.length === 0 && listedTemporary.length === 0 && needle && !parsedRemoteInput ? (
         <EmptyState className="min-h-0 flex-1" title={t('git.project.noMatches')} message={t('git.project.noMatchesMsg')} />
       ) : (
         <ScrollArea className="min-h-0 flex-1" reserveGutter={false} scrollRef={listScrollRef} scrollProps={{ onDragOver: onListDragOver }}>
@@ -571,9 +585,11 @@ export function GitProjectMenu({
                         >
                           <HostIcon host={temp.provider} />
                           <span className="min-w-0 flex-1 truncate whitespace-nowrap text-left">{temp.name}</span>
-                          <Badge tone="neutral" size="mini" dot={false} className="shrink-0 text-[10px]">
-                            {t('git.project.temporaryBadge')}
-                          </Badge>
+                          <Tooltip content={t('git.project.temporaryBadge')}>
+                            <span className="flex size-5 shrink-0 items-center justify-center text-ink-soft" aria-label={t('git.project.temporaryBadge')} tabIndex={0}>
+                              <LuClock3 className="size-3.5" aria-hidden />
+                            </span>
+                          </Tooltip>
                         </Button>
                         <div className="flex shrink-0 items-center gap-0.5 opacity-80 group-hover/temp:opacity-100">
                           <Button
@@ -660,7 +676,18 @@ export function GitProjectMenu({
                 </div>
                 {expanded
                   ? items.map((project, index) => {
-                      const current = Boolean(project.localPath) && project.localPath === currentPath
+                      const target = projectOpenTarget(project)
+                      const online = !project.localPath && Boolean(target)
+                      const accessLabel = t(
+                        project.localPath
+                          ? project.authorized
+                            ? 'git.project.sourceLocal'
+                            : 'git.project.sourcePermission'
+                          : online
+                            ? 'git.project.sourceOnline'
+                            : 'git.project.sourceAssociate'
+                      )
+                      const current = Boolean(target) && (target === currentPath || (online && remoteIdentity(target) === remoteIdentity(currentPath)))
                       const showBefore = dropTarget?.group === group && dropTarget.beforeId === project.id
                       const showAfter = dropTarget?.group === group && dropTarget.beforeId === null && index === items.length - 1 && draggingId !== project.id
                       return (
@@ -683,14 +710,38 @@ export function GitProjectMenu({
                             onDragStart={(event) => onProjectDragStart(event, project.id)}
                             onDragEnd={onProjectDragEnd}
                             onClick={() => {
-                              if (project.localPath) onOpen(project.localPath)
+                              if (target) onOpen(target)
                               else setCloneTarget(project)
                             }}
                           >
                             <HostIcon host={project.host} />
-                            <span className="min-w-0 flex-1 truncate whitespace-nowrap text-left">{project.name}</span>
-                            {project.local ? <LuHardDrive className="size-3.5 shrink-0 text-ink-soft" aria-hidden /> : null}
-                            {project.remote ? <LuCloud className={cn('size-3.5 shrink-0', project.authorized ? 'text-accent' : 'text-ink-soft')} aria-hidden /> : null}
+                            <span className="min-w-0 flex-1 truncate whitespace-nowrap text-left text-xs">{project.name}</span>
+                            <Tooltip content={project.localPath ? '点击打开本地文件夹' : accessLabel}>
+                              <span
+                                role={project.localPath ? 'button' : undefined}
+                                aria-label={accessLabel}
+                                tabIndex={0}
+                                onClick={(e) => {
+                                  if (project.localPath) {
+                                    void handleOpenLocalFolder(e, project.localPath)
+                                  }
+                                }}
+                                className={cn(
+                                  'flex size-5 shrink-0 items-center justify-center text-ink-soft rounded transition-colors',
+                                  project.localPath ? 'hover:text-accent hover:bg-[var(--overlay-08)] cursor-pointer' : 'cursor-default'
+                                )}
+                              >
+                                {project.localPath && !project.authorized ? (
+                                  <LuLockKeyhole className="size-3.5 text-warn" aria-hidden />
+                                ) : project.localPath ? (
+                                  <LuHardDrive className="size-3.5 text-accent" aria-hidden />
+                                ) : online ? (
+                                  <LuGlobe className="size-3.5 text-accent" aria-hidden />
+                                ) : (
+                                  <LuLink className="size-3.5" aria-hidden />
+                                )}
+                              </span>
+                            </Tooltip>
                           </Button>
                           {showAfter ? <span className="pointer-events-none absolute inset-x-2 bottom-0 z-10 h-0.5 translate-y-1/2 rounded-full bg-accent" aria-hidden /> : null}
                         </div>

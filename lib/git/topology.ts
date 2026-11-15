@@ -9,6 +9,7 @@ export interface MergeTopologyInfo {
   parent2Hash?: string
   mergeBaseHash?: string
   commitsIncluded: string[]
+  highlightHashes: string[]
 }
 
 /**
@@ -39,7 +40,7 @@ export function parseBranchIntents(subject: string): { source?: string; target?:
     if (source.startsWith('origin/')) {
       source = source.slice('origin/'.length)
     }
-    const target = branchMatch[2]
+    const target = branchMatch[2]?.replace(/^['"]|['"]$/g, '')
     return { source, target }
   }
 
@@ -55,6 +56,7 @@ export function analyzeMergeTopology(commit: GitCommit, commitMap?: Map<string, 
     return {
       isMerge: false,
       commitsIncluded: [],
+      highlightHashes: [],
     }
   }
 
@@ -70,6 +72,7 @@ export function analyzeMergeTopology(commit: GitCommit, commitMap?: Map<string, 
     sourceBranchHint: intents.source,
     prNumber: intents.pr,
     commitsIncluded: [],
+    highlightHashes: [],
   }
 
   if (!commitMap) {
@@ -81,8 +84,8 @@ export function analyzeMergeTopology(commit: GitCommit, commitMap?: Map<string, 
   const queue1 = [p1]
   const visited1 = new Set<string>([p1])
 
-  // Collect reasonable depth of P1 ancestors (e.g. up to 100 commits)
-  while (queue1.length > 0 && visited1.size < 100) {
+  // Bound traversal by the loaded graph rather than an arbitrary depth.
+  while (queue1.length > 0) {
     const curr = queue1.shift()!
     p1Ancestors.add(curr)
     const node = commitMap.get(curr)
@@ -102,7 +105,7 @@ export function analyzeMergeTopology(commit: GitCommit, commitMap?: Map<string, 
   const visited2 = new Set<string>([p2])
   let mergeBase: string | undefined
 
-  while (queue2.length > 0 && included.length < 80) {
+  while (queue2.length > 0) {
     const curr = queue2.shift()!
     if (p1Ancestors.has(curr)) {
       if (!mergeBase) mergeBase = curr
@@ -120,8 +123,75 @@ export function analyzeMergeTopology(commit: GitCommit, commitMap?: Map<string, 
     }
   }
 
+  // Include both sides up to their shared ancestry, plus the merge itself.
+  const sourceAncestors = new Set<string>()
+  const sourceQueue = [p2]
+  while (sourceQueue.length) {
+    const hash = sourceQueue.pop()!
+    if (sourceAncestors.has(hash)) continue
+    sourceAncestors.add(hash)
+    sourceQueue.push(...(commitMap.get(hash)?.parents ?? []))
+  }
+  const highlighted = new Set([commit.hash, ...included])
+  const targetQueue = [p1]
+  const targetVisited = new Set<string>()
+  while (targetQueue.length) {
+    const hash = targetQueue.pop()!
+    if (targetVisited.has(hash)) continue
+    targetVisited.add(hash)
+    highlighted.add(hash)
+    if (!sourceAncestors.has(hash)) targetQueue.push(...(commitMap.get(hash)?.parents ?? []))
+  }
+  for (const hash of visited2) if (p1Ancestors.has(hash)) highlighted.add(hash)
+  info.highlightHashes = [...highlighted]
   info.commitsIncluded = included
   info.mergeBaseHash = mergeBase
 
   return info
+}
+
+/**
+ * Traces all commits belonging to a branch by starting at the branch's tip ref(s)
+ * and traversing back through parent commits.
+ */
+export function getBranchCommitHashes(branchName: string, commits: GitCommit[]): Set<string> {
+  const result = new Set<string>()
+  if (!branchName || commits.length === 0) return result
+
+  const cleanName = branchName.replace(/^refs\/(heads|remotes)\//, '')
+  const startHashes: string[] = []
+
+  for (const commit of commits) {
+    if (
+      commit.refs.some(
+        (r) => r === cleanName || r === `HEAD -> ${cleanName}` || r === `refs/heads/${cleanName}` || r === `refs/remotes/${cleanName}` || r.endsWith(`/${cleanName}`)
+      )
+    ) {
+      startHashes.push(commit.hash)
+    }
+  }
+
+  if (startHashes.length === 0) {
+    return result
+  }
+
+  const commitMap = new Map<string, GitCommit>()
+  for (const c of commits) commitMap.set(c.hash, c)
+
+  const queue = [...startHashes]
+  while (queue.length > 0) {
+    const hash = queue.shift()!
+    if (result.has(hash)) continue
+    result.add(hash)
+    const commit = commitMap.get(hash)
+    if (commit?.parents) {
+      for (const parent of commit.parents) {
+        if (!result.has(parent) && commitMap.has(parent)) {
+          queue.push(parent)
+        }
+      }
+    }
+  }
+
+  return result
 }

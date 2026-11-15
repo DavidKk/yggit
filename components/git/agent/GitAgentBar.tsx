@@ -85,12 +85,12 @@ export function GitAgentBar({ repoPath, className }: Props) {
 
   return (
     <>
-      {/* 1. Floating In-Place Quick Answer Card */}
+      {/* 1. In-Place Quick Answer Card */}
       {quickCardOpen && dockMode === 'collapsed' && lastAssistantMessage && (
         <div
           role="dialog"
           aria-label={t('gitAgent.quickAnswer')}
-          className="fixed bottom-20 left-1/2 -translate-x-1/2 z-40 w-[92vw] max-w-[560px] rounded-xl border border-line bg-panel/95 p-4 shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-200"
+          className="absolute bottom-20 left-1/2 -translate-x-1/2 z-40 w-[92vw] max-w-[560px] rounded-xl border border-line bg-panel/95 p-4 shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-200"
         >
           {/* Header */}
           <div className="flex items-center justify-between border-b border-line/60 pb-2.5 mb-2.5">
@@ -148,7 +148,7 @@ export function GitAgentBar({ repoPath, className }: Props) {
         }}
         aria-label={t('gitAgent.barAria')}
         className={cn(
-          'fixed bottom-5 left-1/2 -translate-x-1/2 z-40 flex h-10 items-center overflow-hidden rounded-full border border-accent bg-panel/90 shadow-lg backdrop-blur-md transition-[width,padding,background-color,border-color,box-shadow] duration-350 ease-[cubic-bezier(0.175,0.885,0.32,1.15)] motion-reduce:transition-none select-none',
+          'absolute bottom-5 left-1/2 -translate-x-1/2 z-40 flex h-10 items-center overflow-hidden rounded-full border border-accent bg-panel/90 shadow-lg backdrop-blur-md transition-[width,padding,background-color,border-color,box-shadow] duration-350 ease-[cubic-bezier(0.175,0.885,0.32,1.15)] motion-reduce:transition-none select-none',
           expanded
             ? 'w-[min(90vw,500px)] px-3 focus-within:ring-2 focus-within:ring-accent/25'
             : 'w-[128px] px-3.5 cursor-pointer hover:shadow-accent/15 hover:bg-panel active:scale-[0.98]',
@@ -201,10 +201,6 @@ export function GitAgentBar({ repoPath, className }: Props) {
             className="min-w-0 flex-1 bg-transparent px-1 text-xs text-ink placeholder:text-ink-soft/60 focus:outline-none"
             tabIndex={expanded ? 0 : -1}
           />
-
-          {!input.trim() && (
-            <kbd className="hidden sm:inline-flex items-center rounded border border-line bg-panel-2 px-1.5 py-0.5 font-mono text-[10px] text-ink-soft select-none">⌘J</kbd>
-          )}
 
           {/* Settings Link */}
           <Link

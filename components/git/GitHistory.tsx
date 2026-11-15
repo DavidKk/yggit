@@ -26,6 +26,9 @@ type Props = {
   worktreeBranches?: string[]
   selectedHash?: string
   focusRequest?: { hash: string } | null
+  activeHoverBranch?: string | null
+  onBranchHoverStart?: (branchName: string) => void
+  onBranchHoverEnd?: () => void
   onSelect?: (commit: GitCommit) => void
   onSelectWorktree?: () => void
   onPage: (scope: string, commits: GitCommit[], hasMore: boolean) => void
@@ -57,6 +60,9 @@ export function GitHistory({
   worktreeBranches,
   selectedHash,
   focusRequest,
+  activeHoverBranch,
+  onBranchHoverStart,
+  onBranchHoverEnd,
   onSelect,
   onSelectWorktree,
   onPage,
@@ -198,6 +204,7 @@ export function GitHistory({
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showFind, query, matches, matchPos])
 
   useEffect(() => {
@@ -284,6 +291,9 @@ export function GitHistory({
         remoteNames={remoteNames}
         worktreeBranches={worktreeBranches}
         selectedHash={selectedHash}
+        activeHoverBranch={activeHoverBranch}
+        onBranchHoverStart={onBranchHoverStart}
+        onBranchHoverEnd={onBranchHoverEnd}
         findNeedle={needle}
         scrollRef={rootRef}
         footer={hasMore ? <div ref={sentinelRef} className="h-px" aria-hidden /> : null}

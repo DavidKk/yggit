@@ -19,7 +19,7 @@ import { GitSidebar } from '@/components/git/GitSidebar'
 import { PanelSplitter } from '@/components/git/PanelSplitter'
 import { useT } from '@/components/i18n/LocaleProvider'
 import { LocaleSwitcher } from '@/components/i18n/LocaleSwitcher'
-import { Button, EmptyState, Tooltip } from '@/components/sk'
+import { Button, EmptyState, Spinner, Tooltip } from '@/components/sk'
 import { ThemeSwitcher } from '@/components/theme/ThemeSwitcher'
 import { useOptionalSpotlight } from '@/lib/agent/spotlight-context'
 import { readApiErrorMessage } from '@/lib/api-error'
@@ -56,6 +56,7 @@ import { formatIssueShareCard } from '@/lib/git/share-card'
 type Props = {
   initial: GitLogView | { error: string; repo: string }
   initialCommitHash?: string
+  initialFilePath?: string
   initialPersistence?: RepositoryPersistence
 }
 
@@ -67,9 +68,10 @@ function isError(value: Props['initial']): value is { error: string; repo: strin
   return 'error' in value
 }
 
-function repoName(path: string): string {
-  const parts = path.split('/').filter(Boolean)
-  return parts[parts.length - 1] || path
+function repoName(path: string, displayPath?: string): string {
+  const target = displayPath || path
+  const parts = target.split('/').filter(Boolean)
+  return parts[parts.length - 1] || target
 }
 
 function selectionFor(view: GitLogView): GitSelection {
@@ -83,7 +85,7 @@ function highlightOf(view: GitLogView, selection: GitSelection): string {
   return ''
 }
 
-export function GitLogPage({ initial, initialCommitHash, initialPersistence: _initialPersistence }: Props) {
+export function GitLogPage({ initial, initialCommitHash, initialFilePath, initialPersistence: _initialPersistence }: Props) {
   const t = useT()
   const failed = isError(initial)
   const [view, setView] = useState<GitLogView | null>(failed ? null : initial)
@@ -101,7 +103,7 @@ export function GitLogPage({ initial, initialCommitHash, initialPersistence: _in
   const [hasMore, setHasMore] = useState(failed ? false : initial.hasMore)
   const [focusRequest, setFocusRequest] = useState<{ hash: string } | null>(initialCommitHash ? { hash: initialCommitHash } : null)
   const [selectedHash, setSelectedHash] = useState(initialCommitHash || '')
-  const [selectedFile, setSelectedFile] = useState('')
+  const [selectedFile, setSelectedFile] = useState(() => initialFilePath || (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('file') || '' : ''))
   const [selectedStatus, setSelectedStatus] = useState('')
   const [lineageHashes, setLineageHashes] = useState<string[] | null>(null)
   const lineageSet = useMemo(() => (lineageHashes && lineageHashes.length > 0 ? new Set(lineageHashes) : null), [lineageHashes])
@@ -125,6 +127,32 @@ export function GitLogPage({ initial, initialCommitHash, initialPersistence: _in
       })
     }
   }, [spotlight])
+
+  // 3-second hover timer for branch spotlight
+  const [activeHoverBranch, setActiveHoverBranch] = useState<string | null>(null)
+  const hoverBranchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const handleBranchHoverStart = useCallback((branchName: string) => {
+    if (!branchName) return
+    if (hoverBranchTimerRef.current) clearTimeout(hoverBranchTimerRef.current)
+    hoverBranchTimerRef.current = setTimeout(() => {
+      setActiveHoverBranch(branchName)
+    }, 3000)
+  }, [])
+
+  const handleBranchHoverEnd = useCallback(() => {
+    if (hoverBranchTimerRef.current) {
+      clearTimeout(hoverBranchTimerRef.current)
+      hoverBranchTimerRef.current = null
+    }
+    setActiveHoverBranch(null)
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (hoverBranchTimerRef.current) clearTimeout(hoverBranchTimerRef.current)
+    }
+  }, [])
 
   useEffect(() => {
     const host = projectFindRef.current
@@ -293,6 +321,7 @@ export function GitLogPage({ initial, initialCommitHash, initialPersistence: _in
         void load(pathParts[1])
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
@@ -397,20 +426,20 @@ export function GitLogPage({ initial, initialCommitHash, initialPersistence: _in
     },
     [applyTree]
   )
-  const commitSidebar = useCallback(() => setSidebarWidth(sidebarWidthRef.current), [])
-  const commitTree = useCallback(() => setTreeWidth(treeWidthRef.current), [])
+  const commitSidebar = useCallback(() => setSidebarWidth(sidebarWidthRef.current), [setSidebarWidth])
+  const commitTree = useCallback(() => setTreeWidth(treeWidthRef.current), [setTreeWidth])
   const fitSidebar = useCallback(() => {
     const panel = frameRef.current?.querySelector('[data-git-sidebar]') as HTMLElement | null
     if (!panel) return
     const fitted = Math.max(SIDEBAR_MIN, measurePanelFit(panel, '[data-git-sidebar-label]', 16))
     setSidebarWidth(applySidebar(fitted))
-  }, [applySidebar])
+  }, [applySidebar, setSidebarWidth])
   const fitTree = useCallback(() => {
     const panel = frameRef.current?.querySelector('[data-git-tree]') as HTMLElement | null
     if (!panel) return
     const fitted = Math.max(TREE_MIN, measurePanelFit(panel, '[data-git-tree-label]', 20))
     setTreeWidth(applyTree(fitted))
-  }, [applyTree])
+  }, [applyTree, setTreeWidth])
   scopeRef.current = scope
 
   async function load(repo: string) {
@@ -627,6 +656,7 @@ export function GitLogPage({ initial, initialCommitHash, initialPersistence: _in
               setSelectedHash('')
               setSelectedFile('')
               if (typeof window !== 'undefined') {
+                // eslint-disable-next-line @next/next/no-location-assign-relative-destination
                 window.location.href = '/'
               }
             }}
@@ -646,8 +676,10 @@ export function GitLogPage({ initial, initialCommitHash, initialPersistence: _in
                 aria-haspopup="dialog"
                 onClick={() => setMenuOpen((open) => !open)}
               >
-                <LuFolderGit2 className="size-3.5 shrink-0 text-ink-soft" aria-hidden />
-                <span className="min-w-0 truncate text-[0.8125rem] font-semibold">{view ? repoName(view.repo) : t('git.header.noRepo')}</span>
+                {busy ? <Spinner className="size-3.5 shrink-0 text-accent" /> : <LuFolderGit2 className="size-3.5 shrink-0 text-ink-soft" aria-hidden />}
+                <span className="min-w-0 truncate text-[0.8125rem] font-semibold">
+                  {busy ? t('common.loading') : view ? repoName(view.repo, view.displayPath) : t('git.header.noRepo')}
+                </span>
                 <LuChevronsUpDown className="size-3.5 shrink-0 text-ink-soft" aria-hidden />
               </Button>
             </Tooltip>
@@ -756,7 +788,7 @@ export function GitLogPage({ initial, initialCommitHash, initialPersistence: _in
                   onResizeEnd={commitSidebar}
                   onAutoFit={fitSidebar}
                 />
-                <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden border-l border-line" aria-label={t('git.section.history')}>
+                <section className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden border-l border-line" aria-label={t('git.section.history')}>
                   {error ? <p className="m-0 px-3 py-2 text-xs text-fail">{error}</p> : null}
                   {scopeMiss ? (
                     <EmptyState
@@ -780,6 +812,9 @@ export function GitLogPage({ initial, initialCommitHash, initialPersistence: _in
                       worktreeBranches={view.worktrees.filter((item) => item.branch && !item.current).map((item) => item.branch)}
                       selectedHash={selectedHash}
                       focusRequest={focusRequest}
+                      activeHoverBranch={activeHoverBranch}
+                      onBranchHoverStart={handleBranchHoverStart}
+                      onBranchHoverEnd={handleBranchHoverEnd}
                       onSelect={(commit) => {
                         setSelectedHash(commit.hash)
                         setSelectedFile('')
@@ -795,6 +830,15 @@ export function GitLogPage({ initial, initialCommitHash, initialPersistence: _in
                       onPage={onPage}
                     />
                   )}
+                  {/* Git Agent Floating Entry anchored to GitLog bottom */}
+                  <GitAgentBar repoPath={view?.repo} />
+                  {/* Loading indicator when switching repository */}
+                  {busy ? (
+                    <div className="pointer-events-none absolute inset-0 z-30 flex flex-col items-center justify-center gap-2 bg-paper/60 backdrop-blur-xs transition-opacity duration-200">
+                      <Spinner className="size-6 text-accent" />
+                      <span className="text-xs font-medium text-ink-soft">{t('common.loading') || '正在加载仓库数据...'}</span>
+                    </div>
+                  ) : null}
                 </section>
               </>
             )}
@@ -837,7 +881,6 @@ export function GitLogPage({ initial, initialCommitHash, initialPersistence: _in
         )}
         {/* Git Agent Floating Entry & Spotlight Navigation */}
         <AgentSpotlightNavigator />
-        <GitAgentBar repoPath={view?.repo} />
         <AgentWorkspace repoPath={view?.repo} />
       </div>
     </div>

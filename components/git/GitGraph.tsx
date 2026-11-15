@@ -1,24 +1,25 @@
 'use client'
 
-import { type CSSProperties, memo, type PointerEvent as ReactPointerEvent, type ReactNode, type Ref, useEffect, useMemo, useRef, useState } from 'react'
+import { type CSSProperties, memo, type PointerEvent as ReactPointerEvent, type ReactNode, type Ref, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { LuClock, LuCopy, LuGitBranch, LuHash, LuInbox, LuShare2, LuText, LuUser } from 'react-icons/lu'
 
+import { AnnotationBadge } from '@/components/git/agent/spotlight/AnnotationBadge'
 import { measureCellsFit } from '@/components/git/fitColumn'
 import { PanelSplitter } from '@/components/git/PanelSplitter'
 import { branchAtCommits, type FloatingAnchor, FloatingMenu, type FloatingMenuItem, refChips, RefChipsCell } from '@/components/git/RefChipsCell'
 import { useLocaleCode, useT } from '@/components/i18n/LocaleProvider'
 import { useNotification } from '@/components/notification/useNotification'
 import { EmptyState, ScrollArea, Tooltip } from '@/components/sk'
+import { useOptionalSpotlight } from '@/lib/agent/spotlight-context'
 import { copyToClipboard } from '@/lib/clipboard'
 import { formatCommitAgo } from '@/lib/git/format-commit-ago'
-import { COL, DOT, graphScene, laneColor, PAD, ROW, type Stroke, xAt } from '@/lib/git/graph-scene'
+import { COL, DOT, graphScene, isHighlightedStroke, laneColor, PAD, ROW, type Stroke, xAt } from '@/lib/git/graph-scene'
 import { makeShareUrl } from '@/lib/git/resolver'
 import { formatIssueShareCard, makeIssueShareUrl } from '@/lib/git/share-card'
+import { getBranchCommitHashes } from '@/lib/git/topology'
 import { GIT_WORKTREE_HASH, type GitCommit, type GitStash, gitStashAsCommit, type GitWorktree } from '@/lib/git/types'
 import { isPositiveNumber, useGitUiPref, useGitUiReady } from '@/lib/git/ui-prefs'
 import { cn } from '@/lib/utils'
-import { useOptionalSpotlight } from '@/lib/agent/spotlight-context'
-import { AnnotationBadge } from '@/components/git/agent/spotlight/AnnotationBadge'
 
 const BADGE_H = DOT
 const NODE_DOT = 16
@@ -49,7 +50,7 @@ const BRANCH_MIN = 130
 const MESSAGE_MIN = 140
 const BRANCH_DEFAULT = 160
 const GRAPH_MIN = 80
-const GRAPH_DEFAULT_LANES = 5
+const GRAPH_DEFAULT_WIDTH = 240
 
 type Props = {
   repo?: string
@@ -62,6 +63,9 @@ type Props = {
   remoteNames?: string[]
   worktreeBranches?: string[]
   selectedHash?: string
+  activeHoverBranch?: string | null
+  onBranchHoverStart?: (branchName: string) => void
+  onBranchHoverEnd?: () => void
   /** When set, non-matching commits are dimmed (find overlay); list length stays stable. */
   findNeedle?: string
   /** Scrollport for the commit list (header stays outside). */
@@ -102,13 +106,23 @@ function initials(name: string): string {
   return `${[...parts[0]][0] || ''}${[...parts[1]][0] || ''}`.toUpperCase()
 }
 
-function defaultGraphView(contentWidth: number): number {
-  return Math.min(contentWidth, Math.max(GRAPH_MIN, PAD + COL * GRAPH_DEFAULT_LANES))
-}
-
 /** Memoized SVG tree branch strokes layer to prevent re-renders on hover or loading state. */
-const GraphStrokes = memo(function GraphStrokes({ strokes, lineageHashes }: { strokes: Stroke[]; lineageHashes?: Set<string> | null }) {
+const GraphStrokes = memo(function GraphStrokes({
+  strokes,
+  lineageHashes,
+  spotlightHashes,
+  branchHashes,
+}: {
+  strokes: Stroke[]
+  lineageHashes?: Set<string> | null
+  spotlightHashes?: Set<string> | null
+  branchHashes?: Set<string> | null
+}) {
   const hasLineage = Boolean(lineageHashes && lineageHashes.size > 0)
+  const hasSpotlight = Boolean(spotlightHashes && spotlightHashes.size > 0)
+  const hasBranch = Boolean(branchHashes && branchHashes.size > 0)
+  const anyHighlightActive = hasLineage || hasSpotlight || hasBranch
+
   return (
     <>
       {strokes.map((stroke) => {
@@ -116,15 +130,37 @@ const GraphStrokes = memo(function GraphStrokes({ strokes, lineageHashes }: { st
         const hasGrad = stroke.startColor !== undefined && stroke.targetColor !== undefined && stroke.startColor !== stroke.targetColor
         const gradId = 'wt-grad-' + stroke.key.replace(/[^a-zA-Z0-9_-]/g, '_')
         const strokePaint = hasGrad ? `url(#${gradId})` : laneColor(stroke.color)
-        const isLineage = hasLineage && lineageHashes!.has(stroke.hash)
-        const strokeWidth = isLineage ? (stroke.dashed ? 2.2 : isTrunk ? 3.5 : 2.8) : stroke.dashed ? 1.4 : isTrunk ? 2.5 : 1.8
-        const opacity = hasLineage ? (isLineage ? 1 : 0.25) : 1
+
+        const isLineage = isHighlightedStroke(stroke, lineageHashes)
+        const isSpotlight = Boolean(
+          hasSpotlight && stroke.childHash && stroke.parentHash && spotlightHashes?.has(stroke.childHash.toLowerCase()) && spotlightHashes?.has(stroke.parentHash.toLowerCase())
+        )
+        const isBranch = Boolean(hasBranch && stroke.childHash && stroke.parentHash && branchHashes?.has(stroke.childHash) && branchHashes?.has(stroke.parentHash))
+        const isHighlighted = isLineage || isSpotlight || isBranch
+        const strokeWidth = isHighlighted ? (stroke.dashed ? 2.6 : isTrunk ? 3.8 : 3.0) : stroke.dashed ? 1.4 : isTrunk ? 2.5 : 1.8
+        const opacity = anyHighlightActive ? (isHighlighted ? 1 : 0.18) : 1
+
         return (
-          <g key={stroke.key} fill="none" opacity={opacity} className="transition-opacity duration-200">
+          <g
+            key={stroke.key}
+            data-git-edge-child={stroke.childHash}
+            data-git-edge-parent={stroke.parentHash}
+            data-git-edge-highlighted={isHighlighted || undefined}
+            fill="none"
+            opacity={opacity}
+            className="transition-opacity duration-200"
+          >
             {stroke.bridge && Math.abs((stroke.fromLane ?? 0) - (stroke.toLane ?? 0)) > 1 && (
               <path d={stroke.d} stroke="var(--panel)" strokeWidth={3} strokeLinecap="butt" strokeLinejoin="round" />
             )}
-            <path d={stroke.d} stroke={strokePaint} strokeWidth={strokeWidth} strokeDasharray={stroke.dashed ? '3 3' : undefined} strokeLinecap="round" strokeLinejoin="round" />
+            <path
+              d={stroke.d}
+              stroke={isHighlighted ? (stroke.color !== undefined ? laneColor(stroke.color) : 'var(--accent)') : strokePaint}
+              strokeWidth={strokeWidth}
+              strokeDasharray={stroke.dashed ? '3 3' : undefined}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
           </g>
         )
       })}
@@ -143,6 +179,9 @@ function GitGraphComponent({
   remoteNames = [],
   worktreeBranches = [],
   selectedHash,
+  activeHoverBranch,
+  onBranchHoverStart,
+  onBranchHoverEnd,
   findNeedle = '',
   scrollRef,
   footer,
@@ -156,6 +195,48 @@ function GitGraphComponent({
   const isSpotlightActive = Boolean(spotlight?.active && spotlight.targets.length > 0)
   const spotlightMap = spotlight?.targetsMap
   const [contextMenu, setContextMenu] = useState<GraphContextMenu | null>(null)
+
+  const [internalHoverBranch, setInternalHoverBranch] = useState<string | null>(null)
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const handleBranchPointerEnter = useCallback(
+    (branchName: string) => {
+      if (!branchName) return
+      onBranchHoverStart?.(branchName)
+      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current)
+      hoverTimerRef.current = setTimeout(() => {
+        setInternalHoverBranch(branchName)
+      }, 3000)
+    },
+    [onBranchHoverStart]
+  )
+
+  const handleBranchPointerLeave = useCallback(() => {
+    onBranchHoverEnd?.()
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current)
+      hoverTimerRef.current = null
+    }
+    setInternalHoverBranch(null)
+  }, [onBranchHoverEnd])
+
+  useEffect(() => {
+    return () => {
+      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current)
+    }
+  }, [])
+
+  const activeBranch = activeHoverBranch ?? internalHoverBranch
+  const branchHashes = useMemo(() => {
+    if (!activeBranch) return null
+    return getBranchCommitHashes(activeBranch, commits)
+  }, [activeBranch, commits])
+  const isBranchActive = Boolean(branchHashes && branchHashes.size > 0)
+
+  const spotlightHashes = useMemo(() => {
+    if (!spotlightMap || spotlightMap.size === 0) return null
+    return new Set(Array.from(spotlightMap.keys()))
+  }, [spotlightMap])
 
   const copyValue = async (value: string) => {
     const ok = await copyToClipboard(value)
@@ -292,7 +373,7 @@ function GitGraphComponent({
   const { points, headIndex } = scene
   const contentWidth = PAD + scene.laneCount * COL
   const [branchWidth, setBranchWidth] = useGitUiPref('graph.branchWidth', BRANCH_DEFAULT, isPositiveNumber)
-  const [graphView, setGraphView] = useGitUiPref('graph.viewWidth', defaultGraphView(contentWidth), isPositiveNumber)
+  const [graphView, setGraphView] = useGitUiPref('graph.viewWidth', GRAPH_DEFAULT_WIDTH, isPositiveNumber)
   const prefsReady = useGitUiReady()
   const [graphEdge, setGraphEdge] = useState({ left: false, right: false })
   const [hoverHash, setHoverHash] = useState<string | null>(null)
@@ -645,20 +726,24 @@ function GitGraphComponent({
               const spotlightTarget = spotlightMap?.get(commit.hash.toLowerCase())
               const isSpotlightHit = Boolean(spotlightTarget)
               const isSpotlightDimmed = isSpotlightActive && !isSpotlightHit
+              const isBranchHit = Boolean(isBranchActive && branchHashes?.has(commit.hash))
+              const isBranchDimmed = isBranchActive && !isBranchHit
               const rowTintClass = cn(
-                isSpotlightHit && spotlightTarget?.role === 'primary'
-                  ? 'bg-[color-mix(in_oklab,var(--accent)_22%,transparent)] ring-1 ring-inset ring-accent/60'
-                  : isSpotlightHit
-                    ? 'bg-[color-mix(in_oklab,var(--accent)_14%,transparent)] ring-1 ring-inset ring-blue-500/40'
-                    : selected
-                      ? 'bg-[color-mix(in_oklab,var(--ink)_14%,transparent)]'
-                      : isContextActive
-                        ? 'bg-[color-mix(in_oklab,var(--ink)_10%,transparent)]'
-                        : isLineageHit
-                          ? 'bg-[color-mix(in_oklab,var(--accent)_16%,transparent)] ring-1 ring-inset ring-accent/35'
-                          : marked
-                            ? 'bg-[color-mix(in_oklab,var(--ink)_8%,transparent)]'
-                            : 'group-hover/commit:bg-[color-mix(in_oklab,var(--ink)_6%,transparent)]'
+                isBranchHit
+                  ? 'bg-[color-mix(in_oklab,var(--accent)_20%,transparent)] ring-1 ring-inset ring-accent/60'
+                  : isSpotlightHit && spotlightTarget?.role === 'primary'
+                    ? 'bg-[color-mix(in_oklab,var(--accent)_22%,transparent)] ring-1 ring-inset ring-accent/60'
+                    : isSpotlightHit
+                      ? 'bg-[color-mix(in_oklab,var(--accent)_14%,transparent)] ring-1 ring-inset ring-blue-500/40'
+                      : selected
+                        ? 'bg-[color-mix(in_oklab,var(--ink)_14%,transparent)]'
+                        : isContextActive
+                          ? 'bg-[color-mix(in_oklab,var(--ink)_10%,transparent)]'
+                          : isLineageHit
+                            ? 'bg-[color-mix(in_oklab,var(--accent)_16%,transparent)] ring-1 ring-inset ring-accent/35'
+                            : marked
+                              ? 'bg-[color-mix(in_oklab,var(--ink)_8%,transparent)]'
+                              : 'group-hover/commit:bg-[color-mix(in_oklab,var(--ink)_6%,transparent)]'
               )
               const isHovered = hoverHash === commit.hash || isContextActive
               return (
@@ -678,7 +763,8 @@ function GitGraphComponent({
                       'group/commit grid h-[26px] max-h-[26px] w-full min-w-0 cursor-pointer select-text items-center justify-start gap-0 rounded-none border-0 bg-transparent px-0 text-left leading-none font-normal outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent transition-opacity duration-150',
                       findNeedle && !findHit && 'opacity-35',
                       isLineageActive && !isLineageHit && !selected && !isHovered && 'opacity-35 hover:opacity-100',
-                      isSpotlightDimmed && !selected && !isHovered && 'opacity-35 hover:opacity-100'
+                      isSpotlightDimmed && !selected && !isHovered && 'opacity-35 hover:opacity-100',
+                      isBranchDimmed && !selected && !isHovered && 'opacity-25 hover:opacity-100'
                     )}
                     style={{ gridTemplateColumns: columns }}
                     onClick={() => {
@@ -707,7 +793,14 @@ function GitGraphComponent({
                     <span data-git-branch-cell className="flex h-[26px] min-h-0 min-w-0 items-center justify-start overflow-hidden bg-transparent pl-0.5">
                       {chips.length > 0 ? (
                         <>
-                          <RefChipsCell chips={chips} commit={commit} checkedOut={checkedOut} color={color} />
+                          <RefChipsCell
+                            chips={chips}
+                            commit={commit}
+                            checkedOut={checkedOut}
+                            color={color}
+                            onBranchHoverStart={handleBranchPointerEnter}
+                            onBranchHoverEnd={handleBranchPointerLeave}
+                          />
                           {spotlightTarget && <AnnotationBadge target={spotlightTarget} className="ml-1 shrink-0" />}
                           <span
                             className="h-0.5 min-w-2 flex-1"
@@ -726,6 +819,8 @@ function GitGraphComponent({
                             )}
                             style={{ height: BADGE_H, color, background: `color-mix(in oklab, ${color} 18%, transparent)` }}
                             title={branch}
+                            onPointerEnter={() => handleBranchPointerEnter(branch)}
+                            onPointerLeave={handleBranchPointerLeave}
                           >
                             {branch}
                           </span>
@@ -860,7 +955,7 @@ function GitGraphComponent({
                     )
                   })}
                 </defs>
-                <GraphStrokes strokes={scene.strokes} lineageHashes={lineageHashes} />
+                <GraphStrokes strokes={scene.strokes} lineageHashes={lineageHashes} spotlightHashes={spotlightHashes} branchHashes={branchHashes} />
                 {commits.map((commit, index) => {
                   const chips = refChips(commit.refs, remoteNames)
                   const branch = branchAt.get(commit.hash) || ''
@@ -943,9 +1038,11 @@ function GitGraphComponent({
                 const isLineageHit = lineageHashes?.has(commit.hash)
                 const isSpotlightHit = Boolean(spotlightMap?.get(commit.hash.toLowerCase()))
                 const isSpotlightDimmed = isSpotlightActive && !isSpotlightHit
+                const isBranchHit = Boolean(isBranchActive && branchHashes?.has(commit.hash))
+                const isBranchDimmed = isBranchActive && !isBranchHit
                 const isHead = index === headIndex || commit.refs.some((r) => r === 'HEAD' || r.startsWith('HEAD -> '))
                 const isTagged = commit.refs.some((r) => r.startsWith('tag: '))
-                const isDimmed = Boolean((lineageHashes && lineageHashes.size > 0 && !isLineageHit && !isHead) || isSpotlightDimmed)
+                const isDimmed = Boolean((lineageHashes && lineageHashes.size > 0 && !isLineageHit && !isHead) || isSpotlightDimmed || isBranchDimmed)
                 return (
                   <Tooltip key={commit.hash} content={commit.author} placement="top">
                     <span
@@ -956,7 +1053,8 @@ function GitGraphComponent({
                         !isMerge && 'text-[9px] font-semibold text-ink',
                         isLineageHit && 'ring-2 ring-accent ring-offset-1 ring-offset-[var(--panel)] scale-110 z-10 shadow-[0_0_8px_var(--accent)]',
                         isSpotlightHit && 'ring-2 ring-accent ring-offset-1 ring-offset-[var(--panel)] scale-125 z-20 shadow-[0_0_12px_var(--accent)]',
-                        isDimmed && 'opacity-35 hover:opacity-100'
+                        isBranchHit && 'ring-2 ring-accent ring-offset-1 ring-offset-[var(--panel)] scale-125 z-20 shadow-[0_0_12px_var(--accent)]',
+                        isDimmed && 'opacity-25 hover:opacity-100'
                       )}
                       style={
                         isMerge

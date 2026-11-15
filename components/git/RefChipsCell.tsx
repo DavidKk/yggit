@@ -63,12 +63,16 @@ export function RefChipsCell({
   checkedOut,
   color,
   dimmed = false,
+  onBranchHoverStart,
+  onBranchHoverEnd,
 }: {
   chips: RefChip[]
   commit?: GitCommit
   checkedOut: Set<string>
   color: string
   dimmed?: boolean
+  onBranchHoverStart?: (name: string) => void
+  onBranchHoverEnd?: () => void
 }) {
   const t = useT()
   const notify = useNotification()
@@ -179,8 +183,14 @@ export function RefChipsCell({
         aria-expanded={dropdownOpen}
         className="flex h-[22px] max-w-full min-w-0 cursor-pointer items-center border-0 bg-transparent p-0 text-left outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent"
         style={{ cursor: 'pointer' }}
-        onMouseEnter={openDropdown}
-        onMouseLeave={scheduleCloseDropdown}
+        onMouseEnter={() => {
+          openDropdown()
+          if (first?.name) onBranchHoverStart?.(first.name)
+        }}
+        onMouseLeave={() => {
+          scheduleCloseDropdown()
+          onBranchHoverEnd?.()
+        }}
         onClick={(event) => {
           event.stopPropagation()
           openDropdown()

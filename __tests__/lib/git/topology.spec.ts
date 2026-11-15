@@ -1,4 +1,4 @@
-import { analyzeMergeTopology, parseBranchIntents } from '@/lib/git/topology'
+import { analyzeMergeTopology, getBranchCommitHashes, parseBranchIntents } from '@/lib/git/topology'
 import type { GitCommit } from '@/lib/git/types'
 
 describe('topology', () => {
@@ -15,6 +15,7 @@ describe('topology', () => {
       const res3 = parseBranchIntents("Merge branch 'bugfix/typo'")
       expect(res3.source).toBe('bugfix/typo')
       expect(res3.target).toBeUndefined()
+      expect(parseBranchIntents("Merge branch 'bugfix/brotli-fix' into 'master'")).toEqual({ source: 'bugfix/brotli-fix', target: 'master' })
     })
 
     it('parses pull request merge messages', () => {
@@ -100,6 +101,47 @@ describe('topology', () => {
       expect(info.parent2Hash).toBe('c2')
       expect(info.mergeBaseHash).toBe('c0')
       expect(info.commitsIncluded).toEqual(['c2', 'c1'])
+    })
+
+    it('highlights both merge arms through the common base without older ancestry or a depth limit', () => {
+      const make = (hash: string, parents: string[]): GitCommit => ({
+        hash,
+        short: hash,
+        parents,
+        author: 'Test',
+        date: '',
+        refs: [],
+        subject: hash,
+      })
+      const merge = make('merge', ['target', 'source-119'])
+      const nodes = [merge, make('target', ['base']), make('base', ['older']), make('older', [])]
+      for (let i = 0; i < 120; i++) nodes.push(make(`source-${i}`, [i ? `source-${i - 1}` : 'base']))
+      const info = analyzeMergeTopology(merge, new Map(nodes.map((node) => [node.hash, node])))
+      expect(info.commitsIncluded).toHaveLength(120)
+      expect(info.highlightHashes).toEqual(expect.arrayContaining(['merge', 'target', 'source-119', 'source-0', 'base']))
+      expect(info.highlightHashes).not.toContain('older')
+      expect(info.highlightHashes).toHaveLength(124 - 1)
+    })
+  })
+
+  describe('getBranchCommitHashes', () => {
+    it('returns empty set if branchName is empty or commits is empty', () => {
+      expect(getBranchCommitHashes('', [])).toEqual(new Set())
+    })
+
+    it('collects all ancestor commits of a branch tip', () => {
+      const commits: GitCommit[] = [
+        { hash: 'feat-2', short: 'feat-2', parents: ['feat-1'], author: 'A', date: '', refs: ['feat/agent-system'], subject: 'feat 2' },
+        { hash: 'feat-1', short: 'feat-1', parents: ['main-1'], author: 'A', date: '', refs: [], subject: 'feat 1' },
+        { hash: 'main-2', short: 'main-2', parents: ['main-1'], author: 'B', date: '', refs: ['main'], subject: 'main 2' },
+        { hash: 'main-1', short: 'main-1', parents: [], author: 'B', date: '', refs: [], subject: 'main 1' },
+      ]
+
+      const hashes = getBranchCommitHashes('feat/agent-system', commits)
+      expect(hashes.has('feat-2')).toBe(true)
+      expect(hashes.has('feat-1')).toBe(true)
+      expect(hashes.has('main-1')).toBe(true)
+      expect(hashes.has('main-2')).toBe(false)
     })
   })
 })
