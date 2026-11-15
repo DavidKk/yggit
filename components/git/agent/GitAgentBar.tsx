@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { LuBot, LuExternalLink, LuSend, LuSettings, LuSparkles, LuX } from 'react-icons/lu'
 
 import { useT } from '@/components/i18n/LocaleProvider'
@@ -20,27 +20,79 @@ export function GitAgentBar({ repoPath, className }: Props) {
 
   const [input, setInput] = useState('')
   const [expanded, setExpanded] = useState(false)
+  const [labelVisible, setLabelVisible] = useState(true)
+  const [contentVisible, setContentVisible] = useState(false)
   const [quickCardOpen, setQuickCardOpen] = useState(false)
+
   const inputRef = useRef<HTMLInputElement>(null)
   const formRef = useRef<HTMLFormElement>(null)
+  const openTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const clearTimers = useCallback(() => {
+    if (openTimerRef.current) {
+      clearTimeout(openTimerRef.current)
+      openTimerRef.current = null
+    }
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current)
+      closeTimerRef.current = null
+    }
+  }, [])
+
+  const openBar = useCallback(() => {
+    clearTimers()
+    // Staged sequence: 1. Hide collapsed text immediately (snappy 100ms fade)
+    setLabelVisible(false)
+    // 2. Expand container width with spring curve
+    setExpanded(true)
+    // 3. Staged: reveal expanded input & actions only after width stretch settles
+    openTimerRef.current = setTimeout(() => {
+      setContentVisible(true)
+    }, 280)
+  }, [clearTimers])
+
+  const closeBar = useCallback(() => {
+    clearTimers()
+    // Staged sequence: 1. Hide expanded content immediately
+    setContentVisible(false)
+    // 2. Collapse container width with spring recoil
+    setExpanded(false)
+    // 3. Staged: reveal collapsed text only after container bounce settles
+    closeTimerRef.current = setTimeout(() => {
+      setLabelVisible(true)
+    }, 360)
+  }, [clearTimers])
+
+  const toggleBar = useCallback(() => {
+    if (expanded) {
+      closeBar()
+    } else {
+      openBar()
+    }
+  }, [expanded, closeBar, openBar])
 
   useEffect(() => {
-    if (expanded) {
+    return () => clearTimers()
+  }, [clearTimers])
+
+  useEffect(() => {
+    if (contentVisible) {
       inputRef.current?.focus()
     }
-  }, [expanded])
+  }, [contentVisible])
 
   // Global hotkey: ⌘J / Ctrl+J
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && (e.key === 'j' || e.key === 'J')) {
         e.preventDefault()
-        setExpanded((prev) => !prev)
+        toggleBar()
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [])
+  }, [toggleBar])
 
   // Click outside to collapse if empty
   useEffect(() => {
@@ -48,13 +100,13 @@ export function GitAgentBar({ repoPath, className }: Props) {
     function handleClickOutside(event: PointerEvent) {
       if (formRef.current && !formRef.current.contains(event.target as Node)) {
         if (!input.trim()) {
-          setExpanded(false)
+          closeBar()
         }
       }
     }
     document.addEventListener('pointerdown', handleClickOutside)
     return () => document.removeEventListener('pointerdown', handleClickOutside)
-  }, [expanded, input])
+  }, [expanded, input, closeBar])
 
   // Auto-open quick card when processing starts if not docked
   useEffect(() => {
@@ -71,10 +123,6 @@ export function GitAgentBar({ repoPath, className }: Props) {
     setInput('')
     setQuickCardOpen(true)
     await sendMessage(trimmed, repoPath)
-  }
-
-  const collapse = () => {
-    setExpanded(false)
   }
 
   // Get the latest assistant response for the in-place answer card
@@ -137,13 +185,13 @@ export function GitAgentBar({ repoPath, className }: Props) {
         onSubmit={handleSubmit}
         onClick={() => {
           if (!expanded) {
-            setExpanded(true)
+            openBar()
           }
         }}
         onKeyDown={(event) => {
           if (event.key === 'Escape') {
             event.preventDefault()
-            collapse()
+            closeBar()
           }
         }}
         aria-label={t('gitAgent.barAria')}
@@ -164,11 +212,12 @@ export function GitAgentBar({ repoPath, className }: Props) {
           onClick={(e) => {
             if (expanded) {
               e.stopPropagation()
-              collapse()
+              closeBar()
             }
           }}
           className={cn(
-            'flex size-6 shrink-0 items-center justify-center rounded-full text-accent outline-none transition-colors duration-200',
+            'flex size-6 shrink-0 items-center justify-center rounded-full text-accent outline-none transition-[transform,color,background-color] duration-350 ease-[cubic-bezier(0.175,0.885,0.32,1.15)] motion-reduce:transition-none',
+            !expanded && !labelVisible ? 'translate-x-[38px]' : 'translate-x-0',
             expanded ? 'hover:bg-accent/15 cursor-pointer' : 'pointer-events-none'
           )}
         >
@@ -178,8 +227,10 @@ export function GitAgentBar({ repoPath, className }: Props) {
         {/* Collapsed Label: "Git Agent" */}
         <span
           className={cn(
-            'text-[13px] font-medium tracking-wide text-ink whitespace-nowrap overflow-hidden transition-[max-width,opacity,margin] duration-300 ease-out select-none',
-            expanded ? 'max-w-0 opacity-0 ml-0 pointer-events-none' : 'max-w-[80px] opacity-100 ml-2'
+            'text-[13px] font-medium tracking-wide text-ink whitespace-nowrap overflow-hidden select-none',
+            labelVisible && !expanded
+              ? 'max-w-[80px] opacity-100 ml-2 transition-[max-width,opacity,margin] duration-250 ease-out'
+              : 'max-w-0 opacity-0 ml-0 pointer-events-none transition-[max-width,opacity,margin] duration-100 ease-in'
           )}
         >
           Git Agent
@@ -188,8 +239,11 @@ export function GitAgentBar({ repoPath, className }: Props) {
         {/* Expanded Content: Input & Actions */}
         <div
           className={cn(
-            'flex flex-1 min-w-0 items-center gap-1.5 transition-[opacity,transform] duration-300 ease-out',
-            expanded ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-2 pointer-events-none'
+            'flex items-center gap-1.5',
+            expanded ? 'flex-1 min-w-0' : 'w-0 max-w-0 overflow-hidden flex-none',
+            contentVisible
+              ? 'opacity-100 translate-x-0 transition-[opacity,transform] duration-200 ease-out'
+              : 'opacity-0 -translate-x-2 pointer-events-none transition-[opacity,transform] duration-150 ease-in'
           )}
         >
           <input
@@ -199,7 +253,7 @@ export function GitAgentBar({ repoPath, className }: Props) {
             onChange={(e) => setInput(e.target.value)}
             placeholder={t('gitAgent.barPlaceholder')}
             className="min-w-0 flex-1 bg-transparent px-1 text-xs text-ink placeholder:text-ink-soft/60 focus:outline-none"
-            tabIndex={expanded ? 0 : -1}
+            tabIndex={contentVisible ? 0 : -1}
           />
 
           {/* Settings Link */}
@@ -208,7 +262,7 @@ export function GitAgentBar({ repoPath, className }: Props) {
             className="flex size-7 shrink-0 items-center justify-center rounded-full text-ink-soft hover:bg-[var(--overlay-06)] hover:text-ink active:scale-95 transition-all"
             title={t('gitAgent.settingsTitle')}
             aria-label={t('gitAgent.settingsTitle')}
-            tabIndex={expanded ? 0 : -1}
+            tabIndex={contentVisible ? 0 : -1}
           >
             <LuSettings className="size-3.5" />
           </Link>
@@ -220,7 +274,7 @@ export function GitAgentBar({ repoPath, className }: Props) {
               disabled={isProcessing}
               className="flex size-7 shrink-0 items-center justify-center rounded-full bg-accent text-accent-ink shadow-xs hover:brightness-110 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
               aria-label="Send query"
-              tabIndex={expanded ? 0 : -1}
+              tabIndex={contentVisible ? 0 : -1}
             >
               {isProcessing ? <Spinner className="size-3" /> : <LuSend className="size-3.5" />}
             </button>
@@ -231,12 +285,12 @@ export function GitAgentBar({ repoPath, className }: Props) {
             type="button"
             onClick={(e) => {
               e.stopPropagation()
-              collapse()
+              closeBar()
             }}
             className="flex size-7 shrink-0 items-center justify-center rounded-full text-ink-soft hover:bg-[var(--overlay-06)] hover:text-ink active:scale-95 transition-all cursor-pointer"
             aria-label="Collapse"
             title={t('common.close') || '收起'}
-            tabIndex={expanded ? 0 : -1}
+            tabIndex={contentVisible ? 0 : -1}
           >
             <LuX className="size-3.5" />
           </button>
