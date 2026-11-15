@@ -35,6 +35,12 @@ import {
 } from '@/lib/git/types'
 import { isPositiveNumber, readGitUiPref, repoPrefKey, useGitUiPref, useGitUiReady } from '@/lib/git/ui-prefs'
 import { cn } from '@/lib/utils'
+import { SpotlightProvider } from '@/lib/agent/spotlight-context'
+import { AgentProvider } from '@/lib/agent/agent-context'
+import { GitAgentBar } from '@/components/git/agent/GitAgentBar'
+import { AgentWorkspace } from '@/components/git/agent/AgentWorkspace'
+import { AgentSettingsModal } from '@/components/git/agent/settings/AgentSettingsModal'
+import { AgentSpotlightNavigator } from '@/components/git/agent/spotlight/AgentSpotlightNavigator'
 
 function isGitSelection(value: unknown): value is GitSelection {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false
@@ -589,17 +595,24 @@ export function GitLogPage({ initial, initialCommitHash, initialPersistence: _in
   const scopeMiss = Boolean(view && commits.length === 0)
 
   return (
-    <div
-      ref={worldRef}
-      data-git-world-tree
-      className="flex h-full min-h-0 flex-1 flex-col bg-paper text-ink"
-      style={{
-        backgroundImage:
-          'radial-gradient(ellipse 70% 45% at 12% -10%, color-mix(in oklab, var(--wt-primary) 12%, transparent), transparent 55%), radial-gradient(ellipse 50% 40% at 88% 110%, color-mix(in oklab, var(--wt-secondary) 14%, transparent), transparent 50%)',
+    <SpotlightProvider
+      onNavigateCommit={(hash) => {
+        setSelectedHash(hash)
+        setFocusRequest({ hash })
       }}
     >
-      {process.env.NODE_ENV === 'development' ? <GitDebug /> : null}
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-panel/80">
+      <AgentProvider currentRepo={view?.repo}>
+        <div
+          ref={worldRef}
+          data-git-world-tree
+          className="flex h-full min-h-0 flex-1 flex-col bg-paper text-ink"
+          style={{
+            backgroundImage:
+              'radial-gradient(ellipse 70% 45% at 12% -10%, color-mix(in oklab, var(--wt-primary) 12%, transparent), transparent 55%), radial-gradient(ellipse 50% 40% at 88% 110%, color-mix(in oklab, var(--wt-secondary) 14%, transparent), transparent 50%)',
+          }}
+        >
+          {process.env.NODE_ENV === 'development' ? <GitDebug /> : null}
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-panel/80">
         <header className="flex shrink-0 items-center gap-3 border-b border-line bg-panel-2/60 px-3 py-1.5">
           <BrandLogo
             href="/"
@@ -821,7 +834,14 @@ export function GitLogPage({ initial, initialCommitHash, initialPersistence: _in
             ) : null}
           </div>
         )}
+        {/* Git Agent Floating Entry & Spotlight Navigation */}
+        <AgentSpotlightNavigator />
+        <AgentSettingsModal />
+        <GitAgentBar repoPath={view?.repo} />
+        <AgentWorkspace repoPath={view?.repo} />
       </div>
     </div>
+    </AgentProvider>
+  </SpotlightProvider>
   )
 }

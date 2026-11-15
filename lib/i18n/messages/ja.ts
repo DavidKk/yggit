@@ -9,6 +9,7 @@ import { editJa } from '@/lib/i18n/messages/parts/edit.ja'
 import { eventsJa } from '@/lib/i18n/messages/parts/events.ja'
 import { floatingBallJa } from '@/lib/i18n/messages/parts/floating-ball'
 import { gitJa } from '@/lib/i18n/messages/parts/git'
+import { gitAgentJa } from '@/lib/i18n/messages/parts/agent'
 import { integrationJa } from '@/lib/i18n/messages/parts/integration'
 import { legalJa } from '@/lib/i18n/messages/parts/legal'
 import { mcpGatewayJa } from '@/lib/i18n/messages/parts/mcp-gateway'
@@ -345,6 +346,7 @@ export const ja: MessageTree = {
   ...editJa,
   ...integrationJa,
   ...mcpGatewayJa,
+  ...gitAgentJa,
   ...downloadsJa,
   ...aboutJa,
   ...agentAuthJa,

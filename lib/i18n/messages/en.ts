@@ -9,6 +9,7 @@ import { editEn } from '@/lib/i18n/messages/parts/edit.en'
 import { eventsEn } from '@/lib/i18n/messages/parts/events.en'
 import { floatingBallEn } from '@/lib/i18n/messages/parts/floating-ball'
 import { gitEn } from '@/lib/i18n/messages/parts/git'
+import { gitAgentEn } from '@/lib/i18n/messages/parts/agent'
 import { integrationEn } from '@/lib/i18n/messages/parts/integration'
 import { legalEn } from '@/lib/i18n/messages/parts/legal'
 import { mcpGatewayEn } from '@/lib/i18n/messages/parts/mcp-gateway'
@@ -353,6 +354,7 @@ export const en: MessageTree = {
   ...editEn,
   ...integrationEn,
   ...mcpGatewayEn,
+  ...gitAgentEn,
   ...downloadsEn,
   ...aboutEn,
   ...agentAuthEn,

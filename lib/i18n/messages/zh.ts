@@ -11,6 +11,7 @@ import { editZh } from '@/lib/i18n/messages/parts/edit'
 import { eventsZh } from '@/lib/i18n/messages/parts/events'
 import { floatingBallZh } from '@/lib/i18n/messages/parts/floating-ball'
 import { gitZh } from '@/lib/i18n/messages/parts/git'
+import { gitAgentZh } from '@/lib/i18n/messages/parts/agent'
 import { integrationZh } from '@/lib/i18n/messages/parts/integration'
 import { legalZh } from '@/lib/i18n/messages/parts/legal'
 import { marketingZh } from '@/lib/i18n/messages/parts/marketing'
@@ -34,6 +35,7 @@ export const zh = {
   ...editZh,
   ...integrationZh,
   ...mcpGatewayZh,
+  ...gitAgentZh,
   ...downloadsZh,
   ...aboutZh,
   ...agentAuthZh,
