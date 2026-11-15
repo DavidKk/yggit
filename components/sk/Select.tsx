@@ -322,7 +322,7 @@ export function Select({
           ? cn(
               'inline-flex h-full w-full cursor-pointer items-center justify-between gap-0.5 border-none bg-transparent px-1.5',
               'appearance-none rounded-none shadow-none',
-              size === 'mini' ? 'text-[0.7rem] leading-none' : 'text-[0.8125rem] leading-none',
+              size === 'mini' ? 'text-[0.7rem] leading-none' : 'text-xs leading-none',
               'hover:enabled:text-accent',
               'focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent',
               controlDisabled

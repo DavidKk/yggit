@@ -89,7 +89,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       data-size={size === 'md' ? undefined : size}
       data-sheen={sheen ? 'true' : undefined}
       className={cn(
-        'relative isolate box-border inline-flex h-8 cursor-pointer appearance-none items-center justify-center gap-2 overflow-hidden rounded-[0.2rem] border border-line bg-[var(--panel-2)] px-3 font-inherit text-[0.8125rem] font-medium leading-none text-ink transition-[background-color,border-color,opacity,box-shadow] duration-100 ease-out',
+        'relative isolate box-border inline-flex h-9 cursor-pointer appearance-none items-center justify-center gap-2 overflow-hidden rounded-md border border-line bg-[var(--panel-2)] px-3.5 font-inherit text-xs font-medium leading-none text-ink transition-[background-color,border-color,opacity,box-shadow] duration-100 ease-out',
         'outline-none focus:outline-none focus-visible:outline-none',
         'hover:enabled:bg-[color-mix(in_oklab,var(--panel-2)_80%,var(--ink))]',
         variant !== 'plain' && !isGradient && 'hover:enabled:border-[var(--overlay-12)]',
@@ -127,7 +127,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
         variant === 'ghost' && 'bg-transparent text-ink-soft hover:enabled:bg-[var(--overlay-06)] hover:enabled:text-ink',
         variant === 'plain' &&
           'border-transparent bg-transparent text-ink-soft shadow-none hover:enabled:border-transparent hover:enabled:bg-[var(--overlay-06)] hover:enabled:text-ink',
-        size === 'icon' && 'w-8 shrink-0 px-0',
+        size === 'icon' && 'h-8 w-8 shrink-0 px-0 rounded-md',
         size === 'mini' && 'h-6 w-6 shrink-0 px-0',
         size === 'xs' && 'h-5 gap-1 px-1.5 text-[11px] font-normal shadow-none',
         size === 'lg' && 'h-11 min-h-11 shrink-0 px-4 text-sm font-semibold rounded-[0.25rem] gap-2',
