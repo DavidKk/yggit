@@ -9,6 +9,7 @@ import {
   LuChevronRight,
   LuChevronsDownUp,
   LuChevronsUpDown,
+  LuCircleAlert,
   LuCloud,
   LuCopy,
   LuFolder,
@@ -27,7 +28,7 @@ import { FloatingMenu, type FloatingMenuItem } from '@/components/git/RefChipsCe
 import { handleTreeExpandKey, handleTreeParentKey } from '@/components/git/treeExpandKey'
 import { useT } from '@/components/i18n/LocaleProvider'
 import { useNotification } from '@/components/notification/useNotification'
-import { Badge, Button, EmptyState, ScrollArea } from '@/components/sk'
+import { Badge, Button, EmptyState, ScrollArea, Tooltip } from '@/components/sk'
 import { copyToClipboard } from '@/lib/clipboard'
 import { useGitDriver } from '@/lib/git/driver'
 import type { GitLogView, GitRemoteProbe, GitSelection } from '@/lib/git/types'
@@ -318,6 +319,7 @@ export function GitSidebar({ view, selection, width, remoteUpdates = [], remoteP
         label: `${t('git.graph.copyBranchName') || '复制分支名称'} (${item.name})`,
         icon: <LuGitBranch className="size-3.5 shrink-0 text-accent" />,
         onSelect: () => void copyValue(item.name),
+        group: '复制',
       },
     ]
 
@@ -327,6 +329,7 @@ export function GitSidebar({ view, selection, width, remoteUpdates = [], remoteP
         label: `复制完整路径 (${item.title})`,
         icon: <LuCopy className="size-3.5 shrink-0" />,
         onSelect: () => void copyValue(item.title!),
+        group: '复制',
       })
     }
 
@@ -337,18 +340,21 @@ export function GitSidebar({ view, selection, width, remoteUpdates = [], remoteP
           label: `${t('git.graph.copyCommitSubject') || '复制提交信息'} (${tipCommit.subject})`,
           icon: <LuText className="size-3.5 shrink-0 text-ink-soft" />,
           onSelect: () => void copyValue(tipCommit.subject),
+          group: '复制',
         },
         {
           key: 'copy-hash',
           label: `${t('git.graph.copyCommitHash') || '复制 Commit SHA'} (${tipCommit.short || tipCommit.hash.slice(0, 7)})`,
           icon: <LuHash className="size-3.5 shrink-0 text-ink-soft" />,
           onSelect: () => void copyValue(tipCommit.hash),
+          group: '复制',
         },
         {
           key: 'copy-author',
           label: `${t('git.graph.copyAuthor') || '复制作者'} (${tipCommit.author})`,
           icon: <LuUser className="size-3.5 shrink-0 text-ink-soft" />,
           onSelect: () => void copyValue(tipCommit.author),
+          group: '复制',
         }
       )
     } else if (item.tip) {
@@ -358,6 +364,7 @@ export function GitSidebar({ view, selection, width, remoteUpdates = [], remoteP
         label: `${t('git.graph.copyCommitHash') || '复制 Commit SHA'} (${tipHash.slice(0, 7)})`,
         icon: <LuHash className="size-3.5 shrink-0 text-ink-soft" />,
         onSelect: () => void copyValue(tipHash),
+        group: '复制',
       })
     }
 
@@ -378,12 +385,14 @@ export function GitSidebar({ view, selection, width, remoteUpdates = [], remoteP
         label: `复制标签名称 (${tag.name})`,
         icon: <LuTag className="size-3.5 shrink-0 text-accent" />,
         onSelect: () => void copyValue(tag.name),
+        group: '复制',
       },
       {
         key: 'copy-hash',
         label: `${t('git.graph.copyCommitHash') || '复制 Commit SHA'} (${tag.tip.slice(0, 7)})`,
         icon: <LuHash className="size-3.5 shrink-0 text-ink-soft" />,
         onSelect: () => void copyValue(tag.tip),
+        group: '复制',
       },
     ]
     if (commit?.subject) {
@@ -392,6 +401,7 @@ export function GitSidebar({ view, selection, width, remoteUpdates = [], remoteP
         label: `${t('git.graph.copyCommitSubject') || '复制提交信息'} (${commit.subject})`,
         icon: <LuText className="size-3.5 shrink-0 text-ink-soft" />,
         onSelect: () => void copyValue(commit.subject),
+        group: '复制',
       })
     }
     setContextMenu({
@@ -410,6 +420,7 @@ export function GitSidebar({ view, selection, width, remoteUpdates = [], remoteP
         label: `复制 Stash 名称 (${stash.name})`,
         icon: <LuInbox className="size-3.5 shrink-0 text-accent" />,
         onSelect: () => void copyValue(stash.name),
+        group: '复制',
       },
     ]
     if (stash.subject) {
@@ -419,6 +430,7 @@ export function GitSidebar({ view, selection, width, remoteUpdates = [], remoteP
         label: `${t('git.graph.copyCommitSubject') || '复制提交信息'} (${subj})`,
         icon: <LuText className="size-3.5 shrink-0 text-ink-soft" />,
         onSelect: () => void copyValue(subj),
+        group: '复制',
       })
     }
     items.push({
@@ -426,6 +438,7 @@ export function GitSidebar({ view, selection, width, remoteUpdates = [], remoteP
       label: `${t('git.graph.copyCommitHash') || '复制 Commit SHA'} (${stash.hash.slice(0, 7)})`,
       icon: <LuHash className="size-3.5 shrink-0 text-ink-soft" />,
       onSelect: () => void copyValue(stash.hash),
+      group: '复制',
     })
     setContextMenu({
       anchor: { x: e.clientX, y: e.clientY },
@@ -443,6 +456,7 @@ export function GitSidebar({ view, selection, width, remoteUpdates = [], remoteP
         label: `复制本地路径 (${entry.path})`,
         icon: <LuFolder className="size-3.5 shrink-0 text-accent" />,
         onSelect: () => void copyValue(entry.path),
+        group: '复制',
       },
     ]
     if (entry.branch) {
@@ -452,6 +466,7 @@ export function GitSidebar({ view, selection, width, remoteUpdates = [], remoteP
         label: `${t('git.graph.copyBranchName') || '复制分支名称'} (${br})`,
         icon: <LuGitBranch className="size-3.5 shrink-0 text-accent" />,
         onSelect: () => void copyValue(br),
+        group: '复制',
       })
     }
     items.push({
@@ -459,6 +474,7 @@ export function GitSidebar({ view, selection, width, remoteUpdates = [], remoteP
       label: `${t('git.graph.copyCommitHash') || '复制 HEAD SHA'} (${entry.head.slice(0, 7)})`,
       icon: <LuHash className="size-3.5 shrink-0 text-ink-soft" />,
       onSelect: () => void copyValue(entry.head),
+      group: '复制',
     })
     setContextMenu({
       anchor: { x: e.clientX, y: e.clientY },
@@ -835,27 +851,27 @@ export function GitSidebar({ view, selection, width, remoteUpdates = [], remoteP
                   <span data-git-sidebar-label className="shrink-0 whitespace-nowrap">
                     {section.title}
                   </span>
-                  {section.id === 'worktree' && isEdge ? (
-                    <Badge
-                      tone="neutral"
-                      size="mini"
-                      dot={false}
-                      className="shrink-0 text-[10px] text-ink-soft/80 bg-[var(--overlay-06)]"
-                      title={t('git.sidebar.worktreeEdgeUnsupportedMsg')}
-                    >
-                      {t('git.sidebar.worktreeEdgeUnsupported')}
-                    </Badge>
-                  ) : (
+                  {!(section.id === 'worktree' && isEdge) ? (
                     <Badge tone="neutral" size="mini" dot={false} className="shrink-0">
                       {badgeCount}
                     </Badge>
-                  )}
+                  ) : null}
                   {section.notice && section.notice > 0 ? (
                     <Badge tone="accent" size="mini" dot={false} className="shrink-0" title={t('git.sidebar.remotePending')}>
                       {section.notice}
                     </Badge>
                   ) : null}
                 </Button>
+                {section.id === 'worktree' && isEdge ? (
+                  <Tooltip content={t('git.sidebar.worktreeEdgeUnsupportedMsg')} placement="left">
+                    <span
+                      className="mr-2 flex size-6 shrink-0 cursor-help items-center justify-center text-fail hover:text-fail/80"
+                      aria-label={t('git.sidebar.worktreeEdgeUnsupportedMsg')}
+                    >
+                      <LuCircleAlert className="size-3.5 text-fail" aria-hidden="true" />
+                    </span>
+                  </Tooltip>
+                ) : null}
                 <div
                   className={cn(
                     'flex shrink-0 items-center transition-opacity',

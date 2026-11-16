@@ -254,6 +254,7 @@ function GitGraphComponent({
         label: `${t('git.graph.copyBranchName')} (${b})`,
         icon: <LuGitBranch className="size-3.5 shrink-0" aria-hidden />,
         onSelect: () => void copyValue(b),
+        group: '复制',
       })
     }
     items.push(
@@ -266,6 +267,7 @@ function GitGraphComponent({
           const full = typeof window !== 'undefined' ? `${window.location.origin}${shareUrl}` : shareUrl
           void copyValue(full)
         },
+        group: '复制',
       },
       {
         key: 'share-issue-card',
@@ -297,30 +299,35 @@ function GitGraphComponent({
           )
           void copyValue(card.markdown)
         },
+        group: '复制',
       },
       {
         key: 'subject',
         label: t('git.graph.copyCommitSubject'),
         icon: <LuText className="size-3.5 shrink-0" aria-hidden />,
         onSelect: () => void copyValue(commit.subject),
+        group: '复制',
       },
       {
         key: 'hash',
         label: t('git.graph.copyCommitHash'),
         icon: <LuHash className="size-3.5 shrink-0" aria-hidden />,
         onSelect: () => void copyValue(commit.hash),
+        group: '复制',
       },
       {
         key: 'short-hash',
         label: `${t('git.graph.copyCommitHash')} (Short: ${commit.short || commit.hash.slice(0, 7)})`,
         icon: <LuHash className="size-3.5 shrink-0" aria-hidden />,
         onSelect: () => void copyValue(commit.short || commit.hash.slice(0, 7)),
+        group: '复制',
       },
       {
         key: 'author',
         label: `${t('git.graph.copyAuthor')} (${commit.author})`,
         icon: <LuUser className="size-3.5 shrink-0" aria-hidden />,
         onSelect: () => void copyValue(commit.author),
+        group: '复制',
       }
     )
     if (commit.date) {
@@ -329,6 +336,7 @@ function GitGraphComponent({
         label: `${t('git.graph.copyDate')} (${commit.date})`,
         icon: <LuClock className="size-3.5 shrink-0" aria-hidden />,
         onSelect: () => void copyValue(commit.date),
+        group: '复制',
       })
     }
     return items
@@ -345,6 +353,7 @@ function GitGraphComponent({
             ? `${t('git.graph.workingTree')}: +${wt.insertions} -${wt.deletions} (${t('git.graph.filesCount', { count: wt.files })})`
             : `${t('git.graph.workingTree')}: ${t('git.graph.filesCount', { count: wt.files })}`
         ),
+      group: '复制',
     },
   ]
 
@@ -354,18 +363,21 @@ function GitGraphComponent({
       label: t('git.graph.copyStashSubject'),
       icon: <LuText className="size-3.5 shrink-0" aria-hidden />,
       onSelect: () => void copyValue(stash.subject || stash.name),
+      group: '复制',
     },
     {
       key: 'name',
       label: `${t('git.graph.copyStashName')} (${stash.name})`,
       icon: <LuCopy className="size-3.5 shrink-0" aria-hidden />,
       onSelect: () => void copyValue(stash.name),
+      group: '复制',
     },
     {
       key: 'base',
       label: t('git.graph.copyStashBase'),
       icon: <LuHash className="size-3.5 shrink-0" aria-hidden />,
       onSelect: () => void copyValue(stash.base),
+      group: '复制',
     },
   ]
 

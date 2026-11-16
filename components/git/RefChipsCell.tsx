@@ -1,6 +1,6 @@
 'use client'
 
-import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { Fragment, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { LuClock, LuCloud, LuDiamond, LuGitBranch, LuHash, LuMonitor, LuTag, LuText, LuUser } from 'react-icons/lu'
 
@@ -16,7 +16,14 @@ const BADGE_H = DOT
 
 type RefChip = { name: string; label: string; kind: 'head' | 'local' | 'remote' | 'tag' }
 export type FloatingAnchor = { x: number; y: number; width?: number }
-export type FloatingMenuItem = { key: string; label: string; icon: ReactNode; onSelect: () => Promise<void> | void }
+export type FloatingMenuItem = {
+  key: string
+  label: string
+  icon: ReactNode
+  onSelect: () => Promise<void> | void
+  group?: string
+  dividerBefore?: boolean
+}
 
 function RefChipView({
   chip,
@@ -129,6 +136,7 @@ export function RefChipsCell({
         label: `${t('git.graph.copyBranchName')} (${chip.label})`,
         icon: <LuGitBranch className="size-3.5 shrink-0" aria-hidden />,
         onSelect: () => void copyValue(chip.label),
+        group: '复制',
       },
     ]
     if (commit) {
@@ -138,24 +146,28 @@ export function RefChipsCell({
           label: t('git.graph.copyCommitSubject'),
           icon: <LuText className="size-3.5 shrink-0" aria-hidden />,
           onSelect: () => void copyValue(commit.subject),
+          group: '复制',
         },
         {
           key: 'hash',
           label: t('git.graph.copyCommitHash'),
           icon: <LuHash className="size-3.5 shrink-0" aria-hidden />,
           onSelect: () => void copyValue(commit.hash),
+          group: '复制',
         },
         {
           key: 'short-hash',
           label: `${t('git.graph.copyCommitHash')} (Short: ${commit.short || commit.hash.slice(0, 7)})`,
           icon: <LuHash className="size-3.5 shrink-0" aria-hidden />,
           onSelect: () => void copyValue(commit.short || commit.hash.slice(0, 7)),
+          group: '复制',
         },
         {
           key: 'author',
           label: `${t('git.graph.copyAuthor')} (${commit.author})`,
           icon: <LuUser className="size-3.5 shrink-0" aria-hidden />,
           onSelect: () => void copyValue(commit.author),
+          group: '复制',
         }
       )
       if (commit.date) {
@@ -164,6 +176,7 @@ export function RefChipsCell({
           label: `${t('git.graph.copyDate')} (${commit.date})`,
           icon: <LuClock className="size-3.5 shrink-0" aria-hidden />,
           onSelect: () => void copyValue(commit.date),
+          group: '复制',
         })
       }
     }
@@ -348,22 +361,32 @@ export function FloatingMenu({
       onContextMenu={(event) => event.preventDefault()}
     >
       {items
-        ? items.map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              role="menuitem"
-              className="flex w-full min-w-0 cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-left text-[12px] font-medium leading-none text-ink transition-colors hover:bg-[var(--overlay-10)] focus-visible:bg-[var(--overlay-10)] focus-visible:outline-none"
-              onClick={(event) => {
-                event.stopPropagation()
-                onClose()
-                void item.onSelect()
-              }}
-            >
-              {item.icon}
-              <span className="min-w-0 truncate">{item.label}</span>
-            </button>
-          ))
+        ? items.map((item, index) => {
+            const prevItem = index > 0 ? items[index - 1] : undefined
+            const isNewGroup = Boolean(item.group && (!prevItem || prevItem.group !== item.group))
+            const showDivider = Boolean(item.dividerBefore || (prevItem && prevItem.group && item.group && prevItem.group !== item.group))
+            return (
+              <Fragment key={item.key}>
+                {showDivider ? <div className="my-1 border-t border-line/60" role="separator" /> : null}
+                {isNewGroup && item.group ? (
+                  <div className="px-2 pt-1.5 pb-0.5 text-[10px] font-semibold text-ink-soft uppercase tracking-wider select-none">{item.group}</div>
+                ) : null}
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="flex w-full min-w-0 cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-left text-[12px] font-medium leading-none text-ink transition-colors hover:bg-[var(--overlay-10)] focus-visible:bg-[var(--overlay-10)] focus-visible:outline-none"
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    onClose()
+                    void item.onSelect()
+                  }}
+                >
+                  {item.icon}
+                  <span className="min-w-0 truncate">{item.label}</span>
+                </button>
+              </Fragment>
+            )
+          })
         : children}
     </div>,
     document.body
