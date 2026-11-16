@@ -12,7 +12,7 @@ import { useNotification } from '@/components/notification/useNotification'
 import { EmptyState, ScrollArea, Tooltip } from '@/components/sk'
 import { useOptionalSpotlight } from '@/lib/agent/spotlight-context'
 import { copyToClipboard } from '@/lib/clipboard'
-import { formatCommitAgo } from '@/lib/git/format-commit-ago'
+import { formatCommitDateDivider } from '@/lib/git/format-commit-ago'
 import { COL, DOT, graphScene, isHighlightedStroke, laneColor, PAD, ROW, type Stroke, xAt } from '@/lib/git/graph-scene'
 import { makeShareUrl } from '@/lib/git/resolver'
 import { formatIssueShareCard, makeIssueShareUrl } from '@/lib/git/share-card'
@@ -568,7 +568,7 @@ function GitGraphComponent({
                   >
                     <div className="h-px flex-1 bg-[color-mix(in_oklab,var(--ink)_14%,transparent)]" />
                     <span className="ml-2 shrink-0 rounded border border-[color-mix(in_oklab,var(--ink)_12%,transparent)] bg-[var(--panel)] px-1.5 py-0.5 text-[10px] font-medium leading-none text-ink-soft select-none shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
-                      {formatCommitAgo(currDate, locale)}
+                      {formatCommitDateDivider(currDate, locale)}
                     </span>
                   </div>
                 ) : null
