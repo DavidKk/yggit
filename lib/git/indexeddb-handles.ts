@@ -21,6 +21,7 @@ declare global {
 export interface StoredRepoRecord {
   id: string
   name: string
+  label?: string
   handle: FileSystemDirectoryHandle
   group?: string
   order?: number
@@ -42,6 +43,7 @@ export interface StoredFolderRecord {
 export interface StoredRemoteProjectRecord {
   id: string
   name: string
+  label?: string
   url: string
   host: GitProjectHost
   group?: string
@@ -335,7 +337,7 @@ export async function deleteEdgeFolder(name: string): Promise<{ folders: string[
 /**
  * Move a project to a new group/folder in Edge mode
  */
-export async function moveEdgeProject(id: string, group: string, _beforeId?: string): Promise<void> {
+export async function moveEdgeProject(id: string, group: string, beforeId?: string): Promise<void> {
   const db = await openHandlesDatabase()
   if (!db) return
 
@@ -354,7 +356,6 @@ export async function moveEdgeProject(id: string, group: string, _beforeId?: str
     handle.group = folder
     handle.updatedAt = Date.now()
     await putInStore(db, HANDLES_STORE, handle)
-    return
   }
 
   // Check remote projects
@@ -362,6 +363,96 @@ export async function moveEdgeProject(id: string, group: string, _beforeId?: str
   const remote = remotes.find((r) => r.id === id)
   if (remote) {
     remote.group = folder
+    remote.updatedAt = Date.now()
+    await putInStore(db, REMOTE_PROJECTS_STORE, remote)
+  }
+
+  // Persist project order in META_STORE
+  const existingOrder = (await getMetaValue<string[]>(db, 'project_order')) || []
+  const filteredOrder = existingOrder.filter((item) => item !== id)
+
+  if (beforeId && beforeId !== id) {
+    const beforeIndex = filteredOrder.indexOf(beforeId)
+    if (beforeIndex >= 0) {
+      filteredOrder.splice(beforeIndex, 0, id)
+    } else {
+      filteredOrder.push(id)
+    }
+  } else {
+    filteredOrder.push(id)
+  }
+
+  await setMetaValue(db, 'project_order', filteredOrder)
+}
+
+export async function renameEdgeFolder(oldName: string, newName: string): Promise<void> {
+  const db = await openHandlesDatabase()
+  if (!db) return
+  const from = oldName.trim().replace(/\s+/g, ' ')
+  const to = newName.trim().replace(/\s+/g, ' ')
+  if (!from || !to) throw new Error('文件夹名称不能为空')
+  if (from === to) return
+
+  const handles = await getAllFromStore<StoredRepoRecord>(db, HANDLES_STORE)
+  for (const h of handles) {
+    if (h.group === from) {
+      h.group = to
+      await putInStore(db, HANDLES_STORE, h)
+    }
+  }
+
+  const remotes = await getAllFromStore<StoredRemoteProjectRecord>(db, REMOTE_PROJECTS_STORE)
+  for (const r of remotes) {
+    if (r.group === from) {
+      r.group = to
+      await putInStore(db, REMOTE_PROJECTS_STORE, r)
+    }
+  }
+
+  await deleteFromStore(db, FOLDERS_STORE, from)
+  await putInStore(db, FOLDERS_STORE, { name: to, updatedAt: Date.now() })
+}
+
+export async function clearEdgeFolder(name: string): Promise<void> {
+  const db = await openHandlesDatabase()
+  if (!db) return
+  const folder = name.trim().replace(/\s+/g, ' ')
+  const ungrouped = '未分类'
+  const handles = await getAllFromStore<StoredRepoRecord>(db, HANDLES_STORE)
+  for (const h of handles) {
+    if (h.group === folder) {
+      h.group = ungrouped
+      await putInStore(db, HANDLES_STORE, h)
+    }
+  }
+  const remotes = await getAllFromStore<StoredRemoteProjectRecord>(db, REMOTE_PROJECTS_STORE)
+  for (const r of remotes) {
+    if (r.group === folder) {
+      r.group = ungrouped
+      await putInStore(db, REMOTE_PROJECTS_STORE, r)
+    }
+  }
+  const currentFolders = await getEdgeFolders()
+  if (!currentFolders.includes(ungrouped)) {
+    await createEdgeFolder(ungrouped)
+  }
+}
+
+export async function setEdgeProjectLabel(id: string, label: string): Promise<void> {
+  const db = await openHandlesDatabase()
+  if (!db) return
+  const handles = await getAllFromStore<StoredRepoRecord>(db, HANDLES_STORE)
+  const handle = handles.find((h) => h.id === id)
+  if (handle) {
+    handle.label = label.trim() || undefined
+    handle.updatedAt = Date.now()
+    await putInStore(db, HANDLES_STORE, handle)
+    return
+  }
+  const remotes = await getAllFromStore<StoredRemoteProjectRecord>(db, REMOTE_PROJECTS_STORE)
+  const remote = remotes.find((r) => r.id === id)
+  if (remote) {
+    remote.label = label.trim() || undefined
     remote.updatedAt = Date.now()
     await putInStore(db, REMOTE_PROJECTS_STORE, remote)
   }
@@ -448,6 +539,7 @@ export async function getEdgeCatalog(): Promise<GitProjectCatalog> {
       return {
         id: h.id,
         name: h.name,
+        label: h.label,
         group: h.group && folders.includes(h.group) ? h.group : defaultFolder,
         host: remote?.kind || 'local',
         localPath: h.id,
@@ -463,6 +555,7 @@ export async function getEdgeCatalog(): Promise<GitProjectCatalog> {
   const remoteProjects: GitProjectView[] = remotes.map((r) => ({
     id: r.id,
     name: r.name,
+    label: r.label,
     group: r.group && folders.includes(r.group) ? r.group : defaultFolder,
     host: r.host,
     localPath: '',
@@ -475,9 +568,24 @@ export async function getEdgeCatalog(): Promise<GitProjectCatalog> {
 
   const allProjects = consolidateProjects([...handleProjects, ...remoteProjects])
 
+  const db = await openHandlesDatabase()
+  let orderMap: Map<string, number> | null = null
+  if (db) {
+    const orderList = await getMetaValue<string[]>(db, 'project_order')
+    if (orderList) {
+      orderMap = new Map(orderList.map((id, index) => [id, index]))
+    }
+  }
+
   if (folders.length > 0) {
     const folderRank = new Map(folders.map((name, index) => [name, index]))
-    allProjects.sort((a, b) => (folderRank.get(a.group) ?? 999) - (folderRank.get(b.group) ?? 999))
+    allProjects.sort((a, b) => {
+      const groupDiff = (folderRank.get(a.group) ?? 999) - (folderRank.get(b.group) ?? 999)
+      if (groupDiff !== 0) return groupDiff
+      const aOrder = orderMap?.get(a.id) ?? 9999
+      const bOrder = orderMap?.get(b.id) ?? 9999
+      return aOrder - bOrder
+    })
   }
 
   return {

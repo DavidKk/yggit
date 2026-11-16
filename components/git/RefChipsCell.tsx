@@ -375,14 +375,10 @@ export function FloatingMenu({
       {items
         ? items.map((item, index) => {
             const prevItem = index > 0 ? items[index - 1] : undefined
-            const isNewGroup = Boolean(item.group && (!prevItem || prevItem.group !== item.group))
             const showDivider = Boolean(item.dividerBefore || (prevItem && prevItem.group && item.group && prevItem.group !== item.group))
             return (
               <Fragment key={item.key}>
                 {showDivider ? <div className="my-1 border-t border-line/60" role="separator" /> : null}
-                {isNewGroup && item.group ? (
-                  <div className="px-2 pt-1.5 pb-0.5 text-[10px] font-semibold text-ink-soft uppercase tracking-wider select-none">{item.group}</div>
-                ) : null}
                 <button
                   type="button"
                   role="menuitem"

@@ -22,6 +22,7 @@ const UNGROUPED_FOLDER = '未分类'
 type StoredProject = {
   id: string
   name: string
+  label?: string
   group: GitProjectGroup
   host: GitProjectHost
   remoteKey: string
@@ -135,6 +136,7 @@ function toView(project: StoredProject): GitProjectView {
     id: project.id,
     // Local checkouts (incl. linked worktrees) show the folder name, not the shared remote repo name.
     name: project.localPath ? folderName(project.localPath) : project.name,
+    label: project.label,
     group: project.group,
     host: project.host,
     localPath: project.localPath,
@@ -185,6 +187,52 @@ export function createGitFolder(name: string): GitProjectCatalog {
   return listGitCatalog()
 }
 
+export function renameGitFolder(oldName: string, newName: string): GitProjectCatalog {
+  const from = normalizeFolderName(oldName)
+  const to = normalizeFolderName(newName)
+  if (!from || !to) throw new Error('文件夹名称不能为空')
+  if (to.includes('/') || to.includes('\\')) throw new Error('文件夹名称不能包含路径分隔符')
+  if (from === to) return listGitCatalog()
+
+  const folders = readFolders()
+  if (folders.includes(to)) throw new Error('文件夹已存在')
+
+  const projects = readCatalog()
+  for (const p of projects) {
+    if (normalizeFolderName(p.group) === from) {
+      p.group = to
+    }
+  }
+
+  const updatedFolders = folders.map((f) => (normalizeFolderName(f) === from ? to : f))
+  writeCatalog(projects, updatedFolders)
+  return listGitCatalog()
+}
+
+export function clearGitFolder(name: string): GitProjectCatalog {
+  const folder = normalizeFolderName(name)
+  if (!folder) throw new Error('选择文件夹')
+  const projects = readCatalog()
+  for (const p of projects) {
+    if (normalizeFolderName(p.group) === folder) {
+      p.group = UNGROUPED_FOLDER
+    }
+  }
+  const folders = readFolders()
+  if (!folders.includes(UNGROUPED_FOLDER)) folders.push(UNGROUPED_FOLDER)
+  writeCatalog(projects, folders)
+  return listGitCatalog()
+}
+
+export function setProjectLabel(id: string, label: string): GitProjectCatalog {
+  const projects = readCatalog()
+  const p = projects.find((item) => item.id === id)
+  if (!p) throw new Error('找不到该项目')
+  p.label = label.trim() || undefined
+  writeCatalog(projects)
+  return listGitCatalog()
+}
+
 export function moveGitProject(id: string, group: string, beforeId?: string): GitProjectCatalog {
   const folder = normalizeFolderName(group)
   if (!folder) throw new Error('选择文件夹')
@@ -196,20 +244,30 @@ export function moveGitProject(id: string, group: string, beforeId?: string): Gi
   const folders = readFolders()
   if (!folders.includes(folder)) folders.push(folder)
 
-  let insertAt = projects.length
   const before = typeof beforeId === 'string' ? beforeId.trim() : ''
   if (before && before !== id) {
     const at = projects.findIndex((item) => item.id === before)
-    if (at >= 0) insertAt = at
-  } else {
-    let lastInGroup = -1
-    for (let i = 0; i < projects.length; i += 1) {
-      if (projects[i].group === folder) lastInGroup = i
+    if (at >= 0) {
+      projects.splice(at, 0, project)
+      writeCatalog(projects, folders)
+      return listGitCatalog()
     }
-    insertAt = lastInGroup + 1
   }
 
-  projects.splice(insertAt, 0, project)
+  // Insert at end of this group
+  let lastInGroup = -1
+  for (let i = 0; i < projects.length; i += 1) {
+    if (normalizeFolderName(projects[i].group) === folder) {
+      lastInGroup = i
+    }
+  }
+
+  if (lastInGroup >= 0) {
+    projects.splice(lastInGroup + 1, 0, project)
+  } else {
+    projects.push(project)
+  }
+
   writeCatalog(projects, folders)
   return listGitCatalog()
 }

@@ -909,6 +909,7 @@ export function GitSidebar({ view, selection, width, remoteUpdates = [], remoteP
                   {!(section.id === 'worktree' && isEdge) && (
                     <GitSearchDropdown
                       label={section.searchPlaceholder}
+                      description="按名称快速筛选"
                       placeholder={section.searchPlaceholder}
                       value={queries[section.id] || ''}
                       onOpenChange={(next) => {

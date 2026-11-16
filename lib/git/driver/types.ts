@@ -84,6 +84,21 @@ export interface IGitDriver {
   createFolder(name: string): Promise<GitProjectCatalog>
 
   /**
+   * Rename an existing folder in project switcher
+   */
+  renameFolder(oldName: string, newName: string): Promise<GitProjectCatalog>
+
+  /**
+   * Clear all projects out of a folder (moves to ungrouped)
+   */
+  clearFolder(name: string): Promise<GitProjectCatalog>
+
+  /**
+   * Set custom alias/label for a project
+   */
+  setProjectLabel(id: string, label: string): Promise<GitProjectCatalog>
+
+  /**
    * Delete a folder and remove all projects under it
    */
   deleteFolder(name: string): Promise<GitDeleteFolderResult>

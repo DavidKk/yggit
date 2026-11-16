@@ -2,6 +2,7 @@ import git from 'isomorphic-git'
 
 import { GIT_LOG_PAGE_SIZE } from '@/lib/git/identity'
 import {
+  clearEdgeFolder,
   createEdgeFolder,
   deleteEdgeFolder,
   findDirectoryHandleId,
@@ -10,8 +11,10 @@ import {
   getEdgeFolders,
   moveEdgeProject,
   removeEdgeProject,
+  renameEdgeFolder,
   saveDirectoryHandle,
   saveEdgeRemoteProject,
+  setEdgeProjectLabel,
 } from '@/lib/git/indexeddb-handles'
 import { uniqueLocalProject } from '@/lib/git/project-access'
 import { parseRemoteUrl } from '@/lib/git/temporary-store'
@@ -332,6 +335,21 @@ export class EdgeGitDriver implements IGitDriver {
 
   async createFolder(name: string): Promise<GitProjectCatalog> {
     await createEdgeFolder(name)
+    return getEdgeCatalog()
+  }
+
+  async renameFolder(oldName: string, newName: string): Promise<GitProjectCatalog> {
+    await renameEdgeFolder(oldName, newName)
+    return getEdgeCatalog()
+  }
+
+  async clearFolder(name: string): Promise<GitProjectCatalog> {
+    await clearEdgeFolder(name)
+    return getEdgeCatalog()
+  }
+
+  async setProjectLabel(id: string, label: string): Promise<GitProjectCatalog> {
+    await setEdgeProjectLabel(id, label)
     return getEdgeCatalog()
   }
 

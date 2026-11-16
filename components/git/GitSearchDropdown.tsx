@@ -19,6 +19,8 @@ type Props = {
   placeholder: string
   /** Accessible name for the trigger / field */
   label: string
+  /** Functional description of the search capability shown in tooltip */
+  description?: string
   className?: string
   onOpenChange?: (open: boolean) => void
   /**
@@ -32,7 +34,7 @@ type Props = {
  * Search icon → dropdown SearchInput (clearable).
  * Trigger ACTIVE while open; optionally also while a filter query is set.
  */
-export function GitSearchDropdown({ value, onChange, placeholder, label, className, onOpenChange, activeWhenQuery = true }: Props) {
+export function GitSearchDropdown({ value, onChange, placeholder, label, description, className, onOpenChange, activeWhenQuery = true }: Props) {
   const [open, setOpen] = useState(false)
   const openRef = useRef(false)
   const onOpenChangeRef = useRef(onOpenChange)
@@ -50,6 +52,7 @@ export function GitSearchDropdown({ value, onChange, placeholder, label, classNa
   const inputRef = useRef<HTMLInputElement>(null)
   const listboxId = useId()
   const findShortcut = useGitFindShortcutLabel()
+  const tooltip = description ? `${label} · ${description} (${findShortcut})` : `${label} (${findShortcut})`
   const active = open || (activeWhenQuery && value.trim().length > 0)
   const panelStyle = useFloatingPanel({
     open,
@@ -153,7 +156,7 @@ export function GitSearchDropdown({ value, onChange, placeholder, label, classNa
         aria-haspopup="dialog"
         aria-controls={open ? listboxId : undefined}
         aria-pressed={active || undefined}
-        tooltip={active ? undefined : findShortcut}
+        tooltip={active ? undefined : tooltip}
         tooltipSuppressed={open || active}
         onMouseDown={(event) => {
           // Keep focus free for the search input when opening.

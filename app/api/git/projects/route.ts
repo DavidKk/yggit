@@ -2,6 +2,7 @@ import { defineApiRoute } from '@/initializer/controller'
 import { apiBadRequest } from '@/initializer/response'
 import {
   addRemoteProject,
+  clearGitFolder,
   createGitFolder,
   deleteGitFolder,
   importLocalProjects,
@@ -9,6 +10,8 @@ import {
   moveGitProject,
   rememberLocalProject,
   removeGitProject,
+  renameGitFolder,
+  setProjectLabel,
 } from '@/services/git/projects'
 import { resolveGitRepo } from '@/services/git/read'
 
@@ -24,6 +27,8 @@ export const POST = defineApiRoute('post:/api/git/projects', async ({ request })
     folder?: unknown
     group?: unknown
     id?: unknown
+    name?: unknown
+    label?: unknown
     beforeId?: unknown
     path?: unknown
     paths?: unknown
@@ -35,6 +40,15 @@ export const POST = defineApiRoute('post:/api/git/projects', async ({ request })
   try {
     if (body?.action === 'createFolder') {
       return createGitFolder(String(body.folder || ''))
+    }
+    if (body?.action === 'renameFolder') {
+      return renameGitFolder(String(body.folder || ''), String(body.name || ''))
+    }
+    if (body?.action === 'clearFolder') {
+      return clearGitFolder(String(body.folder || ''))
+    }
+    if (body?.action === 'setProjectLabel') {
+      return setProjectLabel(String(body.id || ''), String(body.label || ''))
     }
     if (body?.action === 'deleteFolder') {
       return deleteGitFolder(String(body.folder || ''))

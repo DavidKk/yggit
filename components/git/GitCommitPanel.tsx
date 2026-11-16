@@ -1,11 +1,12 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { LuChevronDown, LuChevronRight, LuChevronsDownUp, LuChevronsUpDown, LuFolderTree, LuList, LuPencil, LuX } from 'react-icons/lu'
+import { LuChevronDown, LuChevronRight, LuChevronsDownUp, LuChevronsUpDown, LuEllipsis, LuFolderTree, LuList, LuPencil, LuX } from 'react-icons/lu'
 import { TbFileStack } from 'react-icons/tb'
 import { TiMinusOutline, TiPlusOutline } from 'react-icons/ti'
 
 import { GitSearchDropdown } from '@/components/git/GitSearchDropdown'
+import { FloatingMenu } from '@/components/git/RefChipsCell'
 import { handleTreeExpandKey, handleTreeParentKey } from '@/components/git/treeExpandKey'
 import { useT } from '@/components/i18n/LocaleProvider'
 import { Badge, Button, EmptyState, ScrollArea, SegmentedNav } from '@/components/sk'
@@ -285,6 +286,7 @@ export function GitCommitPanel({ repo, commit, width, title, selectedPath, onSel
   const [allFiles, setAllFiles] = useState<GitFileChange[] | null>(null)
   const [error, setError] = useState('')
   const [fileQuery, setFileQuery] = useState('')
+  const [moreMenuAnchor, setMoreMenuAnchor] = useState<{ x: number; y: number } | null>(null)
   const fileNeedle = fileQuery.trim().toLowerCase()
   const [preferredView, setView] = useGitUiPref('commit.fileView', 'tree' as FileView, isFileView)
   // Working trees have no committed snapshot; keep the shared preference intact.
@@ -381,10 +383,11 @@ export function GitCommitPanel({ repo, commit, width, title, selectedPath, onSel
     }
   }, [fileNeedle, folders])
 
-  // 变窄时按优先级隐藏：文件个数 → 全部展开 → 视窗切换；关闭按钮始终保留
+  // 变窄时按优先级转为二级菜单或隐藏，防止视图 Tabs 与右侧操作冲突重合
+  const isNarrow = panelWidth < 310
   const showCount = panelWidth >= 260
-  const showExpand = canExpand && panelWidth >= 220
-  const showViews = panelWidth >= 180
+  const showExpand = !isNarrow && canExpand && panelWidth >= 220
+  const showViews = !isNarrow && panelWidth >= 180
   const toggleFolder = (path: string) => {
     setOpenPaths((prev) => {
       const next = new Set(prev)
@@ -415,7 +418,7 @@ export function GitCommitPanel({ repo, commit, width, title, selectedPath, onSel
     >
       <header
         className={cn(
-          'grid h-10 shrink-0 items-center gap-2 border-b border-line px-2',
+          'grid h-10 shrink-0 items-center gap-1.5 border-b border-line px-2',
           showViews ? 'grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]' : 'grid-cols-[minmax(0,1fr)_auto]'
         )}
       >
@@ -431,8 +434,30 @@ export function GitCommitPanel({ repo, commit, width, title, selectedPath, onSel
           <SegmentedNav aria-label={t('git.commit.fileViewsAria')} className="justify-self-center" size="mini" items={viewItems} value={view} onChange={setView} />
         ) : null}
         <div className="flex items-center justify-end gap-1">
-          <GitSearchDropdown className="mr-0 size-6" label="搜索文件" placeholder="搜索文件路径或名称…" value={fileQuery} onChange={setFileQuery} />
-          {showExpand ? (
+          <GitSearchDropdown
+            className="mr-0 size-6"
+            label="搜索文件"
+            description="按名称或路径快速过滤"
+            placeholder="搜索文件路径或名称…"
+            value={fileQuery}
+            onChange={setFileQuery}
+          />
+          {isNarrow ? (
+            <Button
+              variant="plain"
+              size="icon"
+              className="size-6 text-ink-soft hover:enabled:bg-[var(--overlay-08)]"
+              aria-label="视图与展开选项"
+              tooltip="视图与展开选项"
+              onClick={(e) => {
+                e.stopPropagation()
+                const rect = e.currentTarget.getBoundingClientRect()
+                setMoreMenuAnchor((prev) => (prev ? null : { x: rect.right, y: rect.bottom + 4 }))
+              }}
+            >
+              <LuEllipsis className="size-3.5" aria-hidden="true" />
+            </Button>
+          ) : showExpand ? (
             <Button
               variant="plain"
               size="icon"
@@ -453,6 +478,53 @@ export function GitCommitPanel({ repo, commit, width, title, selectedPath, onSel
           </Button>
         </div>
       </header>
+      {moreMenuAnchor ? (
+        <FloatingMenu
+          anchor={moreMenuAnchor}
+          ariaLabel="视图与展开选项"
+          color="var(--accent)"
+          onClose={() => setMoreMenuAnchor(null)}
+          items={[
+            {
+              key: 'view-tree',
+              label: `${view === 'tree' ? '✓ ' : ''}${t('git.commit.treeView') || '目录树'}`,
+              icon: <LuFolderTree className="size-3.5 text-accent" />,
+              onSelect: () => setView('tree'),
+            },
+            {
+              key: 'view-path',
+              label: `${view === 'path' ? '✓ ' : ''}${t('git.commit.pathView') || '路径列表'}`,
+              icon: <LuList className="size-3.5 text-accent" />,
+              onSelect: () => setView('path'),
+            },
+            ...(!isWorktree
+              ? [
+                  {
+                    key: 'view-all',
+                    label: `${view === 'all' ? '✓ ' : ''}${t('git.commit.allFiles') || '提交快照'}`,
+                    icon: <TbFileStack className="size-3.5 text-accent" />,
+                    onSelect: () => setView('all'),
+                  },
+                ]
+              : []),
+            ...(canExpand
+              ? [
+                  {
+                    key: 'toggle-expand',
+                    label: allOpen ? t('git.commit.collapseAll') || '全部折叠' : t('git.commit.expandAll') || '全部展开',
+                    icon: allOpen ? <LuChevronsDownUp className="size-3.5" /> : <LuChevronsUpDown className="size-3.5" />,
+                    onSelect: () => {
+                      const next = !allOpen
+                      setExpandDefault(next)
+                      setOpenPaths(next ? new Set(folders) : new Set())
+                    },
+                    dividerBefore: true,
+                  },
+                ]
+              : []),
+          ]}
+        />
+      ) : null}
       {error ? (
         <p className="m-0 px-3 py-2 text-xs text-fail">{error}</p>
       ) : !changes || (view === 'all' && !allFiles) ? (

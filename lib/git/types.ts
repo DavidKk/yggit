@@ -162,6 +162,7 @@ export type GitRemoteSource = {
 export type GitProjectView = {
   id: string
   name: string
+  label?: string
   group: GitProjectGroup
   host: GitProjectHost
   localPath: string

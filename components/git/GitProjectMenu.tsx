@@ -2,7 +2,24 @@
 
 import { type DragEvent, type RefObject, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { AiOutlineCloudSync } from 'react-icons/ai'
-import { LuChevronDown, LuChevronRight, LuClock3, LuCloud, LuFolder, LuGithub, LuGitlab, LuGlobe, LuHardDrive, LuLockKeyhole, LuStar, LuTrash2, LuX } from 'react-icons/lu'
+import {
+  LuChevronDown,
+  LuChevronRight,
+  LuClock3,
+  LuCloud,
+  LuCopy,
+  LuExternalLink,
+  LuFolder,
+  LuGithub,
+  LuGitlab,
+  LuGlobe,
+  LuHardDrive,
+  LuLockKeyhole,
+  LuPencil,
+  LuStar,
+  LuTrash2,
+  LuX,
+} from 'react-icons/lu'
 import { TbCloudLock, TbFolderPlus } from 'react-icons/tb'
 
 const FOLDER_EXPAND_MS = 450
@@ -12,9 +29,12 @@ const AUTO_SCROLL_MAX = 18
 import { useConfirm } from '@/components/confirm/ConfirmProvider'
 import { GIT_FIND_EVENT } from '@/components/git/gitFind'
 import { GIT_SEARCH_DROPDOWN_ATTR, GitSearchDropdown } from '@/components/git/GitSearchDropdown'
+import { FloatingMenu, type FloatingMenuItem } from '@/components/git/RefChipsCell'
 import { useT } from '@/components/i18n/LocaleProvider'
 import { formControl, formDesc, formField, formFieldInlineDense, formTitle, formTitleInline } from '@/components/layoutClasses'
+import { useNotification } from '@/components/notification/useNotification'
 import { ApiKeyInput, Badge, Button, EmptyState, Modal, ScrollArea, SwitchToggle, TextInput, Tooltip } from '@/components/sk'
+import { copyToClipboard } from '@/lib/clipboard'
 import { getDriverMode } from '@/lib/git/driver'
 import { extractProjectRemotes, getRemoteCloudType, hasSavedRemote, projectOpenTarget, projectSource, remoteIdentity, type ResolvedRemoteSource } from '@/lib/git/project-access'
 import { addTemporaryRepo, parseRemoteUrl, removeTemporaryRepo, type TemporaryRepo, useTemporaryRepos } from '@/lib/git/temporary-store'
@@ -36,6 +56,10 @@ type Props = {
   onClone: (project: GitProjectView) => Promise<string>
   onCreateFolder: (name: string) => Promise<string>
   onDeleteFolder: (name: string) => Promise<{ error: string; removedCount?: number }>
+  onRenameFolder?: (oldName: string, newName: string) => Promise<string>
+  onClearFolder?: (name: string) => Promise<string>
+  onSetProjectLabel?: (id: string, label: string) => Promise<string>
+  onRemoveProject?: (id: string) => Promise<string>
   onMoveProject: (id: string, group: string, beforeId?: string) => Promise<string>
   /** Bump to open the project search field (Cmd+F from the switcher). */
   searchRequest?: number
@@ -66,6 +90,10 @@ export function GitProjectMenu({
   onClone,
   onCreateFolder,
   onDeleteFolder,
+  onRenameFolder,
+  onClearFolder,
+  onSetProjectLabel,
+  onRemoveProject,
   onMoveProject,
   searchRequest = 0,
 }: Props) {
@@ -92,6 +120,16 @@ export function GitProjectMenu({
     rect: DOMRect
     remotes: ResolvedRemoteSource[]
   } | null>(null)
+  const notify = useNotification()
+  const [contextMenu, setContextMenu] = useState<{
+    anchor: { x: number; y: number }
+    ariaLabel: string
+    items: FloatingMenuItem[]
+  } | null>(null)
+  const [editingFolder, setEditingFolder] = useState<string | null>(null)
+  const [renameFolderDraft, setRenameFolderDraft] = useState('')
+  const [editingLabelProjectId, setEditingLabelProjectId] = useState<string | null>(null)
+  const [projectLabelDraft, setProjectLabelDraft] = useState('')
   const panelRef = useRef<HTMLDivElement>(null)
   const listScrollRef = useRef<HTMLDivElement>(null)
   const urlRef = useRef<HTMLInputElement>(null)
@@ -109,10 +147,217 @@ export function GitProjectMenu({
   const folderId = useId()
   const formErrorId = useId()
 
+  const copyValue = async (value: string) => {
+    const ok = await copyToClipboard(value)
+    if (ok) notify.success(t('common.copied') || '已复制')
+    else notify.error(t('common.copyFailed') || '复制失败')
+  }
+
+  const startRenameFolder = (group: string) => {
+    setEditingFolder(group)
+    setRenameFolderDraft(group)
+  }
+
+  const commitRenameFolder = async (oldName: string) => {
+    const next = renameFolderDraft.trim()
+    setEditingFolder(null)
+    if (!next || next === oldName || !onRenameFolder) return
+    const errorMsg = await onRenameFolder(oldName, next)
+    if (errorMsg) {
+      notify.error(errorMsg)
+    } else {
+      setOpenGroups((prev) => {
+        const copy = { ...prev }
+        delete copy[oldName]
+        copy[next] = true
+        return copy
+      })
+      notify.success('文件夹重命名成功')
+    }
+  }
+
+  const commitProjectLabel = async (id: string) => {
+    const next = projectLabelDraft.trim()
+    setEditingLabelProjectId(null)
+    if (!onSetProjectLabel) return
+    const errorMsg = await onSetProjectLabel(id, next)
+    if (errorMsg) {
+      notify.error(errorMsg)
+    } else {
+      notify.success(next ? '已设置项目别名' : '已清除项目别名')
+    }
+  }
+
+  const handleFolderContextMenu = (e: React.MouseEvent, group: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const expanded = openGroups[group] !== false
+    const itemsInGroup = projects.filter((p) => p.group === group)
+
+    const items: FloatingMenuItem[] = [
+      {
+        key: 'rename-folder',
+        label: '重命名文件夹',
+        icon: <LuPencil className="size-3.5 text-accent" />,
+        onSelect: () => startRenameFolder(group),
+        group: '操作',
+      },
+      {
+        key: 'toggle-expand',
+        label: expanded ? '折叠文件夹' : '展开文件夹',
+        icon: expanded ? <LuChevronDown className="size-3.5" /> : <LuChevronRight className="size-3.5" />,
+        onSelect: () => setOpenGroups((prev) => ({ ...prev, [group]: !expanded })),
+        group: '操作',
+      },
+      {
+        key: 'copy-folder-name',
+        label: `复制文件夹名称 (${group})`,
+        icon: <LuCopy className="size-3.5 text-accent" />,
+        onSelect: () => void copyValue(group),
+        group: '复制',
+      },
+      {
+        key: 'copy-projects-list',
+        label: `复制组内所有项目名 (${itemsInGroup.length} 个)`,
+        icon: <LuCopy className="size-3.5 text-accent" />,
+        onSelect: () => void copyValue(itemsInGroup.map((p) => p.label || p.name).join('\n')),
+        group: '复制',
+      },
+      ...(onClearFolder
+        ? [
+            {
+              key: 'clear-folder',
+              label: '清空文件夹 (移出所有项目)',
+              icon: <LuTrash2 className="size-3.5 text-warn" />,
+              onSelect: async () => {
+                const msg = await onClearFolder(group)
+                if (msg) notify.error(msg)
+                else notify.success('已清空文件夹')
+              },
+              dividerBefore: true,
+            },
+          ]
+        : []),
+      {
+        key: 'delete-folder',
+        label: '删除文件夹',
+        icon: <LuTrash2 className="size-3.5 text-fail" />,
+        onSelect: () => void requestDeleteFolder(group),
+      },
+    ]
+
+    setContextMenu({
+      anchor: { x: e.clientX, y: e.clientY },
+      ariaLabel: group,
+      items,
+    })
+  }
+
+  const handleProjectContextMenu = (e: React.MouseEvent, project: GitProjectView) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    const items: FloatingMenuItem[] = [
+      {
+        key: 'edit-label',
+        label: project.label ? `修改别名 (当前: ${project.label})` : '设置项目别名 / 备注',
+        icon: <LuPencil className="size-3.5 text-accent" />,
+        onSelect: () => {
+          setEditingLabelProjectId(project.id)
+          setProjectLabelDraft(project.label || '')
+        },
+        group: '操作',
+      },
+      {
+        key: 'copy-name',
+        label: `复制项目名称 (${project.name})`,
+        icon: <LuCopy className="size-3.5 text-accent" />,
+        onSelect: () => void copyValue(project.name),
+        group: '复制',
+      },
+      ...(project.label
+        ? [
+            {
+              key: 'copy-label',
+              label: `复制项目别名 (${project.label})`,
+              icon: <LuCopy className="size-3.5 text-accent" />,
+              onSelect: () => void copyValue(project.label!),
+              group: '复制',
+            },
+          ]
+        : []),
+      ...(project.localPath
+        ? [
+            {
+              key: 'copy-path',
+              label: `复制本地路径 (${project.localPath})`,
+              icon: <LuHardDrive className="size-3.5 text-ink-soft" />,
+              onSelect: () => void copyValue(project.localPath),
+              group: '复制',
+            },
+            ...(getDriverMode() === 'local'
+              ? [
+                  {
+                    key: 'reveal-finder',
+                    label: '在访达/资源管理器中显示',
+                    icon: <LuFolder className="size-3.5 text-accent" />,
+                    onSelect: () => void handleOpenLocalFolder(e, project.localPath),
+                    group: '操作',
+                  },
+                ]
+              : []),
+          ]
+        : []),
+      ...(project.httpsUrl
+        ? [
+            {
+              key: 'copy-url',
+              label: `复制仓库 URL`,
+              icon: <LuGlobe className="size-3.5 text-ink-soft" />,
+              onSelect: () => void copyValue(project.httpsUrl),
+              group: '复制',
+            },
+            {
+              key: 'open-browser',
+              label: '在浏览器中打开远端',
+              icon: <LuExternalLink className="size-3.5 text-accent" />,
+              onSelect: () => window.open(project.httpsUrl.replace(/\.git$/, ''), '_blank'),
+              group: '操作',
+            },
+          ]
+        : []),
+      ...(onRemoveProject
+        ? [
+            {
+              key: 'remove-project',
+              label: '从项目切换器中移除',
+              icon: <LuTrash2 className="size-3.5 text-fail" />,
+              onSelect: async () => {
+                const msg = await onRemoveProject(project.id)
+                if (msg) notify.error(msg)
+                else notify.success('已移除项目')
+              },
+              dividerBefore: true,
+            },
+          ]
+        : []),
+    ]
+
+    setContextMenu({
+      anchor: { x: e.clientX, y: e.clientY },
+      ariaLabel: project.label || project.name,
+      items,
+    })
+  }
+
   useEffect(() => {
     if (!open) return
     function onKey(event: KeyboardEvent) {
       if (event.key === 'Escape') {
+        if (contextMenu) {
+          setContextMenu(null)
+          return
+        }
         if (remotesMenuAnchor) {
           setRemotesMenuAnchor(null)
           return
@@ -121,6 +366,9 @@ export function GitProjectMenu({
       }
     }
     function onPointer(event: PointerEvent) {
+      if (contextMenu) {
+        setContextMenu(null)
+      }
       if (remotesMenuAnchor) {
         const target = event.target as Element | null
         if (!target?.closest('[data-remotes-popover="true"]')) {
@@ -140,7 +388,7 @@ export function GitProjectMenu({
       window.removeEventListener('keydown', onKey)
       window.removeEventListener('pointerdown', onPointer, true)
     }
-  }, [anchorRef, cloneTarget, folderDeleting, folderOpen, onClose, open, remoteOpen, remotesMenuAnchor, searchMenuOpen])
+  }, [anchorRef, cloneTarget, contextMenu, folderDeleting, folderOpen, onClose, open, remoteOpen, remotesMenuAnchor, searchMenuOpen])
 
   useEffect(() => {
     if (folderOpen) folderRef.current?.focus()
@@ -445,14 +693,7 @@ export function GitProjectMenu({
     const project = projects.find((item) => item.id === id)
     if (!project) return
     if (target.beforeId === id) return
-    if (project.group === target.group) {
-      const siblings = projects.filter((item) => item.group === target.group)
-      const from = siblings.findIndex((item) => item.id === id)
-      const to = target.beforeId ? siblings.findIndex((item) => item.id === target.beforeId) : siblings.length
-      if (from < 0 || to < 0) return
-      const insertAt = to > from ? to - 1 : to
-      if (insertAt === from) return
-    }
+
     dropHandledRef.current = true
     collapseAutoExpanded(target.group)
     setOpenGroups((prev) => ({ ...prev, [target.group]: true }))
@@ -708,31 +949,78 @@ export function GitProjectMenu({
                   className={cn('group/grp flex h-8 w-full items-center hover:bg-[var(--overlay-06)]', droppingFolder && 'bg-[color-mix(in_oklab,var(--accent)_16%,transparent)]')}
                   onDragOver={(event) => onFolderHeaderDragOver(event, group)}
                   onDrop={(event) => void commitDrop(event, { group, beforeId: null })}
+                  onContextMenu={(e) => handleFolderContextMenu(e, group)}
                 >
-                  <Button
-                    variant="plain"
-                    className="h-8 min-w-0 flex-1 justify-start gap-1.5 px-2 font-normal text-ink-soft hover:enabled:bg-transparent"
-                    aria-expanded={expanded}
-                    onClick={() => setOpenGroups((prev) => ({ ...prev, [group]: !(prev[group] !== false) }))}
-                  >
-                    {expanded ? <LuChevronDown className="size-3.5 shrink-0" aria-hidden /> : <LuChevronRight className="size-3.5 shrink-0" aria-hidden />}
-                    <LuFolder className="size-3.5 shrink-0" aria-hidden />
-                    <span className="min-w-0 truncate whitespace-nowrap text-left">{group}</span>
-                    <Badge tone="neutral" size="mini" dot={false} className="shrink-0">
-                      {groupCount}
-                    </Badge>
-                  </Button>
-                  <Button
-                    variant="plain"
-                    size="icon"
-                    className="mr-0.5 size-6 shrink-0 text-ink-soft opacity-0 transition-opacity pointer-events-none group-hover/grp:pointer-events-auto group-hover/grp:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100 hover:enabled:bg-[var(--overlay-08)] hover:enabled:text-fail"
-                    aria-label={t('git.project.deleteFolderAria', { name: group })}
-                    tooltip={t('git.project.deleteFolderTip')}
-                    disabled={busy}
-                    onClick={() => void requestDeleteFolder(group)}
-                  >
-                    <LuTrash2 className="size-3.5" aria-hidden />
-                  </Button>
+                  {editingFolder === group ? (
+                    <div className="flex h-8 min-w-0 flex-1 items-center px-2">
+                      <input
+                        autoFocus
+                        type="text"
+                        value={renameFolderDraft}
+                        className="h-6 min-w-0 flex-1 rounded border border-accent bg-paper px-2 text-xs text-ink outline-none focus:ring-1 focus:ring-accent"
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => setRenameFolderDraft(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault()
+                            void commitRenameFolder(group)
+                          } else if (e.key === 'Escape') {
+                            e.preventDefault()
+                            setEditingFolder(null)
+                          }
+                        }}
+                        onBlur={() => {
+                          void commitRenameFolder(group)
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <Button
+                      variant="plain"
+                      className="h-8 min-w-0 flex-1 justify-start gap-1.5 px-2 font-normal text-ink-soft hover:enabled:bg-transparent"
+                      aria-expanded={expanded}
+                      onClick={() => setOpenGroups((prev) => ({ ...prev, [group]: !(prev[group] !== false) }))}
+                    >
+                      {expanded ? <LuChevronDown className="size-3.5 shrink-0" aria-hidden /> : <LuChevronRight className="size-3.5 shrink-0" aria-hidden />}
+                      <LuFolder className="size-3.5 shrink-0" aria-hidden />
+                      <span className="min-w-0 truncate whitespace-nowrap text-left">{group}</span>
+                      <Badge tone="neutral" size="mini" dot={false} className="shrink-0">
+                        {groupCount}
+                      </Badge>
+                    </Button>
+                  )}
+                  {editingFolder !== group ? (
+                    <div className="flex items-center gap-0.5 pr-1 opacity-0 group-hover/grp:opacity-100 transition-opacity">
+                      <Button
+                        variant="plain"
+                        size="icon"
+                        className="size-6 shrink-0 text-ink-soft hover:enabled:bg-[var(--overlay-08)] hover:enabled:text-accent"
+                        aria-label="重命名文件夹"
+                        tooltip="重命名文件夹"
+                        disabled={busy}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          startRenameFolder(group)
+                        }}
+                      >
+                        <LuPencil className="size-3.5" aria-hidden />
+                      </Button>
+                      <Button
+                        variant="plain"
+                        size="icon"
+                        className="size-6 shrink-0 text-ink-soft hover:enabled:bg-[var(--overlay-08)] hover:enabled:text-fail"
+                        aria-label={t('git.project.deleteFolderAria', { name: group })}
+                        tooltip={t('git.project.deleteFolderTip')}
+                        disabled={busy}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          void requestDeleteFolder(group)
+                        }}
+                      >
+                        <LuTrash2 className="size-3.5" aria-hidden />
+                      </Button>
+                    </div>
+                  ) : null}
                 </div>
                 {expanded
                   ? items.map((project, index) => {
@@ -756,28 +1044,81 @@ export function GitProjectMenu({
                           {showBefore ? <span className="pointer-events-none absolute inset-x-2 top-0 z-10 h-0.5 -translate-y-1/2 rounded-full bg-accent" aria-hidden /> : null}
                           <div
                             className={cn(
-                              'group/item flex h-8 w-full items-center pr-1.5 transition-colors hover:bg-[var(--overlay-06)]',
+                              'group/item flex w-full items-center pr-1.5 transition-colors hover:bg-[var(--overlay-06)]',
+                              project.label ? 'h-11' : 'h-8',
                               current && 'bg-[color-mix(in_oklab,var(--accent)_18%,transparent)] hover:bg-[color-mix(in_oklab,var(--accent)_24%,transparent)]',
                               draggingId === project.id && 'opacity-50'
                             )}
+                            onContextMenu={(e) => handleProjectContextMenu(e, project)}
                           >
-                            <Button
-                              variant="plain"
-                              draggable={!busy}
-                              aria-current={current ? 'true' : undefined}
-                              className="h-8 min-w-0 flex-1 cursor-grab justify-start gap-1.5 rounded-none px-2 pl-7 font-normal text-ink active:cursor-grabbing hover:enabled:bg-transparent"
-                              onDragStart={(event) => onProjectDragStart(event, project.id)}
-                              onDragEnd={onProjectDragEnd}
-                              onClick={() => {
-                                if (target) onOpen(target)
-                                else setCloneTarget(project)
-                              }}
-                            >
-                              <HostIcon host={project.host} />
-                              <span className="min-w-0 flex-1 truncate whitespace-nowrap text-left text-xs">{project.name}</span>
-                            </Button>
+                            {editingLabelProjectId === project.id ? (
+                              <div className="flex min-w-0 flex-1 items-center px-2 pl-7">
+                                <input
+                                  autoFocus
+                                  type="text"
+                                  value={projectLabelDraft}
+                                  placeholder="设置项目别名/备注…"
+                                  className="h-6 w-full rounded border border-accent bg-paper px-2 text-xs text-ink outline-none focus:ring-1 focus:ring-accent"
+                                  onClick={(e) => e.stopPropagation()}
+                                  onChange={(e) => setProjectLabelDraft(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      e.preventDefault()
+                                      void commitProjectLabel(project.id)
+                                    } else if (e.key === 'Escape') {
+                                      e.preventDefault()
+                                      setEditingLabelProjectId(null)
+                                    }
+                                  }}
+                                  onBlur={() => {
+                                    void commitProjectLabel(project.id)
+                                  }}
+                                />
+                              </div>
+                            ) : (
+                              <Button
+                                variant="plain"
+                                draggable={!busy}
+                                aria-current={current ? 'true' : undefined}
+                                className={cn(
+                                  'min-w-0 flex-1 cursor-grab justify-start gap-1.5 rounded-none px-2 pl-7 font-normal text-ink active:cursor-grabbing hover:enabled:bg-transparent',
+                                  project.label ? 'h-11' : 'h-8'
+                                )}
+                                onDragStart={(event) => onProjectDragStart(event, project.id)}
+                                onDragEnd={onProjectDragEnd}
+                                onClick={() => {
+                                  if (target) onOpen(target)
+                                  else setCloneTarget(project)
+                                }}
+                              >
+                                <HostIcon host={project.host} />
+                                {project.label ? (
+                                  <div className="flex min-w-0 flex-1 flex-col justify-center text-left">
+                                    <span className="truncate text-xs font-semibold text-ink leading-tight">{project.label}</span>
+                                    <span className="truncate text-[10px] text-ink-soft leading-tight font-mono">{project.name}</span>
+                                  </div>
+                                ) : (
+                                  <span className="min-w-0 flex-1 truncate whitespace-nowrap text-left text-xs font-medium">{project.name}</span>
+                                )}
+                              </Button>
+                            )}
 
                             <div className="flex shrink-0 items-center gap-0.5">
+                              {/* Edit project label button on hover */}
+                              <Tooltip content={project.label ? '修改项目别名' : '设置项目别名'}>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setEditingLabelProjectId(project.id)
+                                    setProjectLabelDraft(project.label || '')
+                                  }}
+                                  className="flex size-6 opacity-0 group-hover/item:opacity-100 cursor-pointer items-center justify-center rounded text-ink-soft transition-all hover:bg-[var(--overlay-08)] hover:text-accent"
+                                  aria-label="设置项目别名"
+                                >
+                                  <LuPencil className="size-3" aria-hidden="true" />
+                                </button>
+                              </Tooltip>
                               {/* 1. Local Folder Icon */}
                               {hasLocal ? (
                                 <Tooltip
@@ -926,6 +1267,9 @@ export function GitProjectMenu({
             ))}
           </div>
         </div>
+      ) : null}
+      {contextMenu ? (
+        <FloatingMenu anchor={contextMenu.anchor} ariaLabel={contextMenu.ariaLabel} color="var(--accent)" onClose={() => setContextMenu(null)} items={contextMenu.items} />
       ) : null}
       <Modal
         open={folderOpen}

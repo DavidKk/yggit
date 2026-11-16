@@ -1,3 +1,4 @@
+import { readApiErrorMessage } from '@/lib/api-error'
 import type { GitCommitChanges, GitLogView, GitProjectCatalog, GitProjectView } from '@/lib/git/types'
 
 import type { AddProjectPayload, AddRemoteProjectOptions, GitDeleteFolderResult, IGitDriver, ReadBlobOptions, ReadCommitDiffOptions, ReadLogOptions } from './types'
@@ -24,8 +25,8 @@ export class LocalGitDriver implements IGitDriver {
 
     const res = await fetch(`/api/git/log?${params.toString()}`)
     if (!res.ok) {
-      const text = await res.text()
-      throw new Error(text || `Failed to read git log (${res.status})`)
+      const body: unknown = await res.json().catch(() => null)
+      throw new Error(readApiErrorMessage(body, `Failed to read git log (${res.status})`))
     }
     return (await res.json()) as GitLogView
   }
@@ -40,8 +41,8 @@ export class LocalGitDriver implements IGitDriver {
 
     const res = await fetch(`/api/git/commit?${params.toString()}`)
     if (!res.ok) {
-      const text = await res.text()
-      throw new Error(text || `Failed to read commit diff (${res.status})`)
+      const body: unknown = await res.json().catch(() => null)
+      throw new Error(readApiErrorMessage(body, `Failed to read commit diff (${res.status})`))
     }
     return (await res.json()) as GitCommitChanges
   }
@@ -106,6 +107,54 @@ export class LocalGitDriver implements IGitDriver {
     const data = (await res.json()) as { ok?: boolean; message?: string; error?: string; projects?: GitProjectView[]; folders?: string[] }
     if (!res.ok || data.ok === false) {
       throw new Error(data.message || data.error || 'Failed to create folder')
+    }
+    return {
+      projects: data.projects || [],
+      folders: data.folders || [],
+    }
+  }
+
+  async renameFolder(oldName: string, newName: string): Promise<GitProjectCatalog> {
+    const res = await fetch('/api/git/projects', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'renameFolder', folder: oldName, name: newName }),
+    })
+    const data = (await res.json()) as { ok?: boolean; message?: string; error?: string; projects?: GitProjectView[]; folders?: string[] }
+    if (!res.ok || data.ok === false) {
+      throw new Error(data.message || data.error || 'Failed to rename folder')
+    }
+    return {
+      projects: data.projects || [],
+      folders: data.folders || [],
+    }
+  }
+
+  async clearFolder(name: string): Promise<GitProjectCatalog> {
+    const res = await fetch('/api/git/projects', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'clearFolder', folder: name }),
+    })
+    const data = (await res.json()) as { ok?: boolean; message?: string; error?: string; projects?: GitProjectView[]; folders?: string[] }
+    if (!res.ok || data.ok === false) {
+      throw new Error(data.message || data.error || 'Failed to clear folder')
+    }
+    return {
+      projects: data.projects || [],
+      folders: data.folders || [],
+    }
+  }
+
+  async setProjectLabel(id: string, label: string): Promise<GitProjectCatalog> {
+    const res = await fetch('/api/git/projects', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'setProjectLabel', id, label }),
+    })
+    const data = (await res.json()) as { ok?: boolean; message?: string; error?: string; projects?: GitProjectView[]; folders?: string[] }
+    if (!res.ok || data.ok === false) {
+      throw new Error(data.message || data.error || 'Failed to set project label')
     }
     return {
       projects: data.projects || [],

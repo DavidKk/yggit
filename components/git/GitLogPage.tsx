@@ -613,6 +613,62 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
     }
   }
 
+  async function renameFolder(oldName: string, newName: string) {
+    setBusy(true)
+    try {
+      const driver = getGitDriver()
+      const catalog = await driver.renameFolder(oldName, newName)
+      applyCatalog(catalog)
+      return ''
+    } catch (err) {
+      return err instanceof Error ? err.message : '重命名文件夹失败'
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function clearFolder(name: string) {
+    setBusy(true)
+    try {
+      const driver = getGitDriver()
+      const catalog = await driver.clearFolder(name)
+      applyCatalog(catalog)
+      return ''
+    } catch (err) {
+      return err instanceof Error ? err.message : '清空文件夹失败'
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function setProjectLabel(id: string, label: string) {
+    setBusy(true)
+    try {
+      const driver = getGitDriver()
+      const catalog = await driver.setProjectLabel(id, label)
+      applyCatalog(catalog)
+      return ''
+    } catch (err) {
+      return err instanceof Error ? err.message : '设置备注失败'
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function removeProject(id: string) {
+    setBusy(true)
+    try {
+      const driver = getGitDriver()
+      const catalog = await driver.removeProject(id)
+      applyCatalog(catalog)
+      return ''
+    } catch (err) {
+      return err instanceof Error ? err.message : '移除项目失败'
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function cloneProject(project: GitProjectView) {
     if (getDriverMode() === 'edge') {
       setError(t('git.errors.cloneEdgeUnsupported'))
@@ -697,6 +753,10 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                 onClone={cloneProject}
                 onCreateFolder={createFolder}
                 onDeleteFolder={deleteFolder}
+                onRenameFolder={renameFolder}
+                onClearFolder={clearFolder}
+                onSetProjectLabel={setProjectLabel}
+                onRemoveProject={removeProject}
                 onMoveProject={moveProject}
               />
             </div>
@@ -776,6 +836,10 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                 onClone={cloneProject}
                 onCreateFolder={createFolder}
                 onDeleteFolder={deleteFolder}
+                onRenameFolder={renameFolder}
+                onClearFolder={clearFolder}
+                onSetProjectLabel={setProjectLabel}
+                onRemoveProject={removeProject}
                 onMoveProject={moveProject}
               />
             </div>
