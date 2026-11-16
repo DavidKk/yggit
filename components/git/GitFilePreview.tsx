@@ -105,7 +105,11 @@ function MarkdownPreview({ content }: { content: string }) {
     }
   }, [content, theme])
 
-  return <article className={cn(markdownBody, 'px-4 py-3')} dangerouslySetInnerHTML={{ __html: html }} />
+  return (
+    <div className="mx-auto w-full max-w-4xl px-6 py-6 font-sans">
+      <article className={cn(markdownBody)} dangerouslySetInnerHTML={{ __html: html }} />
+    </div>
+  )
 }
 
 export function GitFilePreview({ kind, repo, hash, path, content, missing, binary, truncated, pane = 'preview' }: Props) {

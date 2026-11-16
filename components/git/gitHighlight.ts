@@ -3,9 +3,9 @@ import { type BundledLanguage, bundledLanguages, getSingletonHighlighter, type H
 
 type GitLang = BundledLanguage | SpecialLanguage
 
-/** VS Code–grade TextMate themes; pick by `html[data-theme]`. */
-const THEME_DARK = 'github-dark-default'
-const THEME_LIGHT = 'github-light-default'
+/** VS Code–grade TextMate themes matching Yggdrasil palette; pick by `html[data-theme]`. */
+const THEME_DARK = 'vitesse-dark'
+const THEME_LIGHT = 'vitesse-light'
 
 function activeHighlightTheme(): typeof THEME_DARK | typeof THEME_LIGHT {
   if (typeof document === 'undefined') return THEME_DARK
@@ -345,8 +345,23 @@ export async function renderMarkdownWithHighlight(content: string, themeMode?: '
     renderer: {
       code(token) {
         const custom = (token as unknown as { highlightedHtml?: string }).highlightedHtml
+        const lang = token.lang ? token.lang.trim().toLowerCase() : ''
         if (custom) {
-          return custom + '\n'
+          return `<div class="git-code-block my-4 overflow-hidden rounded-lg border border-[color-mix(in_oklab,var(--line)_70%,transparent)] bg-[color-mix(in_oklab,var(--panel-2)_75%,var(--inset))] shadow-[0_2px_8px_rgba(0,0,0,0.12)]">${
+            lang
+              ? `<div class="flex items-center justify-between border-b border-[color-mix(in_oklab,var(--line)_40%,transparent)] bg-[color-mix(in_oklab,var(--panel-2)_95%,transparent)] px-3.5 py-1.5 font-mono text-[11px] font-medium text-ink-soft select-none"><span class="flex items-center gap-1.5"><span class="size-1.5 rounded-full bg-accent/70"></span>${lang}</span></div>`
+              : ''
+          }<div class="overflow-x-auto p-3.5 font-mono text-[12px] leading-[1.65]">${custom}</div></div>\n`
+        }
+        return false
+      },
+      blockquote(token) {
+        const match = token.text.match(/^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\](?:\n|\r\n)?([\s\S]*)$/i)
+        if (match) {
+          const type = match[1].toUpperCase()
+          const bodyText = match[2]
+          const bodyHtml = this.parser.parse([{ type: 'paragraph', raw: bodyText, text: bodyText, tokens: [{ type: 'text', raw: bodyText, text: bodyText }] }])
+          return `<div class="git-alert git-alert-${type.toLowerCase()}" data-alert="${type.toLowerCase()}"><div class="git-alert-title">${type}</div><div class="git-alert-body">${bodyHtml}</div></div>\n`
         }
         return false
       },

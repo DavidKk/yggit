@@ -15,13 +15,31 @@ export interface Annotation {
     const htmlDark = await renderMarkdownWithHighlight(md, 'dark')
     expect(htmlDark).toContain('<h1')
     expect(htmlDark).toContain('Section</h1>')
-    expect(htmlDark).toContain('class="shiki github-dark-default"')
+    expect(htmlDark).toContain('class="shiki vitesse-dark"')
     expect(htmlDark).toContain('style="color:')
     expect(htmlDark).toContain('EvidenceLevel')
+    expect(htmlDark).toContain('git-code-block')
+    expect(htmlDark).toContain('typescript')
 
     const htmlLight = await renderMarkdownWithHighlight(md, 'light')
-    expect(htmlLight).toContain('class="shiki github-light-default"')
+    expect(htmlLight).toContain('class="shiki vitesse-light"')
     expect(htmlLight).toContain('style="color:')
+  })
+
+  it('renders GFM alert callouts into themed alert boxes', async () => {
+    const md = `
+> [!NOTE]
+> This is a key note about yggdrasil architecture.
+
+> [!WARNING]
+> Please do not modify this directly.
+`
+    const html = await renderMarkdownWithHighlight(md, 'dark')
+    expect(html).toContain('git-alert-note')
+    expect(html).toContain('NOTE')
+    expect(html).toContain('This is a key note')
+    expect(html).toContain('git-alert-warning')
+    expect(html).toContain('WARNING')
   })
 
   it('safely handles untagged or unknown language blocks', async () => {

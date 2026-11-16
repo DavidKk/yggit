@@ -15,7 +15,10 @@ export interface MarkedOptions {
 export class Marked {
   private hooks: Array<{
     walkTokens?: (token: TokenCode) => Promise<void> | void
-    renderer?: { code?: (token: TokenCode) => string | false }
+    renderer?: {
+      code?: (token: TokenCode) => string | false
+      blockquote?: (token: { type: string; text: string; raw: string }) => string | false
+    }
   }> = []
 
   public options: MarkedOptions
@@ -24,7 +27,15 @@ export class Marked {
     this.options = options
   }
 
-  use(...plugins: Array<{ walkTokens?: (token: TokenCode) => Promise<void> | void; renderer?: { code?: (token: TokenCode) => string | false } }>) {
+  use(
+    ...plugins: Array<{
+      walkTokens?: (token: TokenCode) => Promise<void> | void
+      renderer?: {
+        code?: (token: TokenCode) => string | false
+        blockquote?: (token: { type: string; text: string; raw: string }) => string | false
+      }
+    }>
+  ) {
     this.hooks.push(...plugins)
     return this
   }
@@ -69,6 +80,41 @@ export class Marked {
     html = html.replace(/^#\s+(.+)$/gm, '<h1>$1</h1>')
     html = html.replace(/^##\s+(.+)$/gm, '<h2>$1</h2>')
     html = html.replace(/^###\s+(.+)$/gm, '<h3>$1</h3>')
+
+    const bqRegex = /(?:^|\n)((?:>[^\n]*(?:\n|$))+)/g
+    let bqMatch
+    const bqMatches: Array<{ full: string; text: string }> = []
+    while ((bqMatch = bqRegex.exec(html)) !== null) {
+      const lines = bqMatch[1]
+        .split('\n')
+        .map((l) => l.replace(/^>\s?/, ''))
+        .join('\n')
+        .trim()
+      bqMatches.push({ full: bqMatch[1], text: lines })
+    }
+    for (const b of bqMatches) {
+      const token = { type: 'blockquote', text: b.text, raw: b.full }
+      let rendered = ''
+      for (const h of this.hooks) {
+        if (h.renderer?.blockquote) {
+          const res = h.renderer.blockquote.call(
+            {
+              parser: {
+                parse: (items: Array<{ text?: string }>) => items.map((i) => i.text || '').join(''),
+              },
+            },
+            token
+          )
+          if (res) {
+            rendered = res
+            break
+          }
+        }
+      }
+      if (rendered) {
+        html = html.replace(b.full, rendered)
+      }
+    }
 
     return html
   }
