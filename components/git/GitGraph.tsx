@@ -552,13 +552,29 @@ function GitGraphComponent({
 
               if (row.kind === 'worktree' && worktree) {
                 const isContextActive = contextMenu?.type === 'worktree'
+                const wipDot = scene.dots.find((dot) => dot.key === 'wip')
+                const color = wipDot?.color || laneColor(headIndex >= 0 ? (points[headIndex]?.color ?? 0) : 0)
+                const isSelected = selectedHash === GIT_WORKTREE_HASH
+                const worktreeX = wipDot ? wipDot.x - 10 : 0
                 return (
-                  <li key="worktree" className="relative z-0 h-[26px] max-h-[26px] shrink-0 overflow-visible">
+                  <li key="worktree" className="group/commit git-commit-row relative z-0 h-[26px] max-h-[26px] min-w-0 shrink-0 overflow-visible hover:z-10">
+                    {/* Worktree node to message hover highlight pill */}
+                    <div
+                      className="git-graph-pill"
+                      data-selected={isSelected ? 'true' : 'false'}
+                      style={
+                        {
+                          '--row-tint': color,
+                          left: wipDot ? `calc(var(--git-branch-w) + ${worktreeX}px)` : 'var(--git-branch-w)',
+                          right: '0.5rem',
+                        } as React.CSSProperties
+                      }
+                    />
                     {dateDivider}
                     <div
                       role="row"
                       tabIndex={0}
-                      aria-selected={selectedHash === GIT_WORKTREE_HASH}
+                      aria-selected={isSelected}
                       className="group/commit grid h-[26px] max-h-[26px] w-full min-w-0 cursor-pointer select-text items-center justify-start gap-0 rounded-none border-0 bg-transparent px-0 text-left leading-none font-normal outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent"
                       style={{ gridTemplateColumns: columns }}
                       onClick={() => {
@@ -577,24 +593,20 @@ function GitGraphComponent({
                         setContextMenu({
                           type: 'worktree',
                           worktree,
-                          color: laneColor(headIndex >= 0 ? (points[headIndex]?.color ?? 0) : 0),
+                          color,
                           anchor: { x: event.clientX, y: event.clientY },
                         })
                       }}
                     >
                       <span className="min-h-0 bg-transparent" />
                       <span className="flex h-[26px] min-h-0 items-center justify-end bg-transparent">
-                        <span className="w-0.5 shrink-0" style={{ height: DOT, background: laneColor(headIndex >= 0 ? (points[headIndex]?.color ?? 0) : 0) }} aria-hidden />
+                        <span className="w-0.5 shrink-0" style={{ height: DOT, background: color }} aria-hidden />
                       </span>
                       <span className="flex h-[26px] min-h-0 min-w-0 items-center">
                         <span
                           className={cn(
-                            'flex min-w-0 flex-1 items-center truncate pr-3 pl-2 text-sm leading-none font-normal text-ink-soft select-text cursor-pointer',
-                            selectedHash === GIT_WORKTREE_HASH
-                              ? 'bg-[color-mix(in_oklab,var(--ink)_14%,transparent)]'
-                              : isContextActive
-                                ? 'bg-[color-mix(in_oklab,var(--ink)_10%,transparent)]'
-                                : 'group-hover/commit:bg-[color-mix(in_oklab,var(--ink)_6%,transparent)]'
+                            'flex min-w-0 flex-1 items-center truncate pr-3 pl-2 text-sm leading-none font-normal select-text cursor-pointer transition-colors duration-150',
+                            isSelected ? 'font-semibold text-ink' : isContextActive ? 'text-ink font-medium' : 'text-ink-soft'
                           )}
                           style={{ height: DOT }}
                         >
@@ -625,19 +637,18 @@ function GitGraphComponent({
                   isContextActive ? 'bg-[color-mix(in_oklab,var(--accent)_12%,transparent)]' : marked ? 'bg-[color-mix(in_oklab,var(--accent)_10%,transparent)]' : ''
                 )
                 return (
-                  <li key={stash.name} className="group/commit relative z-0 h-[26px] max-h-[26px] min-w-0 shrink-0 overflow-visible hover:z-10">
+                  <li key={stash.name} className="group/commit git-commit-row relative z-0 h-[26px] max-h-[26px] min-w-0 shrink-0 overflow-visible hover:z-10">
                     {/* Stash node to message hover highlight pill */}
                     <div
-                      className={cn(
-                        'pointer-events-none absolute inset-y-0.5 z-0 rounded-l-full rounded-r-md transition-all duration-150',
-                        selected
-                          ? 'opacity-100 bg-[color-mix(in_oklab,var(--accent)_18%,transparent)] ring-1 ring-inset ring-accent/50 group-hover/commit:bg-[color-mix(in_oklab,var(--accent)_26%,transparent)] group-hover/commit:ring-accent/80'
-                          : 'opacity-0 bg-[color-mix(in_oklab,var(--accent)_10%,transparent)] group-hover/commit:opacity-100 group-hover/commit:ring-1 group-hover/commit:ring-inset group-hover/commit:ring-accent/30'
-                      )}
-                      style={{
-                        left: `calc(var(--git-branch-w) + ${xAt(stashPoint?.lane ?? 0) - 10}px)`,
-                        right: '0.5rem',
-                      }}
+                      className="git-graph-pill"
+                      data-selected={selected ? 'true' : 'false'}
+                      style={
+                        {
+                          '--row-tint': color,
+                          left: `calc(var(--git-branch-w) + ${xAt(stashPoint?.lane ?? 0) - 10}px)`,
+                          right: '0.5rem',
+                        } as React.CSSProperties
+                      }
                     />
                     {dateDivider}
                     <div
@@ -708,35 +719,31 @@ function GitGraphComponent({
               const isBranchHit = Boolean(isBranchActive && branchHashes?.has(commit.hash))
               const isBranchDimmed = isBranchActive && !isBranchHit
               const rowTintClass = cn(
-                isBranchHit
-                  ? 'bg-[color-mix(in_oklab,var(--accent)_20%,transparent)] ring-1 ring-inset ring-accent/60'
-                  : isSpotlightHit && spotlightTarget?.role === 'primary'
-                    ? 'bg-[color-mix(in_oklab,var(--accent)_22%,transparent)] ring-1 ring-inset ring-accent/60'
-                    : isSpotlightHit
-                      ? 'bg-[color-mix(in_oklab,var(--accent)_14%,transparent)] ring-1 ring-inset ring-blue-500/40'
-                      : isLineageHit
-                        ? 'bg-[color-mix(in_oklab,var(--accent)_16%,transparent)] ring-1 ring-inset ring-accent/35'
-                        : marked
-                          ? 'bg-[color-mix(in_oklab,var(--accent)_12%,transparent)]'
-                          : ''
+                isSpotlightHit && spotlightTarget?.role === 'primary'
+                  ? 'bg-[color-mix(in_oklab,var(--accent)_22%,transparent)] ring-1 ring-inset ring-accent/60'
+                  : isSpotlightHit
+                    ? 'bg-[color-mix(in_oklab,var(--accent)_14%,transparent)] ring-1 ring-inset ring-blue-500/40'
+                    : isLineageHit
+                      ? 'bg-[color-mix(in_oklab,var(--accent)_16%,transparent)] ring-1 ring-inset ring-accent/35'
+                      : marked
+                        ? 'bg-[color-mix(in_oklab,var(--accent)_12%,transparent)]'
+                        : ''
               )
               const isHovered = isContextActive
               return (
-                <li key={commit.hash} className="group/commit relative z-0 h-[26px] max-h-[26px] min-w-0 shrink-0 overflow-visible hover:z-10">
+                <li key={commit.hash} className="group/commit git-commit-row relative z-0 h-[26px] max-h-[26px] min-w-0 shrink-0 overflow-visible hover:z-10">
                   {/* Commit node to message hover highlight pill */}
                   <div
-                    className={cn(
-                      'pointer-events-none absolute inset-y-0.5 z-0 rounded-l-full rounded-r-md transition-all duration-150',
-                      selected
-                        ? 'opacity-100 bg-[color-mix(in_oklab,var(--accent)_18%,transparent)] ring-1 ring-inset ring-accent/50 group-hover/commit:bg-[color-mix(in_oklab,var(--accent)_26%,transparent)] group-hover/commit:ring-accent/80'
-                        : isBranchHit
-                          ? 'opacity-100 bg-[color-mix(in_oklab,var(--accent)_20%,transparent)] ring-1 ring-inset ring-accent/60 group-hover/commit:bg-[color-mix(in_oklab,var(--accent)_26%,transparent)]'
-                          : 'opacity-0 bg-[color-mix(in_oklab,var(--accent)_10%,transparent)] group-hover/commit:opacity-100 group-hover/commit:ring-1 group-hover/commit:ring-inset group-hover/commit:ring-accent/30'
-                    )}
-                    style={{
-                      left: `calc(var(--git-branch-w) + ${xAt(point?.lane ?? 0) - 10}px)`,
-                      right: '0.5rem',
-                    }}
+                    className="git-graph-pill"
+                    data-selected={selected ? 'true' : 'false'}
+                    data-branch-hit={isBranchHit ? 'true' : 'false'}
+                    style={
+                      {
+                        '--row-tint': color,
+                        left: `calc(var(--git-branch-w) + ${xAt(point?.lane ?? 0) - 10}px)`,
+                        right: '0.5rem',
+                      } as React.CSSProperties
+                    }
                   />
                   {dateDivider}
                   <div
@@ -939,20 +946,36 @@ function GitGraphComponent({
                 })}
                 {scene.dots
                   .filter((dot) => dot.key === 'wip')
-                  .map((dot) => (
-                    <circle key={dot.key} cx={dot.x} cy={dot.y} r={dot.radius} fill={dot.filled ? dot.color : 'var(--panel)'} stroke={dot.color} strokeWidth={2} />
-                  ))}
+                  .map((dot) => {
+                    const isSelected = selectedHash === GIT_WORKTREE_HASH
+                    return (
+                      <circle
+                        key={dot.key}
+                        cx={dot.x}
+                        cy={dot.y}
+                        r={isSelected ? dot.radius + 1 : dot.radius}
+                        fill={dot.filled ? dot.color : 'var(--panel)'}
+                        stroke={isSelected ? 'var(--panel)' : dot.color}
+                        strokeWidth={isSelected ? 2.5 : 2}
+                        style={isSelected ? { filter: `drop-shadow(0 0 4px ${dot.color})` } : undefined}
+                      />
+                    )
+                  })}
               </svg>
               {scene.stashMarks.map((mark) => {
                 const stash = stashes.find((item) => item.hash === mark.hash)
                 if (!stash) return null
                 const tint = mark.color || 'var(--accent)'
+                const isSelected = selectedHash === stash.hash
                 return (
                   <span
                     key={mark.key}
                     data-git-graph-dot
                     data-git-node-hash={stash.hash}
-                    className="pointer-events-none select-none absolute flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-dashed transition-all duration-200"
+                    className={cn(
+                      'pointer-events-none select-none absolute flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-dashed transition-all duration-200',
+                      isSelected && 'scale-110 z-10'
+                    )}
                     style={{
                       left: mark.x,
                       top: mark.y,
@@ -961,7 +984,7 @@ function GitGraphComponent({
                       borderColor: tint,
                       color: tint,
                       background: `color-mix(in oklab, ${tint} 16%, var(--panel))`,
-                      boxShadow: `0 0 3px color-mix(in oklab, ${tint} 25%, transparent)`,
+                      boxShadow: isSelected ? `0 0 0 2px var(--panel), 0 0 0 4px ${tint}, 0 0 8px ${tint}` : `0 0 3px color-mix(in oklab, ${tint} 25%, transparent)`,
                     }}
                     aria-label={stash.name}
                   >
@@ -983,6 +1006,7 @@ function GitGraphComponent({
                 const isHead = index === headIndex || commit.refs.some((r) => r === 'HEAD' || r.startsWith('HEAD -> '))
                 const isTagged = commit.refs.some((r) => r.startsWith('tag: '))
                 const isDimmed = Boolean((lineageHashes && lineageHashes.size > 0 && !isLineageHit && !isHead) || isSpotlightDimmed || isBranchDimmed)
+                const isSelected = selectedHash === commit.hash
                 return (
                   <span
                     key={commit.hash}
@@ -991,9 +1015,10 @@ function GitGraphComponent({
                     className={cn(
                       'pointer-events-none select-none absolute flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full leading-none transition-all duration-200',
                       !isMerge && 'text-[9px] font-semibold text-ink',
+                      isSelected && 'scale-110 z-10',
                       isLineageHit && 'ring-2 ring-accent ring-offset-1 ring-offset-[var(--panel)] scale-110 z-10 shadow-[0_0_8px_var(--accent)]',
                       isSpotlightHit && 'ring-2 ring-accent ring-offset-1 ring-offset-[var(--panel)] scale-125 z-20 shadow-[0_0_12px_var(--accent)]',
-                      isBranchHit && 'ring-2 ring-accent ring-offset-1 ring-offset-[var(--panel)] scale-125 z-20 shadow-[0_0_12px_var(--accent)]',
+                      isBranchHit && 'scale-125 z-20',
                       isBranchDimmed ? 'opacity-20' : isDimmed ? 'opacity-25' : ''
                     )}
                     style={
@@ -1005,7 +1030,11 @@ function GitGraphComponent({
                             height: MERGE_NODE_DOT,
                             background: 'var(--panel)',
                             border: `1.5px solid ${tint}`,
-                            boxShadow: `0 0 3px color-mix(in oklab, ${tint} 30%, transparent)`,
+                            boxShadow: isSelected
+                              ? `0 0 0 2px var(--panel), 0 0 0 4px ${tint}, 0 0 10px ${tint}`
+                              : isBranchHit
+                                ? `0 0 0 2px var(--panel), 0 0 0 4px ${tint}, 0 0 12px ${tint}`
+                                : `0 0 3px color-mix(in oklab, ${tint} 30%, transparent)`,
                           }
                         : {
                             left: xAt(point.lane),
@@ -1013,10 +1042,14 @@ function GitGraphComponent({
                             width: NODE_DOT,
                             height: NODE_DOT,
                             background: `color-mix(in oklab, ${tint} 72%, var(--panel))`,
-                            boxShadow: isHead
-                              ? 'inset 0 0 0 1.5px var(--wt-primary, #3cd2a8), 0 0 0 1px var(--panel), 0 0 4px var(--wt-primary-glow, #b8ffea)'
-                              : `inset 0 0 0 1.5px ${tint}`,
-                            animation: isHead ? 'wt-head-breathe 2.8s ease-in-out infinite' : undefined,
+                            boxShadow: isSelected
+                              ? `inset 0 0 0 1.5px ${tint}, 0 0 0 2px var(--panel), 0 0 0 4px ${tint}, 0 0 8px ${tint}`
+                              : isBranchHit
+                                ? `inset 0 0 0 1.5px ${tint}, 0 0 0 2px var(--panel), 0 0 0 4px ${tint}, 0 0 12px ${tint}`
+                                : isHead
+                                  ? 'inset 0 0 0 1.5px var(--wt-primary, #3cd2a8), 0 0 0 1px var(--panel), 0 0 4px var(--wt-primary-glow, #b8ffea)'
+                                  : `inset 0 0 0 1.5px ${tint}`,
+                            animation: isHead && !isSelected ? 'wt-head-breathe 2.8s ease-in-out infinite' : undefined,
                           }
                     }
                     aria-label={commit.author}
