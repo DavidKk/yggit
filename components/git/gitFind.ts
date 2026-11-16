@@ -41,9 +41,27 @@ export function useGitFindShortcut(rootRef: RefObject<HTMLElement | null>) {
       if (!isFindChord(event)) return
       const root = rootRef.current
       if (!root) return
-      const active = document.activeElement
-      const scope =
-        (active instanceof Element ? active.closest(`[${GIT_FIND_ATTR}]`) : null) || (event.target instanceof Element ? event.target.closest(`[${GIT_FIND_ATTR}]`) : null)
+
+      // 1. If mouse is hovering over sidebar or a specific panel with data-git-find, prioritize it
+      let scope: Element | null = null
+      const hoveredSidebar = document.querySelector('[data-git-sidebar]:hover')
+      if (hoveredSidebar && root.contains(hoveredSidebar)) {
+        scope = hoveredSidebar.querySelector(`[${GIT_FIND_ATTR}]:hover`) || hoveredSidebar.querySelector(`[${GIT_FIND_ATTR}]`)
+      }
+
+      if (!scope) {
+        const hoveredFind = document.querySelector(`[${GIT_FIND_ATTR}]:hover`)
+        if (hoveredFind && root.contains(hoveredFind)) {
+          scope = hoveredFind
+        }
+      }
+
+      // 2. Fall back to focused element
+      if (!scope) {
+        const active = document.activeElement
+        scope = (active instanceof Element ? active.closest(`[${GIT_FIND_ATTR}]`) : null) || (event.target instanceof Element ? event.target.closest(`[${GIT_FIND_ATTR}]`) : null)
+      }
+
       if (!scope || !root.contains(scope)) return
       event.preventDefault()
       event.stopPropagation()

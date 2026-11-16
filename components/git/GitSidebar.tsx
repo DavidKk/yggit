@@ -10,17 +10,25 @@ import {
   LuChevronsDownUp,
   LuChevronsUpDown,
   LuCloud,
+  LuCopy,
   LuFolder,
   LuFolderGit2,
   LuGitBranch,
+  LuHash,
+  LuInbox,
   LuRefreshCw,
   LuTag,
+  LuText,
+  LuUser,
 } from 'react-icons/lu'
 
 import { GitSearchDropdown } from '@/components/git/GitSearchDropdown'
+import { FloatingMenu, type FloatingMenuItem } from '@/components/git/RefChipsCell'
 import { handleTreeExpandKey, handleTreeParentKey } from '@/components/git/treeExpandKey'
 import { useT } from '@/components/i18n/LocaleProvider'
+import { useNotification } from '@/components/notification/useNotification'
 import { Badge, Button, EmptyState, ScrollArea } from '@/components/sk'
+import { copyToClipboard } from '@/lib/clipboard'
 import { useGitDriver } from '@/lib/git/driver'
 import type { GitLogView, GitRemoteProbe, GitSelection } from '@/lib/git/types'
 import { isBoolean, isRecordBoolean, repoPrefKey, useGitUiPref, useGitUiReady } from '@/lib/git/ui-prefs'
@@ -61,6 +69,7 @@ type BranchItem = {
   path: string
   current?: boolean
   title?: string
+  tip?: string
 }
 
 type BranchNode = {
@@ -180,6 +189,7 @@ export function GitSidebar({ view, selection, width, remoteUpdates = [], remoteP
             name: branch.name,
             path: branch.name,
             current: branch.current,
+            tip: branch.tip,
           }))
       ),
     [localNeedle, view.branches]
@@ -201,6 +211,7 @@ export function GitSidebar({ view, selection, width, remoteUpdates = [], remoteP
                 name: remote.name,
                 path: remote.branch || remote.name,
                 title: remote.name,
+                tip: remote.tip,
               }))
             ),
           }
@@ -274,6 +285,179 @@ export function GitSidebar({ view, selection, width, remoteUpdates = [], remoteP
     return map
   }, [remoteUpdates])
 
+  const notify = useNotification()
+  const [contextMenu, setContextMenu] = useState<{
+    anchor: { x: number; y: number }
+    ariaLabel: string
+    items: FloatingMenuItem[]
+  } | null>(null)
+
+  const copyValue = async (value: string) => {
+    const ok = await copyToClipboard(value)
+    if (ok) notify.success(t('common.copied') || '已复制')
+    else notify.error(t('common.copyFailed') || '复制失败')
+  }
+
+  const handleBranchContextMenu = (e: React.MouseEvent, item: BranchItem, _kind: 'local' | 'remote') => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    const tipCommit = view.commits.find((c) => c.hash === item.tip)
+    const items: FloatingMenuItem[] = [
+      {
+        key: 'copy-branch-name',
+        label: `${t('git.graph.copyBranchName') || '复制分支名称'} (${item.name})`,
+        icon: <LuGitBranch className="size-3.5 shrink-0 text-accent" />,
+        onSelect: () => void copyValue(item.name),
+      },
+    ]
+
+    if (item.title && item.title !== item.name) {
+      items.push({
+        key: 'copy-full-name',
+        label: `复制完整路径 (${item.title})`,
+        icon: <LuCopy className="size-3.5 shrink-0" />,
+        onSelect: () => void copyValue(item.title!),
+      })
+    }
+
+    if (tipCommit) {
+      items.push(
+        {
+          key: 'copy-subject',
+          label: `${t('git.graph.copyCommitSubject') || '复制提交信息'} (${tipCommit.subject})`,
+          icon: <LuText className="size-3.5 shrink-0 text-ink-soft" />,
+          onSelect: () => void copyValue(tipCommit.subject),
+        },
+        {
+          key: 'copy-hash',
+          label: `${t('git.graph.copyCommitHash') || '复制 Commit SHA'} (${tipCommit.short || tipCommit.hash.slice(0, 7)})`,
+          icon: <LuHash className="size-3.5 shrink-0 text-ink-soft" />,
+          onSelect: () => void copyValue(tipCommit.hash),
+        },
+        {
+          key: 'copy-author',
+          label: `${t('git.graph.copyAuthor') || '复制作者'} (${tipCommit.author})`,
+          icon: <LuUser className="size-3.5 shrink-0 text-ink-soft" />,
+          onSelect: () => void copyValue(tipCommit.author),
+        }
+      )
+    } else if (item.tip) {
+      const tipHash = item.tip
+      items.push({
+        key: 'copy-hash',
+        label: `${t('git.graph.copyCommitHash') || '复制 Commit SHA'} (${tipHash.slice(0, 7)})`,
+        icon: <LuHash className="size-3.5 shrink-0 text-ink-soft" />,
+        onSelect: () => void copyValue(tipHash),
+      })
+    }
+
+    setContextMenu({
+      anchor: { x: e.clientX, y: e.clientY },
+      ariaLabel: item.name,
+      items,
+    })
+  }
+
+  const handleTagContextMenu = (e: React.MouseEvent, tag: { name: string; tip: string }) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const commit = view.commits.find((c) => c.hash === tag.tip)
+    const items: FloatingMenuItem[] = [
+      {
+        key: 'copy-tag-name',
+        label: `复制标签名称 (${tag.name})`,
+        icon: <LuTag className="size-3.5 shrink-0 text-accent" />,
+        onSelect: () => void copyValue(tag.name),
+      },
+      {
+        key: 'copy-hash',
+        label: `${t('git.graph.copyCommitHash') || '复制 Commit SHA'} (${tag.tip.slice(0, 7)})`,
+        icon: <LuHash className="size-3.5 shrink-0 text-ink-soft" />,
+        onSelect: () => void copyValue(tag.tip),
+      },
+    ]
+    if (commit?.subject) {
+      items.push({
+        key: 'copy-subject',
+        label: `${t('git.graph.copyCommitSubject') || '复制提交信息'} (${commit.subject})`,
+        icon: <LuText className="size-3.5 shrink-0 text-ink-soft" />,
+        onSelect: () => void copyValue(commit.subject),
+      })
+    }
+    setContextMenu({
+      anchor: { x: e.clientX, y: e.clientY },
+      ariaLabel: tag.name,
+      items,
+    })
+  }
+
+  const handleStashContextMenu = (e: React.MouseEvent, stash: { name: string; subject?: string; hash: string }) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const items: FloatingMenuItem[] = [
+      {
+        key: 'copy-stash-name',
+        label: `复制 Stash 名称 (${stash.name})`,
+        icon: <LuInbox className="size-3.5 shrink-0 text-accent" />,
+        onSelect: () => void copyValue(stash.name),
+      },
+    ]
+    if (stash.subject) {
+      const subj = stash.subject
+      items.push({
+        key: 'copy-subject',
+        label: `${t('git.graph.copyCommitSubject') || '复制提交信息'} (${subj})`,
+        icon: <LuText className="size-3.5 shrink-0 text-ink-soft" />,
+        onSelect: () => void copyValue(subj),
+      })
+    }
+    items.push({
+      key: 'copy-hash',
+      label: `${t('git.graph.copyCommitHash') || '复制 Commit SHA'} (${stash.hash.slice(0, 7)})`,
+      icon: <LuHash className="size-3.5 shrink-0 text-ink-soft" />,
+      onSelect: () => void copyValue(stash.hash),
+    })
+    setContextMenu({
+      anchor: { x: e.clientX, y: e.clientY },
+      ariaLabel: stash.name,
+      items,
+    })
+  }
+
+  const handleWorktreeContextMenu = (e: React.MouseEvent, entry: { path: string; branch?: string; head: string }) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const items: FloatingMenuItem[] = [
+      {
+        key: 'copy-path',
+        label: `复制本地路径 (${entry.path})`,
+        icon: <LuFolder className="size-3.5 shrink-0 text-accent" />,
+        onSelect: () => void copyValue(entry.path),
+      },
+    ]
+    if (entry.branch) {
+      const br = entry.branch
+      items.push({
+        key: 'copy-branch',
+        label: `${t('git.graph.copyBranchName') || '复制分支名称'} (${br})`,
+        icon: <LuGitBranch className="size-3.5 shrink-0 text-accent" />,
+        onSelect: () => void copyValue(br),
+      })
+    }
+    items.push({
+      key: 'copy-head',
+      label: `${t('git.graph.copyCommitHash') || '复制 HEAD SHA'} (${entry.head.slice(0, 7)})`,
+      icon: <LuHash className="size-3.5 shrink-0 text-ink-soft" />,
+      onSelect: () => void copyValue(entry.head),
+    })
+    setContextMenu({
+      anchor: { x: e.clientX, y: e.clientY },
+      ariaLabel: entry.branch || entry.path,
+      items,
+    })
+  }
+
   const sections = useMemo(
     (): Array<{
       id: SectionId
@@ -305,6 +489,7 @@ export function GitSidebar({ view, selection, width, remoteUpdates = [], remoteP
             onToggleFolder={toggleFolder}
             onSetFolder={setFolderOpen}
             onSelect={onSelect}
+            onContextMenu={handleBranchContextMenu}
             parentId="section:local"
           />
         ),
@@ -332,7 +517,7 @@ export function GitSidebar({ view, selection, width, remoteUpdates = [], remoteP
               <Button
                 variant="plain"
                 data-git-tree-id={sourceId}
-                className="h-7 w-full justify-start gap-1.5 rounded-none px-2 font-normal text-ink-soft"
+                className="h-7 w-full justify-start gap-1.5 rounded-none px-2 font-normal text-ink-soft select-text"
                 aria-expanded={expanded}
                 onClick={() => setOpenRemotes((prev) => ({ ...prev, [group.source]: !(prev[group.source] ?? remoteDefault) }))}
                 onKeyDown={(event) => {
@@ -341,7 +526,9 @@ export function GitSidebar({ view, selection, width, remoteUpdates = [], remoteP
                 }}
               >
                 {expanded ? <LuChevronDown className="size-3 shrink-0" aria-hidden /> : <LuChevronRight className="size-3 shrink-0" aria-hidden />}
-                <span className="min-w-0 flex-1 truncate whitespace-nowrap text-left text-xs">{group.source}</span>
+                <span data-git-sidebar-label className="min-w-0 flex-1 truncate whitespace-nowrap text-left text-xs select-text">
+                  {group.source}
+                </span>
                 {sourceUpdates > 0 ? (
                   <Badge tone="accent" size="mini" dot={false} className="shrink-0" title={t('git.sidebar.remoteBranchUpdates', { count: sourceUpdates })}>
                     {sourceUpdates}
@@ -360,6 +547,7 @@ export function GitSidebar({ view, selection, width, remoteUpdates = [], remoteP
                   onToggleFolder={toggleFolder}
                   onSetFolder={setFolderOpen}
                   onSelect={onSelect}
+                  onContextMenu={handleBranchContextMenu}
                   idPrefix={`remote:${group.source}`}
                   parentId={sourceId}
                   updateByName={updateByName}
@@ -384,6 +572,7 @@ export function GitSidebar({ view, selection, width, remoteUpdates = [], remoteP
             active={active === `stash:${stash.name}`}
             parentId="section:stash"
             onClick={() => onSelect({ kind: 'stash', name: stash.name })}
+            onContextMenu={(e) => handleStashContextMenu(e, stash)}
           />
         )),
       },
@@ -395,7 +584,14 @@ export function GitSidebar({ view, selection, width, remoteUpdates = [], remoteP
         icon: LuTag,
         searchPlaceholder: t('git.sidebar.search.tag'),
         body: filteredTags.map((tag) => (
-          <Row key={tag.name} label={tag.name} active={active === `tag:${tag.name}`} parentId="section:tag" onClick={() => onSelect({ kind: 'tag', name: tag.name })} />
+          <Row
+            key={tag.name}
+            label={tag.name}
+            active={active === `tag:${tag.name}`}
+            parentId="section:tag"
+            onClick={() => onSelect({ kind: 'tag', name: tag.name })}
+            onContextMenu={(e) => handleTagContextMenu(e, tag)}
+          />
         )),
       },
       {
@@ -414,6 +610,7 @@ export function GitSidebar({ view, selection, width, remoteUpdates = [], remoteP
             active={active === `worktree:${entry.path}`}
             parentId="section:worktree"
             onClick={() => onSelect({ kind: 'worktree', path: entry.path })}
+            onContextMenu={(e) => handleWorktreeContextMenu(e, entry)}
           />
         )),
       },
@@ -465,7 +662,7 @@ export function GitSidebar({ view, selection, width, remoteUpdates = [], remoteP
   const expandedOf = (id: SectionId) => (ready ? Boolean(open[id]) : false)
 
   return (
-    <aside data-git-sidebar data-git-tree-root className="flex h-full min-h-0 shrink-0 flex-col overflow-hidden" style={{ width: `var(--git-sidebar-w, ${width}px)` }}>
+    <aside data-git-sidebar data-git-tree-root className="flex h-full min-h-0 shrink-0 flex-col overflow-hidden select-text" style={{ width: `var(--git-sidebar-w, ${width}px)` }}>
       <nav aria-label={t('git.sidebar.navAria')} className="flex min-h-0 flex-1 flex-col pt-1 pb-2" aria-busy={!ready || undefined}>
         {sections.map((section) => {
           const expanded = expandedOf(section.id)
@@ -593,6 +790,9 @@ export function GitSidebar({ view, selection, width, remoteUpdates = [], remoteP
           )
         })}
       </nav>
+      {contextMenu ? (
+        <FloatingMenu anchor={contextMenu.anchor} ariaLabel={contextMenu.ariaLabel} color="var(--accent)" onClose={() => setContextMenu(null)} items={contextMenu.items} />
+      ) : null}
     </aside>
   )
 }
@@ -606,6 +806,7 @@ function BranchTree({
   onToggleFolder,
   onSetFolder,
   onSelect,
+  onContextMenu,
   idPrefix = kind,
   parentId,
   updateByName,
@@ -618,6 +819,7 @@ function BranchTree({
   onToggleFolder: (id: string) => void
   onSetFolder: (id: string, next: boolean) => void
   onSelect: (selection: GitSelection) => void
+  onContextMenu?: (e: React.MouseEvent, item: BranchItem, kind: 'local' | 'remote') => void
   idPrefix?: string
   parentId?: string
   updateByName?: Map<string, GitRemoteProbe>
@@ -647,6 +849,7 @@ function BranchTree({
               parentId={parentId}
               notice={Boolean(probe)}
               onClick={() => onSelect({ kind, name: node.item!.name })}
+              onContextMenu={(e) => onContextMenu?.(e, node.item!, kind)}
             />
           )
         }
@@ -662,13 +865,18 @@ function BranchTree({
               aria-expanded={expanded}
               aria-current={branchActive ? 'true' : undefined}
               className={cn(
-                'h-7 w-full justify-start gap-1.5 rounded-none px-2 font-normal text-ink-soft',
+                'h-7 w-full justify-start gap-1.5 rounded-none px-2 font-normal text-ink-soft select-text',
                 branchActive && 'bg-[color-mix(in_oklab,var(--accent)_16%,transparent)] text-accent'
               )}
               style={depth > 0 ? { paddingLeft: 8 + depth * 14 } : undefined}
               onClick={() => {
+                const sel = typeof window !== 'undefined' ? window.getSelection() : null
+                if (sel && sel.toString().length > 0) return
                 if (node.item) onSelect({ kind, name: node.item.name })
                 else onToggleFolder(folderId)
+              }}
+              onContextMenu={(e) => {
+                if (node.item) onContextMenu?.(e, node.item, kind)
               }}
               onKeyDown={(event) => {
                 if (handleTreeExpandKey(event, expanded, (next) => onSetFolder(folderId, next))) return
@@ -685,7 +893,9 @@ function BranchTree({
                 {expanded ? <LuChevronDown className="size-3" aria-hidden /> : <LuChevronRight className="size-3" aria-hidden />}
               </span>
               <LuFolder className="size-3 shrink-0" aria-hidden />
-              <span className="min-w-0 flex-1 truncate whitespace-nowrap text-left text-xs">{node.label}</span>
+              <span data-git-sidebar-label className="min-w-0 flex-1 truncate whitespace-nowrap text-left text-xs select-text">
+                {node.label}
+              </span>
               {node.item?.current ? <LuCheck className="size-3 shrink-0 text-accent" aria-hidden /> : null}
             </Button>
             {expanded ? (
@@ -698,6 +908,7 @@ function BranchTree({
                 onToggleFolder={onToggleFolder}
                 onSetFolder={onSetFolder}
                 onSelect={onSelect}
+                onContextMenu={onContextMenu}
                 idPrefix={idPrefix}
                 parentId={folderId}
                 updateByName={updateByName}
@@ -719,6 +930,7 @@ function Row({
   parentId,
   notice,
   onClick,
+  onContextMenu,
 }: {
   label: string
   title?: string
@@ -728,6 +940,7 @@ function Row({
   parentId?: string
   notice?: boolean
   onClick: () => void
+  onContextMenu?: (e: React.MouseEvent) => void
 }) {
   const t = useT()
   return (
@@ -735,13 +948,18 @@ function Row({
       variant="plain"
       tooltip={title && title !== label ? title : undefined}
       aria-current={active ? 'true' : undefined}
-      className={cn('h-8 w-full justify-start px-2 font-normal text-ink', active && 'bg-[color-mix(in_oklab,var(--accent)_16%,transparent)] text-accent')}
+      className={cn('h-8 w-full justify-start px-2 font-normal text-ink select-text', active && 'bg-[color-mix(in_oklab,var(--accent)_16%,transparent)] text-accent')}
       style={depth > 0 ? { paddingLeft: 8 + depth * 14 } : undefined}
-      onClick={onClick}
+      onClick={() => {
+        const sel = typeof window !== 'undefined' ? window.getSelection() : null
+        if (sel && sel.toString().length > 0) return
+        onClick()
+      }}
+      onContextMenu={onContextMenu}
       onKeyDown={(event) => handleTreeParentKey(event, parentId)}
     >
       {current ? <LuCheck className="size-3.5 shrink-0 text-accent" aria-hidden /> : <span className="size-3.5 shrink-0" aria-hidden />}
-      <span data-git-sidebar-label className="min-w-0 flex-1 truncate whitespace-nowrap text-left">
+      <span data-git-sidebar-label className="min-w-0 flex-1 truncate whitespace-nowrap text-left select-text">
         {label}
       </span>
       {notice ? <span className="size-1.5 shrink-0 rounded-full bg-accent" aria-label={t('git.sidebar.remoteNewAria')} /> : null}

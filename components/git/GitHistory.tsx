@@ -160,7 +160,11 @@ export function GitHistory({
         pan.scrollLeft += (dot.left + dot.right - viewport.left - viewport.right) / 2
       }
     }
-    row.focus({ preventScroll: true })
+    // Only transfer focus if the user was not interacting with the sidebar or file tree
+    const active = typeof document !== 'undefined' ? document.activeElement : null
+    if (!active?.closest?.('[data-git-sidebar]') && !active?.closest?.('[data-git-tree]')) {
+      row.focus({ preventScroll: true })
+    }
   }, [repo, focusRequest, commits, stashes, hasMore, loadMore])
 
   useEffect(() => {
