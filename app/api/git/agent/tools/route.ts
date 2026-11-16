@@ -1,6 +1,6 @@
 import { defineApiRoute } from '@/initializer/controller'
 import { apiBadRequest, apiOk } from '@/initializer/response'
-import { checkBranchContainment, findGitCommits, getGitCommitDetails, getTodayMerges } from '@/services/git/agent-impact'
+import { checkBranchContainment, findGitCommits, getGitBranches, getGitCommitDetails, getGitRepoSummary, getTodayMerges } from '@/services/git/agent-impact'
 
 export const runtime = 'nodejs'
 
@@ -14,6 +14,16 @@ export const POST = defineApiRoute('post:/api/git/agent/tools', async ({ request
     }
 
     switch (tool) {
+      case 'get_branches': {
+        const data = await getGitBranches({ repo })
+        return apiOk(data as unknown as Record<string, unknown>)
+      }
+
+      case 'get_repo_summary': {
+        const data = await getGitRepoSummary({ repo })
+        return apiOk(data as unknown as Record<string, unknown>)
+      }
+
       case 'check_branch_containment': {
         const { sourceBranch, targetBranch } = args
         if (!sourceBranch || !targetBranch) {

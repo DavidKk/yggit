@@ -26,6 +26,8 @@ export interface AgentContextValue {
   sendMessage: (content: string, repoPath?: string) => Promise<void>
   clearMessages: () => void
   activeResultSummary: string | null
+  activeRepo: string
+  setActiveRepo: (repo: string) => void
 }
 
 const AgentContext = createContext<AgentContextValue | null>(null)
@@ -79,6 +81,11 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
   const [messages, setMessages] = useState<AgentChatMessage[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
   const [activeResultSummary, setActiveResultSummary] = useState<string | null>(null)
+  const [activeRepo, setActiveRepo] = useState<string>(currentRepo || '')
+
+  useEffect(() => {
+    if (currentRepo) setActiveRepo(currentRepo)
+  }, [currentRepo])
 
   const redactionSessionRef = useRef<RedactionSession>(createRedactionSession())
   const spotlightCtx = useOptionalSpotlight()
@@ -97,7 +104,7 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
       const trimmed = userText.trim()
       if (!trimmed || isProcessing) return
 
-      const repo = repoPath || currentRepo || ''
+      const repo = repoPath || activeRepo || currentRepo || ''
       const userMsgId = `msg_${Date.now()}`
       const userMessage: AgentChatMessage = {
         id: userMsgId,
@@ -239,7 +246,7 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
         setIsProcessing(false)
       }
     },
-    [config, redactionOptions, messages, isProcessing, currentRepo, spotlightCtx]
+    [config, redactionOptions, messages, isProcessing, activeRepo, currentRepo, spotlightCtx]
   )
 
   const value = useMemo(
@@ -258,8 +265,10 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
       sendMessage,
       clearMessages,
       activeResultSummary,
+      activeRepo,
+      setActiveRepo,
     }),
-    [config, profiles, activeProfileId, saveProfile, redactionOptions, dockMode, messages, isProcessing, sendMessage, clearMessages, activeResultSummary]
+    [config, profiles, activeProfileId, saveProfile, redactionOptions, dockMode, messages, isProcessing, sendMessage, clearMessages, activeResultSummary, activeRepo]
   )
 
   return <AgentContext.Provider value={value}>{children}</AgentContext.Provider>

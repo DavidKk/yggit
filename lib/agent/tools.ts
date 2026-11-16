@@ -9,6 +9,28 @@ export const AGENT_GIT_TOOLS: AgentToolDefinition[] = [
   {
     type: 'function',
     function: {
+      name: 'get_branches',
+      description: 'Get all Git branches in the repository, including branch count, local branches, remote branches, and the currently checked out branch.',
+      parameters: {
+        type: 'object',
+        properties: {},
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_repo_summary',
+      description: 'Get a quick summary of the Git repository: current branch, total commit count, branch count, latest commit info, and working tree cleanliness.',
+      parameters: {
+        type: 'object',
+        properties: {},
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'check_branch_containment',
       description: 'Verify if commits from a source branch have been merged into a target branch, or check if a feature branch is polluted with commits from an unwanted branch.',
       parameters: {

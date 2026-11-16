@@ -5,9 +5,6 @@ import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState }
 import { LuCheck, LuChevronsUpDown, LuFolderGit2, LuSettings, LuShare2 } from 'react-icons/lu'
 
 import { BrandLogo } from '@/components/BrandLogo'
-import { AgentWorkspace } from '@/components/git/agent/AgentWorkspace'
-import { GitAgentBar } from '@/components/git/agent/GitAgentBar'
-import { AgentSpotlightNavigator } from '@/components/git/agent/spotlight/AgentSpotlightNavigator'
 import { measurePanelFit } from '@/components/git/fitColumn'
 import { GitCommitPanel } from '@/components/git/GitCommitPanel'
 import { GitDebug } from '@/components/git/GitDebug'
@@ -25,6 +22,7 @@ import { useInWorkspaceHeader, WorkspaceHeaderSlot } from '@/components/layout/W
 import { Button, EmptyState, Spinner, Tooltip } from '@/components/sk'
 import { dropdownTriggerClass } from '@/components/sk/dropdownMenu'
 import { ThemeSwitcher } from '@/components/theme/ThemeSwitcher'
+import { useOptionalAgent } from '@/lib/agent/agent-context'
 import { useOptionalSpotlight } from '@/lib/agent/spotlight-context'
 import { readApiErrorMessage } from '@/lib/api-error'
 import { getDriverMode, getGitDriver } from '@/lib/git/driver'
@@ -125,6 +123,12 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
   const inWorkspace = useInWorkspaceHeader()
 
   const spotlight = useOptionalSpotlight()
+  const agent = useOptionalAgent()
+  useEffect(() => {
+    if (view?.repo && agent?.setActiveRepo) {
+      agent.setActiveRepo(view.repo)
+    }
+  }, [view?.repo, agent])
   useEffect(() => {
     if (spotlight?.registerNavigateHandler) {
       return spotlight.registerNavigateHandler((hash) => {
@@ -1032,10 +1036,6 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
             ) : null}
           </div>
         )}
-        {/* Git Agent Floating Entry & Spotlight Navigation */}
-        <AgentSpotlightNavigator />
-        <AgentWorkspace repoPath={view?.repo} />
-        <GitAgentBar repoPath={view?.repo} />
 
         {/* Full-Page Blocking Loading Overlay when switching or loading repository */}
         {busy ? (

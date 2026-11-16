@@ -3,6 +3,8 @@ import { AGENT_GIT_TOOLS, executeAgentTool } from '@/lib/agent/tools'
 describe('Agent Git Tools', () => {
   it('exports expected git tools schemas for LLM function calling', () => {
     const toolNames = AGENT_GIT_TOOLS.map((t) => t.function.name)
+    expect(toolNames).toContain('get_branches')
+    expect(toolNames).toContain('get_repo_summary')
     expect(toolNames).toContain('check_branch_containment')
     expect(toolNames).toContain('get_today_merges')
     expect(toolNames).toContain('find_commits')

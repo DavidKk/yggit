@@ -64,4 +64,14 @@ export type GitAgentMessages = {
   shortcutHint: string
   deepDiscussion: string
   clearHistory: string
+  inputPlaceholder: string
+  welcomeTitle: string
+  welcomeDesc: string
+  capabilitiesButton: string
+  capabilitiesTitle: string
+  capabilitiesHint: string
+  copyAnswer: string
+  analyzing: string
+  analyzingLog: string
+  executedTool: string
 }

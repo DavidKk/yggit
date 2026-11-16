@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 
 import { WorkspaceHeader } from '@/components/layout/WorkspaceHeader'
 import { WorkspaceHeaderProvider } from '@/components/layout/WorkspaceHeaderContext'
+import { WorkspaceShell } from '@/components/layout/WorkspaceShell'
 
 export const metadata: Metadata = {
   title: 'Yggit',
@@ -14,7 +15,7 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
     <WorkspaceHeaderProvider>
       <div className="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden bg-paper text-ink">
         <WorkspaceHeader />
-        <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">{children}</div>
+        <WorkspaceShell>{children}</WorkspaceShell>
       </div>
     </WorkspaceHeaderProvider>
   )

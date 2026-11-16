@@ -284,3 +284,119 @@ export async function getGitCommitDetails(params: { repo?: string; commitHash: s
     throw new Error(`Failed to get commit details: ${msg}`)
   }
 }
+
+export interface GitBranchesResult {
+  currentBranch: string
+  totalCount: number
+  localCount: number
+  remoteCount: number
+  branches: Array<{
+    name: string
+    isCurrent: boolean
+    isRemote: boolean
+    upstream?: string
+    tip?: string
+  }>
+}
+
+/**
+ * Retrieves all Git branches with classification, current HEAD branch, and counts.
+ */
+export async function getGitBranches(params: { repo?: string }): Promise<GitBranchesResult> {
+  const { repo = '' } = params
+  try {
+    const raw = await gitExec(repo, ['for-each-ref', 'refs/heads', 'refs/remotes', '--format=%(refname)%00%(refname:short)%00%(upstream:short)%00%(HEAD)%00%(objectname)'])
+    const lines = raw
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean)
+
+    const branches = lines
+      .map((line) => {
+        const [refname = '', shortName = '', upstream = '', head = '', tip = ''] = line.split('\0')
+        if (refname.endsWith('/HEAD')) return null
+        const isRemote = refname.startsWith('refs/remotes/')
+        return {
+          name: shortName,
+          isCurrent: head === '*',
+          isRemote,
+          upstream: upstream || undefined,
+          tip: tip || undefined,
+        }
+      })
+      .filter((b): b is NonNullable<typeof b> => Boolean(b && b.name))
+
+    const current = branches.find((b) => b.isCurrent)?.name || ''
+    const localBranches = branches.filter((b) => !b.isRemote)
+    const remoteBranches = branches.filter((b) => b.isRemote)
+
+    return {
+      currentBranch: current,
+      totalCount: branches.length,
+      localCount: localBranches.length,
+      remoteCount: remoteBranches.length,
+      branches,
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    throw new Error(`Failed to list branches: ${msg}`)
+  }
+}
+
+export interface GitRepoSummaryResult {
+  currentBranch: string
+  totalCommits: number
+  totalBranches: number
+  latestCommit?: {
+    hash: string
+    shortHash: string
+    subject: string
+    author: string
+    date: string
+  }
+  dirtyFilesCount: number
+}
+
+/**
+ * Retrieves quick repository summary: current branch, commit count, branch count, latest commit, dirty files.
+ */
+export async function getGitRepoSummary(params: { repo?: string }): Promise<GitRepoSummaryResult> {
+  const { repo = '' } = params
+  try {
+    const currentBranch = await gitExec(repo, ['rev-parse', '--abbrev-ref', 'HEAD']).catch(() => '')
+    const commitCountRaw = await gitExec(repo, ['rev-list', '--count', 'HEAD']).catch(() => '0')
+    const totalCommits = parseInt(commitCountRaw, 10) || 0
+    const branchListRaw = await gitExec(repo, ['branch', '--list']).catch(() => '')
+    const totalBranches = branchListRaw ? branchListRaw.split('\n').filter(Boolean).length : 0
+    const statusRaw = await gitExec(repo, ['status', '--porcelain']).catch(() => '')
+    const dirtyFilesCount = statusRaw ? statusRaw.split('\n').filter(Boolean).length : 0
+
+    let latestCommit: GitRepoSummaryResult['latestCommit'] = undefined
+    try {
+      const rawMeta = await gitExec(repo, ['log', '-1', '--pretty=format:%H%x1f%h%x1f%s%x1f%an%x1f%ad', '--date=iso'])
+      if (rawMeta) {
+        const [hash, shortHash, subject, author, date] = rawMeta.split('\x1f')
+        latestCommit = {
+          hash: hash || '',
+          shortHash: shortHash || '',
+          subject: subject || '',
+          author: author || '',
+          date: date || '',
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    return {
+      currentBranch,
+      totalCommits,
+      totalBranches,
+      latestCommit,
+      dirtyFilesCount,
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    throw new Error(`Failed to get repo summary: ${msg}`)
+  }
+}

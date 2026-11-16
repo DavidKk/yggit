@@ -64,6 +64,16 @@ export const gitAgentZh: { gitAgent: GitAgentMessages } = {
     shortcutHint: '按 ⌘J 或 Ctrl+J 快速唤起',
     deepDiscussion: '停靠深入讨论',
     clearHistory: '清空会话记录',
+    inputPlaceholder: '深入追问 Git 历史、分支或排查线索...',
+    welcomeTitle: '欢迎使用 Git Agent 智能诊断',
+    welcomeDesc: '您可以向 Agent 询问分支统计、合入与污染检测、Merge 清单排查或按条件定位提交。',
+    capabilitiesButton: '能力',
+    capabilitiesTitle: 'Agent 已支持的 Git 诊断与分析能力',
+    capabilitiesHint: '点击快捷执行',
+    copyAnswer: '复制回答',
+    analyzing: '分析中...',
+    analyzingLog: '正在分析 Git 仓库与提交记录...',
+    executedTool: '已执行 Git 分析：',
   },
 }
 
@@ -132,6 +142,16 @@ export const gitAgentEn: { gitAgent: GitAgentMessages } = {
     shortcutHint: 'Press ⌘J or Ctrl+J to summon',
     deepDiscussion: 'Dock to Discuss',
     clearHistory: 'Clear History',
+    inputPlaceholder: 'Ask about Git history, branches or debugging clues...',
+    welcomeTitle: 'Welcome to Git Agent',
+    welcomeDesc: 'Ask about branch stats, merge detection, commit logs, or repository diagnostics.',
+    capabilitiesButton: 'Capabilities',
+    capabilitiesTitle: 'Supported Git Diagnostics & Tools',
+    capabilitiesHint: 'Click to execute',
+    copyAnswer: 'Copy answer',
+    analyzing: 'Analyzing...',
+    analyzingLog: 'Analyzing Git repository and commits...',
+    executedTool: 'Executed Git tool: ',
   },
 }
 

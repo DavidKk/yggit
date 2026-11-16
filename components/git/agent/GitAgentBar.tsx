@@ -166,6 +166,8 @@ export function GitAgentBar({ repoPath, className }: Props) {
     await sendMessage(trimmed, repoPath)
   }
 
+  if (dockMode !== 'collapsed') return null
+
   // Get the latest assistant response for the in-place answer card
   const lastAssistantMessage = messages
     .slice()
