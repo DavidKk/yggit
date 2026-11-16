@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 
 export default function SettingsPage() {
   return (
-    <Suspense fallback={<div className="h-screen w-screen bg-paper" />}>
+    <Suspense fallback={<div className="h-full w-full bg-paper" />}>
       <AgentSettingsPageContent />
     </Suspense>
   )

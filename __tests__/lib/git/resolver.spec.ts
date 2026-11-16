@@ -46,11 +46,11 @@ describe('resolver', () => {
   it('generates consistent share URLs for public, corporate, and offline repos', () => {
     // 1. Public GitHub repository share URL
     const shareUrlGitHub = makeShareUrl('https://github.com/DavidKk/yggit.git', '321aedc')
-    expect(shareUrlGitHub).toBe('/repo/github/DavidKk/yggit/commit/321aedc')
+    expect(shareUrlGitHub).toBe('/git/github/DavidKk/yggit/commit/321aedc')
 
     // 2. Public GitLab repository share URL
     const shareUrlGitLab = makeShareUrl('https://gitlab.com/gitlab-org/gitlab.git', '9876543')
-    expect(shareUrlGitLab).toBe('/repo/gitlab/gitlab-org/gitlab/commit/9876543')
+    expect(shareUrlGitLab).toBe('/git/gitlab/gitlab-org/gitlab/commit/9876543')
 
     // 3. Public GitLab with nested subgroups
     const shareUrlGitLabNested = makeShareUrl('https://gitlab.com/group/subgroup/project.git', {
@@ -58,25 +58,25 @@ describe('resolver', () => {
       file: 'src/main.rs',
       lines: '10-25',
     })
-    expect(shareUrlGitLabNested).toBe('/repo/gitlab/group/subgroup/project/commit/5556667?file=src%2Fmain.rs#L10-25')
+    expect(shareUrlGitLabNested).toBe('/git/gitlab/group/subgroup/project/commit/5556667?file=src%2Fmain.rs#L10-25')
 
     // 4. Local clone with remote origin configured
     const shareUrlLocalClone = makeShareUrl('/Users/david/dev/yggit', '321aedc', 'https://github.com/DavidKk/yggit.git')
-    expect(shareUrlLocalClone).toBe('/repo/github/DavidKk/yggit/commit/321aedc')
+    expect(shareUrlLocalClone).toBe('/git/github/DavidKk/yggit/commit/321aedc')
 
     // 5. Corporate / self-hosted GitLab / internal private repository (includes ?remote= for recipient discovery)
     const shareUrlCorp = makeShareUrl('/Users/alice/dev/service', 'abc1234', 'git@git.internal.corp:fintech/service.git')
-    expect(shareUrlCorp).toBe('/repo/git.internal.corp/fintech/service/commit/abc1234?remote=https%3A%2F%2Fgit.internal.corp%2Ffintech%2Fservice.git')
+    expect(shareUrlCorp).toBe('/git/git.internal.corp/fintech/service/commit/abc1234?remote=https%3A%2F%2Fgit.internal.corp%2Ffintech%2Fservice.git')
 
     // 6. Pure offline repository without remote
     const shareUrlOffline = makeShareUrl('/Users/david/offline-project', '321aedc')
-    expect(shareUrlOffline).toContain('/repo/l_')
+    expect(shareUrlOffline).toContain('/git/l_')
     expect(shareUrlOffline).toContain('/commit/321aedc')
 
     // 7. Deterministic local project name hash (e.g. ticket-janitor -> l_5b8a0f89229d44ed)
     expect(projectId('ticket-janitor')).toBe('5b8a0f89229d44ed')
     const ticketShareUrl = makeShareUrl('ticket-janitor')
-    expect(ticketShareUrl).toBe('/repo/l_5b8a0f89229d44ed')
+    expect(ticketShareUrl).toBe('/git/l_5b8a0f89229d44ed')
   })
 
   it('resolves l_projectId slug matching local project name', () => {

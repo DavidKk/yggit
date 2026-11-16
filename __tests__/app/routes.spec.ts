@@ -1,9 +1,29 @@
 import { describe, expect, it, jest } from '@jest/globals'
 
 describe('页面路由契约', () => {
-  it('/ 导出 Yggit 首页', async () => {
-    jest.mock('@/components/git/GitLogPage', () => ({ GitLogPage: () => null }))
+  it('/ 导出 Yggit 官方首页', async () => {
     const { default: Home } = await import('@/app/page')
     expect(typeof Home).toBe('function')
+  })
+
+  it('/git 导出 Git 工作区页面', async () => {
+    jest.mock('@/components/git/GitLogPage', () => ({ GitLogPage: () => null }))
+    const { default: GitWorkspacePage } = await import('@/app/(workspace)/git/page')
+    expect(typeof GitWorkspacePage).toBe('function')
+  })
+
+  it('/git/[...slug] 导出 Git 仓库与提交页面', async () => {
+    const { default: GitSlugPage } = await import('@/app/(workspace)/git/[...slug]/page')
+    expect(typeof GitSlugPage).toBe('function')
+  })
+
+  it('/settings 导出设置中心页面', async () => {
+    const { default: SettingsPage } = await import('@/app/(workspace)/settings/page')
+    expect(typeof SettingsPage).toBe('function')
+  })
+
+  it('/repo/[...slug] 导出兼容重定向页面', async () => {
+    const { default: LegacyRepoRedirectPage } = await import('@/app/repo/[...slug]/page')
+    expect(typeof LegacyRepoRedirectPage).toBe('function')
   })
 })

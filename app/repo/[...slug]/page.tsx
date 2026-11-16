@@ -1,62 +1,24 @@
-import { GitAssociateRepoGuide } from '@/components/git/GitAssociateRepoGuide'
-import { GitLogPage } from '@/components/git/GitLogPage'
-import { GitUiBootScript } from '@/components/git/GitUiBootScript'
-import { readGitLog } from '@/services/git/read'
-import { resolveRepoSlug } from '@/services/git/resolver'
-
-export const metadata = {
-  title: 'Yggit — 仓库与提交',
-  description: 'Git 仓库生命图谱与提交演进',
-}
+import { redirect } from 'next/navigation'
 
 interface Props {
   params: Promise<{ slug: string[] }>
   searchParams?: Promise<{ [key: string]: string | undefined }>
 }
 
-export default async function RepoPage({ params, searchParams }: Props) {
+export default async function LegacyRepoRedirectPage({ params, searchParams }: Props) {
   const { slug } = await params
   const search = (await searchParams) || {}
-  const { parsed, resolved } = resolveRepoSlug(slug, search.remote)
 
-  if (resolved.error === 'UNRESOLVED_REMOTE' && resolved.unresolvedIdentity) {
-    return (
-      <>
-        <GitUiBootScript />
-        <GitAssociateRepoGuide identity={resolved.unresolvedIdentity} />
-      </>
-    )
-  }
-
-  if (resolved.error || !resolved.repoPathOrUrl) {
-    return (
-      <>
-        <GitUiBootScript />
-        <GitLogPage initial={{ error: resolved.error || '无法解析仓库', repo: '' }} />
-      </>
-    )
-  }
-
-  let initial: Awaited<ReturnType<typeof readGitLog>> | { error: string; repo: string }
-  try {
-    initial = await readGitLog({
-      repo: resolved.repoPathOrUrl,
-      branch: parsed.resourceType === 'branch' ? parsed.resourceId : undefined,
-      ref: '*',
-    })
-  } catch (error) {
-    initial = {
-      error: error instanceof Error ? error.message : '无法读取 Git 仓库',
-      repo: resolved.repoPathOrUrl,
+  const searchParamsInstance = new URLSearchParams()
+  for (const [key, value] of Object.entries(search)) {
+    if (value !== undefined) {
+      searchParamsInstance.set(key, value)
     }
   }
 
-  const initialCommitHash = parsed.resourceType === 'commit' ? parsed.resourceId : undefined
+  const query = searchParamsInstance.toString()
+  const queryString = query ? `?${query}` : ''
+  const targetPath = `/git/${slug.map((s) => encodeURIComponent(s)).join('/')}${queryString}`
 
-  return (
-    <>
-      <GitUiBootScript />
-      <GitLogPage initial={initial} initialCommitHash={initialCommitHash} initialPersistence={resolved.persistence} />
-    </>
-  )
+  redirect(targetPath)
 }

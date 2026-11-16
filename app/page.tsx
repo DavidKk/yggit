@@ -1,33 +1,13 @@
-import { GitLogPage } from '@/components/git/GitLogPage'
-import { GitUiBootScript } from '@/components/git/GitUiBootScript'
-import { readGitLog } from '@/services/git/read'
+import type { Metadata } from 'next'
 
-export const metadata = {
-  title: 'Yggit',
-  description: '查看仓库提交',
+import { LandingPage } from '@/components/landing/LandingPage'
+import { PRODUCT_DISPLAY_NAME } from '@/constants/brand'
+
+export const metadata: Metadata = {
+  title: `${PRODUCT_DISPLAY_NAME} — 现代化 Git 图谱与版本管理工具`,
+  description: '让每一次提交与合并脉络都清晰可见。双引擎原生驱动，毫秒级 DAG 拓扑渲染，端侧零存留 AI 代码审查。',
 }
 
-export default async function Home({ searchParams }: { searchParams?: Promise<{ repo?: string; branch?: string; url?: string }> } = {}) {
-  const resolved = (await searchParams) ?? {}
-  const explicit = (resolved.url || resolved.repo)?.trim() || ''
-  if (!explicit) {
-    return (
-      <>
-        <GitUiBootScript />
-        <GitLogPage initial={{ error: '', repo: '' }} />
-      </>
-    )
-  }
-  let initial: Awaited<ReturnType<typeof readGitLog>> | { error: string; repo: string }
-  try {
-    initial = await readGitLog({ repo: explicit, ref: '*' })
-  } catch (error) {
-    initial = { error: error instanceof Error ? error.message : '无法读取 Git', repo: explicit }
-  }
-  return (
-    <>
-      <GitUiBootScript />
-      <GitLogPage initial={initial} />
-    </>
-  )
+export default function Home() {
+  return <LandingPage />
 }

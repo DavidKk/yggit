@@ -125,25 +125,25 @@ export function makeShareUrl(repoPathOrUrl: string, optionsOrHash?: string | Mak
       if (parts.length >= 2) {
         const owner = parts.slice(0, parts.length - 1).join('/')
         const repo = parts[parts.length - 1]
-        base = options.hash ? `/repo/github/${owner}/${repo}/commit/${options.hash}` : `/repo/github/${owner}/${repo}`
+        base = options.hash ? `/git/github/${owner}/${repo}/commit/${options.hash}` : `/git/github/${owner}/${repo}`
       }
     } else if (identity.host === 'gitlab.com') {
       const parts = identity.key.replace(/^gitlab\.com\//, '').split('/')
       if (parts.length >= 2) {
         const owner = parts.slice(0, parts.length - 1).join('/')
         const repo = parts[parts.length - 1]
-        base = options.hash ? `/repo/gitlab/${owner}/${repo}/commit/${options.hash}` : `/repo/gitlab/${owner}/${repo}`
+        base = options.hash ? `/git/gitlab/${owner}/${repo}/commit/${options.hash}` : `/git/gitlab/${owner}/${repo}`
       }
     } else {
       // Enterprise self-hosted GitLab / Custom host
-      base = options.hash ? `/repo/${identity.key}/commit/${options.hash}` : `/repo/${identity.key}`
+      base = options.hash ? `/git/${identity.key}/commit/${options.hash}` : `/git/${identity.key}`
     }
   }
 
   if (!base) {
     // Pure offline local repository
     const repoKey = `l_${projectId(repoPathOrUrl)}`
-    base = options.hash ? `/repo/${repoKey}/commit/${options.hash}` : `/repo/${repoKey}`
+    base = options.hash ? `/git/${repoKey}/commit/${options.hash}` : `/git/${repoKey}`
   }
 
   const url = new URL(base, 'http://localhost')

@@ -42,7 +42,7 @@ export function GitAssociateRepoGuide({ identity }: Props) {
       try {
         const handle = await getDirectoryHandle(identity.key)
         if (handle && active) {
-          window.location.replace(`/?repo=${encodeURIComponent(handle.name)}`)
+          window.location.replace(`/git?repo=${encodeURIComponent(handle.name)}`)
           return
         }
       } catch {

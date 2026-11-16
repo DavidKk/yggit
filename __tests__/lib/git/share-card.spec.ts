@@ -22,11 +22,11 @@ describe('share-card', () => {
       lines: '42-58',
     })
 
-    expect(url).toBe('/repo/github/my-org/billing/commit/7f0b0d8a12345678?file=src%2Fpay.ts#L42-58')
+    expect(url).toBe('/git/github/my-org/billing/commit/7f0b0d8a12345678?file=src%2Fpay.ts#L42-58')
   })
 
   it('formats structured markdown issue share card', () => {
-    const fullUrl = 'https://yggit.dev/repo/github/my-org/billing/commit/7f0b0d8a12345678?file=src%2Fpay.ts#L42-58'
+    const fullUrl = 'https://yggit.dev/git/github/my-org/billing/commit/7f0b0d8a12345678?file=src%2Fpay.ts#L42-58'
     const card = formatIssueShareCard(
       {
         repoName: 'billing',
@@ -37,6 +37,7 @@ describe('share-card', () => {
         lines: '42-58',
         topology: {
           isMerge: true,
+          highlightHashes: [],
           sourceBranchHint: 'feature/pay',
           targetBranchHint: 'main',
           commitsIncluded: ['c2'],

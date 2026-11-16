@@ -21,6 +21,7 @@ import { GitSidebar } from '@/components/git/GitSidebar'
 import { PanelSplitter } from '@/components/git/PanelSplitter'
 import { useT } from '@/components/i18n/LocaleProvider'
 import { LocaleSwitcher } from '@/components/i18n/LocaleSwitcher'
+import { useInWorkspaceHeader, WorkspaceHeaderSlot } from '@/components/layout/WorkspaceHeaderContext'
 import { Button, EmptyState, Spinner, Tooltip } from '@/components/sk'
 import { dropdownTriggerClass } from '@/components/sk/dropdownMenu'
 import { ThemeSwitcher } from '@/components/theme/ThemeSwitcher'
@@ -122,6 +123,7 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
   const anchorRef = useRef<HTMLButtonElement>(null)
   const projectFindRef = useRef<HTMLDivElement>(null)
   useGitFindShortcut(worldRef)
+  const inWorkspace = useInWorkspaceHeader()
 
   const spotlight = useOptionalSpotlight()
   useEffect(() => {
@@ -655,96 +657,159 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
     >
       {process.env.NODE_ENV === 'development' ? <GitDebug /> : null}
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-panel/80">
-        <header className="flex shrink-0 items-center gap-3 border-b border-line bg-panel-2/60 px-3 py-1.5">
-          <BrandLogo
-            href="/"
-            className="shrink-0"
-            markClassName="size-7"
-            wordmarkClassName="text-[0.95rem]"
-            onClick={(e) => {
-              e.preventDefault()
-              setView(null)
-              setError('')
-              setSelectedHash('')
-              setSelectedFile('')
-              if (typeof window !== 'undefined') {
-                // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-                window.location.href = '/'
-              }
-            }}
-          />
-          <span className="h-4 w-px shrink-0 bg-[color-mix(in_oklab,var(--ink)_16%,transparent)]" aria-hidden />
-          <div ref={projectFindRef} data-git-find="project-switcher" className="relative min-w-0">
-            <Tooltip content={view?.displayPath || view?.repo || t('git.header.pickRepo')} placement="bottom" suppressed={menuOpen || !view}>
-              <Button
-                ref={anchorRef}
-                variant="plain"
-                className={cn(
-                  'h-8 max-w-[16rem] justify-start gap-1.5 rounded-lg border-transparent bg-transparent px-2 font-normal text-ink',
-                  'hover:enabled:border-transparent hover:enabled:bg-[color-mix(in_oklab,var(--ink)_7%,transparent)] hover:enabled:text-ink',
-                  menuOpen && 'bg-[color-mix(in_oklab,var(--ink)_9%,transparent)] hover:enabled:bg-[color-mix(in_oklab,var(--ink)_9%,transparent)]'
-                )}
-                aria-expanded={menuOpen}
-                aria-haspopup="dialog"
-                onClick={() => setMenuOpen((open) => !open)}
-              >
-                {busy ? <Spinner className="size-3.5 shrink-0 text-accent" /> : <LuFolderGit2 className="size-3.5 shrink-0 text-ink-soft" aria-hidden />}
-                <span className="min-w-0 truncate text-[0.8125rem] font-semibold">
-                  {busy ? t('common.loading') : view ? repoName(view.repo, view.displayPath) : t('git.header.noRepo')}
-                </span>
-                <LuChevronsUpDown className="size-3.5 shrink-0 text-ink-soft" aria-hidden />
-              </Button>
-            </Tooltip>
-            <GitProjectMenu
-              open={menuOpen}
-              anchorRef={anchorRef}
-              currentPath={view?.repo || ''}
-              projects={projects}
-              folders={folders}
-              busy={busy || picking}
-              searchRequest={projectSearchRequest}
-              onClose={closeMenu}
-              onOpen={(path) => {
-                closeMenu()
-                void load(path)
+        {inWorkspace ? (
+          <WorkspaceHeaderSlot>
+            <div ref={projectFindRef} data-git-find="project-switcher" className="relative min-w-0">
+              <Tooltip content={view?.displayPath || view?.repo || t('git.header.pickRepo')} placement="bottom" suppressed={menuOpen || !view}>
+                <Button
+                  ref={anchorRef}
+                  variant="plain"
+                  className={cn(
+                    'h-8 max-w-[16rem] justify-start gap-1.5 rounded-lg border-transparent bg-transparent px-2 font-normal text-ink',
+                    'hover:enabled:border-transparent hover:enabled:bg-[color-mix(in_oklab,var(--ink)_7%,transparent)] hover:enabled:text-ink',
+                    menuOpen && 'bg-[color-mix(in_oklab,var(--ink)_9%,transparent)] hover:enabled:bg-[color-mix(in_oklab,var(--ink)_9%,transparent)]'
+                  )}
+                  aria-expanded={menuOpen}
+                  aria-haspopup="dialog"
+                  onClick={() => setMenuOpen((open) => !open)}
+                >
+                  {busy ? <Spinner className="size-3.5 shrink-0 text-accent" /> : <LuFolderGit2 className="size-3.5 shrink-0 text-ink-soft" aria-hidden />}
+                  <span className="min-w-0 truncate text-[0.8125rem] font-semibold">
+                    {busy ? t('common.loading') : view ? repoName(view.repo, view.displayPath) : t('git.header.noRepo')}
+                  </span>
+                  <LuChevronsUpDown className="size-3.5 shrink-0 text-ink-soft" aria-hidden />
+                </Button>
+              </Tooltip>
+              <GitProjectMenu
+                open={menuOpen}
+                anchorRef={anchorRef}
+                currentPath={view?.repo || ''}
+                projects={projects}
+                folders={folders}
+                busy={busy || picking}
+                searchRequest={projectSearchRequest}
+                onClose={closeMenu}
+                onOpen={(path) => {
+                  closeMenu()
+                  void load(path)
+                }}
+                onAddLocal={() => void chooseFolder()}
+                onAddRemote={addRemote}
+                onClone={cloneProject}
+                onCreateFolder={createFolder}
+                onDeleteFolder={deleteFolder}
+                onMoveProject={moveProject}
+              />
+            </div>
+            {view?.repo ? (
+              <Tooltip content={copiedHeaderShare ? t('common.copied') : t('git.header.shareTip')} placement="bottom">
+                <Button
+                  variant="plain"
+                  className={cn(
+                    'h-8 gap-1.5 rounded-lg border-transparent px-2.5 text-xs font-medium transition-colors',
+                    copiedHeaderShare ? 'bg-ok/15 text-ok hover:bg-ok/20' : 'text-ink-soft hover:enabled:bg-[color-mix(in_oklab,var(--ink)_7%,transparent)] hover:enabled:text-ink'
+                  )}
+                  aria-label={t('git.header.share')}
+                  onClick={handleHeaderShare}
+                >
+                  {copiedHeaderShare ? <LuCheck className="size-3.5 text-ok" aria-hidden /> : <LuShare2 className="size-3.5" aria-hidden />}
+                  <span>{copiedHeaderShare ? t('common.copied') : t('git.header.share')}</span>
+                </Button>
+              </Tooltip>
+            ) : null}
+          </WorkspaceHeaderSlot>
+        ) : (
+          <header className="flex shrink-0 items-center gap-3 border-b border-line bg-panel-2/60 px-3 py-1.5">
+            <BrandLogo
+              href="/"
+              className="shrink-0"
+              markClassName="size-7"
+              wordmarkClassName="text-[0.95rem]"
+              onClick={(e) => {
+                e.preventDefault()
+                setView(null)
+                setError('')
+                setSelectedHash('')
+                setSelectedFile('')
+                if (typeof window !== 'undefined') {
+                  // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+                  window.location.href = '/'
+                }
               }}
-              onAddLocal={() => void chooseFolder()}
-              onAddRemote={addRemote}
-              onClone={cloneProject}
-              onCreateFolder={createFolder}
-              onDeleteFolder={deleteFolder}
-              onMoveProject={moveProject}
             />
-          </div>
-          {view?.repo ? (
-            <Tooltip content={copiedHeaderShare ? t('common.copied') : t('git.header.shareTip')} placement="bottom">
-              <Button
-                variant="plain"
-                className={cn(
-                  'h-8 gap-1.5 rounded-lg border-transparent px-2.5 text-xs font-medium transition-colors',
-                  copiedHeaderShare ? 'bg-ok/15 text-ok hover:bg-ok/20' : 'text-ink-soft hover:enabled:bg-[color-mix(in_oklab,var(--ink)_7%,transparent)] hover:enabled:text-ink'
-                )}
-                aria-label={t('git.header.share')}
-                onClick={handleHeaderShare}
-              >
-                {copiedHeaderShare ? <LuCheck className="size-3.5 text-ok" aria-hidden /> : <LuShare2 className="size-3.5" aria-hidden />}
-                <span>{copiedHeaderShare ? t('common.copied') : t('git.header.share')}</span>
-              </Button>
-            </Tooltip>
-          ) : null}
-          <div className="ml-auto flex shrink-0 items-center gap-1.5">
-            <GitModeSwitcher />
-            <span className="mx-0.5 h-3.5 w-px shrink-0 bg-[color-mix(in_oklab,var(--ink)_14%,transparent)]" aria-hidden />
-            <ThemeSwitcher compact />
-            <LocaleSwitcher compact />
-            <Tooltip content={t('gitAgent.settingsTitle')} placement="bottom">
-              <Link href="/settings" className={cn(dropdownTriggerClass, 'px-2')} aria-label={t('gitAgent.settingsTitle')}>
-                <LuSettings className="size-4 shrink-0" aria-hidden="true" />
-                <span className="sr-only sm:not-sr-only">{t('gitAgent.settingsTitle')}</span>
-              </Link>
-            </Tooltip>
-          </div>
-        </header>
+            <span className="h-4 w-px shrink-0 bg-[color-mix(in_oklab,var(--ink)_16%,transparent)]" aria-hidden />
+            <div ref={projectFindRef} data-git-find="project-switcher" className="relative min-w-0">
+              <Tooltip content={view?.displayPath || view?.repo || t('git.header.pickRepo')} placement="bottom" suppressed={menuOpen || !view}>
+                <Button
+                  ref={anchorRef}
+                  variant="plain"
+                  className={cn(
+                    'h-8 max-w-[16rem] justify-start gap-1.5 rounded-lg border-transparent bg-transparent px-2 font-normal text-ink',
+                    'hover:enabled:border-transparent hover:enabled:bg-[color-mix(in_oklab,var(--ink)_7%,transparent)] hover:enabled:text-ink',
+                    menuOpen && 'bg-[color-mix(in_oklab,var(--ink)_9%,transparent)] hover:enabled:bg-[color-mix(in_oklab,var(--ink)_9%,transparent)]'
+                  )}
+                  aria-expanded={menuOpen}
+                  aria-haspopup="dialog"
+                  onClick={() => setMenuOpen((open) => !open)}
+                >
+                  {busy ? <Spinner className="size-3.5 shrink-0 text-accent" /> : <LuFolderGit2 className="size-3.5 shrink-0 text-ink-soft" aria-hidden />}
+                  <span className="min-w-0 truncate text-[0.8125rem] font-semibold">
+                    {busy ? t('common.loading') : view ? repoName(view.repo, view.displayPath) : t('git.header.noRepo')}
+                  </span>
+                  <LuChevronsUpDown className="size-3.5 shrink-0 text-ink-soft" aria-hidden />
+                </Button>
+              </Tooltip>
+              <GitProjectMenu
+                open={menuOpen}
+                anchorRef={anchorRef}
+                currentPath={view?.repo || ''}
+                projects={projects}
+                folders={folders}
+                busy={busy || picking}
+                searchRequest={projectSearchRequest}
+                onClose={closeMenu}
+                onOpen={(path) => {
+                  closeMenu()
+                  void load(path)
+                }}
+                onAddLocal={() => void chooseFolder()}
+                onAddRemote={addRemote}
+                onClone={cloneProject}
+                onCreateFolder={createFolder}
+                onDeleteFolder={deleteFolder}
+                onMoveProject={moveProject}
+              />
+            </div>
+            {view?.repo ? (
+              <Tooltip content={copiedHeaderShare ? t('common.copied') : t('git.header.shareTip')} placement="bottom">
+                <Button
+                  variant="plain"
+                  className={cn(
+                    'h-8 gap-1.5 rounded-lg border-transparent px-2.5 text-xs font-medium transition-colors',
+                    copiedHeaderShare ? 'bg-ok/15 text-ok hover:bg-ok/20' : 'text-ink-soft hover:enabled:bg-[color-mix(in_oklab,var(--ink)_7%,transparent)] hover:enabled:text-ink'
+                  )}
+                  aria-label={t('git.header.share')}
+                  onClick={handleHeaderShare}
+                >
+                  {copiedHeaderShare ? <LuCheck className="size-3.5 text-ok" aria-hidden /> : <LuShare2 className="size-3.5" aria-hidden />}
+                  <span>{copiedHeaderShare ? t('common.copied') : t('git.header.share')}</span>
+                </Button>
+              </Tooltip>
+            ) : null}
+            <div className="ml-auto flex shrink-0 items-center gap-1.5">
+              <GitModeSwitcher />
+              <span className="mx-0.5 h-3.5 w-px shrink-0 bg-[color-mix(in_oklab,var(--ink)_14%,transparent)]" aria-hidden />
+              <ThemeSwitcher compact />
+              <LocaleSwitcher compact />
+              <Tooltip content={t('gitAgent.settingsTitle')} placement="bottom">
+                <Link href="/settings" className={cn(dropdownTriggerClass, 'px-2')} aria-label={t('gitAgent.settingsTitle')}>
+                  <LuSettings className="size-4 shrink-0" aria-hidden="true" />
+                  <span className="sr-only sm:not-sr-only">{t('gitAgent.settingsTitle')}</span>
+                </Link>
+              </Tooltip>
+            </div>
+          </header>
+        )}
 
         {error && !view ? (
           <EmptyState title={t('git.page.repoUnreadable')} message={error} hint={t('git.page.repoUnreadableHint')}>
