@@ -1,12 +1,13 @@
 'use client'
 
 import { marked } from 'marked'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 import { gitBlobUrl, type GitFileKind } from '@/components/git/fileKind'
 import { renderMarkdownWithHighlight } from '@/components/git/gitHighlight'
 import { GitHighlightedCode } from '@/components/git/GitHighlightedCode'
 import { markdownBody } from '@/components/git/markdown'
+import { installTableResizers } from '@/components/git/markdownTableResizer'
 import { useT } from '@/components/i18n/LocaleProvider'
 import { EmptyState, ScrollArea } from '@/components/sk'
 import { useThemeMode } from '@/components/theme/ThemeProvider'
@@ -75,6 +76,7 @@ function SvgPreview({ content, repo, hash, path }: { content?: string; repo: str
 
 function MarkdownPreview({ content }: { content: string }) {
   const theme = useThemeMode()
+  const containerRef = useRef<HTMLDivElement>(null)
   const [html, setHtml] = useState<string>(() => {
     try {
       marked.setOptions({ gfm: true, breaks: false })
@@ -105,9 +107,14 @@ function MarkdownPreview({ content }: { content: string }) {
     }
   }, [content, theme])
 
+  useLayoutEffect(() => {
+    if (!containerRef.current) return
+    return installTableResizers(containerRef.current)
+  }, [html])
+
   return (
-    <div className="mx-auto w-full max-w-4xl px-6 py-6 font-sans">
-      <article className={cn(markdownBody)} dangerouslySetInnerHTML={{ __html: html }} />
+    <div className="mx-auto w-full max-w-[1100px] px-8 py-7 font-sans">
+      <article ref={containerRef} className={cn(markdownBody)} dangerouslySetInnerHTML={{ __html: html }} />
     </div>
   )
 }

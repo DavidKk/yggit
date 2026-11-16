@@ -31,9 +31,9 @@ export const markdownBody = cn(
   '[&_pre]:my-4 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:border [&_pre]:border-line [&_pre]:bg-[color-mix(in_oklab,var(--panel-2)_75%,var(--inset))] [&_pre]:p-3.5 [&_pre]:font-mono [&_pre]:text-[12px] [&_pre]:leading-[1.65]',
   '[&_pre>code]:block [&_pre>code]:bg-transparent [&_pre>code]:p-0 [&_pre>code]:font-mono',
   '[&_.line]:inline-block [&_.line]:min-w-full',
-  // Table
-  '[&_table]:my-5 [&_table]:block [&_table]:w-full [&_table]:overflow-x-auto [&_table]:border-collapse [&_table]:text-[12.5px] [&_table]:rounded-lg [&_table]:border [&_table]:border-line',
-  '[&_th]:border-b [&_th]:border-line [&_th]:bg-panel-2/70 [&_th]:px-3.5 [&_th]:py-2.5 [&_th]:text-left [&_th]:font-semibold [&_th]:text-ink [&_th]:whitespace-nowrap',
+  // Table: fixed layout inside resizable wrap
+  '[&_table]:my-0 [&_table]:w-full [&_table]:border-collapse [&_table]:text-[12.5px]',
+  '[&_th]:border-b [&_th]:border-line [&_th]:bg-panel-2/80 [&_th]:px-3.5 [&_th]:py-2.5 [&_th]:text-left [&_th]:font-semibold [&_th]:text-ink [&_th]:whitespace-nowrap',
   '[&_td]:border-b [&_td]:border-line-soft [&_td]:px-3.5 [&_td]:py-2.5 [&_td]:align-top',
   '[&_tr:last-child>td]:border-b-0',
   '[&_tr:hover>td]:bg-[color-mix(in_oklab,var(--accent)_4%,transparent)]',
