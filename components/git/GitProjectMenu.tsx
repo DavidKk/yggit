@@ -1044,9 +1044,11 @@ export function GitProjectMenu({
                           {showBefore ? <span className="pointer-events-none absolute inset-x-2 top-0 z-10 h-0.5 -translate-y-1/2 rounded-full bg-accent" aria-hidden /> : null}
                           <div
                             className={cn(
-                              'group/item flex w-full items-center pr-1.5 transition-colors hover:bg-[var(--overlay-06)]',
+                              'group/item flex w-full items-center pr-1.5 transition-colors',
                               project.label ? 'h-11' : 'h-8',
-                              current && 'bg-[color-mix(in_oklab,var(--accent)_18%,transparent)] hover:bg-[color-mix(in_oklab,var(--accent)_24%,transparent)]',
+                              current
+                                ? 'bg-[color-mix(in_oklab,var(--accent)_16%,transparent)] text-accent font-medium hover:bg-[color-mix(in_oklab,var(--accent)_24%,transparent)]'
+                                : 'hover:bg-[color-mix(in_oklab,var(--accent)_8%,transparent)]',
                               draggingId === project.id && 'opacity-50'
                             )}
                             onContextMenu={(e) => handleProjectContextMenu(e, project)}
@@ -1121,15 +1123,7 @@ export function GitProjectMenu({
                               </Tooltip>
                               {/* 1. Local Folder Icon */}
                               {hasLocal ? (
-                                <Tooltip
-                                  content={
-                                    isEdgeMode
-                                      ? 'Edge 模式不支持打开本地系统文件夹（仅在 Local 模式可用）'
-                                      : project.authorized === false
-                                        ? '需要授权访问本地目录'
-                                        : '打开本地文件夹'
-                                  }
-                                >
+                                <Tooltip content={isEdgeMode ? '本地项目' : '打开本地项目'}>
                                   <button
                                     type="button"
                                     onClick={(e) => {
@@ -1139,7 +1133,7 @@ export function GitProjectMenu({
                                       }
                                     }}
                                     className="flex size-6 cursor-pointer items-center justify-center rounded text-ink-soft transition-colors hover:bg-[var(--overlay-08)] hover:text-accent"
-                                    aria-label={isEdgeMode ? 'Edge 模式不支持打开本地系统文件夹（仅在 Local 模式可用）' : '打开本地文件夹'}
+                                    aria-label={isEdgeMode ? '本地项目' : '打开本地项目'}
                                   >
                                     {isEdgeMode && project.authorized === false ? (
                                       <LuLockKeyhole className="size-3.5 text-warn" aria-hidden="true" />
@@ -1242,28 +1236,29 @@ export function GitProjectMenu({
           </div>
           <div className="mt-1 flex max-h-48 flex-col gap-0.5 overflow-y-auto">
             {remotesMenuAnchor.remotes.map((remote) => (
-              <button
-                key={remote.url}
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setRemotesMenuAnchor(null)
-                  window.open(remote.webUrl, '_blank')
-                }}
-                className="flex cursor-pointer items-center justify-between gap-2 rounded-md p-1.5 text-left text-xs transition-colors hover:bg-[var(--overlay-08)] hover:text-accent"
-              >
-                <div className="flex min-w-0 flex-1 items-center gap-2">
-                  {remote.isPrivate ? (
-                    <TbCloudLock className="size-4 shrink-0 text-warn" aria-label="私有远端" />
-                  ) : (
-                    <LuCloud className="size-4 shrink-0 text-accent" aria-label="开源远端" />
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <span className="truncate font-mono font-medium text-xs text-ink block">{remote.name}</span>
-                    <div className="truncate font-mono text-[0.68rem] text-ink-soft">{remote.webUrl.replace(/^https?:\/\//, '')}</div>
+              <Tooltip key={remote.url} content={`在浏览器中打开: ${remote.webUrl}`} placement="left">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setRemotesMenuAnchor(null)
+                    window.open(remote.webUrl, '_blank')
+                  }}
+                  className="flex w-full cursor-pointer items-center justify-between gap-2 rounded-md p-1.5 text-left text-xs transition-colors hover:bg-[var(--overlay-08)] hover:text-accent"
+                >
+                  <div className="flex min-w-0 flex-1 items-center gap-2">
+                    {remote.isPrivate ? (
+                      <TbCloudLock className="size-4 shrink-0 text-warn" aria-label="私有远端" />
+                    ) : (
+                      <LuCloud className="size-4 shrink-0 text-accent" aria-label="开源远端" />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <span className="truncate font-mono font-medium text-xs text-ink block">{remote.name}</span>
+                      <div className="truncate font-mono text-[0.68rem] text-ink-soft">{remote.webUrl.replace(/^https?:\/\//, '')}</div>
+                    </div>
                   </div>
-                </div>
-              </button>
+                </button>
+              </Tooltip>
             ))}
           </div>
         </div>

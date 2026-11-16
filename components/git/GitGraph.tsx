@@ -206,7 +206,7 @@ function GitGraphComponent({
       if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current)
       hoverTimerRef.current = setTimeout(() => {
         setInternalHoverBranch(branchName)
-      }, 3000)
+      }, 1000)
     },
     [onBranchHoverStart]
   )
@@ -661,19 +661,18 @@ function GitGraphComponent({
                 const findHit = stashFindHit(stash, findNeedle)
                 const isContextActive = contextMenu?.type === 'stash' && contextMenu.stash.hash === stash.hash
                 const rowTintClass = cn(
-                  selected
-                    ? 'bg-[color-mix(in_oklab,var(--ink)_14%,transparent)]'
-                    : isContextActive
-                      ? 'bg-[color-mix(in_oklab,var(--ink)_10%,transparent)]'
-                      : marked
-                        ? 'bg-[color-mix(in_oklab,var(--ink)_8%,transparent)]'
-                        : ''
+                  isContextActive ? 'bg-[color-mix(in_oklab,var(--accent)_12%,transparent)]' : marked ? 'bg-[color-mix(in_oklab,var(--accent)_10%,transparent)]' : ''
                 )
                 return (
                   <li key={stash.name} className="group/commit relative z-0 h-[26px] max-h-[26px] min-w-0 shrink-0 overflow-visible hover:z-10">
                     {/* Stash node to message hover highlight pill */}
                     <div
-                      className="pointer-events-none absolute inset-y-0.5 z-0 rounded-l-full rounded-r-md transition-opacity duration-150 opacity-0 group-hover/commit:opacity-100 bg-[color-mix(in_oklab,var(--accent)_12%,var(--overlay-06))]"
+                      className={cn(
+                        'pointer-events-none absolute inset-y-0.5 z-0 rounded-l-full rounded-r-md transition-all duration-150',
+                        selected
+                          ? 'opacity-100 bg-[color-mix(in_oklab,var(--accent)_18%,transparent)] ring-1 ring-inset ring-accent/50 group-hover/commit:bg-[color-mix(in_oklab,var(--accent)_26%,transparent)] group-hover/commit:ring-accent/80'
+                          : 'opacity-0 bg-[color-mix(in_oklab,var(--accent)_10%,transparent)] group-hover/commit:opacity-100 group-hover/commit:ring-1 group-hover/commit:ring-inset group-hover/commit:ring-accent/30'
+                      )}
                       style={{
                         left: `calc(var(--git-branch-w) + ${xAt(stashPoint?.lane ?? 0) - 10}px)`,
                         right: '0.5rem',
@@ -754,22 +753,25 @@ function GitGraphComponent({
                     ? 'bg-[color-mix(in_oklab,var(--accent)_22%,transparent)] ring-1 ring-inset ring-accent/60'
                     : isSpotlightHit
                       ? 'bg-[color-mix(in_oklab,var(--accent)_14%,transparent)] ring-1 ring-inset ring-blue-500/40'
-                      : selected
-                        ? 'bg-[color-mix(in_oklab,var(--ink)_14%,transparent)]'
-                        : isContextActive
-                          ? 'bg-[color-mix(in_oklab,var(--ink)_10%,transparent)]'
-                          : isLineageHit
-                            ? 'bg-[color-mix(in_oklab,var(--accent)_16%,transparent)] ring-1 ring-inset ring-accent/35'
-                            : marked
-                              ? 'bg-[color-mix(in_oklab,var(--ink)_8%,transparent)]'
-                              : ''
+                      : isLineageHit
+                        ? 'bg-[color-mix(in_oklab,var(--accent)_16%,transparent)] ring-1 ring-inset ring-accent/35'
+                        : marked
+                          ? 'bg-[color-mix(in_oklab,var(--accent)_12%,transparent)]'
+                          : ''
               )
               const isHovered = isContextActive
               return (
                 <li key={commit.hash} className="group/commit relative z-0 h-[26px] max-h-[26px] min-w-0 shrink-0 overflow-visible hover:z-10">
                   {/* Commit node to message hover highlight pill */}
                   <div
-                    className="pointer-events-none absolute inset-y-0.5 z-0 rounded-l-full rounded-r-md transition-opacity duration-150 opacity-0 group-hover/commit:opacity-100 bg-[color-mix(in_oklab,var(--accent)_12%,var(--overlay-06))]"
+                    className={cn(
+                      'pointer-events-none absolute inset-y-0.5 z-0 rounded-l-full rounded-r-md transition-all duration-150',
+                      selected
+                        ? 'opacity-100 bg-[color-mix(in_oklab,var(--accent)_18%,transparent)] ring-1 ring-inset ring-accent/50 group-hover/commit:bg-[color-mix(in_oklab,var(--accent)_26%,transparent)] group-hover/commit:ring-accent/80'
+                        : isBranchHit
+                          ? 'opacity-100 bg-[color-mix(in_oklab,var(--accent)_20%,transparent)] ring-1 ring-inset ring-accent/60 group-hover/commit:bg-[color-mix(in_oklab,var(--accent)_26%,transparent)]'
+                          : 'opacity-0 bg-[color-mix(in_oklab,var(--accent)_10%,transparent)] group-hover/commit:opacity-100 group-hover/commit:ring-1 group-hover/commit:ring-inset group-hover/commit:ring-accent/30'
+                    )}
                     style={{
                       left: `calc(var(--git-branch-w) + ${xAt(point?.lane ?? 0) - 10}px)`,
                       right: '0.5rem',
@@ -878,7 +880,8 @@ function GitGraphComponent({
                     <span className="flex h-[26px] min-h-0 min-w-0 items-center">
                       <span
                         className={cn(
-                          'flex min-w-0 flex-1 items-center truncate pr-3 pl-2 text-sm leading-none font-normal select-text cursor-pointer transition-colors duration-150',
+                          'flex min-w-0 flex-1 items-center truncate pr-3 pl-2 text-sm leading-none select-text cursor-pointer transition-colors duration-150',
+                          selected ? 'font-semibold text-ink' : 'font-normal',
                           isBranchActive ? (isBranchHit ? 'text-ink font-semibold' : 'text-ink-soft/40') : 'text-ink',
                           rowTintClass
                         )}

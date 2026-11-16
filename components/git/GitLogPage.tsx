@@ -143,7 +143,7 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
     if (hoverBranchTimerRef.current) clearTimeout(hoverBranchTimerRef.current)
     hoverBranchTimerRef.current = setTimeout(() => {
       setActiveHoverBranch(branchName)
-    }, 3000)
+    }, 1000)
   }, [])
 
   const handleBranchHoverEnd = useCallback(() => {

@@ -1029,7 +1029,9 @@ function BranchTree({
               aria-current={branchActive ? 'true' : undefined}
               className={cn(
                 'group/folder flex h-7 w-full cursor-pointer select-text items-center justify-start gap-1.5 rounded-none px-2 font-normal text-xs text-ink-soft transition-colors outline-none focus-visible:ring-1 focus-visible:ring-accent',
-                branchActive ? 'bg-[color-mix(in_oklab,var(--accent)_16%,transparent)] text-accent font-medium' : 'hover:bg-[var(--overlay-06)]'
+                branchActive
+                  ? 'bg-[color-mix(in_oklab,var(--accent)_16%,transparent)] text-accent font-medium hover:bg-[color-mix(in_oklab,var(--accent)_24%,transparent)]'
+                  : 'hover:bg-[color-mix(in_oklab,var(--accent)_9%,transparent)]'
               )}
               style={depth > 0 ? { paddingLeft: 8 + depth * 14 } : undefined}
               onClick={() => {
@@ -1122,7 +1124,9 @@ function Row({
       aria-current={active ? 'true' : undefined}
       className={cn(
         'group/row flex h-8 w-full cursor-pointer select-text items-center justify-start px-2 font-normal text-xs text-ink transition-colors rounded-none outline-none focus-visible:ring-1 focus-visible:ring-accent',
-        active ? 'bg-[color-mix(in_oklab,var(--accent)_16%,transparent)] text-accent font-medium' : 'hover:bg-[var(--overlay-06)]'
+        active
+          ? 'bg-[color-mix(in_oklab,var(--accent)_16%,transparent)] text-accent font-medium hover:bg-[color-mix(in_oklab,var(--accent)_24%,transparent)]'
+          : 'hover:bg-[color-mix(in_oklab,var(--accent)_9%,transparent)]'
       )}
       style={depth > 0 ? { paddingLeft: 8 + depth * 14 } : undefined}
       onClick={() => {
