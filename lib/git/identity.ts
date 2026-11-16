@@ -90,7 +90,7 @@ export function normalizeRemote(raw: string): RemoteIdentity | null {
     }
   } else return null
   host = host.toLowerCase()
-  pathName = pathName.replace(/\.git$/i, '').replace(/\/+$/, '')
+  pathName = pathName.replace(/\/+$/, '').replace(/\.git$/i, '')
   if (!host || !pathName || pathName.includes('..')) return null
   const name = pathName.split('/').filter(Boolean).pop() || pathName
   const kind = hostKind(host)

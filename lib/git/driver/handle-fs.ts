@@ -107,6 +107,11 @@ export function createDirectoryHandleFs(rootHandle: FileSystemDirectoryHandle) {
         isSymbolicLink: () => boolean
         size: number
         mtimeMs: number
+        ctimeMs: number
+        dev: number
+        ino: number
+        uid: number
+        gid: number
         type: 'file' | 'dir'
         mode: number
       }> {
@@ -117,6 +122,11 @@ export function createDirectoryHandleFs(rootHandle: FileSystemDirectoryHandle) {
             isDirectory: () => true,
             isSymbolicLink: () => false,
             size: 0,
+            ctimeMs: 0,
+            dev: 0,
+            ino: 0,
+            uid: 0,
+            gid: 0,
             mtimeMs: Date.now(),
             type: 'dir',
             mode: 0o040755,
@@ -135,6 +145,11 @@ export function createDirectoryHandleFs(rootHandle: FileSystemDirectoryHandle) {
             isDirectory: () => false,
             isSymbolicLink: () => false,
             size: file.size,
+            ctimeMs: 0,
+            dev: 0,
+            ino: 0,
+            uid: 0,
+            gid: 0,
             mtimeMs: file.lastModified,
             type: 'file',
             mode: 0o100644,
@@ -148,6 +163,11 @@ export function createDirectoryHandleFs(rootHandle: FileSystemDirectoryHandle) {
               isDirectory: () => true,
               isSymbolicLink: () => false,
               size: 0,
+              ctimeMs: 0,
+              dev: 0,
+              ino: 0,
+              uid: 0,
+              gid: 0,
               mtimeMs: Date.now(),
               type: 'dir',
               mode: 0o040755,

@@ -12,7 +12,11 @@ export const GET = defineApiRoute('get:/api/git/commit', async ({ request }) => 
 
   try {
     if (repo && parseGitHubRepo(repo)) {
-      return await readRemoteCommitChanges(repo, hash)
+      return await readRemoteCommitChanges(repo, hash, {
+        tree: url.searchParams.get('tree') === '1',
+        file: url.searchParams.get('path') || '',
+        all: url.searchParams.get('all') === '1',
+      })
     }
 
     return await readCommitChanges(repo, hash, url.searchParams.get('tree') === '1', url.searchParams.get('path') || '', url.searchParams.get('all') === '1')

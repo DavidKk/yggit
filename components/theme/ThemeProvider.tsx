@@ -2,7 +2,7 @@
 
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 
-import { applyDocumentTheme, detectSystemTheme, readStoredTheme, themeForPreference, type ThemeMode, type ThemePreference, writeStoredTheme } from '@/lib/theme'
+import { applyDocumentTheme, detectSystemTheme, readStoredTheme, themeForPreference, type ThemeMode, type ThemePreference, writeResolvedTheme, writeStoredTheme } from '@/lib/theme'
 
 type ThemeContextValue = {
   theme: ThemeMode
@@ -21,34 +21,41 @@ type Props = {
 
 export function ThemeProvider({ children, initialTheme = 'dark', initialPreference = 'auto' }: Props) {
   const [preference, setPreference] = useState<ThemePreference>(initialPreference)
-  // Client must match boot script / system immediately; SSR keeps cookie or dark default.
-  const [systemTheme, setSystemTheme] = useState<ThemeMode>(() => (typeof window !== 'undefined' ? detectSystemTheme() : initialTheme))
+  // Hydration must start from the same snapshot as SSR.
+  const [systemTheme, setSystemTheme] = useState<ThemeMode>(initialTheme)
+  const [ready, setReady] = useState(false)
   const theme = themeForPreference(preference, systemTheme)
 
   useEffect(() => {
-    // Game overlay / no SSR seed: restore preference from storage.
-    if (initialPreference === 'auto') {
-      const stored = readStoredTheme()
-      if (stored) setPreference(stored)
-    }
-    setSystemTheme(detectSystemTheme())
+    const stored = readStoredTheme()
+    setPreference(stored ?? initialPreference)
+    setSystemTheme(detectSystemTheme(initialTheme))
+    setReady(true)
 
-    const mq = window.matchMedia('(prefers-color-scheme: dark)')
-    const onChange = () => setSystemTheme(mq.matches ? 'dark' : 'light')
-    mq.addEventListener('change', onChange)
-    return () => mq.removeEventListener('change', onChange)
-  }, [initialPreference])
+    try {
+      const mq = window.matchMedia('(prefers-color-scheme: dark)')
+      const onChange = () => setSystemTheme(mq.matches ? 'dark' : 'light')
+      mq.addEventListener('change', onChange)
+      return () => mq.removeEventListener('change', onChange)
+    } catch {
+      // Keep the resolved theme if media queries are unavailable.
+    }
+  }, [initialPreference, initialTheme])
 
   useEffect(() => {
+    // Leave the pre-paint result intact until browser preferences are restored.
+    if (!ready) return
     applyDocumentTheme(theme)
-  }, [theme])
+    writeStoredTheme(preference)
+    writeResolvedTheme(theme)
+  }, [theme, preference, ready])
 
   const setTheme = useCallback((next: ThemePreference) => {
     setPreference(next)
     writeStoredTheme(next)
   }, [])
 
-  const value = useMemo(() => ({ theme, preference, ready: true, setTheme }), [theme, preference, setTheme])
+  const value = useMemo(() => ({ theme, preference, ready, setTheme }), [theme, preference, ready, setTheme])
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
 }

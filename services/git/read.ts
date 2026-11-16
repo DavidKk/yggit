@@ -141,7 +141,7 @@ export async function readGitHistory(input: { repo?: string; ref?: string; skip?
 
 export async function readGitLog(input?: { repo?: string; branch?: string; ref?: string; skip?: number }): Promise<GitLogView> {
   if (input?.repo && parseGitHubRepo(input.repo)) {
-    return await readRemoteGitLog(input.repo, input.branch || input.ref)
+    return await readRemoteGitLog(input.repo, input.branch || input.ref, input.skip)
   }
   const repo = await resolveGitRepo(input?.repo)
   writeLastOpenedRepo(repo)

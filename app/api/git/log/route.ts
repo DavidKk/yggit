@@ -14,7 +14,7 @@ export const GET = defineApiRoute('get:/api/git/log', async ({ request }) => {
 
   try {
     if (repo && parseGitHubRepo(repo)) {
-      return await readRemoteGitLog(repo, branch || ref)
+      return await readRemoteGitLog(repo, branch || ref, skip)
     }
 
     if (skip > 0) return await readGitHistory({ repo, ref, skip })

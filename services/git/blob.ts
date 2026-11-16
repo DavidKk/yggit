@@ -6,6 +6,7 @@ import { promisify } from 'node:util'
 import { GIT_WORKTREE_HASH } from '@/lib/git/types'
 
 import { resolveGitRepo } from './read'
+import { parseGitHubRepo, readRemoteBlobData } from './remote-provider'
 
 const execFileAsync = promisify(execFile)
 const HASH = /^[0-9a-f]{7,64}$/i
@@ -56,6 +57,10 @@ export function mimeFromPath(path: string): string {
 export async function readGitBlob(input: { repo?: string; hash: string; path: string }): Promise<{ buffer: Buffer; contentType: string; path: string }> {
   const revision = input.hash.trim()
   const filePath = assertFilePath(input.path)
+  if (input.repo && parseGitHubRepo(input.repo)) {
+    const blob = await readRemoteBlobData(input.repo, revision, filePath)
+    return { buffer: Buffer.from(blob.bytes), contentType: mimeFromPath(filePath), path: filePath }
+  }
   const repo = await resolveGitRepo(input.repo)
   if (revision === GIT_WORKTREE_HASH) {
     try {

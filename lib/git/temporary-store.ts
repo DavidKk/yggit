@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 
 import { normalizeRemote } from '@/lib/git/identity'
+import { remoteIdentity } from '@/lib/git/project-access'
 
 export interface TemporaryRepo {
   id: string
@@ -80,7 +81,7 @@ export function addTemporaryRepo(input: {
   defaultBranch?: string
 }): TemporaryRepo {
   const current = getTemporaryRepos()
-  const existing = current.find((r) => r.fingerprint === input.fingerprint)
+  const existing = current.find((r) => remoteIdentity(r.remoteUrl) === remoteIdentity(input.remoteUrl))
   if (existing) return existing
 
   const newRepo: TemporaryRepo = {

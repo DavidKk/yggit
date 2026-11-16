@@ -1,3 +1,4 @@
+import { Marked } from 'marked'
 import { type BundledLanguage, bundledLanguages, getSingletonHighlighter, type Highlighter, type SpecialLanguage, type ThemedToken } from 'shiki'
 
 type GitLang = BundledLanguage | SpecialLanguage
@@ -249,16 +250,53 @@ async function ensureLanguage(engine: Highlighter, lang: GitLang): Promise<GitLa
 }
 
 export function gitHighlightLang(path: string): GitLang {
-  const base = (path.split('/').pop() || path).toLowerCase()
+  const base = (path.split('/').pop() || path).trim().toLowerCase()
+  if (!base) return 'text'
   if (BASE_NAME_LANG[base]) return BASE_NAME_LANG[base]
   if (base.startsWith('dockerfile')) return 'dockerfile'
   if (base.endsWith('.cmake')) return 'cmake'
+  if (EXT_LANG[base]) return EXT_LANG[base]
+  if (isBundledLanguage(base)) return base
   const ext = base.includes('.') ? base.slice(base.lastIndexOf('.') + 1) : ''
   if (!ext) return 'text'
   const mapped = EXT_LANG[ext] || EXT_LANG[ext.toLowerCase()]
   if (mapped) return mapped
   if (isBundledLanguage(ext)) return ext
   return 'text'
+}
+
+/** Highlight code snippet directly to HTML using Shiki with consistent theme tokens. */
+export async function highlightGitCodeHtml(content: string, langOrPath: string, themeMode?: 'light' | 'dark'): Promise<string> {
+  const code = content.replace(/\n$/, '')
+  const requested = gitHighlightLang(langOrPath)
+  const engine = await highlighter()
+  const lang = await ensureLanguage(engine, requested)
+  const theme = themeMode === 'light' ? THEME_LIGHT : themeMode === 'dark' ? THEME_DARK : activeHighlightTheme()
+  try {
+    return engine.codeToHtml(code, {
+      lang,
+      theme,
+      transformers: [
+        {
+          pre(node) {
+            delete node.properties.style
+          },
+        },
+      ],
+    })
+  } catch {
+    return engine.codeToHtml(code, {
+      lang: 'text',
+      theme,
+      transformers: [
+        {
+          pre(node) {
+            delete node.properties.style
+          },
+        },
+      ],
+    })
+  }
 }
 
 /** Tokenize a full source string (best grammar quality — keep multi-line blocks together). */
@@ -283,4 +321,37 @@ export async function highlightGitLines(lines: string[], path: string): Promise<
   const padded = tokens.slice()
   while (padded.length < lines.length) padded.push([])
   return padded
+}
+
+/**
+ * Asynchronously parse markdown and highlight enclosed code fences using Shiki TextMate themes.
+ */
+export async function renderMarkdownWithHighlight(content: string, themeMode?: 'light' | 'dark'): Promise<string> {
+  if (!content) return ''
+  const markedInstance = new Marked({
+    gfm: true,
+    breaks: false,
+    async: true,
+  })
+
+  markedInstance.use({
+    async: true,
+    walkTokens: async (token) => {
+      if (token.type === 'code') {
+        const highlighted = await highlightGitCodeHtml(token.text, token.lang || '', themeMode)
+        ;(token as unknown as { highlightedHtml?: string }).highlightedHtml = highlighted
+      }
+    },
+    renderer: {
+      code(token) {
+        const custom = (token as unknown as { highlightedHtml?: string }).highlightedHtml
+        if (custom) {
+          return custom + '\n'
+        }
+        return false
+      },
+    },
+  })
+
+  return (await markedInstance.parse(content)) as string
 }

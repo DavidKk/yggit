@@ -1,4 +1,4 @@
-import { buildGraphRows, graphScene, ROW, xAt } from '@/lib/git/graph-scene'
+import { buildGraphRows, graphScene, isHighlightedStroke, ROW, xAt } from '@/lib/git/graph-scene'
 import type { GitCommit, GitStash } from '@/lib/git/types'
 
 function commit(hash: string, date: number, parents: string[] = [], refs: string[] = []): GitCommit {
@@ -23,6 +23,36 @@ function rowHashes(rows: ReturnType<typeof buildGraphRows>, history = commits) {
 }
 
 describe('stash graph scene', () => {
+  it('keeps both merge paths highlighted across unrelated rows and stops at their common base', () => {
+    const scene = graphScene(
+      [
+        commit('merge', 100, ['target', 'source']),
+        commit('unrelated', 90, ['older']),
+        commit('target', 80, ['base']),
+        commit('source', 70, ['base']),
+        commit('gap', 60, ['older']),
+        commit('base', 50, ['older']),
+        commit('older', 40),
+      ],
+      null,
+      []
+    )
+    const hashes = new Set(['merge', 'target', 'source', 'base'])
+    for (const [child, parent] of [
+      ['merge', 'target'],
+      ['merge', 'source'],
+      ['target', 'base'],
+      ['source', 'base'],
+    ]) {
+      const segments = scene.strokes.filter((stroke) => stroke.childHash === child && stroke.parentHash === parent)
+      expect(segments.length).toBeGreaterThan(1)
+      expect(segments.every((stroke) => isHighlightedStroke(stroke, hashes))).toBe(true)
+      expect(segments.some((stroke) => stroke.hash === parent)).toBe(true)
+    }
+    expect(scene.strokes.filter((stroke) => stroke.childHash === 'base').every((stroke) => !isHighlightedStroke(stroke, hashes))).toBe(true)
+    expect(scene.strokes.filter((stroke) => stroke.childHash === 'unrelated').every((stroke) => !isHighlightedStroke(stroke, hashes))).toBe(true)
+    expect(scene.strokes.every((stroke) => stroke.childHash && stroke.parentHash)).toBe(true)
+  })
   it('inserts stashes at their creation time while keeping ordinary commit order', () => {
     const rows = buildGraphRows(commits, stashes, null)
     expect(rowHashes(rows)).toEqual(['editor-tip', 'new', 'other', 'test-tip', 'test-base', 'wip', 'editor-base', 'root'])

@@ -11,6 +11,8 @@ export const markdownBody = cn(
   '[&_strong]:font-semibold',
   '[&_:not(pre)>code]:rounded-[0.25rem] [&_:not(pre)>code]:bg-inset [&_:not(pre)>code]:px-1 [&_:not(pre)>code]:py-[0.05rem] [&_:not(pre)>code]:font-mono [&_:not(pre)>code]:text-[12px]',
   '[&_pre]:my-3 [&_pre]:overflow-x-auto [&_pre]:rounded-[0.35rem] [&_pre]:border [&_pre]:border-line [&_pre]:bg-inset [&_pre]:px-3 [&_pre]:py-2 [&_pre]:font-mono [&_pre]:text-[12px] [&_pre]:leading-[1.6]',
+  '[&_pre>code]:block [&_pre>code]:bg-transparent [&_pre>code]:p-0 [&_pre>code]:font-mono',
+  '[&_.line]:inline-block [&_.line]:min-w-full',
   '[&_table]:my-3 [&_table]:block [&_table]:w-full [&_table]:overflow-x-auto [&_table]:border-collapse [&_table]:text-[12.5px]',
   '[&_th]:border [&_th]:border-line [&_th]:bg-panel [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:font-semibold [&_th]:whitespace-nowrap',
   '[&_td]:border [&_td]:border-line [&_td]:px-3 [&_td]:py-2 [&_td]:align-top',

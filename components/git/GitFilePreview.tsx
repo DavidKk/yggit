@@ -4,10 +4,12 @@ import { marked } from 'marked'
 import { useEffect, useMemo, useState } from 'react'
 
 import { gitBlobUrl, type GitFileKind } from '@/components/git/fileKind'
+import { renderMarkdownWithHighlight } from '@/components/git/gitHighlight'
 import { GitHighlightedCode } from '@/components/git/GitHighlightedCode'
 import { markdownBody } from '@/components/git/markdown'
 import { useT } from '@/components/i18n/LocaleProvider'
 import { EmptyState, ScrollArea } from '@/components/sk'
+import { useThemeMode } from '@/components/theme/ThemeProvider'
 import { cn } from '@/lib/utils'
 
 export type GitFilePane = 'code' | 'preview'
@@ -72,10 +74,37 @@ function SvgPreview({ content, repo, hash, path }: { content?: string; repo: str
 }
 
 function MarkdownPreview({ content }: { content: string }) {
-  const html = useMemo(() => {
-    marked.setOptions({ gfm: true, breaks: false })
-    return marked.parse(content, { async: false }) as string
-  }, [content])
+  const theme = useThemeMode()
+  const [html, setHtml] = useState<string>(() => {
+    try {
+      marked.setOptions({ gfm: true, breaks: false })
+      return marked.parse(content, { async: false }) as string
+    } catch {
+      return ''
+    }
+  })
+
+  useEffect(() => {
+    let cancelled = false
+    void renderMarkdownWithHighlight(content, theme)
+      .then((rendered: string) => {
+        if (!cancelled) setHtml(rendered)
+      })
+      .catch(() => {
+        if (!cancelled) {
+          try {
+            marked.setOptions({ gfm: true, breaks: false })
+            setHtml(marked.parse(content, { async: false }) as string)
+          } catch {
+            // Keep existing html
+          }
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [content, theme])
+
   return <article className={cn(markdownBody, 'px-4 py-3')} dangerouslySetInnerHTML={{ __html: html }} />
 }
 

@@ -182,6 +182,66 @@ describe('indexeddb-handles', () => {
     })
 
     describe('edge folders & catalog management', () => {
+      it('reads local origin metadata and absorbs the matching remote while preserving separate clones', async () => {
+        function localHandle(name: string): FileSystemDirectoryHandle {
+          return {
+            name,
+            queryPermission: jest.fn().mockResolvedValue('granted'),
+            async getDirectoryHandle() {
+              return {
+                async getFileHandle() {
+                  return {
+                    async getFile() {
+                      return {
+                        async text() {
+                          return '[remote "origin"]\nurl = git@github.com:DavidKk/yggit.git\n'
+                        },
+                      }
+                    },
+                  }
+                },
+              }
+            },
+          } as unknown as FileSystemDirectoryHandle
+        }
+        await saveDirectoryHandle('one', localHandle('yggdrasil'))
+        await saveEdgeRemoteProject({ id: 'remote', name: 'DavidKk/yggit', url: 'https://github.com/davidkk/YGGIT', host: 'github', updatedAt: Date.now() })
+        let catalog = await getEdgeCatalog()
+        expect(catalog.projects).toHaveLength(1)
+        expect(catalog.projects[0]).toMatchObject({ localPath: 'one', host: 'github', httpsUrl: 'https://github.com/DavidKk/yggit.git', remote: true })
+        await saveDirectoryHandle('two', localHandle('yggdrasil'))
+        catalog = await getEdgeCatalog()
+        expect(catalog.projects.map((project) => project.localPath)).toEqual(['one', 'two'])
+      })
+
+      it('keeps temporary visits out of saved folders and does not infer GitHub authorization', async () => {
+        const sessionStorage = {
+          getItem: () => JSON.stringify([{ id: 'temp', fingerprint: 'github.com/owner/temp', name: 'owner/temp', remoteUrl: 'https://github.com/owner/temp' }]),
+        }
+        const previousWindow = global.window
+        Object.defineProperty(global, 'window', { value: { sessionStorage, indexedDB: global.indexedDB }, writable: true, configurable: true })
+        await saveEdgeRemoteProject({ id: 'saved', name: 'owner/saved', url: 'https://github.com/owner/saved', host: 'github', updatedAt: Date.now() })
+        const catalog = await getEdgeCatalog()
+        expect(catalog.projects.map((project) => project.id)).toEqual(['saved'])
+        expect(catalog.projects[0].authorized).toBe(false)
+        Object.defineProperty(global, 'window', { value: previousWindow, writable: true, configurable: true })
+      })
+
+      it('shows one entry for duplicate handles to the same directory without deleting stored sources', async () => {
+        const handle = { name: 'ticket-janitor', isSameEntry: async () => true } as unknown as FileSystemDirectoryHandle
+        await saveDirectoryHandle('original', handle)
+        await saveDirectoryHandle('alias', { ...handle })
+        expect((await getEdgeCatalog()).projects).toHaveLength(1)
+        expect(await listDirectoryHandles()).toHaveLength(2)
+      })
+
+      it('preserves same-name local clones using their stored identifiers', async () => {
+        await saveDirectoryHandle('clone-one', { name: 'ticket-janitor' } as FileSystemDirectoryHandle)
+        await saveDirectoryHandle('clone-two', { name: 'ticket-janitor' } as FileSystemDirectoryHandle)
+        const catalog = await getEdgeCatalog()
+        expect(catalog.projects.map((project) => project.localPath).sort()).toEqual(['clone-one', 'clone-two'])
+      })
+
       it('seeds default folders when first initialized', async () => {
         const folders = await getEdgeFolders()
         expect(folders).toEqual(['工作项目', '个人项目'])

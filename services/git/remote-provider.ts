@@ -1,3 +1,4 @@
+import { GIT_LOG_PAGE_SIZE } from '@/lib/git/identity'
 import type { GitBranch, GitCommit, GitCommitChanges, GitFileChange, GitLogView, GitRemoteBranch } from '@/lib/git/types'
 
 interface GitHubCommitItem {
@@ -67,7 +68,7 @@ async function fetchGitHubApi<T>(endpoint: string): Promise<T> {
   const res = await fetch(`https://api.github.com${endpoint}`, { headers })
   if (!res.ok) {
     const errorText = await res.text()
-    if (res.status === 403 || res.status === 429) {
+    if (res.status === 429 || (res.status === 403 && (res.headers.get('x-ratelimit-remaining') === '0' || /rate limit/i.test(errorText)))) {
       throw new Error(`GitHub API rate limit exceeded. Please try again later or add a GITHUB_TOKEN.`)
     }
     throw new Error(`GitHub API error (${res.status}): ${errorText || res.statusText}`)
@@ -78,7 +79,7 @@ async function fetchGitHubApi<T>(endpoint: string): Promise<T> {
   return json
 }
 
-export async function readRemoteGitLog(urlOrPath: string, branchName?: string): Promise<GitLogView> {
+export async function readRemoteGitLog(urlOrPath: string, branchName?: string, skip = 0): Promise<GitLogView> {
   const gh = parseGitHubRepo(urlOrPath)
   if (!gh) {
     throw new Error(`Unsupported remote repository URL: ${urlOrPath}`)
@@ -89,14 +90,26 @@ export async function readRemoteGitLog(urlOrPath: string, branchName?: string): 
 
   // Fetch branches and repo info in parallel
   const [branchesData, repoInfo] = await Promise.all([
-    fetchGitHubApi<GitHubBranchItem[]>(`/repos/${owner}/${repo}/branches?per_page=100`).catch(() => []),
-    fetchGitHubApi<{ default_branch?: string }>(`/repos/${owner}/${repo}`).catch(() => ({ default_branch: 'main' })),
+    fetchGitHubApi<GitHubBranchItem[]>(`/repos/${owner}/${repo}/branches?per_page=100`),
+    fetchGitHubApi<{ default_branch?: string }>(`/repos/${owner}/${repo}`),
   ])
 
-  const defaultBranch = branchName || repoInfo.default_branch || 'main'
+  const requestedRef = branchName?.trim()
+  const defaultBranch = requestedRef && requestedRef !== '*' ? requestedRef : repoInfo.default_branch || 'main'
 
-  // Fetch commits for target branch
-  const commitsData = await fetchGitHubApi<GitHubCommitItem[]>(`/repos/${owner}/${repo}/commits?sha=${encodeURIComponent(defaultBranch)}&per_page=100`).catch(() => [])
+  // Read a window with one lookahead commit, including windows crossing API pages.
+  const offset = Number.isFinite(skip) ? Math.max(0, Math.floor(skip)) : 0
+  let page = Math.floor(offset / 100) + 1
+  let pageOffset = offset % 100
+  const window: GitHubCommitItem[] = []
+  while (window.length <= GIT_LOG_PAGE_SIZE) {
+    const batch = await fetchGitHubApi<GitHubCommitItem[]>(`/repos/${owner}/${repo}/commits?sha=${encodeURIComponent(defaultBranch)}&per_page=100&page=${page}`)
+    window.push(...batch.slice(pageOffset))
+    if (batch.length < 100) break
+    pageOffset = 0
+    page += 1
+  }
+  const commitsData = window.slice(0, GIT_LOG_PAGE_SIZE)
 
   // Map to GitBranch and GitRemoteBranch
   const branches: GitBranch[] = branchesData.map((b) => ({
@@ -154,53 +167,79 @@ export async function readRemoteGitLog(urlOrPath: string, branchName?: string): 
     worktrees: [],
     submodules: [],
     commits,
-    hasMore: commits.length >= 100,
+    hasMore: window.length > GIT_LOG_PAGE_SIZE,
     marks: {},
     worktree: null,
   }
 }
 
-export async function readRemoteCommitChanges(urlOrPath: string, ref: string): Promise<GitCommitChanges> {
+export async function readRemoteCommitChanges(urlOrPath: string, ref: string, options: { tree?: boolean; file?: string; all?: boolean } = {}): Promise<GitCommitChanges> {
   const gh = parseGitHubRepo(urlOrPath)
   if (!gh) throw new Error(`Unsupported remote URL: ${urlOrPath}`)
 
-  const { owner, repo } = gh
-  interface GHCommitDetail {
-    files?: Array<{
-      filename: string
-      status: string
-      previous_filename?: string
-    }>
-  }
-
-  const detail = await fetchGitHubApi<GHCommitDetail>(`/repos/${owner}/${repo}/commits/${ref}`)
-  const files: GitFileChange[] = (detail.files || []).map((f) => {
-    let status = 'M'
-    if (f.status === 'added') status = 'A'
-    else if (f.status === 'removed') status = 'D'
-    else if (f.status === 'renamed') status = 'R'
+  const base = `/repos/${gh.owner}/${gh.repo}`
+  if (options.all) {
+    const tree = await fetchGitHubApi<{ tree: Array<{ path: string; type: string }>; truncated: boolean }>(`${base}/git/trees/${encodeURIComponent(ref)}?recursive=1`)
     return {
-      path: f.filename,
-      oldPath: f.previous_filename || '',
-      status,
+      hash: ref,
+      files: tree.tree.filter((entry) => entry.type === 'blob').map((entry) => ({ path: entry.path, oldPath: '', status: 'M' })),
+      patch: '',
+      truncated: tree.truncated,
     }
-  })
-
-  return {
-    hash: ref,
-    files,
-    patch: '',
-    truncated: false,
   }
+
+  interface GHCommitDetail {
+    files?: Array<{ filename: string; status: string; previous_filename?: string; patch?: string }>
+  }
+  // Commit file lists are paginated independently of the history API.
+  const changed: NonNullable<GHCommitDetail['files']> = []
+  let page = 1
+  while (true) {
+    const detail = await fetchGitHubApi<GHCommitDetail>(`${base}/commits/${encodeURIComponent(ref)}?per_page=100&page=${page}`)
+    const batch = detail.files || []
+    changed.push(...batch)
+    if (batch.length < 100 || page >= 30) break
+    page += 1
+  }
+  const files: GitFileChange[] = changed.map((file) => ({
+    path: file.filename,
+    oldPath: file.previous_filename || '',
+    status: file.status === 'added' ? 'A' : file.status === 'removed' ? 'D' : file.status === 'renamed' ? 'R' : 'M',
+  }))
+  const selected = options.file ? changed.filter((file) => file.filename === options.file) : changed
+  const patch = options.tree
+    ? ''
+    : selected
+        .filter((file) => file.patch)
+        .map((file) => {
+          // JSON quoting preserves Unicode, spaces, tabs and newlines in Git patch paths.
+          const before = JSON.stringify(`a/${file.previous_filename || file.filename}`)
+          const after = JSON.stringify(`b/${file.filename}`)
+          return `diff --git ${before} ${after}\n--- ${file.status === 'added' ? '/dev/null' : before}\n+++ ${file.status === 'removed' ? '/dev/null' : after}\n${file.patch}\n`
+        })
+        .join('')
+  const result: GitCommitChanges = { hash: ref, files, patch, truncated: changed.length >= 3000 }
+  if (options.file && !options.tree) {
+    if (selected[0]?.status === 'removed') result.contentMissing = true
+    else {
+      const blob = await readRemoteBlobData(urlOrPath, ref, options.file)
+      result.contentBinary = blob.bytes.slice(0, 8000).includes(0) || /^(image|audio|video)\//.test(blob.contentType)
+      result.content = result.contentBinary ? '' : new TextDecoder().decode(blob.bytes)
+    }
+  }
+  return result
+}
+
+export async function readRemoteBlobData(urlOrPath: string, ref: string, filePath: string): Promise<{ bytes: Uint8Array; contentType: string }> {
+  const gh = parseGitHubRepo(urlOrPath)
+  if (!gh) throw new Error(`Unsupported remote URL: ${urlOrPath}`)
+  const path = filePath.split('/').map(encodeURIComponent).join('/')
+  const rawUrl = `https://raw.githubusercontent.com/${gh.owner}/${gh.repo}/${encodeURIComponent(ref)}/${path}`
+  const res = await fetch(rawUrl)
+  if (!res.ok) throw new Error(`Failed to load blob (${res.status}): ${filePath}`)
+  return { bytes: new Uint8Array(await res.arrayBuffer()), contentType: res.headers.get('content-type') || 'application/octet-stream' }
 }
 
 export async function readRemoteBlob(urlOrPath: string, ref: string, filePath: string): Promise<string> {
-  const gh = parseGitHubRepo(urlOrPath)
-  if (!gh) throw new Error(`Unsupported remote URL: ${urlOrPath}`)
-
-  const { owner, repo } = gh
-  const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/${ref}/${filePath}`
-  const res = await fetch(rawUrl)
-  if (!res.ok) throw new Error(`Failed to load blob (${res.status}): ${filePath}`)
-  return await res.text()
+  return new TextDecoder().decode((await readRemoteBlobData(urlOrPath, ref, filePath)).bytes)
 }

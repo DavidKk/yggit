@@ -80,9 +80,16 @@ export type Stroke = {
   dashed?: boolean
   bridge?: boolean
   hash: string
+  childHash?: string
+  parentHash?: string
   fromLane: number
   toLane: number
 }
+/** Rails retain their actual edge across unrelated rows. */
+export function isHighlightedStroke(stroke: Stroke, hashes?: Set<string> | null): boolean {
+  return Boolean(stroke.childHash && stroke.parentHash && hashes?.has(stroke.childHash) && hashes.has(stroke.parentHash))
+}
+
 type Dot = { key: string; x: number; y: number; color: string; filled: boolean; radius: number }
 type StashMark = { key: string; hash: string; x: number; y: number; color: string }
 
@@ -110,22 +117,28 @@ export function graphScene(commits: GitCommit[], worktree: GitWorktree | null, s
   const strokes: Stroke[] = []
   const dots: Dot[] = []
   const stashMarks: StashMark[] = []
+  let rails = new Map<number, { childHash: string; parentHash: string }>()
   rows.forEach((row, index) => {
+    const previousRails = rails
+    rails = new Map()
+    let parentIndex = 0
     const point = rowPoints[index]
     const yTop = index * ROW
     const yMid = yTop + ROW / 2
     const yBot = yTop + ROW
     const hash = nodes[index].hash
-    const hasRail = point.links.some((link) => link.from === point.lane && link.to === point.lane)
     point.links.forEach((link, linkIndex) => {
       const x1 = xAt(link.from)
       const x2 = xAt(link.to)
-      const startY = link.from === point.lane && !point.joins ? yMid : yTop
+      const startY = link.from === point.lane ? yMid : yTop
       const mid = (yMid + yBot) / 2
       const isCurve = link.from !== link.to
       const startColor = link.from === point.lane ? point.color : link.color
       const targetColor = link.color
+      const edge = link.from === point.lane ? { childHash: hash, parentHash: nodes[index].parents[parentIndex++] ?? hash } : previousRails.get(link.from)
+      if (edge) rails.set(link.to, edge)
       strokes.push({
+        ...edge,
         key: `${hash}:${linkIndex}`,
         d: !isCurve ? `M ${x1} ${startY} L ${x2} ${yBot}` : `M ${x1} ${yMid} C ${x1} ${mid}, ${x2} ${mid}, ${x2} ${yBot}`,
         color: link.color,
@@ -147,6 +160,7 @@ export function graphScene(commits: GitCommit[], worktree: GitWorktree | null, s
       const x2 = xAt(link.to)
       const mid = (yTop + yMid) / 2
       strokes.push({
+        ...previousRails.get(link.from),
         key: `${hash}:attachment:${linkIndex}`,
         d: `M ${x1} ${yTop} C ${x1} ${mid}, ${x2} ${mid}, ${x2} ${yMid}`,
         color: link.color,
@@ -163,10 +177,11 @@ export function graphScene(commits: GitCommit[], worktree: GitWorktree | null, s
         toLane: link.to,
       })
     })
-    if (point.joins && !hasRail) {
+    if (point.joins) {
       const incoming = rowPoints[index - 1]?.links.find((link) => link.to === point.lane)
       const color = incoming?.color ?? point.color
       strokes.push({
+        ...previousRails.get(point.lane),
         key: `${hash}:stem`,
         d: `M ${xAt(point.lane)} ${yTop} L ${xAt(point.lane)} ${yMid}`,
         color,

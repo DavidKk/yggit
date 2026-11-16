@@ -19,6 +19,8 @@ Welcome to the Yggit documentation repository. Yggit is a high-performance, orga
 - [Agent Context Desensitization & Privacy PRD (Sub-Req 3)](prd/agent-context-desensitization-and-privacy.md) - Sub-requirement 3: Product requirements for client-side context desensitization, round-trip reversible masking, and zero-storage privacy filters.
 - [Agent Context Desensitization & Unmasking Technical Architecture (Sub-Req 3)](technical/agent-context-desensitization-and-privacy.md) - Sub-requirement 3: Technical specification for the regex/entropy scanner, semantic placeholder substitution, streaming chunk buffer unmasker, and settings integration.
 
+- [Theme Persistence & Hydration](technical/theme-hydration.md) - Cookie preference, system theme resolution, and consistent SSR/client initialization.
+
 ## Standards
 
 - Local-first repository catalog and project switcher.

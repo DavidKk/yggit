@@ -1,11 +1,13 @@
 import { cookies } from 'next/headers'
 
-import { isThemeMode, THEME_COOKIE_KEY, type ThemeMode, type ThemePreference } from '@/lib/theme'
+import { isThemeMode, isThemePreference, THEME_COOKIE_KEY, THEME_RESOLVED_COOKIE_KEY, type ThemeMode, type ThemePreference } from '@/lib/theme'
 
-/** Resolve theme preference from cookie; default `auto` (follow system on client / dark on SSR). */
+/** Auto uses the last browser-resolved mode until the pre-paint script checks the OS. */
 export async function resolveRequestTheme(): Promise<{ theme: ThemeMode; preference: ThemePreference }> {
-  const fromCookie = (await cookies()).get(THEME_COOKIE_KEY)?.value
-  if (isThemeMode(fromCookie)) return { theme: fromCookie, preference: fromCookie }
-  // SSR has no reliable system preference; dark matches historic default until client boot/hydration.
-  return { theme: 'dark', preference: 'auto' }
+  const store = await cookies()
+  const fromCookie = store.get(THEME_COOKIE_KEY)?.value
+  const preference = isThemePreference(fromCookie) ? fromCookie : 'auto'
+  if (isThemeMode(preference)) return { theme: preference, preference }
+  const resolved = store.get(THEME_RESOLVED_COOKIE_KEY)?.value
+  return { theme: isThemeMode(resolved) ? resolved : 'dark', preference }
 }

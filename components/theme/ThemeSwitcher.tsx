@@ -16,10 +16,10 @@ type Props = {
   compact?: boolean
 }
 
-/** 界面主题：跟随系统 / 光亮 / 暗黑 */
+/** Render the request theme immediately, including before client hydration. */
 export function ThemeSwitcher({ className }: Props) {
   const t = useT()
-  const { theme, preference, ready, setTheme } = useTheme()
+  const { theme, preference, setTheme } = useTheme()
   const anchorRef = useRef<HTMLSpanElement>(null)
   const [container, setContainer] = useState<ShadowRoot>()
 
@@ -37,7 +37,7 @@ export function ThemeSwitcher({ className }: Props) {
   ]
 
   return (
-    <span ref={anchorRef} className={cn('inline-flex', !ready && 'invisible', className)}>
+    <span ref={anchorRef} className={cn('inline-flex', className)}>
       <Menu.Root>
         <Menu.Trigger aria-label={t('theme.switch')} className={dropdownTriggerClass}>
           <TriggerIcon size={15} aria-hidden className="shrink-0" />
