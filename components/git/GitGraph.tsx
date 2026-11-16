@@ -1,6 +1,6 @@
 'use client'
 
-import { type CSSProperties, memo, type PointerEvent as ReactPointerEvent, type ReactNode, type Ref, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { type CSSProperties, memo, type ReactNode, type Ref, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { LuClock, LuCopy, LuGitBranch, LuHash, LuInbox, LuShare2, LuText, LuUser } from 'react-icons/lu'
 
 import { AnnotationBadge } from '@/components/git/agent/spotlight/AnnotationBadge'
@@ -9,7 +9,7 @@ import { PanelSplitter } from '@/components/git/PanelSplitter'
 import { branchAtCommits, type FloatingAnchor, FloatingMenu, type FloatingMenuItem, refChips, RefChipsCell } from '@/components/git/RefChipsCell'
 import { useLocaleCode, useT } from '@/components/i18n/LocaleProvider'
 import { useNotification } from '@/components/notification/useNotification'
-import { EmptyState, ScrollArea, Tooltip } from '@/components/sk'
+import { EmptyState, ScrollArea } from '@/components/sk'
 import { useOptionalSpotlight } from '@/lib/agent/spotlight-context'
 import { copyToClipboard } from '@/lib/clipboard'
 import { formatCommitDateDivider } from '@/lib/git/format-commit-ago'
@@ -393,7 +393,6 @@ function GitGraphComponent({
   const branchRef = useRef(branchWidth)
   const graphRef = useRef(graphView)
   const cachedRoomRef = useRef<number | null>(null)
-  const panRef = useRef<{ x: number; y: number; left: number; moved: boolean } | null>(null)
   const columns = `var(--git-branch-w) var(--git-graph-w) minmax(${MESSAGE_MIN}px, 1fr)`
 
   // Defer inline vars until hydrate so GitUiBootScript values win on first paint.
@@ -473,44 +472,6 @@ function GitGraphComponent({
     }
     requestAnimationFrame(syncGraphEdge)
   }, [contentWidth, setGraphView])
-
-  const selectCommitAtGraphY = (clientY: number, top: number) => {
-    const hit = scene.rows[Math.floor((clientY - top) / ROW)]
-    if (!hit) return
-    if (hit.kind === 'worktree') onSelectWorktree?.()
-    else if (hit.kind === 'stash') onSelect?.(gitStashAsCommit(hit.stash))
-    else if (commits[hit.index]) onSelect?.(commits[hit.index])
-  }
-
-  const onGraphPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0) return
-    // Dots handle their own click; still allow pan to start from empty graph area.
-    if ((event.target as HTMLElement).closest('[data-git-graph-dot]')) return
-    const node = graphScrollRef.current
-    panRef.current = { x: event.clientX, y: event.clientY, left: node?.scrollLeft ?? 0, moved: false }
-    event.currentTarget.setPointerCapture(event.pointerId)
-  }
-  const onGraphPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
-    const drag = panRef.current
-    const node = graphScrollRef.current
-    if (drag && node) {
-      if (Math.hypot(event.clientX - drag.x, event.clientY - drag.y) > 4) drag.moved = true
-      if (drag.moved && node.scrollWidth > node.clientWidth) {
-        node.scrollLeft = drag.left - (event.clientX - drag.x)
-        syncGraphEdge()
-        return
-      }
-    }
-  }
-  const onGraphPointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
-    const drag = panRef.current
-    if (!drag) return
-    const moved = drag.moved
-    panRef.current = null
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
-    if (moved) return
-    selectCommitAtGraphY(event.clientY, event.currentTarget.getBoundingClientRect().top)
-  }
 
   if (commits.length === 0 && !worktree && stashes.length === 0) {
     return <EmptyState title={t('git.graph.noCommits')} message={t('git.graph.noCommitsMessage')} density="panel" />
@@ -899,52 +860,9 @@ function GitGraphComponent({
           <div
             ref={graphScrollRef}
             data-git-graph-pan
-            className="absolute top-0 left-[var(--git-branch-w)] z-[2] w-[var(--git-graph-w)] cursor-pointer overflow-x-auto overflow-y-hidden [scrollbar-width:none] active:cursor-grabbing [&::-webkit-scrollbar]:hidden"
+            className="pointer-events-none absolute top-0 left-[var(--git-branch-w)] z-[2] w-[var(--git-graph-w)] overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             style={{ height: scene.height }}
             onScroll={syncGraphEdge}
-            onPointerDown={onGraphPointerDown}
-            onPointerMove={onGraphPointerMove}
-            onPointerUp={onGraphPointerUp}
-            onPointerCancel={onGraphPointerUp}
-            onContextMenu={(event) => {
-              event.preventDefault()
-              const top = event.currentTarget.getBoundingClientRect().top
-              const hit = scene.rows[Math.floor((event.clientY - top) / ROW)]
-              if (!hit) return
-              if (hit.kind === 'worktree' && worktree) {
-                setContextMenu({
-                  type: 'worktree',
-                  worktree,
-                  color: laneColor(headIndex >= 0 ? (points[headIndex]?.color ?? 0) : 0),
-                  anchor: { x: event.clientX, y: event.clientY },
-                })
-              } else if (hit.kind === 'stash') {
-                const stash = hit.stash
-                const stashPoint = scene.stashPoints.get(stash.hash)
-                const color = stashPoint ? laneColor(stashPoint.color) : 'var(--accent)'
-                setContextMenu({
-                  type: 'stash',
-                  stash,
-                  color,
-                  anchor: { x: event.clientX, y: event.clientY },
-                })
-              } else if (hit.kind === 'commit') {
-                const commit = commits[hit.index]
-                if (!commit) return
-                const point = points[hit.index]
-                const color = point ? laneColor(point.color) : 'var(--accent)'
-                const chips = refChips(commit.refs, remoteNames)
-                const branch = branchAt.get(commit.hash) || ''
-                const branchList = [...chips.map((c) => c.label), ...(branch ? [branch] : [])]
-                setContextMenu({
-                  type: 'commit',
-                  commit,
-                  branches: branchList,
-                  color,
-                  anchor: { x: event.clientX, y: event.clientY },
-                })
-              }
-            }}
           >
             <div className="relative" style={{ width: contentWidth, height: scene.height }}>
               <svg className="pointer-events-none absolute inset-0 overflow-visible" width={contentWidth} height={scene.height} aria-hidden>
@@ -1030,37 +948,25 @@ function GitGraphComponent({
                 if (!stash) return null
                 const tint = mark.color || 'var(--accent)'
                 return (
-                  <Tooltip key={mark.key} content={stash.name} placement="top">
-                    <span
-                      data-git-graph-dot
-                      data-git-node-hash={stash.hash}
-                      className="absolute flex -translate-x-1/2 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border border-dashed transition-all duration-200"
-                      style={{
-                        left: mark.x,
-                        top: mark.y,
-                        width: NODE_DOT,
-                        height: NODE_DOT,
-                        borderColor: tint,
-                        color: tint,
-                        background: `color-mix(in oklab, ${tint} 16%, var(--panel))`,
-                        boxShadow: `0 0 3px color-mix(in oklab, ${tint} 25%, transparent)`,
-                      }}
-                      aria-label={stash.name}
-                      onClick={() => onSelect?.(gitStashAsCommit(stash))}
-                      onContextMenu={(event) => {
-                        event.preventDefault()
-                        event.stopPropagation()
-                        setContextMenu({
-                          type: 'stash',
-                          stash,
-                          color: tint,
-                          anchor: { x: event.clientX, y: event.clientY },
-                        })
-                      }}
-                    >
-                      <LuInbox className="size-2.5" aria-hidden />
-                    </span>
-                  </Tooltip>
+                  <span
+                    key={mark.key}
+                    data-git-graph-dot
+                    data-git-node-hash={stash.hash}
+                    className="pointer-events-none select-none absolute flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-dashed transition-all duration-200"
+                    style={{
+                      left: mark.x,
+                      top: mark.y,
+                      width: NODE_DOT,
+                      height: NODE_DOT,
+                      borderColor: tint,
+                      color: tint,
+                      background: `color-mix(in oklab, ${tint} 16%, var(--panel))`,
+                      boxShadow: `0 0 3px color-mix(in oklab, ${tint} 25%, transparent)`,
+                    }}
+                    aria-label={stash.name}
+                  >
+                    <LuInbox className="size-2.5" aria-hidden />
+                  </span>
                 )
               })}
               {commits.map((commit, index) => {
@@ -1078,74 +984,58 @@ function GitGraphComponent({
                 const isTagged = commit.refs.some((r) => r.startsWith('tag: '))
                 const isDimmed = Boolean((lineageHashes && lineageHashes.size > 0 && !isLineageHit && !isHead) || isSpotlightDimmed || isBranchDimmed)
                 return (
-                  <Tooltip key={commit.hash} content={commit.author} placement="top">
-                    <span
-                      data-git-graph-dot
-                      data-git-node-hash={commit.hash}
-                      className={cn(
-                        'absolute flex -translate-x-1/2 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full leading-none transition-all duration-200',
-                        !isMerge && 'text-[9px] font-semibold text-ink',
-                        isLineageHit && 'ring-2 ring-accent ring-offset-1 ring-offset-[var(--panel)] scale-110 z-10 shadow-[0_0_8px_var(--accent)]',
-                        isSpotlightHit && 'ring-2 ring-accent ring-offset-1 ring-offset-[var(--panel)] scale-125 z-20 shadow-[0_0_12px_var(--accent)]',
-                        isBranchHit && 'ring-2 ring-accent ring-offset-1 ring-offset-[var(--panel)] scale-125 z-20 shadow-[0_0_12px_var(--accent)]',
-                        isBranchDimmed ? 'opacity-20' : isDimmed ? 'opacity-25 hover:opacity-100' : ''
-                      )}
-                      style={
-                        isMerge
-                          ? {
-                              left: xAt(point.lane),
-                              top: y,
-                              width: MERGE_NODE_DOT,
-                              height: MERGE_NODE_DOT,
-                              background: 'var(--panel)',
-                              border: `1.5px solid ${tint}`,
-                              boxShadow: `0 0 3px color-mix(in oklab, ${tint} 30%, transparent)`,
-                            }
-                          : {
-                              left: xAt(point.lane),
-                              top: y,
-                              width: NODE_DOT,
-                              height: NODE_DOT,
-                              background: `color-mix(in oklab, ${tint} 72%, var(--panel))`,
-                              boxShadow: isHead
-                                ? 'inset 0 0 0 1.5px var(--wt-primary, #3cd2a8), 0 0 0 1px var(--panel), 0 0 4px var(--wt-primary-glow, #b8ffea)'
-                                : `inset 0 0 0 1.5px ${tint}`,
-                              animation: isHead ? 'wt-head-breathe 2.8s ease-in-out infinite' : undefined,
-                            }
-                      }
-                      aria-label={commit.author}
-                      onClick={() => onSelect?.(commit)}
-                      onContextMenu={(event) => {
-                        event.preventDefault()
-                        event.stopPropagation()
-                        const chips = refChips(commit.refs, remoteNames)
-                        const branch = branchAt.get(commit.hash) || ''
-                        const branchList = [...chips.map((c) => c.label), ...(branch ? [branch] : [])]
-                        setContextMenu({
-                          type: 'commit',
-                          commit,
-                          branches: branchList,
-                          color: tint,
-                          anchor: { x: event.clientX, y: event.clientY },
-                        })
-                      }}
-                    >
-                      {isMerge ? (
-                        <span className="size-1 rounded-full shrink-0" style={{ background: 'var(--wt-git-merge, var(--wt-merge, #d946ef))' }} aria-hidden />
-                      ) : (
-                        <>
-                          {initials(commit.author)}
-                          {isTagged && (
-                            <span
-                              className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full border border-panel bg-[var(--wt-primary,#3cd2a8)] shadow-[0_0_3px_var(--wt-primary-glow,#b8ffea)]"
-                              title="Tag"
-                              aria-hidden
-                            />
-                          )}
-                        </>
-                      )}
-                    </span>
-                  </Tooltip>
+                  <span
+                    key={commit.hash}
+                    data-git-graph-dot
+                    data-git-node-hash={commit.hash}
+                    className={cn(
+                      'pointer-events-none select-none absolute flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full leading-none transition-all duration-200',
+                      !isMerge && 'text-[9px] font-semibold text-ink',
+                      isLineageHit && 'ring-2 ring-accent ring-offset-1 ring-offset-[var(--panel)] scale-110 z-10 shadow-[0_0_8px_var(--accent)]',
+                      isSpotlightHit && 'ring-2 ring-accent ring-offset-1 ring-offset-[var(--panel)] scale-125 z-20 shadow-[0_0_12px_var(--accent)]',
+                      isBranchHit && 'ring-2 ring-accent ring-offset-1 ring-offset-[var(--panel)] scale-125 z-20 shadow-[0_0_12px_var(--accent)]',
+                      isBranchDimmed ? 'opacity-20' : isDimmed ? 'opacity-25' : ''
+                    )}
+                    style={
+                      isMerge
+                        ? {
+                            left: xAt(point.lane),
+                            top: y,
+                            width: MERGE_NODE_DOT,
+                            height: MERGE_NODE_DOT,
+                            background: 'var(--panel)',
+                            border: `1.5px solid ${tint}`,
+                            boxShadow: `0 0 3px color-mix(in oklab, ${tint} 30%, transparent)`,
+                          }
+                        : {
+                            left: xAt(point.lane),
+                            top: y,
+                            width: NODE_DOT,
+                            height: NODE_DOT,
+                            background: `color-mix(in oklab, ${tint} 72%, var(--panel))`,
+                            boxShadow: isHead
+                              ? 'inset 0 0 0 1.5px var(--wt-primary, #3cd2a8), 0 0 0 1px var(--panel), 0 0 4px var(--wt-primary-glow, #b8ffea)'
+                              : `inset 0 0 0 1.5px ${tint}`,
+                            animation: isHead ? 'wt-head-breathe 2.8s ease-in-out infinite' : undefined,
+                          }
+                    }
+                    aria-label={commit.author}
+                  >
+                    {isMerge ? (
+                      <span className="size-1 rounded-full shrink-0" style={{ background: 'var(--wt-git-merge, var(--wt-merge, #d946ef))' }} aria-hidden />
+                    ) : (
+                      <>
+                        {initials(commit.author)}
+                        {isTagged && (
+                          <span
+                            className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full border border-panel bg-[var(--wt-primary,#3cd2a8)] shadow-[0_0_3px_var(--wt-primary-glow,#b8ffea)]"
+                            title="Tag"
+                            aria-hidden
+                          />
+                        )}
+                      </>
+                    )}
+                  </span>
                 )
               })}
             </div>
