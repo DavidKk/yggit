@@ -1,7 +1,8 @@
 'use client'
 
 import React, { useMemo, useState } from 'react'
-import { LuActivity, LuArrowLeft, LuCheck, LuPencil, LuPlus, LuRefreshCw, LuSave } from 'react-icons/lu'
+import { AiOutlineFileSync } from 'react-icons/ai'
+import { LuActivity, LuArrowLeft, LuCheck, LuPencil, LuPlus, LuSave } from 'react-icons/lu'
 
 import { ConfiguredSecretInput } from '@/components/ConfiguredSecretInput/configured-secret-input'
 import { useT } from '@/components/i18n/LocaleProvider'
@@ -265,8 +266,7 @@ function ModelChannelEditor({ profile, onBack }: { profile: AgentModelProfile; o
                 options={availableModels.map((m) => ({ value: m.id, label: m.name }))}
                 placeholder="选择或输入默认模型（如 gpt-4o, deepseek-chat...）"
                 action={{
-                  icon: <LuRefreshCw className={cn('size-3.5', fetchingModels && 'animate-spin')} />,
-                  label: '读取列表',
+                  icon: <AiOutlineFileSync className={cn('size-3.5', fetchingModels && 'animate-spin')} />,
                   title: '从远程接口动态拉取模型列表',
                   loading: fetchingModels,
                   disabled: fetchingModels || testing,

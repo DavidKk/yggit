@@ -373,7 +373,7 @@ export function AgentWorkspace({ repoPath, className }: Props) {
 }
 
 /** Formats LLM responses with simple markdown parsing for readability. */
-function FormattedMessage({ content }: { content: string }) {
+export function FormattedMessage({ content }: { content: string }) {
   const parts = useMemo(() => {
     const lines = content.split('\n')
     return lines.map((line, index) => {

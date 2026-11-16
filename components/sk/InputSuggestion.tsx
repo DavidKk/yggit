@@ -255,7 +255,8 @@ export function InputSuggestion({
                   void action.onClick()
                 }}
                 className={cn(
-                  'inline-flex items-center gap-1.5 px-2 py-1 text-[12px] font-medium leading-none rounded text-ink-soft hover:text-ink hover:bg-[var(--overlay-08)] active:bg-[var(--overlay-12)] cursor-pointer transition-colors shrink-0 select-none',
+                  'inline-flex items-center justify-center font-medium leading-none rounded text-ink-soft hover:text-ink hover:bg-[var(--overlay-08)] active:bg-[var(--overlay-12)] cursor-pointer transition-colors shrink-0 select-none',
+                  action.label ? 'gap-1.5 px-2 py-1 text-[12px]' : 'size-6 p-1',
                   (disabled || action.disabled || action.loading) && 'cursor-not-allowed opacity-50'
                 )}
               >
