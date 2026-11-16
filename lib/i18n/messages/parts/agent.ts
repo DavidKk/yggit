@@ -80,6 +80,14 @@ export const gitAgentZh: { gitAgent: GitAgentMessages } = {
     channelProfile: '接入配置 / 渠道',
     manageSettingsLink: '管理自定义 API Key / 隐私脱敏',
     settingsPage: '设置页',
+    modelFilterTitle: '模型白名单与黑名单',
+    modelFilterDesc: '配置模型准入与阻断规则。不填为允许所有模型，填入为指定允许；黑名单优先于白名单，设置了黑名单后白名单设置了也不显示，并禁止提交请求。',
+    modelWhitelist: '模型白名单',
+    modelWhitelistDesc: '留空允许所有模型；填入后仅显示与允许指定模型（支持通配符如 gpt-*、*-mini）。',
+    modelBlacklist: '模型黑名单',
+    modelBlacklistDesc: '最高优先级。命中黑名单的模型严禁显示且禁止提交，即便在白名单中设置亦会被完全封锁。',
+    modelConflictNotice: '黑名单优先级覆盖提醒',
+    modelBlockedNotice: '当前模型命中黑名单规则，已禁止提交请求',
   },
 }
 
@@ -164,6 +172,15 @@ export const gitAgentEn: { gitAgent: GitAgentMessages } = {
     channelProfile: 'Profile / Provider',
     manageSettingsLink: 'Manage Custom API Keys & Privacy',
     settingsPage: 'Settings',
+    modelFilterTitle: 'Model Whitelist & Blacklist',
+    modelFilterDesc:
+      'Configure model access control. Empty whitelist permits all models; non-empty restricts to specified. Blacklist takes precedence over whitelist, hiding matching models and prohibiting submission.',
+    modelWhitelist: 'Model Whitelist',
+    modelWhitelistDesc: 'Leave empty to allow all models; enter items to allow only specified models (supports wildcards like gpt-*, *-mini).',
+    modelBlacklist: 'Model Blacklist',
+    modelBlacklistDesc: 'Highest priority. Blacklisted models are hidden and prohibited from submission even if specified in whitelist.',
+    modelConflictNotice: 'Blacklist Override Notice',
+    modelBlockedNotice: 'Current model is blacklisted and prohibited from submission',
   },
 }
 

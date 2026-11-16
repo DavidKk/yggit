@@ -80,4 +80,12 @@ export type GitAgentMessages = {
   channelProfile: string
   manageSettingsLink: string
   settingsPage: string
+  modelFilterTitle: string
+  modelFilterDesc: string
+  modelWhitelist: string
+  modelWhitelistDesc: string
+  modelBlacklist: string
+  modelBlacklistDesc: string
+  modelConflictNotice: string
+  modelBlockedNotice: string
 }

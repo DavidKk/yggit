@@ -2,12 +2,13 @@
 
 import React, { useMemo, useState } from 'react'
 import { AiOutlineFileSync } from 'react-icons/ai'
-import { LuActivity, LuArrowLeft, LuCheck, LuPencil, LuPlus, LuSave } from 'react-icons/lu'
+import { LuActivity, LuArrowLeft, LuCheck, LuPencil, LuPlus, LuSave, LuShieldAlert, LuTriangleAlert } from 'react-icons/lu'
 
 import { ConfiguredSecretInput } from '@/components/ConfiguredSecretInput/configured-secret-input'
 import { useT } from '@/components/i18n/LocaleProvider'
-import { Badge, Button, InputSuggestion, Select, TextInput } from '@/components/sk'
+import { Badge, Button, InputSuggestion, Select, TagInput, TextInput } from '@/components/sk'
 import { useAgent } from '@/lib/agent/agent-context'
+import { filterAllowedModels, getModelFilterConflicts, isModelAllowed } from '@/lib/agent/model-filter'
 import type { AgentModelProfile } from '@/lib/agent/model-profiles'
 import { testAgentConnection } from '@/lib/agent/openapi-client'
 import { AGENT_PRESETS, type AgentProviderType, DEFAULT_AGENT_CONFIG } from '@/lib/agent/types'
@@ -18,53 +19,128 @@ import { SettingsSectionCard } from './SettingsSectionCard'
 
 export function ModelChannelSection() {
   const t = useT()
-  const { profiles, activeProfileId, selectProfile } = useAgent()
+  const { profiles, activeProfileId, selectProfile, modelFilter, setModelFilter } = useAgent()
   const [editing, setEditing] = useState<AgentModelProfile | null>(null)
 
   if (editing) return <ModelChannelEditor key={editing.id} profile={editing} onBack={() => setEditing(null)} />
 
+  const currentProfile = profiles.find((p) => p.id === activeProfileId) || profiles[0]
+  const isCurrentModelBlocked = currentProfile ? !isModelAllowed(currentProfile.config.model, modelFilter) : false
+  const filterConflicts = getModelFilterConflicts(modelFilter)
+
   return (
-    <SettingsSectionCard
-      title={t('gitAgent.modelList')}
-      description={t('gitAgent.modelListDesc')}
-      titleAction={
-        <Button variant="accent" gradient onClick={() => setEditing({ id: crypto.randomUUID(), name: '', config: { ...DEFAULT_AGENT_CONFIG } })}>
-          <LuPlus aria-hidden="true" />
-          {t('gitAgent.addModel')}
-        </Button>
-      }
-    >
-      <ul className="divide-y divide-line">
-        {profiles.map((profile) => (
-          <li key={profile.id} className="flex flex-wrap items-center gap-3 py-3 first:pt-0 last:pb-0">
-            <button type="button" className="min-w-0 flex-1 text-left hover:text-accent cursor-pointer" onClick={() => setEditing(profile)}>
-              <span className="block text-sm font-medium break-words">{profile.name}</span>
-              <span className="block text-xs text-ink-soft break-all">
-                {profile.config.model} · {profile.config.baseUrl}
-              </span>
-            </button>
-            {activeProfileId === profile.id ? (
-              <Badge tone="ok">{t('gitAgent.activeModel')}</Badge>
-            ) : (
-              <Button onClick={() => selectProfile(profile.id)}>
-                <LuCheck aria-hidden="true" />
-                {t('gitAgent.useModel')}
+    <div className="flex flex-col gap-4">
+      <SettingsSectionCard
+        title={t('gitAgent.modelList')}
+        description={t('gitAgent.modelListDesc')}
+        titleAction={
+          <Button variant="accent" gradient onClick={() => setEditing({ id: crypto.randomUUID(), name: '', config: { ...DEFAULT_AGENT_CONFIG } })}>
+            <LuPlus aria-hidden="true" />
+            {t('gitAgent.addModel')}
+          </Button>
+        }
+      >
+        <ul className="divide-y divide-line">
+          {profiles.map((profile) => (
+            <li key={profile.id} className="flex flex-wrap items-center gap-3 py-3 first:pt-0 last:pb-0">
+              <button type="button" className="min-w-0 flex-1 text-left hover:text-accent cursor-pointer" onClick={() => setEditing(profile)}>
+                <span className="block text-sm font-medium break-words">{profile.name}</span>
+                <span className="block text-xs text-ink-soft break-all">
+                  {profile.config.model} · {profile.config.baseUrl}
+                </span>
+              </button>
+              {activeProfileId === profile.id ? (
+                <Badge tone="ok">{t('gitAgent.activeModel')}</Badge>
+              ) : (
+                <Button onClick={() => selectProfile(profile.id)}>
+                  <LuCheck aria-hidden="true" />
+                  {t('gitAgent.useModel')}
+                </Button>
+              )}
+              {AGENT_PRESETS[profile.config.provider]?.requiresKey && !profile.config.apiKey && <Badge tone="warn">{t('gitAgent.keyRequired')}</Badge>}
+              <Button size="icon" variant="plain" aria-label={t('gitAgent.editModel')} onClick={() => setEditing(profile)}>
+                <LuPencil aria-hidden="true" />
               </Button>
-            )}
-            {AGENT_PRESETS[profile.config.provider]?.requiresKey && !profile.config.apiKey && <Badge tone="warn">{t('gitAgent.keyRequired')}</Badge>}
-            <Button size="icon" variant="plain" aria-label={t('gitAgent.editModel')} onClick={() => setEditing(profile)}>
-              <LuPencil aria-hidden="true" />
-            </Button>
-          </li>
-        ))}
-      </ul>
-    </SettingsSectionCard>
+            </li>
+          ))}
+        </ul>
+      </SettingsSectionCard>
+
+      <SettingsSectionCard title={t('gitAgent.modelFilterTitle')} description={t('gitAgent.modelFilterDesc')}>
+        <div className="flex flex-col gap-3">
+          {/* Active Model Blocked Warning */}
+          {isCurrentModelBlocked && currentProfile && (
+            <div className="flex items-start gap-2.5 rounded-lg border border-danger/40 bg-danger/10 px-3 py-2.5 text-xs text-danger">
+              <LuShieldAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+              <div className="flex-1">
+                <p className="font-semibold">{t('gitAgent.modelBlockedNotice')}</p>
+                <p className="mt-0.5 text-danger/80">
+                  当前生效的模型「<span className="font-mono font-medium">{currentProfile.config.model}</span>」命中黑名单规则，已在快捷栏与工作区全面禁止提交请求。
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Whitelist / Blacklist Conflicts Notice */}
+          {filterConflicts.length > 0 && (
+            <div className="flex items-start gap-2.5 rounded-lg border border-warn/40 bg-warn/10 px-3 py-2.5 text-xs text-warn">
+              <LuTriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+              <div className="flex-1">
+                <p className="font-semibold">{t('gitAgent.modelConflictNotice')}</p>
+                <p className="mt-0.5 text-warn/80">
+                  黑名单拥有绝对最高优先级。以下白名单中的规则已被黑名单直接阻断并隐藏：
+                  <span className="ml-1 font-mono font-semibold">{filterConflicts.join(', ')}</span>
+                </p>
+              </div>
+            </div>
+          )}
+
+          <div className="divide-y divide-line/60">
+            {/* Whitelist Input */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 first:pt-0 items-start">
+              <div className="md:col-span-5 min-w-0">
+                <label htmlFor="agent-model-whitelist" className="text-xs font-semibold text-ink">
+                  {t('gitAgent.modelWhitelist')}
+                </label>
+                <p className="text-xs text-ink-soft leading-relaxed mt-0.5">{t('gitAgent.modelWhitelistDesc')}</p>
+              </div>
+              <div className="md:col-span-7 min-w-0 max-w-[460px]">
+                <TagInput
+                  id="agent-model-whitelist"
+                  value={modelFilter.whitelist}
+                  onChange={(whitelist) => setModelFilter((prev) => ({ ...prev, whitelist }))}
+                  placeholder="留空允许所有；输入如 gpt-*、deepseek-chat 后回车添加..."
+                />
+              </div>
+            </div>
+
+            {/* Blacklist Input */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 items-start">
+              <div className="md:col-span-5 min-w-0">
+                <label htmlFor="agent-model-blacklist" className="text-xs font-semibold text-ink">
+                  {t('gitAgent.modelBlacklist')}
+                </label>
+                <p className="text-xs text-ink-soft leading-relaxed mt-0.5">{t('gitAgent.modelBlacklistDesc')}</p>
+              </div>
+              <div className="md:col-span-7 min-w-0 max-w-[460px]">
+                <TagInput
+                  id="agent-model-blacklist"
+                  value={modelFilter.blacklist}
+                  onChange={(blacklist) => setModelFilter((prev) => ({ ...prev, blacklist }))}
+                  placeholder="输入要阻断的模型或通配符，如 *-mini、claude-*，回车添加..."
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </SettingsSectionCard>
+    </div>
   )
 }
 
 function ModelChannelEditor({ profile, onBack }: { profile: AgentModelProfile; onBack: () => void }) {
   const t = useT()
-  const { saveProfile } = useAgent()
+  const { saveProfile, modelFilter } = useAgent()
   const [draft, setDraft] = useState(() => ({ ...profile, config: { ...profile.config } }))
   const [keyDraft, setKeyDraft] = useState('')
   const [clearKey, setClearKey] = useState(false)
@@ -87,8 +163,10 @@ function ModelChannelEditor({ profile, onBack }: { profile: AgentModelProfile; o
         list.push(rm)
       }
     }
-    return list
-  }, [preset.models, remoteModels])
+    return filterAllowedModels(list, modelFilter)
+  }, [preset.models, remoteModels, modelFilter])
+
+  const isModelBlocked = Boolean(config.model.trim()) && !isModelAllowed(config.model.trim(), modelFilter)
 
   function validationError() {
     if (!draft.name.trim() || !config.model.trim() || !config.baseUrl?.trim()) return t('gitAgent.requiredFields')
@@ -99,6 +177,9 @@ function ModelChannelEditor({ profile, onBack }: { profile: AgentModelProfile; o
       return t('gitAgent.invalidEndpoint')
     }
     if (preset.requiresKey && !config.apiKey?.trim()) return t('gitAgent.keyRequired')
+    if (!isModelAllowed(config.model.trim(), modelFilter)) {
+      return t('gitAgent.modelBlockedNotice')
+    }
     return ''
   }
 
@@ -273,6 +354,12 @@ function ModelChannelEditor({ profile, onBack }: { profile: AgentModelProfile; o
                   onClick: handleFetchModels,
                 }}
               />
+              {isModelBlocked && (
+                <div className="flex items-center gap-1.5 text-xs text-danger font-medium">
+                  <LuShieldAlert className="size-3.5 shrink-0" aria-hidden="true" />
+                  <span>{t('gitAgent.modelBlockedNotice')}</span>
+                </div>
+              )}
               {modelsFetchMsg && <p className="text-[11px] text-ink-soft">{modelsFetchMsg}</p>}
             </div>
           </div>

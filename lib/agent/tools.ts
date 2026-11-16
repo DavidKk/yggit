@@ -9,6 +9,27 @@ export const AGENT_GIT_TOOLS: AgentToolDefinition[] = [
   {
     type: 'function',
     function: {
+      name: 'get_unmerged_branches',
+      description:
+        'Get all branches that have not been merged into a target base branch (e.g. "master" or "main"). Returns the total unmerged branch count, list of unmerged branches, number of unmerged commits ahead, latest commit details, and graph spotlight targets.',
+      parameters: {
+        type: 'object',
+        properties: {
+          targetBranch: {
+            type: 'string',
+            description: 'The target base branch to check against, e.g. "master", "MASTER", or "main". If omitted, defaults to "master" or the repository default branch.',
+          },
+          includeRemote: {
+            type: 'boolean',
+            description: 'Whether to include remote-tracking branches in the unmerged branch check. Defaults to true.',
+          },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'get_branches',
       description: 'Get all Git branches in the repository, including branch count, local branches, remote branches, and the currently checked out branch.',
       parameters: {

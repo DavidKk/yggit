@@ -57,6 +57,21 @@ jest.mock('@/components/sk', () => ({
       </select>
     </div>
   ),
+  TagInput: ({ id, value = [], onChange, placeholder }: { id?: string; value: string[]; onChange: (val: string[]) => void; placeholder?: string }) => (
+    <input
+      id={id}
+      value={value.join(', ')}
+      placeholder={placeholder}
+      onChange={(e) =>
+        onChange(
+          e.target.value
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean)
+        )
+      }
+    />
+  ),
 }))
 
 let root: Root

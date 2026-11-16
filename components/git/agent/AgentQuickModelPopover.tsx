@@ -3,14 +3,14 @@
 import { Popover } from '@base-ui/react/popover'
 import Link from 'next/link'
 import React, { useMemo, useState } from 'react'
-import { LuBot, LuSettings } from 'react-icons/lu'
+import { LuBot, LuSettings, LuShieldAlert } from 'react-icons/lu'
 
 import { useT } from '@/components/i18n/LocaleProvider'
 import { Select, type SelectOption, Tooltip } from '@/components/sk'
 import { dropdownPopupClass } from '@/components/sk/dropdownMenu'
 import { useAgent } from '@/lib/agent/agent-context'
-import type { AgentModelProfile } from '@/lib/agent/model-profiles'
-import { AGENT_PRESETS, type AgentProviderType } from '@/lib/agent/types'
+import { isModelAllowed } from '@/lib/agent/model-filter'
+import { AGENT_PRESETS } from '@/lib/agent/types'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -20,77 +20,47 @@ interface Props {
 
 export function AgentQuickModelPopover({ tabIndex, className }: Props) {
   const t = useT()
-  const { profiles, activeProfileId, selectProfile, saveProfile } = useAgent()
+  const { profiles, activeProfileId, selectProfile, saveProfile, modelFilter } = useAgent()
   const [open, setOpen] = useState(false)
 
   const activeProfile = profiles.find((p) => p.id === activeProfileId) || profiles[0]
 
-  // Build platform options: saved profiles first, then unconfigured preset providers
+  // Build platform options: ONLY configured profiles, never unconfigured presets
   const platformOptions: SelectOption[] = useMemo(() => {
-    const options: SelectOption[] = []
-    const seenProviders = new Set<string>()
-
-    for (const p of profiles) {
+    return profiles.map((p) => {
       const preset = AGENT_PRESETS[p.config.provider]
       const label = p.name || preset?.name || p.config.provider
-      options.push({ value: p.id, label })
-      seenProviders.add(p.config.provider)
-    }
-
-    for (const key of Object.keys(AGENT_PRESETS) as AgentProviderType[]) {
-      if (!seenProviders.has(key)) {
-        options.push({ value: `preset:${key}`, label: AGENT_PRESETS[key].name })
-      }
-    }
-
-    return options
+      return { value: p.id, label }
+    })
   }, [profiles])
 
-  // Current platform selection value (profile ID or preset key)
+  // Current platform selection value (profile ID)
   const currentPlatformValue = activeProfile?.id || (platformOptions[0]?.value ?? '')
 
   const currentPreset = activeProfile ? AGENT_PRESETS[activeProfile.config.provider] : undefined
 
-  // Build model options for currently selected platform
+  // Build model options for currently selected platform: filter out blacklisted models
   const modelOptions: SelectOption[] = useMemo(() => {
     const list: SelectOption[] = []
     if (currentPreset?.models) {
       for (const m of currentPreset.models) {
-        list.push({ value: m.id, label: m.name })
+        if (isModelAllowed(m.id, modelFilter)) {
+          list.push({ value: m.id, label: m.name })
+        }
       }
     }
-    // If active model is a custom string not in preset list, include it
-    if (activeProfile?.config.model && !list.some((item) => item.value === activeProfile.config.model)) {
+    // If active model is a custom string not in preset list, include it only if allowed
+    if (activeProfile?.config.model && !list.some((item) => item.value === activeProfile.config.model) && isModelAllowed(activeProfile.config.model, modelFilter)) {
       list.unshift({
         value: activeProfile.config.model,
         label: `${activeProfile.config.model} (自定义)`,
       })
     }
     return list
-  }, [currentPreset, activeProfile])
+  }, [currentPreset, activeProfile, modelFilter])
 
   const handlePlatformChange = (value: string) => {
-    if (value.startsWith('preset:')) {
-      const provider = value.replace('preset:', '') as AgentProviderType
-      const targetPreset = AGENT_PRESETS[provider]
-      const existing = profiles.find((p) => p.config.provider === provider)
-      if (existing) {
-        selectProfile(existing.id)
-      } else {
-        const newProfile: AgentModelProfile = {
-          id: `profile_${provider}_${Date.now()}`,
-          name: targetPreset.name,
-          config: {
-            provider,
-            baseUrl: targetPreset.baseUrl,
-            model: targetPreset.defaultModel,
-          },
-        }
-        saveProfile(newProfile)
-      }
-    } else {
-      selectProfile(value)
-    }
+    selectProfile(value)
   }
 
   const handleModelChange = (model: string) => {
@@ -103,6 +73,8 @@ export function AgentQuickModelPopover({ tabIndex, className }: Props) {
       },
     })
   }
+
+  const isCurrentModelBlocked = !isModelAllowed(activeProfile?.config.model || '', modelFilter)
 
   return (
     <Popover.Root
@@ -175,6 +147,14 @@ export function AgentQuickModelPopover({ tabIndex, className }: Props) {
               </span>
               <Select aria-label={t('gitAgent.modelName')} className="w-full" value={activeProfile?.config.model || ''} options={modelOptions} onChange={handleModelChange} />
             </div>
+
+            {/* Blocked model alert */}
+            {isCurrentModelBlocked && (
+              <div className="flex items-center gap-1.5 rounded border border-fail/30 bg-fail/10 p-2 text-[11px] text-fail font-medium">
+                <LuShieldAlert className="size-3.5 shrink-0" />
+                <span>{t('gitAgent.modelBlockedNotice')}</span>
+              </div>
+            )}
           </Popover.Popup>
         </Popover.Positioner>
       </Popover.Portal>

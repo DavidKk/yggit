@@ -1,6 +1,6 @@
 import { defineApiRoute } from '@/initializer/controller'
 import { apiBadRequest, apiOk } from '@/initializer/response'
-import { checkBranchContainment, findGitCommits, getGitBranches, getGitCommitDetails, getGitRepoSummary, getTodayMerges } from '@/services/git/agent-impact'
+import { checkBranchContainment, findGitCommits, getGitBranches, getGitCommitDetails, getGitRepoSummary, getGitUnmergedBranches, getTodayMerges } from '@/services/git/agent-impact'
 
 export const runtime = 'nodejs'
 
@@ -14,6 +14,12 @@ export const POST = defineApiRoute('post:/api/git/agent/tools', async ({ request
     }
 
     switch (tool) {
+      case 'get_unmerged_branches': {
+        const { targetBranch, includeRemote } = args
+        const data = await getGitUnmergedBranches({ repo, targetBranch, includeRemote })
+        return apiOk(data as unknown as Record<string, unknown>)
+      }
+
       case 'get_branches': {
         const data = await getGitBranches({ repo })
         return apiOk(data as unknown as Record<string, unknown>)

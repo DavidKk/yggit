@@ -6,6 +6,7 @@ import { LuBot, LuPanelRight, LuSend, LuSparkles, LuX } from 'react-icons/lu'
 import { useT } from '@/components/i18n/LocaleProvider'
 import { Spinner, Tooltip } from '@/components/sk'
 import { useAgent } from '@/lib/agent/agent-context'
+import { isModelAllowed } from '@/lib/agent/model-filter'
 import { cn } from '@/lib/utils'
 
 import { AgentQuickModelPopover } from './AgentQuickModelPopover'
@@ -20,9 +21,10 @@ const FULL_LABEL = 'Git Agent'
 
 export function GitAgentBar({ repoPath, className }: Props) {
   const t = useT()
-  const { sendMessage, isProcessing, messages, dockMode, setDockMode } = useAgent()
+  const { sendMessage, isProcessing, messages, dockMode, setDockMode, config, modelFilter } = useAgent()
 
   const [input, setInput] = useState('')
+  const isModelBlocked = !isModelAllowed(config.model, modelFilter)
   const [expanded, setExpanded] = useState(false)
   const [displayText, setDisplayText] = useState('')
   const [contentVisible, setContentVisible] = useState(false)
@@ -92,6 +94,7 @@ export function GitAgentBar({ repoPath, className }: Props) {
   }, [clearTimers, clearTypewriter])
 
   const closeBar = useCallback(() => {
+    if (!expanded) return
     clearTimers()
     clearTypewriter()
     // Staged sequence: 1. Hide expanded content immediately
@@ -103,7 +106,7 @@ export function GitAgentBar({ repoPath, className }: Props) {
     closeTimerRef.current = setTimeout(() => {
       startTypewriter()
     }, 360)
-  }, [clearTimers, clearTypewriter, startTypewriter])
+  }, [expanded, clearTimers, clearTypewriter, startTypewriter])
 
   const toggleBar = useCallback(() => {
     if (quickCardOpen) {
@@ -176,7 +179,7 @@ export function GitAgentBar({ repoPath, className }: Props) {
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault()
     const trimmed = input.trim()
-    if (!trimmed || isProcessing) return
+    if (!trimmed || isProcessing || isModelBlocked) return
 
     setInput('')
     setQuickCardOpen(true)
@@ -280,14 +283,14 @@ export function GitAgentBar({ repoPath, className }: Props) {
           <AgentQuickModelPopover />
 
           {/* Send Button */}
-          <Tooltip content={t('gitAgent.send')} placement="top">
+          <Tooltip content={isModelBlocked ? t('gitAgent.modelBlockedNotice') : t('gitAgent.send')} placement="top">
             <span className="inline-flex">
               <button
                 type="submit"
-                disabled={!input.trim() || isProcessing}
+                disabled={!input.trim() || isProcessing || isModelBlocked}
                 className={cn(
                   'flex size-7 shrink-0 items-center justify-center rounded-full transition-all',
-                  input.trim() && !isProcessing
+                  input.trim() && !isProcessing && !isModelBlocked
                     ? 'bg-accent text-accent-ink shadow-xs hover:brightness-110 active:scale-95 cursor-pointer'
                     : 'bg-[var(--overlay-06)] text-ink-soft/40 cursor-not-allowed opacity-50'
                 )}
@@ -313,6 +316,7 @@ export function GitAgentBar({ repoPath, className }: Props) {
       }}
       onKeyDown={(event) => {
         if (event.key === 'Escape') {
+          if (!expanded) return
           event.preventDefault()
           closeBar()
         }
@@ -329,6 +333,7 @@ export function GitAgentBar({ repoPath, className }: Props) {
       {/* Left Agent Robot Icon */}
       <button
         type="button"
+        tabIndex={expanded ? 0 : -1}
         aria-expanded={expanded}
         aria-label={t('gitAgent.barAria')}
         title={expanded ? t('common.close') || '收起' : t('gitAgent.barAria')}
@@ -373,14 +378,14 @@ export function GitAgentBar({ repoPath, className }: Props) {
         <AgentQuickModelPopover tabIndex={contentVisible ? 0 : -1} />
 
         {/* Send Button */}
-        <Tooltip content={t('gitAgent.send')} placement="top">
+        <Tooltip content={isModelBlocked ? t('gitAgent.modelBlockedNotice') : t('gitAgent.send')} placement="top">
           <span className="inline-flex">
             <button
               type="submit"
-              disabled={!input.trim() || isProcessing}
+              disabled={!input.trim() || isProcessing || isModelBlocked}
               className={cn(
                 'flex size-7 shrink-0 items-center justify-center rounded-full transition-all',
-                input.trim() && !isProcessing
+                input.trim() && !isProcessing && !isModelBlocked
                   ? 'bg-accent text-accent-ink shadow-xs hover:brightness-110 active:scale-95 cursor-pointer'
                   : 'bg-[var(--overlay-06)] text-ink-soft/40 cursor-not-allowed opacity-50'
               )}

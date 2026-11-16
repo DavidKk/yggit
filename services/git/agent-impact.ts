@@ -400,3 +400,187 @@ export async function getGitRepoSummary(params: { repo?: string }): Promise<GitR
     throw new Error(`Failed to get repo summary: ${msg}`)
   }
 }
+
+export interface GetUnmergedBranchesParams {
+  repo?: string
+  targetBranch?: string
+  includeRemote?: boolean
+}
+
+export interface UnmergedBranchItem {
+  name: string
+  isRemote: boolean
+  unmergedCommitsCount: number
+  latestCommit?: {
+    hash: string
+    shortHash: string
+    subject: string
+    author: string
+    date: string
+  }
+}
+
+export interface UnmergedBranchesResult {
+  targetBranch: string
+  resolvedTargetBranch: string
+  totalUnmergedCount: number
+  localUnmergedCount: number
+  remoteUnmergedCount: number
+  unmergedBranches: UnmergedBranchItem[]
+  summary: string
+  spotlightTargets: SpotlightTarget[]
+}
+
+/**
+ * Resolves the target branch candidate against available references.
+ * Gracefully maps 'master' <-> 'main' if one is requested but the other exists.
+ */
+async function resolveTargetBranch(repo: string, candidate?: string): Promise<string> {
+  if (candidate) {
+    const trimmed = candidate.trim()
+    try {
+      await gitExec(repo, ['rev-parse', '--verify', trimmed])
+      return trimmed
+    } catch {}
+
+    for (const alt of [trimmed.toLowerCase(), trimmed.toUpperCase()]) {
+      try {
+        await gitExec(repo, ['rev-parse', '--verify', alt])
+        return alt
+      } catch {}
+    }
+
+    if (/^master$/i.test(trimmed)) {
+      for (const alt of ['main', 'origin/main', 'origin/master']) {
+        try {
+          await gitExec(repo, ['rev-parse', '--verify', alt])
+          return alt
+        } catch {}
+      }
+    } else if (/^main$/i.test(trimmed)) {
+      for (const alt of ['master', 'origin/master', 'origin/main']) {
+        try {
+          await gitExec(repo, ['rev-parse', '--verify', alt])
+          return alt
+        } catch {}
+      }
+    }
+
+    try {
+      await gitExec(repo, ['rev-parse', '--verify', `origin/${trimmed}`])
+      return `origin/${trimmed}`
+    } catch {}
+  }
+
+  for (const fallback of ['main', 'master']) {
+    try {
+      await gitExec(repo, ['rev-parse', '--verify', fallback])
+      return fallback
+    } catch {}
+  }
+
+  try {
+    const headBranch = await gitExec(repo, ['rev-parse', '--abbrev-ref', 'HEAD'])
+    if (headBranch && headBranch !== 'HEAD') return headBranch
+  } catch {}
+
+  return 'HEAD'
+}
+
+/**
+ * Finds all branches (local and optionally remote) that have not been merged into the target branch.
+ */
+export async function getGitUnmergedBranches(params: GetUnmergedBranchesParams): Promise<UnmergedBranchesResult> {
+  const { repo = '', targetBranch = 'master', includeRemote = true } = params
+  const resolvedTarget = await resolveTargetBranch(repo, targetBranch)
+
+  try {
+    // 1. Local unmerged branches
+    const localRaw = await gitExec(repo, ['branch', '--no-merged', resolvedTarget]).catch(() => '')
+    const localBranchNames = localRaw
+      .split('\n')
+      .map((l) => l.replace(/^[*+\s]+/, '').trim())
+      .filter((b) => Boolean(b) && b !== resolvedTarget && !b.startsWith('(HEAD detached'))
+
+    // 2. Remote unmerged branches if enabled
+    let remoteBranchNames: string[] = []
+    if (includeRemote) {
+      const remoteRaw = await gitExec(repo, ['branch', '-r', '--no-merged', resolvedTarget]).catch(() => '')
+      remoteBranchNames = remoteRaw
+        .split('\n')
+        .map((l) => l.replace(/^[*+\s]+/, '').trim())
+        .filter((b) => Boolean(b) && !b.includes('->') && !b.endsWith('/HEAD') && b !== resolvedTarget && b !== `origin/${resolvedTarget}`)
+    }
+
+    const allBranchEntries = [...localBranchNames.map((name) => ({ name, isRemote: false })), ...remoteBranchNames.map((name) => ({ name, isRemote: true }))]
+
+    const unmergedBranches: UnmergedBranchItem[] = []
+    const spotlightTargets: SpotlightTarget[] = []
+
+    for (const item of allBranchEntries) {
+      const countRaw = await gitExec(repo, ['rev-list', '--count', `${resolvedTarget}..${item.name}`]).catch(() => '0')
+      const unmergedCommitsCount = parseInt(countRaw, 10) || 0
+
+      let latestCommit: UnmergedBranchItem['latestCommit'] = undefined
+      try {
+        const rawMeta = await gitExec(repo, ['log', '-1', '--pretty=format:%H%x1f%h%x1f%s%x1f%an%x1f%ad', '--date=iso', item.name])
+        if (rawMeta) {
+          const [hash, shortHash, subject, author, date] = rawMeta.split('\x1f')
+          latestCommit = {
+            hash: hash || '',
+            shortHash: shortHash || '',
+            subject: subject || '',
+            author: author || '',
+            date: date || '',
+          }
+        }
+      } catch {}
+
+      unmergedBranches.push({
+        name: item.name,
+        isRemote: item.isRemote,
+        unmergedCommitsCount,
+        latestCommit,
+      })
+
+      if (latestCommit?.hash) {
+        spotlightTargets.push({
+          hash: latestCommit.hash,
+          shortHash: latestCommit.shortHash,
+          role: 'candidate',
+          evidenceGrade: 'Fact',
+          reason: `未合并分支 ${item.name}（领先 ${resolvedTarget} ${unmergedCommitsCount} 个提交）`,
+          subject: latestCommit.subject,
+          author: latestCommit.author,
+          date: latestCommit.date,
+        })
+      }
+    }
+
+    const localUnmergedCount = unmergedBranches.filter((b) => !b.isRemote).length
+    const remoteUnmergedCount = unmergedBranches.filter((b) => b.isRemote).length
+    const totalUnmergedCount = unmergedBranches.length
+
+    let summary = ''
+    if (totalUnmergedCount === 0) {
+      summary = `所有分支均已合并到 ${resolvedTarget}，当前没有未合并的分支。`
+    } else {
+      const branchSummaryList = unmergedBranches.map((b) => `${b.name}（领先 ${b.unmergedCommitsCount} 个提交）`).join('、')
+      summary = `当前共有 ${totalUnmergedCount} 个分支尚未合并到 ${resolvedTarget}（本地 ${localUnmergedCount} 个，远程 ${remoteUnmergedCount} 个）：${branchSummaryList}。`
+    }
+
+    return {
+      targetBranch,
+      resolvedTargetBranch: resolvedTarget,
+      totalUnmergedCount,
+      localUnmergedCount,
+      remoteUnmergedCount,
+      unmergedBranches,
+      summary,
+      spotlightTargets,
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    throw new Error(`Failed to check unmerged branches: ${msg}`)
+  }
+}

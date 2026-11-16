@@ -11,9 +11,11 @@ import {
   LuFolderGit2,
   LuGitBranch,
   LuGitMerge,
+  LuGitPullRequest,
   LuSearch,
   LuSend,
   LuSettings,
+  LuShieldAlert,
   LuSparkles,
   LuTrash2,
   LuUser,
@@ -24,6 +26,7 @@ import {
 import { useT } from '@/components/i18n/LocaleProvider'
 import { Button, Spinner, Tooltip } from '@/components/sk'
 import { useAgent } from '@/lib/agent/agent-context'
+import { isModelAllowed } from '@/lib/agent/model-filter'
 import { copyToClipboard } from '@/lib/clipboard'
 import { cn } from '@/lib/utils'
 
@@ -57,6 +60,14 @@ const CAPABILITIES: AgentCapability[] = [
     description: '查看当前检出分支、最新一次提交与工作区状态',
     prompt: '当前在哪个分支？最新的一次 Commit 是什么？',
     icon: LuFolderGit2,
+  },
+  {
+    id: 'unmerged',
+    category: '合入与诊断',
+    title: '未合并分支排查',
+    description: '查看当前仓库还有哪些分支未合并到 master/main 主干',
+    prompt: '帮我看看当前还有多少个分支还没合并到 MASTER？',
+    icon: LuGitPullRequest,
   },
   {
     id: 'containment',
@@ -94,13 +105,14 @@ const CAPABILITIES: AgentCapability[] = [
 
 export function AgentWorkspace({ repoPath, className }: Props) {
   const t = useT()
-  const { dockMode, setDockMode, messages, sendMessage, clearMessages, isProcessing, activeRepo } = useAgent()
+  const { dockMode, setDockMode, messages, sendMessage, clearMessages, isProcessing, activeRepo, config, modelFilter } = useAgent()
 
   const [input, setInput] = useState('')
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const effectiveRepo = repoPath || activeRepo || ''
+  const isModelBlocked = !isModelAllowed(config.model, modelFilter)
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -109,11 +121,11 @@ export function AgentWorkspace({ repoPath, className }: Props) {
   const handleSendPrompt = useCallback(
     async (promptText: string) => {
       const trimmed = promptText.trim()
-      if (!trimmed || isProcessing) return
+      if (!trimmed || isProcessing || isModelBlocked) return
       setInput('')
       await sendMessage(trimmed, effectiveRepo)
     },
-    [isProcessing, sendMessage, effectiveRepo]
+    [isProcessing, isModelBlocked, sendMessage, effectiveRepo]
   )
 
   const handleSend = async (e?: React.FormEvent) => {
@@ -295,19 +307,29 @@ export function AgentWorkspace({ repoPath, className }: Props) {
       </div>
 
       {/* Input Area */}
-      <form onSubmit={handleSend} className="border-t border-line p-2.5 bg-panel-2/40">
+      <form onSubmit={handleSend} className="border-t border-line p-2.5 bg-panel-2/40 flex flex-col gap-1.5">
+        {isModelBlocked && (
+          <div className="flex items-center gap-1.5 rounded border border-fail/30 bg-fail/10 px-2 py-1 text-[11px] text-fail font-medium">
+            <LuShieldAlert className="size-3.5 shrink-0" />
+            <span>{t('gitAgent.modelBlockedNotice')}</span>
+          </div>
+        )}
         <div className="flex items-center gap-1.5">
           <input
             type="text"
             value={input}
-            disabled={isProcessing}
+            disabled={isProcessing || isModelBlocked}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={t('gitAgent.inputPlaceholder')}
-            className="flex-1 min-w-0 h-8 rounded border border-line bg-panel px-2.5 text-xs text-ink placeholder:text-ink-soft/60 outline-none focus:border-accent transition-colors"
+            placeholder={isModelBlocked ? t('gitAgent.modelBlockedNotice') : t('gitAgent.inputPlaceholder')}
+            className="flex-1 min-w-0 h-8 rounded border border-line bg-panel px-2.5 text-xs text-ink placeholder:text-ink-soft/60 outline-none focus:border-accent transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           />
-          <Button type="submit" variant="accent" size="icon" disabled={!input.trim() || isProcessing} aria-label="Send message" className="shrink-0">
-            {isProcessing ? <Spinner className="size-3.5" /> : <LuSend className="size-3.5" />}
-          </Button>
+          <Tooltip content={isModelBlocked ? t('gitAgent.modelBlockedNotice') : 'Send message'}>
+            <span className="inline-flex shrink-0">
+              <Button type="submit" variant="accent" size="icon" disabled={!input.trim() || isProcessing || isModelBlocked} aria-label="Send message">
+                {isProcessing ? <Spinner className="size-3.5" /> : <LuSend className="size-3.5" />}
+              </Button>
+            </span>
+          </Tooltip>
         </div>
       </form>
     </aside>

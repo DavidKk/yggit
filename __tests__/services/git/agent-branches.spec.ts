@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
-import { getGitBranches, getGitRepoSummary } from '@/services/git/agent-impact'
+import { getGitBranches, getGitRepoSummary, getGitUnmergedBranches } from '@/services/git/agent-impact'
 
 describe('Agent Git Branches & Repo Summary Tools', () => {
   let repo: string
@@ -49,5 +49,36 @@ describe('Agent Git Branches & Repo Summary Tools', () => {
     expect(summary.totalBranches).toBe(3)
     expect(summary.latestCommit?.subject).toBe('initial commit')
     expect(summary.latestCommit?.author).toBe('Test Agent')
+  })
+
+  it('accurately identifies unmerged branches into targetBranch, resolving master <-> main gracefully', async () => {
+    // Before adding commits to feature branch, everything is merged
+    const initial = await getGitUnmergedBranches({ repo, targetBranch: 'main' })
+    expect(initial.totalUnmergedCount).toBe(0)
+    expect(initial.summary).toContain('所有分支均已合并到 main')
+
+    // Add a commit to feature/test-branch
+    git('checkout', 'feature/test-branch')
+    fs.writeFileSync(path.join(repo, 'feature.txt'), 'feature code\n')
+    git('add', '.')
+    git('commit', '-qm', 'feature commit on test-branch')
+    git('checkout', 'main')
+
+    // Query unmerged branches against 'main'
+    const unmergedResult = await getGitUnmergedBranches({ repo, targetBranch: 'main' })
+    expect(unmergedResult.totalUnmergedCount).toBe(1)
+    expect(unmergedResult.localUnmergedCount).toBe(1)
+    expect(unmergedResult.unmergedBranches[0].name).toBe('feature/test-branch')
+    expect(unmergedResult.unmergedBranches[0].unmergedCommitsCount).toBe(1)
+    expect(unmergedResult.unmergedBranches[0].latestCommit?.subject).toBe('feature commit on test-branch')
+    expect(unmergedResult.spotlightTargets).toHaveLength(1)
+    expect(unmergedResult.spotlightTargets[0].role).toBe('candidate')
+
+    // Query unmerged branches asking for 'MASTER' (case-insensitive fallback to main)
+    const fallbackMasterResult = await getGitUnmergedBranches({ repo, targetBranch: 'MASTER' })
+    expect(fallbackMasterResult.resolvedTargetBranch).toBe('main')
+    expect(fallbackMasterResult.totalUnmergedCount).toBe(1)
+    expect(fallbackMasterResult.unmergedBranches[0].name).toBe('feature/test-branch')
+    expect(fallbackMasterResult.summary).toContain('feature/test-branch')
   })
 })
