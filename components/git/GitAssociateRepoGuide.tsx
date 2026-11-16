@@ -1,11 +1,11 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { LuCheck, LuCopy, LuFolder, LuFolderPlus, LuHash, LuLayers } from 'react-icons/lu'
 
 import { useT } from '@/components/i18n/LocaleProvider'
-import { Button } from '@/components/sk'
+import { Button, Select, type SelectOption } from '@/components/sk'
 import { copyToClipboard } from '@/lib/clipboard'
 import { getDriverMode, getGitDriver } from '@/lib/git/driver'
 import { getDirectoryHandle, isFileSystemAccessSupported, saveDirectoryHandle, saveRepoAlias } from '@/lib/git/indexeddb-handles'
@@ -33,6 +33,17 @@ export function GitAssociateRepoGuide({ identity }: Props) {
   const [picking, setPicking] = useState(false)
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
+
+  const projectOptions: SelectOption[] = useMemo(
+    () => [
+      { value: '', label: t('git.associate.selectPlaceholder') },
+      ...projects.map((p) => ({
+        value: p.id,
+        label: `${p.name}${p.localPath ? ` (${p.localPath})` : ''}`,
+      })),
+    ],
+    [projects, t]
+  )
 
   // Check if this repository handle is already stored in browser storage (Edge mode)
   useEffect(() => {
@@ -279,18 +290,7 @@ export function GitAssociateRepoGuide({ identity }: Props) {
           <div className="space-y-4">
             <div>
               <label className="block text-xs font-medium text-ink-soft mb-1.5">{t('git.associate.selectProject')}：</label>
-              <select
-                value={selectedProjectId}
-                onChange={(e) => setSelectedProjectId(e.target.value)}
-                className="h-9 w-full rounded-md border border-line bg-bg px-3 text-xs outline-none focus:border-accent"
-              >
-                <option value="">{t('git.associate.selectPlaceholder')}</option>
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} {p.localPath ? `(${p.localPath})` : ''}
-                  </option>
-                ))}
-              </select>
+              <Select aria-label={t('git.associate.selectProject')} className="w-full" value={selectedProjectId} options={projectOptions} onChange={setSelectedProjectId} />
             </div>
 
             {error ? <div className="text-xs text-fail bg-fail/10 p-2.5 rounded-md border border-fail/20">{error}</div> : null}

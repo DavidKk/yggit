@@ -3,11 +3,10 @@
 import { Popover } from '@base-ui/react/popover'
 import Link from 'next/link'
 import React, { useMemo, useState } from 'react'
-import { IoChevronDown } from 'react-icons/io5'
 import { LuBot, LuSettings } from 'react-icons/lu'
 
 import { useT } from '@/components/i18n/LocaleProvider'
-import { Tooltip } from '@/components/sk'
+import { Select, type SelectOption, Tooltip } from '@/components/sk'
 import { dropdownPopupClass } from '@/components/sk/dropdownMenu'
 import { useAgent } from '@/lib/agent/agent-context'
 import type { AgentModelProfile } from '@/lib/agent/model-profiles'
@@ -27,8 +26,8 @@ export function AgentQuickModelPopover({ tabIndex, className }: Props) {
   const activeProfile = profiles.find((p) => p.id === activeProfileId) || profiles[0]
 
   // Build platform options: saved profiles first, then unconfigured preset providers
-  const platformOptions = useMemo(() => {
-    const options: Array<{ value: string; label: string }> = []
+  const platformOptions: SelectOption[] = useMemo(() => {
+    const options: SelectOption[] = []
     const seenProviders = new Set<string>()
 
     for (const p of profiles) {
@@ -53,8 +52,8 @@ export function AgentQuickModelPopover({ tabIndex, className }: Props) {
   const currentPreset = activeProfile ? AGENT_PRESETS[activeProfile.config.provider] : undefined
 
   // Build model options for currently selected platform
-  const modelOptions = useMemo(() => {
-    const list: Array<{ value: string; label: string }> = []
+  const modelOptions: SelectOption[] = useMemo(() => {
+    const list: SelectOption[] = []
     if (currentPreset?.models) {
       for (const m of currentPreset.models) {
         list.push({ value: m.id, label: m.name })
@@ -106,7 +105,20 @@ export function AgentQuickModelPopover({ tabIndex, className }: Props) {
   }
 
   return (
-    <Popover.Root open={open} onOpenChange={setOpen}>
+    <Popover.Root
+      open={open}
+      onOpenChange={(nextOpen, eventDetails) => {
+        // Prevent closing when clicking inside the Select dropdown floating panel
+        if (!nextOpen && eventDetails?.event) {
+          const target = eventDetails.event.target as Element | null
+          if (target?.closest?.('[data-listbox-panel]')) {
+            eventDetails.cancel()
+            return
+          }
+        }
+        setOpen(nextOpen)
+      }}
+    >
       <Tooltip content={t('gitAgent.quickModelPopoverTitle')} placement="top" suppressed={open}>
         <Popover.Trigger
           type="button"
@@ -128,7 +140,7 @@ export function AgentQuickModelPopover({ tabIndex, className }: Props) {
           <Popover.Popup
             data-agent-popover="true"
             aria-label={t('gitAgent.quickModelPopoverTitle')}
-            className={cn(dropdownPopupClass, 'w-60 max-w-[calc(100vw-2rem)] flex flex-col gap-2.5 p-2.5 text-xs shadow-xl animate-in fade-in zoom-in-95 duration-150 select-none')}
+            className={cn(dropdownPopupClass, 'w-64 max-w-[calc(100vw-2rem)] flex flex-col gap-2.5 p-3 text-xs shadow-xl animate-in fade-in zoom-in-95 duration-150 select-none')}
           >
             {/* Header: Title + Settings Icon-only link */}
             <div className="flex items-center justify-between pb-1.5 border-b border-line/60">
@@ -150,46 +162,18 @@ export function AgentQuickModelPopover({ tabIndex, className }: Props) {
 
             {/* Dropdown 1: Platform Selection */}
             <div className="flex flex-col gap-1">
-              <label htmlFor="agent-platform-select" className="text-[11px] font-medium text-ink-soft">
+              <span className="text-[11px] font-medium text-ink-soft" id="agent-platform-label">
                 {t('gitAgent.modelProvider')}
-              </label>
-              <div className="relative">
-                <select
-                  id="agent-platform-select"
-                  value={currentPlatformValue}
-                  onChange={(e) => handlePlatformChange(e.target.value)}
-                  className="h-7 w-full appearance-none rounded-md border border-line bg-panel-2/90 pl-2 pr-7 text-xs text-ink outline-none transition-colors hover:border-line-hover focus:border-accent focus:ring-1 focus:ring-accent/30 cursor-pointer"
-                >
-                  {platformOptions.map((opt) => (
-                    <option key={opt.value} value={opt.value} className="bg-panel text-ink py-1">
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-                <IoChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 size-3 text-ink-soft" />
-              </div>
+              </span>
+              <Select aria-label={t('gitAgent.modelProvider')} className="w-full" value={currentPlatformValue} options={platformOptions} onChange={handlePlatformChange} />
             </div>
 
             {/* Dropdown 2: Model Selection */}
             <div className="flex flex-col gap-1">
-              <label htmlFor="agent-model-select" className="text-[11px] font-medium text-ink-soft">
+              <span className="text-[11px] font-medium text-ink-soft" id="agent-model-label">
                 {t('gitAgent.modelName')}
-              </label>
-              <div className="relative">
-                <select
-                  id="agent-model-select"
-                  value={activeProfile?.config.model || ''}
-                  onChange={(e) => handleModelChange(e.target.value)}
-                  className="h-7 w-full appearance-none rounded-md border border-line bg-panel-2/90 pl-2 pr-7 text-xs text-ink outline-none transition-colors hover:border-line-hover focus:border-accent focus:ring-1 focus:ring-accent/30 cursor-pointer"
-                >
-                  {modelOptions.map((opt) => (
-                    <option key={opt.value} value={opt.value} className="bg-panel text-ink py-1">
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-                <IoChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 size-3 text-ink-soft" />
-              </div>
+              </span>
+              <Select aria-label={t('gitAgent.modelName')} className="w-full" value={activeProfile?.config.model || ''} options={modelOptions} onChange={handleModelChange} />
             </div>
           </Popover.Popup>
         </Popover.Positioner>

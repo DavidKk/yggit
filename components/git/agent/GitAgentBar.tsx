@@ -147,7 +147,7 @@ export function GitAgentBar({ repoPath, className }: Props) {
     function handleClickOutside(event: PointerEvent) {
       const target = event.target as Node
       const element = target as Element
-      if (element?.closest?.('[data-agent-popover], [data-base-ui-positioner], [data-base-ui-popup]')) {
+      if (element?.closest?.('[data-agent-popover], [data-base-ui-positioner], [data-base-ui-popup], [data-listbox-panel]')) {
         return
       }
       const isInsideForm = formRef.current?.contains(target)
