@@ -43,12 +43,17 @@ export function ConfiguredSecretInput({
     <div className={cn('relative', className)}>
       <TextInput
         id={id}
+        name="agent_api_key_secret"
         data-webmcp-sensitive=""
+        data-1p-ignore="true"
+        data-lpignore="true"
+        data-bwignore="true"
+        data-form-type="other"
         fullWidth
         disabled={disabled}
         autoFocus={autoFocus}
         type={revealed && !sealed ? 'text' : 'password'}
-        autoComplete="off"
+        autoComplete="new-password"
         spellCheck={false}
         value={sealed ? '******' : value}
         readOnly={sealed}

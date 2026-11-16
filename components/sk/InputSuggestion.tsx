@@ -1,6 +1,6 @@
 'use client'
 
-import { type ChangeEvent, type KeyboardEvent, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { type ChangeEvent, type KeyboardEvent, type ReactNode, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { IoCheckmark, IoChevronDown } from 'react-icons/io5'
 
@@ -18,8 +18,18 @@ export interface InputSuggestionOption {
   disabled?: boolean
 }
 
+export interface InputSuggestionAction {
+  label?: string
+  title?: string
+  icon?: ReactNode
+  loading?: boolean
+  disabled?: boolean
+  onClick: () => void | Promise<void>
+}
+
 export interface InputSuggestionProps {
   id?: string
+  name?: string
   value: string
   options: InputSuggestionOption[]
   onChange: (value: string) => void
@@ -27,8 +37,10 @@ export interface InputSuggestionProps {
   disabled?: boolean
   className?: string
   'aria-label'?: string
+  autoComplete?: string
   panelWidth?: FloatingPanelWidthMode
   fullWidth?: boolean
+  action?: InputSuggestionAction
 }
 
 function optionMatches(option: InputSuggestionOption, needle: string) {
@@ -43,6 +55,7 @@ function optionMatches(option: InputSuggestionOption, needle: string) {
  */
 export function InputSuggestion({
   id,
+  name,
   value,
   options,
   onChange,
@@ -50,11 +63,14 @@ export function InputSuggestion({
   disabled = false,
   className,
   'aria-label': ariaLabel,
+  autoComplete = 'off',
   panelWidth = 'anchor',
   fullWidth = true,
+  action,
 }: InputSuggestionProps) {
   const generatedId = useId()
   const inputId = id || generatedId
+  const listboxId = `${inputId}-listbox`
   const rootRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
@@ -175,10 +191,17 @@ export function InputSuggestion({
 
   return (
     <div ref={rootRef} className={cn('relative inline-block', fullWidth && 'w-full', className)}>
-      <div className={cn(formControlChrome, 'relative flex h-9 items-center justify-between px-3 cursor-text', disabled && controlDisabledShell)}>
+      <div
+        className={cn(
+          formControlChrome,
+          'relative flex h-9 items-center justify-between pl-3 pr-1.5 cursor-text focus-within:border-accent transition-colors',
+          disabled && controlDisabledShell
+        )}
+      >
         <input
           ref={inputRef}
           id={inputId}
+          name={name || 'agent_model_query'}
           type="text"
           value={value}
           disabled={disabled}
@@ -187,28 +210,61 @@ export function InputSuggestion({
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           aria-label={ariaLabel}
-          autoComplete="off"
-          spellCheck={false}
-          className={cn('w-full min-w-0 bg-transparent pr-5 text-xs text-ink placeholder:text-ink-soft/70 outline-none', disabled && controlDisabled)}
-        />
-        <button
-          type="button"
-          tabIndex={-1}
-          disabled={disabled}
+          autoComplete={autoComplete}
+          data-1p-ignore="true"
+          data-lpignore="true"
+          data-bwignore="true"
+          data-form-type="other"
+          role="combobox"
+          aria-autocomplete="list"
           aria-expanded={open}
-          onClick={(e) => {
-            e.stopPropagation()
-            if (open) close()
-            else {
-              openPanel()
-              inputRef.current?.focus()
-            }
-          }}
-          className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-ink-soft hover:text-ink cursor-pointer disabled:cursor-not-allowed"
-          aria-label="Toggle suggestions"
-        >
-          <IoChevronDown className={cn('size-3.5 transition-transform duration-150', open && 'rotate-180')} />
-        </button>
+          aria-controls={open ? listboxId : undefined}
+          spellCheck={false}
+          className={cn('w-full min-w-0 bg-transparent pr-2 text-xs text-ink placeholder:text-ink-soft/70 outline-none', disabled && controlDisabled)}
+        />
+        <div className="flex items-center shrink-0 gap-1 ml-1">
+          <button
+            type="button"
+            tabIndex={-1}
+            disabled={disabled}
+            aria-expanded={open}
+            onClick={(e) => {
+              e.stopPropagation()
+              if (open) close()
+              else {
+                openPanel()
+                inputRef.current?.focus()
+              }
+            }}
+            className="p-1 text-ink-soft hover:text-ink hover:bg-[var(--overlay-06)] rounded-sm cursor-pointer disabled:cursor-not-allowed transition-colors"
+            aria-label="Toggle suggestions"
+          >
+            <IoChevronDown className={cn('size-3.5 transition-transform duration-150', open && 'rotate-180')} />
+          </button>
+          {action ? (
+            <>
+              <div className="h-4 w-px bg-line/80 my-auto shrink-0" aria-hidden="true" />
+              <button
+                type="button"
+                tabIndex={0}
+                disabled={disabled || action.disabled || action.loading}
+                title={action.title}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  close()
+                  void action.onClick()
+                }}
+                className={cn(
+                  'inline-flex items-center gap-1.5 px-2 py-1 text-[12px] font-medium leading-none rounded text-ink-soft hover:text-ink hover:bg-[var(--overlay-08)] active:bg-[var(--overlay-12)] cursor-pointer transition-colors shrink-0 select-none',
+                  (disabled || action.disabled || action.loading) && 'cursor-not-allowed opacity-50'
+                )}
+              >
+                {action.icon}
+                {action.label ? <span>{action.label}</span> : null}
+              </button>
+            </>
+          ) : null}
+        </div>
       </div>
 
       {mounted &&
@@ -216,6 +272,7 @@ export function InputSuggestion({
         createPortal(
           <div
             ref={panelRef}
+            id={listboxId}
             style={panelStyle}
             role="listbox"
             className="overflow-hidden rounded-md border border-line bg-panel py-1 shadow-lg backdrop-blur-md transition-opacity duration-100"

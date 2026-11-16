@@ -161,6 +161,9 @@ function ModelChannelEditor({ profile, onBack }: { profile: AgentModelProfile; o
     <SettingsSectionCard title={t('gitAgent.modelDetails')} description="配置服务渠道、接口地址、默认模型与 API 密钥。">
       <form
         className="grid gap-3"
+        autoComplete="off"
+        data-1p-ignore="true"
+        data-lpignore="true"
         onSubmit={(event) => {
           event.preventDefault()
           const message = validationError()
@@ -170,6 +173,11 @@ function ModelChannelEditor({ profile, onBack }: { profile: AgentModelProfile; o
           onBack()
         }}
       >
+        {/* Hidden decoy fields defuse browser credential autofill heuristics */}
+        <div className="sr-only" aria-hidden="true" style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', height: 0, width: 0, overflow: 'hidden' }}>
+          <input type="text" name="chrome_prevent_autofill_user" tabIndex={-1} autoComplete="username" />
+          <input type="password" name="chrome_prevent_autofill_pwd" tabIndex={-1} autoComplete="current-password" />
+        </div>
         <fieldset disabled={testing} className="divide-y divide-line/60">
           {/* Row 1: Profile Name */}
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 first:pt-0 items-start">
@@ -240,7 +248,7 @@ function ModelChannelEditor({ profile, onBack }: { profile: AgentModelProfile; o
             </div>
           </div>
 
-          {/* Row 4: Default Model with InputSuggestion & Dynamic Fetch */}
+          {/* Row 4: Default Model with InputSuggestion & Integrated Fetch Action */}
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 items-start">
             <div className="md:col-span-5 min-w-0">
               <label htmlFor="agent-model-id" className="text-xs font-semibold text-ink">
@@ -249,28 +257,22 @@ function ModelChannelEditor({ profile, onBack }: { profile: AgentModelProfile; o
               <p className="text-xs text-ink-soft leading-relaxed mt-0.5">预设规格或输入自定义模型代码。</p>
             </div>
             <div className="md:col-span-7 min-w-0 max-w-[460px] flex flex-col gap-2">
-              <div className="flex items-center gap-2">
-                <InputSuggestion
-                  id="agent-model-id"
-                  className="flex-1 min-w-0"
-                  value={config.model}
-                  onChange={(val) => updateConfig({ model: val })}
-                  options={availableModels.map((m) => ({ value: m.id, label: m.name }))}
-                  placeholder="选择或输入默认模型（如 gpt-4o, deepseek-chat...）"
-                />
-                <Button
-                  type="button"
-                  size="md"
-                  variant="default"
-                  loading={fetchingModels}
-                  onClick={handleFetchModels}
-                  title="从远程接口动态拉取模型列表"
-                  className="shrink-0 text-xs gap-1 cursor-pointer"
-                >
-                  <LuRefreshCw className={cn('size-3.5', fetchingModels && 'animate-spin')} />
-                  <span>读取列表</span>
-                </Button>
-              </div>
+              <InputSuggestion
+                id="agent-model-id"
+                name="agent-model-id"
+                value={config.model}
+                onChange={(val) => updateConfig({ model: val })}
+                options={availableModels.map((m) => ({ value: m.id, label: m.name }))}
+                placeholder="选择或输入默认模型（如 gpt-4o, deepseek-chat...）"
+                action={{
+                  icon: <LuRefreshCw className={cn('size-3.5', fetchingModels && 'animate-spin')} />,
+                  label: '读取列表',
+                  title: '从远程接口动态拉取模型列表',
+                  loading: fetchingModels,
+                  disabled: fetchingModels || testing,
+                  onClick: handleFetchModels,
+                }}
+              />
               {modelsFetchMsg && <p className="text-[11px] text-ink-soft">{modelsFetchMsg}</p>}
             </div>
           </div>

@@ -95,3 +95,43 @@ it('picks an option from dropdown on click', async () => {
 
   expect(onChange).toHaveBeenCalledWith('deepseek-chat')
 })
+
+it('renders integrated action button and triggers onClick', async () => {
+  const onClick = jest.fn()
+  await act(async () => {
+    root.render(
+      <InputSuggestion
+        id="test-model"
+        value="qwen"
+        onChange={jest.fn()}
+        options={[{ value: 'qwen', label: 'Qwen' }]}
+        action={{
+          label: '读取列表',
+          onClick,
+        }}
+      />
+    )
+  })
+
+  const actionButton = host.querySelector('button[title], button:not([aria-label="Toggle suggestions"])') as HTMLButtonElement
+  expect(actionButton).not.toBeNull()
+  expect(actionButton.textContent).toContain('读取列表')
+
+  await act(async () => {
+    actionButton.click()
+  })
+
+  expect(onClick).toHaveBeenCalledTimes(1)
+})
+
+it('has autocomplete and credential ignore attributes to prevent username autofill', async () => {
+  await act(async () => {
+    root.render(<InputSuggestion id="test-model" name="test_model_name" value="" onChange={jest.fn()} options={[]} />)
+  })
+
+  const input = host.querySelector('input') as HTMLInputElement
+  expect(input.getAttribute('autoComplete')).toBe('off')
+  expect(input.getAttribute('data-1p-ignore')).toBe('true')
+  expect(input.getAttribute('data-lpignore')).toBe('true')
+  expect(input.getAttribute('role')).toBe('combobox')
+})
