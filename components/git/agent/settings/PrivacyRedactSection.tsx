@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { LuKeyRound, LuNetwork, LuShieldCheck, LuUserCheck } from 'react-icons/lu'
+import { LuShieldCheck } from 'react-icons/lu'
 
 import { useT } from '@/components/i18n/LocaleProvider'
 import { SwitchToggle, TagInput } from '@/components/sk'
@@ -71,36 +71,27 @@ export function PrivacyRedactSection() {
         <div className={cn('flex flex-col divide-y divide-line rounded-md border border-line bg-panel-2', !redactionOptions.enabled && 'pointer-events-none opacity-50')}>
           {/* Secrets */}
           <div className="flex items-center justify-between p-3">
-            <div className="flex items-center gap-2.5">
-              <LuKeyRound className="size-3.5 shrink-0 text-warn" aria-hidden="true" />
-              <div>
-                <span className="text-xs font-medium text-ink">{t('gitAgent.privacySecrets')}</span>
-                <p className="text-[11px] text-ink-soft">匹配 AWS/GitHub/GitLab Token、私钥与数据库连接串等</p>
-              </div>
+            <div>
+              <span className="text-xs font-medium text-ink">{t('gitAgent.privacySecrets')}</span>
+              <p className="text-[11px] text-ink-soft">匹配 AWS/GitHub/GitLab Token、私钥与数据库连接串等</p>
             </div>
             <SwitchToggle checked={redactionOptions.categories.secrets} onCheckedChange={() => handleToggleCategory('secrets')} aria-label={t('gitAgent.privacySecrets')} />
           </div>
 
           {/* PII */}
           <div className="flex items-center justify-between p-3">
-            <div className="flex items-center gap-2.5">
-              <LuUserCheck className="size-3.5 shrink-0 text-accent" aria-hidden="true" />
-              <div>
-                <span className="text-xs font-medium text-ink">{t('gitAgent.privacyPii')}</span>
-                <p className="text-[11px] text-ink-soft">掩盖 Commit 作者邮箱、电话号码与用户个人识别符</p>
-              </div>
+            <div>
+              <span className="text-xs font-medium text-ink">{t('gitAgent.privacyPii')}</span>
+              <p className="text-[11px] text-ink-soft">掩盖 Commit 作者邮箱、电话号码与用户个人识别符</p>
             </div>
             <SwitchToggle checked={redactionOptions.categories.pii} onCheckedChange={() => handleToggleCategory('pii')} aria-label={t('gitAgent.privacyPii')} />
           </div>
 
           {/* Network */}
           <div className="flex items-center justify-between p-3">
-            <div className="flex items-center gap-2.5">
-              <LuNetwork className="size-3.5 shrink-0 text-ok" aria-hidden="true" />
-              <div>
-                <span className="text-xs font-medium text-ink">{t('gitAgent.privacyNetwork')}</span>
-                <p className="text-[11px] text-ink-soft">掩盖内网 RFC1918 私有 IP、内部集群域名等拓扑资产</p>
-              </div>
+            <div>
+              <span className="text-xs font-medium text-ink">{t('gitAgent.privacyNetwork')}</span>
+              <p className="text-[11px] text-ink-soft">掩盖内网 RFC1918 私有 IP、内部集群域名等拓扑资产</p>
             </div>
             <SwitchToggle checked={redactionOptions.categories.network} onCheckedChange={() => handleToggleCategory('network')} aria-label={t('gitAgent.privacyNetwork')} />
           </div>

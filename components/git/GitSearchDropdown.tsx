@@ -128,6 +128,7 @@ export function GitSearchDropdown({ value, onChange, placeholder, label, classNa
               aria-label={label}
               placeholder={placeholder}
               value={value}
+              className="border-accent/50 focus-within:border-accent text-black [&_input]:text-black [&_input]:font-medium"
               onChange={(event) => onChange(event.target.value)}
             />
           </div>,

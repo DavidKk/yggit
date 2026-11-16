@@ -2,8 +2,7 @@
 
 import { useRouter, useSearchParams } from 'next/navigation'
 import React, { useState } from 'react'
-import { LuCpu, LuShieldCheck, LuSlidersHorizontal } from 'react-icons/lu'
-import { MdOutlineExitToApp } from 'react-icons/md'
+import { LuArrowLeft, LuCpu, LuShieldCheck, LuSlidersHorizontal } from 'react-icons/lu'
 
 import { BrandLogo } from '@/components/BrandLogo'
 import { useT } from '@/components/i18n/LocaleProvider'
@@ -34,10 +33,16 @@ export function AgentSettingsPageContent() {
   const [activeSection, setActiveSection] = useState<SettingsSectionKey>(tabParam && ['models', 'privacy', 'general'].includes(tabParam) ? tabParam : 'models')
 
   const handleBack = () => {
-    if (typeof window !== 'undefined' && window.history.length > 1) {
-      router.back()
-    } else {
-      router.push('/')
+    if (typeof window !== 'undefined') {
+      if (window.history.length > 1) {
+        window.history.back()
+        return
+      }
+      if (document.referrer && document.referrer.startsWith(window.location.origin)) {
+        window.location.href = document.referrer
+        return
+      }
+      router.push('/git')
     }
   }
 
@@ -105,16 +110,13 @@ export function AgentSettingsPageContent() {
                 type="button"
                 onClick={handleBack}
                 className="flex size-8 shrink-0 items-center justify-center rounded-md border border-line bg-panel text-ink-soft hover:bg-[color-mix(in_oklab,var(--ink)_6%,transparent)] hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent active:scale-95 transition-all cursor-pointer"
-                title={t('gitAgent.backToGraph')}
+                title="返回"
               >
-                <MdOutlineExitToApp className="size-4 -scale-x-100" aria-hidden="true" />
-                <span className="sr-only">{t('gitAgent.backToGraph')}</span>
+                <LuArrowLeft className="size-4" aria-hidden="true" />
+                <span className="sr-only">返回</span>
               </button>
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5">
-                  {currentMeta.icon}
-                  <h1 className="text-xs font-bold text-ink">{currentMeta.title}</h1>
-                </div>
+                <h1 className="text-xs font-bold text-ink">{currentMeta.title}</h1>
                 <p className="mt-0.5 text-xs text-ink-soft leading-relaxed">{currentMeta.desc}</p>
               </div>
             </div>

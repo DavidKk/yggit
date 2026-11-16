@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import React from 'react'
-import { LuFolderGit2, LuSettings } from 'react-icons/lu'
+import { LuSettings } from 'react-icons/lu'
 
 import { BrandLogo } from '@/components/BrandLogo'
 import { GitModeSwitcher } from '@/components/git/GitModeSwitcher'
@@ -42,14 +42,14 @@ export function WorkspaceHeader() {
         <ThemeSwitcher compact />
         <LocaleSwitcher compact />
 
-        <Tooltip content={isSettings ? t('gitAgent.backToGraph') : t('gitAgent.settingsTitle')} placement="bottom">
+        <Tooltip content={t('gitAgent.settingsTitle')} placement="bottom">
           <Link
-            href={isSettings ? '/git' : '/settings'}
+            href="/settings"
             className={cn(dropdownTriggerClass, 'px-2', isSettings && 'bg-[color-mix(in_oklab,var(--ink)_9%,transparent)] font-semibold text-accent')}
-            aria-label={isSettings ? t('gitAgent.backToGraph') : t('gitAgent.settingsTitle')}
+            aria-label={t('gitAgent.settingsTitle')}
           >
-            {isSettings ? <LuFolderGit2 className="size-4 shrink-0" aria-hidden="true" /> : <LuSettings className="size-4 shrink-0" aria-hidden="true" />}
-            <span className="sr-only sm:not-sr-only">{isSettings ? t('gitAgent.backToGraph') : t('gitAgent.settingsTitle')}</span>
+            <LuSettings className="size-4 shrink-0" aria-hidden="true" />
+            <span className="sr-only sm:not-sr-only">{t('gitAgent.settingsTitle')}</span>
           </Link>
         </Tooltip>
       </div>

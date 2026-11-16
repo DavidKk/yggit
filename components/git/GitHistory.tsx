@@ -36,14 +36,27 @@ type Props = {
 
 function commitMatches(commit: GitCommit, needle: string) {
   if (!needle) return true
-  const hay = `${commit.subject}\n${commit.author}\n${commit.hash}\n${commit.refs.join('\n')}`.toLowerCase()
-  return hay.includes(needle)
+  const terms = needle.trim().toLowerCase().split(/\s+/).filter(Boolean)
+  if (terms.length === 0) return true
+
+  const hay = [commit.hash, commit.short, commit.subject, commit.author, commit.date, ...(commit.refs || []), ...(commit.parents || [])].join(' ').toLowerCase()
+
+  return terms.every((term) => {
+    const clean = term.replace(/^#/, '')
+    return hay.includes(clean)
+  })
 }
 
 function stashMatches(stash: GitStash, needle: string) {
   if (!needle) return true
-  const hay = `${stash.subject}\n${stash.name}\n${stash.hash}`.toLowerCase()
-  return hay.includes(needle)
+  const terms = needle.trim().toLowerCase().split(/\s+/).filter(Boolean)
+  if (terms.length === 0) return true
+
+  const hay = [stash.hash, stash.name, stash.subject, stash.date || ''].join(' ').toLowerCase()
+  return terms.every((term) => {
+    const clean = term.replace(/^#/, '')
+    return hay.includes(clean)
+  })
 }
 
 export function GitHistory({
@@ -226,16 +239,16 @@ export function GitHistory({
       {showFind ? (
         <div
           role="search"
-          className="absolute top-2 right-2 z-30 flex max-w-[min(100%-1rem,24rem)] items-center overflow-hidden rounded-md border border-[color-mix(in_oklab,var(--focus-contrast-border)_100%,transparent)] bg-[color-mix(in_oklab,var(--focus-contrast)_14%,var(--panel))] shadow-[0_8px_24px_rgb(0_0_0/0.35),0_0_0_1px_color-mix(in_oklab,var(--focus-contrast)_25%,transparent)]"
+          className="absolute top-2 right-2 z-30 flex max-w-[min(100%-1rem,26rem)] items-center overflow-hidden rounded-lg border border-accent/60 bg-panel shadow-2xl backdrop-blur-md focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/25"
         >
           <TextInput
             ref={findInputRef}
             search
             clearable
             aria-label={t('git.history.findCommit')}
-            placeholder={t('git.history.findCommit')}
+            placeholder="搜索提交信息、用户名、Hash、分支…"
             value={query}
-            className="min-w-[10rem] flex-1 border-transparent bg-transparent shadow-none focus-within:border-transparent"
+            className="min-w-[12rem] flex-1 border-transparent bg-transparent shadow-none focus-within:border-transparent text-black [&_input]:text-black [&_input]:font-medium [&_input]:placeholder:text-ink-soft/70"
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === 'Enter') {
@@ -244,14 +257,14 @@ export function GitHistory({
               }
             }}
           />
-          <div className="flex shrink-0 items-center gap-0.5 self-stretch border-l border-[color-mix(in_oklab,var(--focus-contrast)_35%,transparent)] bg-[color-mix(in_oklab,var(--focus-contrast)_22%,transparent)] px-1">
-            <span className="shrink-0 px-1 text-[0.6875rem] whitespace-nowrap text-focus-contrast-ink tabular-nums" aria-live="polite">
+          <div className="flex shrink-0 items-center gap-0.5 self-stretch border-l border-line bg-panel-2/70 px-1 text-ink">
+            <span className="shrink-0 px-1 text-[0.6875rem] font-mono whitespace-nowrap text-ink-soft tabular-nums" aria-live="polite">
               {needle ? (matches.length === 0 ? t('git.history.findZero') : `${(matchPos >= 0 ? matchPos : 0) + 1}/${matches.length}`) : '—'}
             </span>
             <Button
               variant="plain"
               size="icon"
-              className="size-6 shrink-0 text-focus-contrast-ink hover:enabled:bg-[rgb(255_255_255/0.12)] hover:enabled:text-focus-contrast-ink"
+              className="size-6 shrink-0 text-ink-soft hover:enabled:bg-[var(--overlay-08)] hover:enabled:text-ink"
               aria-label={t('git.history.prev')}
               disabled={matches.length === 0}
               onClick={() => stepMatch(-1)}
@@ -261,7 +274,7 @@ export function GitHistory({
             <Button
               variant="plain"
               size="icon"
-              className="size-6 shrink-0 text-focus-contrast-ink hover:enabled:bg-[rgb(255_255_255/0.12)] hover:enabled:text-focus-contrast-ink"
+              className="size-6 shrink-0 text-ink-soft hover:enabled:bg-[var(--overlay-08)] hover:enabled:text-ink"
               aria-label={t('git.history.next')}
               disabled={matches.length === 0}
               onClick={() => stepMatch(1)}
@@ -271,7 +284,7 @@ export function GitHistory({
             <Button
               variant="plain"
               size="icon"
-              className="size-6 shrink-0 text-focus-contrast-ink hover:enabled:bg-[rgb(255_255_255/0.12)] hover:enabled:text-focus-contrast-ink"
+              className="size-6 shrink-0 text-ink-soft hover:enabled:bg-[var(--overlay-08)] hover:enabled:text-ink"
               aria-label={t('git.history.closeFind')}
               onClick={closeFind}
             >

@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useMemo, useState } from 'react'
-import { LuActivity, LuArrowLeft, LuCheck, LuCpu, LuPencil, LuPlus, LuRefreshCw, LuSave } from 'react-icons/lu'
+import { LuActivity, LuArrowLeft, LuCheck, LuPencil, LuPlus, LuRefreshCw, LuSave } from 'react-icons/lu'
 
 import { ConfiguredSecretInput } from '@/components/ConfiguredSecretInput/configured-secret-input'
 import { useT } from '@/components/i18n/LocaleProvider'
@@ -36,7 +36,6 @@ export function ModelChannelSection() {
       <ul className="divide-y divide-line">
         {profiles.map((profile) => (
           <li key={profile.id} className="flex flex-wrap items-center gap-3 py-3 first:pt-0 last:pb-0">
-            <LuCpu className="size-4 shrink-0 text-accent" aria-hidden="true" />
             <button type="button" className="min-w-0 flex-1 text-left hover:text-accent cursor-pointer" onClick={() => setEditing(profile)}>
               <span className="block text-sm font-medium break-words">{profile.name}</span>
               <span className="block text-xs text-ink-soft break-all">
