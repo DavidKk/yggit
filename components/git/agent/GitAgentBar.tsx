@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { LuBot, LuExternalLink, LuSend, LuSettings, LuSparkles, LuX } from 'react-icons/lu'
+import { LuBot, LuPanelRight, LuSend, LuSettings, LuSparkles, LuX } from 'react-icons/lu'
 
 import { useT } from '@/components/i18n/LocaleProvider'
 import { Spinner } from '@/components/sk'
@@ -191,23 +191,26 @@ export function GitAgentBar({ repoPath, className }: Props) {
               {isProcessing && <Spinner className="size-3 ml-1" />}
             </div>
 
-            <div className="flex items-center gap-1">
+            {/* Unified Header Control Pill */}
+            <div className="flex items-center rounded-lg border border-line bg-panel-2/70 p-0.5 shadow-2xs">
               <button
                 type="button"
                 onClick={() => {
                   setQuickCardOpen(false)
                   setDockMode('dock-right')
                 }}
-                className="flex items-center gap-1 rounded px-2 py-1 text-xs text-ink-soft hover:bg-[var(--overlay-06)] hover:text-ink active:scale-95 transition-all cursor-pointer"
+                className="flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-medium text-ink-soft hover:bg-panel hover:text-accent active:scale-95 transition-all cursor-pointer"
                 title={t('gitAgent.deepDiscussion')}
               >
-                <LuExternalLink className="size-3.5" />
+                <LuPanelRight className="size-3.5 text-accent" />
                 <span>{t('gitAgent.deepDiscussion')}</span>
               </button>
+              <span className="h-3.5 w-px bg-line/80 my-auto mx-0.5" aria-hidden="true" />
               <button
                 type="button"
                 onClick={() => setQuickCardOpen(false)}
-                className="rounded p-1 text-ink-soft hover:bg-[var(--overlay-06)] hover:text-ink cursor-pointer"
+                className="rounded-md p-1 text-ink-soft hover:bg-panel hover:text-ink active:scale-95 transition-all cursor-pointer"
+                title={t('common.close') || '关闭'}
                 aria-label="Close"
               >
                 <LuX className="size-3.5" />
@@ -217,7 +220,7 @@ export function GitAgentBar({ repoPath, className }: Props) {
 
           {/* Content */}
           <div className="max-h-60 overflow-y-auto text-xs leading-relaxed text-ink whitespace-pre-wrap select-text">
-            {lastAssistantMessage.content || (isProcessing ? 'Agent 正在分析 Git 图谱与提交记录...' : '')}
+            {lastAssistantMessage.content || (isProcessing ? t('gitAgent.analyzingLog') : '')}
           </div>
         </div>
       )}

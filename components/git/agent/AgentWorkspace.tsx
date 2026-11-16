@@ -12,8 +12,6 @@ import {
   LuFolderGit2,
   LuGitBranch,
   LuGitMerge,
-  LuMaximize2,
-  LuMinimize2,
   LuSearch,
   LuSend,
   LuSparkles,
@@ -141,34 +139,29 @@ export function AgentWorkspace({ repoPath, className }: Props) {
 
   if (dockMode === 'collapsed') return null
 
-  const isDockRight = dockMode === 'dock-right'
-
   return (
     <aside
       role="region"
       aria-label={t('gitAgent.dockTitle')}
-      className={cn(
-        'z-20 flex flex-col border-line bg-panel shrink-0 transition-all duration-200 overflow-hidden',
-        isDockRight ? 'w-[440px] max-w-full h-full border-l shadow-2xl' : 'h-[360px] max-h-full w-full border-t shadow-2xl',
-        className
-      )}
+      className={cn('z-20 flex flex-col border-l border-line bg-panel shrink-0 transition-all duration-200 overflow-hidden w-[440px] max-w-full h-full shadow-2xl', className)}
     >
-      {/* Workspace Header */}
-      <div className="flex h-11 shrink-0 items-center justify-between border-b border-line px-3 bg-panel-2/70 select-none">
-        <div className="flex items-center gap-2 min-w-0">
-          <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent">
-            <LuSparkles className="size-3.5" />
+      {/* Workspace Header - h-10 to match File Panel (GitCommitPanel) header height */}
+      <div className="flex h-10 shrink-0 items-center justify-between border-b border-line px-2.5 bg-panel-2/70 select-none">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <div className="flex size-5 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent">
+            <LuSparkles className="size-3" />
           </div>
           <span className="text-xs font-semibold text-ink truncate">{t('gitAgent.dockTitle')}</span>
-          {isProcessing ? (
-            <div className="flex items-center gap-1 text-[11px] text-accent shrink-0 font-medium">
-              <Spinner className="size-3" />
-              <span>{t('gitAgent.analyzing')}</span>
-            </div>
-          ) : effectiveRepo ? (
+          {effectiveRepo ? (
             <span className="text-[11px] text-ink-soft truncate max-w-[140px]" title={effectiveRepo}>
               · {effectiveRepo.split('/').pop() || effectiveRepo}
             </span>
+          ) : null}
+          {isProcessing ? (
+            <div className="flex items-center gap-1 text-[11px] text-accent shrink-0 font-medium ml-1">
+              <Spinner className="size-3" />
+              <span>{t('gitAgent.analyzing')}</span>
+            </div>
           ) : null}
         </div>
 
@@ -188,22 +181,11 @@ export function AgentWorkspace({ repoPath, className }: Props) {
             {showCapabilities ? <LuChevronUp className="size-3" /> : <LuChevronDown className="size-3" />}
           </button>
 
-          {/* Dock Layout Switcher */}
-          <button
-            type="button"
-            onClick={() => setDockMode(isDockRight ? 'dock-bottom' : 'dock-right')}
-            className="rounded p-1.5 text-ink-soft hover:bg-[var(--overlay-08)] hover:text-ink transition-colors cursor-pointer"
-            title={isDockRight ? t('gitAgent.dockBottom') : t('gitAgent.dockRight')}
-            aria-label="Toggle layout"
-          >
-            {isDockRight ? <LuMinimize2 className="size-3.5" /> : <LuMaximize2 className="size-3.5" />}
-          </button>
-
           {/* Clear Messages */}
           <button
             type="button"
             onClick={clearMessages}
-            className="rounded p-1.5 text-ink-soft hover:bg-[var(--overlay-08)] hover:text-ink transition-colors cursor-pointer"
+            className="rounded p-1 text-ink-soft hover:bg-[var(--overlay-08)] hover:text-ink transition-colors cursor-pointer"
             title={t('gitAgent.clearHistory')}
             aria-label={t('gitAgent.clearHistory')}
           >
@@ -214,7 +196,7 @@ export function AgentWorkspace({ repoPath, className }: Props) {
           <button
             type="button"
             onClick={() => setDockMode('collapsed')}
-            className="rounded p-1.5 text-ink-soft hover:bg-[var(--overlay-08)] hover:text-ink transition-colors cursor-pointer"
+            className="rounded p-1 text-ink-soft hover:bg-[var(--overlay-08)] hover:text-ink transition-colors cursor-pointer"
             title={t('gitAgent.dockClose')}
             aria-label={t('gitAgent.dockClose')}
           >
