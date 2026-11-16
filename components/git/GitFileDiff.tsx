@@ -230,7 +230,7 @@ function HunkBlock({ hunk, path }: { hunk: Hunk; path: string }) {
       result.push({ line, tokens })
     }
     return result
-  }, [hunk.lines, oldTokens, newTokens])
+  }, [hunk, oldTokens, newTokens])
 
   return (
     <>
@@ -360,11 +360,13 @@ export function GitFileDiff({ repo, hash, path, status = 'M', onClose }: Props) 
           <CountMarks counts={counts} />
         </div>
         <div className="justify-self-center flex items-center gap-2">
-          <SegmentedNav aria-label={t('git.diff.contentMode')} value={mode} onChange={setMode} items={modeItems} />
+          <SegmentedNav aria-label={t('git.diff.contentMode')} size="mini" value={mode} onChange={setMode} items={modeItems} />
           {showFilePane ? (
-            <SegmentedNav aria-label={resolvedKind === 'svg' ? t('git.diff.svgView') : t('git.diff.markdownView')} value={pane} onChange={setPane} items={paneItems} />
+            <SegmentedNav aria-label={resolvedKind === 'svg' ? t('git.diff.svgView') : t('git.diff.markdownView')} size="mini" value={pane} onChange={setPane} items={paneItems} />
           ) : null}
-          {mode === 'diff' && showDiffViewports ? <SegmentedNav aria-label={t('git.diff.viewport')} value={viewport} onChange={setViewport} items={viewportItems} /> : null}
+          {mode === 'diff' && showDiffViewports ? (
+            <SegmentedNav aria-label={t('git.diff.viewport')} size="mini" value={viewport} onChange={setViewport} items={viewportItems} />
+          ) : null}
         </div>
         <div className="flex items-center justify-end">
           <Button variant="plain" size="icon" aria-label={t('git.diff.close')} onClick={onClose}>

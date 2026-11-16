@@ -15,12 +15,15 @@ export type SegmentedNavItem<T extends string> = {
   panelId?: string
 }
 
+export type SegmentedNavSize = 'mini' | 'sm' | 'md'
+
 export type SegmentedNavProps<T extends string> = {
   items: readonly SegmentedNavItem<T>[]
   value: T
   onChange: (id: T) => void
   'aria-label': string
   className?: string
+  size?: SegmentedNavSize
 }
 
 const LINK_SELECTOR = '[data-header-nav-link]'
@@ -38,7 +41,7 @@ function measureIndicator(nav: HTMLElement, target: HTMLElement): IndicatorState
 }
 
 /** 工单 SegmentedHeaderNav + HeaderNavIndicator 同款交互：凹槽底、滑动指示、hover/focus 跟随 */
-export function SegmentedNav<T extends string>({ items, value, onChange, 'aria-label': ariaLabel, className }: SegmentedNavProps<T>) {
+export function SegmentedNav<T extends string>({ items, value, onChange, 'aria-label': ariaLabel, className, size = 'md' }: SegmentedNavProps<T>) {
   const navRef = useRef<HTMLElement>(null)
   const [indicator, setIndicator] = useState<IndicatorState>({ left: 0, width: 0, opacity: 0 })
   const [ready, setReady] = useState(false)
@@ -115,8 +118,8 @@ export function SegmentedNav<T extends string>({ items, value, onChange, 'aria-l
       role="tablist"
       aria-label={ariaLabel}
       className={cn(
-        'relative box-border flex w-fit max-w-none shrink-0 items-center gap-0.5 overflow-hidden rounded-[0.2rem] border border-line p-0.5',
-        FORM_CONTROL_H,
+        'relative box-border flex w-fit max-w-none shrink-0 items-center gap-0.5 overflow-hidden border border-line p-0.5',
+        size === 'mini' ? 'h-7 rounded-[0.25rem]' : size === 'sm' ? 'h-8 rounded-[0.25rem]' : cn(FORM_CONTROL_H, 'rounded-[0.2rem]'),
         'bg-[color-mix(in_oklab,var(--inset)_88%,var(--panel))]',
         className
       )}
@@ -146,9 +149,19 @@ export function SegmentedNav<T extends string>({ items, value, onChange, 'aria-l
             tabIndex={active ? 0 : -1}
             className={cn(
               'relative z-[1] inline-flex h-full min-h-0 shrink-0 cursor-pointer items-center justify-center whitespace-nowrap rounded-[0.15rem] border-0 bg-transparent',
-              'text-[0.8125rem] font-medium leading-none text-ink-soft no-underline transition-colors hover:text-ink',
+              'font-medium leading-none text-ink-soft no-underline transition-colors hover:text-ink',
               'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color-mix(in_oklab,var(--accent)_55%,transparent)]',
-              iconOnly ? 'w-8 px-0' : 'px-3',
+              iconOnly
+                ? size === 'mini'
+                  ? 'w-6.5 px-0'
+                  : size === 'sm'
+                    ? 'w-7.5 px-0'
+                    : 'w-8 px-0'
+                : size === 'mini'
+                  ? 'px-2 text-[0.72rem]'
+                  : size === 'sm'
+                    ? 'px-2.5 text-[0.75rem]'
+                    : 'px-3 text-[0.8125rem]',
               active && 'text-accent'
             )}
             onClick={() => onChange(item.id)}
@@ -170,7 +183,13 @@ export function SegmentedNav<T extends string>({ items, value, onChange, 'aria-l
               navRef.current?.querySelectorAll<HTMLButtonElement>(LINK_SELECTOR)[next]?.focus({ preventScroll: true })
             }}
           >
-            {iconOnly ? <span className="inline-flex size-[1.05rem] items-center justify-center [&_svg]:size-full">{item.icon}</span> : item.label}
+            {iconOnly ? (
+              <span className={cn('inline-flex items-center justify-center [&_svg]:size-full', size === 'mini' ? 'size-3.5' : size === 'sm' ? 'size-4' : 'size-[1.05rem]')}>
+                {item.icon}
+              </span>
+            ) : (
+              item.label
+            )}
           </button>
         )
         return iconOnly ? (

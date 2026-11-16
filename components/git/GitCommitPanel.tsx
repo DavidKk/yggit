@@ -403,7 +403,9 @@ export function GitCommitPanel({ repo, commit, width, title, selectedPath, onSel
             </Badge>
           ) : null}
         </div>
-        {showViews ? <SegmentedNav aria-label={t('git.commit.fileViewsAria')} className="justify-self-center" items={viewItems} value={view} onChange={setView} /> : null}
+        {showViews ? (
+          <SegmentedNav aria-label={t('git.commit.fileViewsAria')} className="justify-self-center" size="mini" items={viewItems} value={view} onChange={setView} />
+        ) : null}
         <div className="flex items-center justify-end gap-1">
           {showExpand ? (
             <Button
