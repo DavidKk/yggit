@@ -1,6 +1,6 @@
 'use client'
 
-import { Fragment, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { Fragment, type ReactNode, type RefObject, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { LuClock, LuCloud, LuDiamond, LuGitBranch, LuHash, LuMonitor, LuTag, LuText, LuUser } from 'react-icons/lu'
 
@@ -103,17 +103,36 @@ export function RefChipsCell({
     setDropdownAnchor({ x: rect.left + window.scrollX, y: rect.top + window.scrollY, width: rect.width })
     setDropdownOpen(true)
   }
-  const closeDropdown = () => {
-    if (contextMenu) return
+  const closeDropdown = useCallback(
+    (force = false) => {
+      if (!force && contextMenu) return
+      setDropdownOpen(false)
+      setDropdownAnchor(null)
+    },
+    [contextMenu]
+  )
+  const closeContextMenu = useCallback(() => {
+    setContextMenu(null)
     setDropdownOpen(false)
     setDropdownAnchor(null)
-  }
+    onBranchHoverEnd?.()
+  }, [onBranchHoverEnd])
+  const closeAll = useCallback(() => {
+    if (openTimerRef.current !== null) window.clearTimeout(openTimerRef.current)
+    if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current)
+    openTimerRef.current = null
+    closeTimerRef.current = null
+    setContextMenu(null)
+    setDropdownOpen(false)
+    setDropdownAnchor(null)
+    onBranchHoverEnd?.()
+  }, [onBranchHoverEnd])
   const scheduleCloseDropdown = () => {
     if (chips.length === 0) return
     if (openTimerRef.current !== null) window.clearTimeout(openTimerRef.current)
     openTimerRef.current = null
     if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current)
-    closeTimerRef.current = window.setTimeout(closeDropdown, 180)
+    closeTimerRef.current = window.setTimeout(() => closeDropdown(), 180)
   }
   useEffect(
     () => () => {
@@ -122,6 +141,26 @@ export function RefChipsCell({
     },
     []
   )
+
+  useEffect(() => {
+    if (!dropdownOpen && !contextMenu) return
+    const handleScroll = (event: Event) => {
+      if (event.target instanceof Element && event.target.closest('[data-git-floating-menu]')) return
+      closeAll()
+    }
+    const handleWheel = (event: WheelEvent) => {
+      if (event.target instanceof Element && event.target.closest('[data-git-floating-menu]')) return
+      if (Math.hypot(event.deltaX, event.deltaY) > 3) {
+        closeAll()
+      }
+    }
+    window.addEventListener('scroll', handleScroll, { capture: true, passive: true })
+    window.addEventListener('wheel', handleWheel, { capture: true, passive: true })
+    return () => {
+      window.removeEventListener('scroll', handleScroll, true)
+      window.removeEventListener('wheel', handleWheel, true)
+    }
+  }, [dropdownOpen, contextMenu, closeAll])
 
   async function copyValue(value: string) {
     const ok = await copyToClipboard(value)
@@ -248,7 +287,8 @@ export function RefChipsCell({
           ariaLabel={chips.map((chip) => chip.name).join(', ')}
           color={color}
           variant="overlay"
-          onClose={closeDropdown}
+          ignoreRef={triggerRef}
+          onClose={() => closeDropdown(true)}
           onMouseEnter={() => {
             if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current)
             closeTimerRef.current = null
@@ -288,7 +328,7 @@ export function RefChipsCell({
         </FloatingMenu>
       ) : null}
       {contextMenu ? (
-        <FloatingMenu anchor={contextMenu.anchor} ariaLabel={contextMenu.chip.name} color={color} onClose={() => setContextMenu(null)} items={contextItems(contextMenu.chip)} />
+        <FloatingMenu anchor={contextMenu.anchor} ariaLabel={contextMenu.chip.name} color={color} onClose={closeContextMenu} items={contextItems(contextMenu.chip)} />
       ) : null}
     </>
   )
@@ -302,6 +342,7 @@ export function FloatingMenu({
   children,
   items,
   variant = 'context',
+  ignoreRef,
   onMouseEnter,
   onMouseLeave,
 }: {
@@ -312,6 +353,7 @@ export function FloatingMenu({
   children?: ReactNode
   items?: FloatingMenuItem[]
   variant?: 'context' | 'overlay'
+  ignoreRef?: RefObject<HTMLElement | null>
   onMouseEnter?: () => void
   onMouseLeave?: () => void
 }) {
@@ -335,19 +377,34 @@ export function FloatingMenu({
   useEffect(() => {
     const handlePointerDown = (event: PointerEvent) => {
       if (!(event.target instanceof Element)) return
-      if (event.target.closest('[data-git-floating-menu], [data-git-ref-menu-trigger], [data-git-ref-menu-row]')) return
+      if (menuRef.current?.contains(event.target)) return
+      if (ignoreRef?.current?.contains(event.target)) return
       onClose()
     }
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose()
     }
+    const handleScroll = (event: Event) => {
+      if (event.target instanceof Element && menuRef.current?.contains(event.target)) return
+      onClose()
+    }
+    const handleWheel = (event: WheelEvent) => {
+      if (event.target instanceof Element && menuRef.current?.contains(event.target)) return
+      if (Math.hypot(event.deltaX, event.deltaY) > 3) {
+        onClose()
+      }
+    }
     document.addEventListener('pointerdown', handlePointerDown, true)
     document.addEventListener('keydown', handleKeyDown, true)
+    window.addEventListener('scroll', handleScroll, { capture: true, passive: true })
+    window.addEventListener('wheel', handleWheel, { capture: true, passive: true })
     return () => {
       document.removeEventListener('pointerdown', handlePointerDown, true)
       document.removeEventListener('keydown', handleKeyDown, true)
+      window.removeEventListener('scroll', handleScroll, true)
+      window.removeEventListener('wheel', handleWheel, true)
     }
-  }, [onClose])
+  }, [ignoreRef, onClose])
 
   return createPortal(
     <div
