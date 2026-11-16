@@ -5,6 +5,7 @@ import { LuChevronDown, LuChevronRight, LuChevronsDownUp, LuChevronsUpDown, LuFo
 import { TbFileStack } from 'react-icons/tb'
 import { TiMinusOutline, TiPlusOutline } from 'react-icons/ti'
 
+import { GitSearchDropdown } from '@/components/git/GitSearchDropdown'
 import { handleTreeExpandKey, handleTreeParentKey } from '@/components/git/treeExpandKey'
 import { useT } from '@/components/i18n/LocaleProvider'
 import { Badge, Button, EmptyState, ScrollArea, SegmentedNav } from '@/components/sk'
@@ -283,6 +284,8 @@ export function GitCommitPanel({ repo, commit, width, title, selectedPath, onSel
   const [changes, setChanges] = useState<GitCommitChanges | null>(null)
   const [allFiles, setAllFiles] = useState<GitFileChange[] | null>(null)
   const [error, setError] = useState('')
+  const [fileQuery, setFileQuery] = useState('')
+  const fileNeedle = fileQuery.trim().toLowerCase()
   const [preferredView, setView] = useGitUiPref('commit.fileView', 'tree' as FileView, isFileView)
   // Working trees have no committed snapshot; keep the shared preference intact.
   const view = isWorktree && preferredView === 'all' ? 'tree' : preferredView
@@ -306,6 +309,7 @@ export function GitCommitPanel({ repo, commit, width, title, selectedPath, onSel
     setChanges(null)
     setAllFiles(null)
     setError('')
+    setFileQuery('')
     setOpenPaths(new Set())
     const driver = getGitDriver()
     driver
@@ -351,14 +355,32 @@ export function GitCommitPanel({ repo, commit, width, title, selectedPath, onSel
   }, [view, allFiles, changes, repo, commit.hash, t])
 
   const changedFiles = useMemo(() => changes?.files || [], [changes?.files])
-  const changedTree = useMemo(() => buildTree(changedFiles), [changedFiles])
-  const pathGroups = useMemo(() => groupByPath(changedFiles), [changedFiles])
-  const allTree = useMemo(() => buildTree(allFiles || []), [allFiles])
+  const filteredChangedFiles = useMemo(() => {
+    if (!fileNeedle) return changedFiles
+    return changedFiles.filter((f) => f.path.toLowerCase().includes(fileNeedle))
+  }, [changedFiles, fileNeedle])
+
+  const filteredAllFiles = useMemo(() => {
+    if (!allFiles) return null
+    if (!fileNeedle) return allFiles
+    return allFiles.filter((f) => f.path.toLowerCase().includes(fileNeedle))
+  }, [allFiles, fileNeedle])
+
+  const changedTree = useMemo(() => buildTree(filteredChangedFiles), [filteredChangedFiles])
+  const pathGroups = useMemo(() => groupByPath(filteredChangedFiles), [filteredChangedFiles])
+  const allTree = useMemo(() => buildTree(filteredAllFiles || []), [filteredAllFiles])
   const activeTree = view === 'all' ? allTree : changedTree
   const folders = useMemo(() => folderPaths(activeTree), [activeTree])
   const allOpen = folders.length > 0 && folders.every((path) => openPaths.has(path))
   const canExpand = (view === 'tree' || view === 'all') && folders.length > 0
-  const badgeCount = view === 'all' ? (allFiles?.length ?? changedFiles.length) : changedFiles.length
+  const badgeCount = view === 'all' ? (filteredAllFiles?.length ?? filteredChangedFiles.length) : filteredChangedFiles.length
+
+  useEffect(() => {
+    if (fileNeedle && folders.length > 0) {
+      setOpenPaths(new Set(folders))
+    }
+  }, [fileNeedle, folders])
+
   // 变窄时按优先级隐藏：文件个数 → 全部展开 → 视窗切换；关闭按钮始终保留
   const showCount = panelWidth >= 260
   const showExpand = canExpand && panelWidth >= 220
@@ -383,11 +405,13 @@ export function GitCommitPanel({ repo, commit, width, title, selectedPath, onSel
   return (
     <aside
       ref={panelRef}
+      data-git-find="files"
       data-git-tree
       data-git-tree-root
-      className="relative z-20 flex h-full min-h-0 shrink-0 flex-col overflow-hidden border-l border-line bg-panel"
+      className="relative z-20 flex h-full min-h-0 shrink-0 flex-col overflow-hidden border-l border-line bg-panel outline-none"
       style={{ width: `var(--git-tree-w, ${width}px)` }}
       aria-label={panelTitle}
+      tabIndex={-1}
     >
       <header
         className={cn(
@@ -407,23 +431,25 @@ export function GitCommitPanel({ repo, commit, width, title, selectedPath, onSel
           <SegmentedNav aria-label={t('git.commit.fileViewsAria')} className="justify-self-center" size="mini" items={viewItems} value={view} onChange={setView} />
         ) : null}
         <div className="flex items-center justify-end gap-1">
+          <GitSearchDropdown className="mr-0 size-6" label="搜索文件" placeholder="搜索文件路径或名称…" value={fileQuery} onChange={setFileQuery} />
           {showExpand ? (
             <Button
               variant="plain"
               size="icon"
               aria-label={allOpen ? t('git.commit.collapseAll') : t('git.commit.expandAll')}
               aria-pressed={allOpen}
+              tooltip={allOpen ? t('git.commit.collapseAll') : t('git.commit.expandAll')}
               onClick={() => {
                 const next = !allOpen
                 setExpandDefault(next)
                 setOpenPaths(next ? new Set(folders) : new Set())
               }}
             >
-              {allOpen ? <LuChevronsDownUp aria-hidden /> : <LuChevronsUpDown aria-hidden />}
+              {allOpen ? <LuChevronsDownUp className="size-3.5" aria-hidden /> : <LuChevronsUpDown className="size-3.5" aria-hidden />}
             </Button>
           ) : null}
           <Button variant="plain" size="icon" aria-label={t('git.commit.closeTree')} onClick={onClose}>
-            <LuX aria-hidden />
+            <LuX className="size-3.5" aria-hidden />
           </Button>
         </div>
       </header>
@@ -438,12 +464,12 @@ export function GitCommitPanel({ repo, commit, width, title, selectedPath, onSel
       ) : (
         <ScrollArea className="min-h-0 flex-1" indicator="vertical" reserveGutter={false}>
           {view === 'path' ? (
-            changedFiles.length === 0 ? (
+            filteredChangedFiles.length === 0 ? (
               <EmptyState
                 density="compact"
                 className="px-3 py-8"
-                title={isWorktree ? t('git.commit.cleanWorktree') : t('git.commit.noChanges')}
-                message={isWorktree ? t('git.commit.cleanWorktreeMsg') : t('git.commit.noChangesMsg')}
+                title={fileNeedle ? '未找到匹配的文件' : isWorktree ? t('git.commit.cleanWorktree') : t('git.commit.noChanges')}
+                message={fileNeedle ? '换个关键词试试。' : isWorktree ? t('git.commit.cleanWorktreeMsg') : t('git.commit.noChangesMsg')}
               />
             ) : (
               <div role="list" aria-label={t('git.commit.pathListAria')}>
@@ -451,24 +477,24 @@ export function GitCommitPanel({ repo, commit, width, title, selectedPath, onSel
               </div>
             )
           ) : view === 'all' ? (
-            allTree.length === 0 ? (
+            (filteredAllFiles?.length ?? 0) === 0 ? (
               <EmptyState
                 density="compact"
                 className="px-3 py-8"
-                title={isWorktree ? t('git.commit.cleanWorktree') : t('git.commit.noFiles')}
-                message={isWorktree ? t('git.commit.cleanWorktreeMsg') : t('git.commit.noFilesMsg')}
+                title={fileNeedle ? '未找到匹配的文件' : isWorktree ? t('git.commit.cleanWorktree') : t('git.commit.noFiles')}
+                message={fileNeedle ? '换个关键词试试。' : isWorktree ? t('git.commit.cleanWorktreeMsg') : t('git.commit.noFilesMsg')}
               />
             ) : (
               <div role="tree" aria-label={t('git.commit.allFilesAria')}>
                 <TreeRows nodes={allTree} depth={0} open={openPaths} selected={selectedPath} onToggle={toggleFolder} onSetOpen={setFolderOpen} onSelect={onSelect} />
               </div>
             )
-          ) : changedFiles.length === 0 ? (
+          ) : filteredChangedFiles.length === 0 ? (
             <EmptyState
               density="compact"
               className="px-3 py-8"
-              title={isWorktree ? t('git.commit.cleanWorktree') : t('git.commit.noChanges')}
-              message={isWorktree ? t('git.commit.cleanWorktreeMsg') : t('git.commit.noChangesMsg')}
+              title={fileNeedle ? '未找到匹配的文件' : isWorktree ? t('git.commit.cleanWorktree') : t('git.commit.noChanges')}
+              message={fileNeedle ? '换个关键词试试。' : isWorktree ? t('git.commit.cleanWorktreeMsg') : t('git.commit.noChangesMsg')}
             />
           ) : (
             <div role="tree" aria-label={t('git.commit.treeAria')}>
