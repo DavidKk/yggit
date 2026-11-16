@@ -1,11 +1,10 @@
 'use client'
 
+import Link from 'next/link'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   LuBot,
   LuCheck,
-  LuChevronDown,
-  LuChevronUp,
   LuClock,
   LuCopy,
   LuFileText,
@@ -14,6 +13,7 @@ import {
   LuGitMerge,
   LuSearch,
   LuSend,
+  LuSettings,
   LuSparkles,
   LuTrash2,
   LuUser,
@@ -22,7 +22,7 @@ import {
 } from 'react-icons/lu'
 
 import { useT } from '@/components/i18n/LocaleProvider'
-import { Button, Spinner } from '@/components/sk'
+import { Button, Spinner, Tooltip } from '@/components/sk'
 import { useAgent } from '@/lib/agent/agent-context'
 import { copyToClipboard } from '@/lib/clipboard'
 import { cn } from '@/lib/utils'
@@ -92,21 +92,12 @@ const CAPABILITIES: AgentCapability[] = [
   },
 ]
 
-const QUICK_ACTIONS = [
-  { label: '分支统计', prompt: '当前分支有多少个？请统计分支数量，并列出本地与远程分支。', icon: <LuGitBranch className="size-3" /> },
-  { label: '仓库状态', prompt: '当前在哪个分支？最新的一次 Commit 是什么？', icon: <LuFolderGit2 className="size-3" /> },
-  { label: '合入检测', prompt: '验证当前分支有没有合入 master 分支，是否存在未合入或污染提交？', icon: <LuGitMerge className="size-3" /> },
-  { label: '今日 Merge', prompt: '查询今日的所有 Merge 提交记录与改动说明', icon: <LuClock className="size-3" /> },
-  { label: '提交搜索', prompt: '搜索最近 3 天内的提交记录，按时间排序', icon: <LuSearch className="size-3" /> },
-]
-
 export function AgentWorkspace({ repoPath, className }: Props) {
   const t = useT()
   const { dockMode, setDockMode, messages, sendMessage, clearMessages, isProcessing, activeRepo } = useAgent()
 
   const [input, setInput] = useState('')
   const [copiedId, setCopiedId] = useState<string | null>(null)
-  const [showCapabilities, setShowCapabilities] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const effectiveRepo = repoPath || activeRepo || ''
@@ -120,7 +111,6 @@ export function AgentWorkspace({ repoPath, className }: Props) {
       const trimmed = promptText.trim()
       if (!trimmed || isProcessing) return
       setInput('')
-      setShowCapabilities(false)
       await sendMessage(trimmed, effectiveRepo)
     },
     [isProcessing, sendMessage, effectiveRepo]
@@ -166,73 +156,42 @@ export function AgentWorkspace({ repoPath, className }: Props) {
         </div>
 
         <div className="flex items-center gap-0.5 shrink-0">
-          {/* Quick Capabilities Drawer Toggle */}
-          <button
-            type="button"
-            onClick={() => setShowCapabilities((prev) => !prev)}
-            className={cn(
-              'rounded px-1.5 py-1 text-[11px] font-medium flex items-center gap-1 transition-colors cursor-pointer',
-              showCapabilities ? 'bg-accent/15 text-accent' : 'text-ink-soft hover:bg-[var(--overlay-08)] hover:text-ink'
-            )}
-            title={t('gitAgent.capabilitiesTitle')}
-          >
-            <LuWrench className="size-3" />
-            <span>{t('gitAgent.capabilitiesButton')}</span>
-            {showCapabilities ? <LuChevronUp className="size-3" /> : <LuChevronDown className="size-3" />}
-          </button>
-
           {/* Clear Messages */}
-          <button
-            type="button"
-            onClick={clearMessages}
-            className="rounded p-1 text-ink-soft hover:bg-[var(--overlay-08)] hover:text-ink transition-colors cursor-pointer"
-            title={t('gitAgent.clearHistory')}
-            aria-label={t('gitAgent.clearHistory')}
-          >
-            <LuTrash2 className="size-3.5" />
-          </button>
+          <Tooltip content={t('gitAgent.clearHistory')} placement="bottom">
+            <button
+              type="button"
+              onClick={clearMessages}
+              className="flex size-6 items-center justify-center rounded text-ink-soft hover:bg-[var(--overlay-06)] hover:text-ink active:scale-95 transition-all cursor-pointer"
+              aria-label={t('gitAgent.clearHistory')}
+            >
+              <LuTrash2 className="size-3.5" />
+            </button>
+          </Tooltip>
+
+          {/* Settings */}
+          <Tooltip content={t('gitAgent.settingsTitle')} placement="bottom">
+            <Link
+              href="/settings"
+              className="flex size-6 items-center justify-center rounded text-ink-soft hover:bg-[var(--overlay-06)] hover:text-ink active:scale-95 transition-all cursor-pointer"
+              aria-label={t('gitAgent.settingsTitle')}
+            >
+              <LuSettings className="size-3.5" />
+            </Link>
+          </Tooltip>
 
           {/* Close Dock */}
-          <button
-            type="button"
-            onClick={() => setDockMode('collapsed')}
-            className="rounded p-1 text-ink-soft hover:bg-[var(--overlay-08)] hover:text-ink transition-colors cursor-pointer"
-            title={t('gitAgent.dockClose')}
-            aria-label={t('gitAgent.dockClose')}
-          >
-            <LuX className="size-3.5" />
-          </button>
+          <Tooltip content={t('common.close') || '关闭'} placement="bottom">
+            <button
+              type="button"
+              onClick={() => setDockMode('collapsed')}
+              className="flex size-6 items-center justify-center rounded text-ink-soft hover:bg-[var(--overlay-06)] hover:text-ink active:scale-95 transition-all cursor-pointer"
+              aria-label={t('common.close') || '关闭'}
+            >
+              <LuX className="size-3.5" />
+            </button>
+          </Tooltip>
         </div>
       </div>
-
-      {/* Expandable Capabilities Drawer */}
-      {showCapabilities ? (
-        <div className="border-b border-line bg-panel-2/95 p-3 space-y-2 max-h-64 overflow-y-auto animate-in fade-in slide-in-from-top-1 duration-150">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-ink">{t('gitAgent.capabilitiesTitle')}</span>
-            <span className="text-[11px] text-ink-soft">{t('gitAgent.capabilitiesHint')}</span>
-          </div>
-          <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-            {CAPABILITIES.map((cap) => {
-              const Icon = cap.icon
-              return (
-                <button
-                  key={cap.id}
-                  type="button"
-                  onClick={() => handleSendPrompt(cap.prompt)}
-                  className="flex flex-col gap-0.5 rounded border border-line/80 bg-panel p-2 text-left hover:border-accent hover:bg-[var(--overlay-04)] transition-all cursor-pointer group"
-                >
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-ink group-hover:text-accent">
-                    <Icon className="size-3.5 shrink-0 text-accent" />
-                    <span className="truncate">{cap.title}</span>
-                  </div>
-                  <span className="text-[11px] text-ink-soft leading-tight line-clamp-1">{cap.description}</span>
-                </button>
-              )
-            })}
-          </div>
-        </div>
-      ) : null}
 
       {/* Message List */}
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
@@ -336,24 +295,7 @@ export function AgentWorkspace({ repoPath, className }: Props) {
       </div>
 
       {/* Input Area */}
-      <form onSubmit={handleSend} className="border-t border-line p-2.5 bg-panel-2/40 flex flex-col gap-1.5">
-        {/* Quick Action Chips Bar */}
-        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5">
-          {QUICK_ACTIONS.map((action) => (
-            <button
-              key={action.label}
-              type="button"
-              disabled={isProcessing}
-              onClick={() => handleSendPrompt(action.prompt)}
-              className="shrink-0 inline-flex items-center gap-1 rounded-full border border-line bg-panel px-2 py-0.5 text-[11px] text-ink-soft hover:border-accent hover:text-accent transition-colors cursor-pointer select-none disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {action.icon}
-              <span>{action.label}</span>
-            </button>
-          ))}
-        </div>
-
-        {/* Input Shell */}
+      <form onSubmit={handleSend} className="border-t border-line p-2.5 bg-panel-2/40">
         <div className="flex items-center gap-1.5">
           <input
             type="text"
