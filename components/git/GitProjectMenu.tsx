@@ -2,8 +2,23 @@
 
 import { type DragEvent, type RefObject, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { AiOutlineCloudSync } from 'react-icons/ai'
-import { LuChevronDown, LuChevronRight, LuClock3, LuFolder, LuGithub, LuGitlab, LuGlobe, LuHardDrive, LuLink, LuLockKeyhole, LuStar, LuTrash2, LuX } from 'react-icons/lu'
-import { TbFolderPlus } from 'react-icons/tb'
+import {
+  LuChevronDown,
+  LuChevronRight,
+  LuClock3,
+  LuCloud,
+  LuExternalLink,
+  LuFolder,
+  LuGithub,
+  LuGitlab,
+  LuGlobe,
+  LuHardDrive,
+  LuLockKeyhole,
+  LuStar,
+  LuTrash2,
+  LuX,
+} from 'react-icons/lu'
+import { TbCloudLock, TbFolderPlus } from 'react-icons/tb'
 
 const FOLDER_EXPAND_MS = 450
 const AUTO_SCROLL_EDGE = 36
@@ -15,7 +30,8 @@ import { GIT_SEARCH_DROPDOWN_ATTR, GitSearchDropdown } from '@/components/git/Gi
 import { useT } from '@/components/i18n/LocaleProvider'
 import { formControl, formDesc, formField, formFieldInlineDense, formTitle, formTitleInline } from '@/components/layoutClasses'
 import { ApiKeyInput, Badge, Button, EmptyState, Modal, ScrollArea, SwitchToggle, TextInput, Tooltip } from '@/components/sk'
-import { hasSavedRemote, projectOpenTarget, projectSource, remoteIdentity } from '@/lib/git/project-access'
+import { getDriverMode } from '@/lib/git/driver'
+import { extractProjectRemotes, getRemoteCloudType, hasSavedRemote, projectOpenTarget, projectSource, remoteIdentity, type ResolvedRemoteSource } from '@/lib/git/project-access'
 import { addTemporaryRepo, parseRemoteUrl, removeTemporaryRepo, type TemporaryRepo, useTemporaryRepos } from '@/lib/git/temporary-store'
 import type { GitProjectHost, GitProjectView } from '@/lib/git/types'
 import { isRecordBoolean, useGitUiPref } from '@/lib/git/ui-prefs'
@@ -86,6 +102,11 @@ export function GitProjectMenu({
   const [draggingId, setDraggingId] = useState('')
   const [searchMenuOpen, setSearchMenuOpen] = useState(false)
   const [folderDeleting, setFolderDeleting] = useState(false)
+  const [remotesMenuAnchor, setRemotesMenuAnchor] = useState<{
+    projectId: string
+    rect: DOMRect
+    remotes: ResolvedRemoteSource[]
+  } | null>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const listScrollRef = useRef<HTMLDivElement>(null)
   const urlRef = useRef<HTMLInputElement>(null)
@@ -106,9 +127,21 @@ export function GitProjectMenu({
   useEffect(() => {
     if (!open) return
     function onKey(event: KeyboardEvent) {
-      if (event.key === 'Escape' && !remoteOpen && !cloneTarget && !folderOpen && !folderDeleting && !searchMenuOpen) onClose()
+      if (event.key === 'Escape') {
+        if (remotesMenuAnchor) {
+          setRemotesMenuAnchor(null)
+          return
+        }
+        if (!remoteOpen && !cloneTarget && !folderOpen && !folderDeleting && !searchMenuOpen) onClose()
+      }
     }
     function onPointer(event: PointerEvent) {
+      if (remotesMenuAnchor) {
+        const target = event.target as Element | null
+        if (!target?.closest('[data-remotes-popover="true"]')) {
+          setRemotesMenuAnchor(null)
+        }
+      }
       if (remoteOpen || cloneTarget || folderOpen || folderDeleting) return
       const target = event.target as Node | null
       if (!target) return
@@ -122,7 +155,7 @@ export function GitProjectMenu({
       window.removeEventListener('keydown', onKey)
       window.removeEventListener('pointerdown', onPointer, true)
     }
-  }, [anchorRef, cloneTarget, folderDeleting, folderOpen, onClose, open, remoteOpen, searchMenuOpen])
+  }, [anchorRef, cloneTarget, folderDeleting, folderOpen, onClose, open, remoteOpen, remotesMenuAnchor, searchMenuOpen])
 
   useEffect(() => {
     if (folderOpen) folderRef.current?.focus()
@@ -132,6 +165,7 @@ export function GitProjectMenu({
     if (open) return
     setQuery('')
     setSearchMenuOpen(false)
+    setRemotesMenuAnchor(null)
   }, [open])
 
   useEffect(() => {
@@ -569,6 +603,18 @@ export function GitProjectMenu({
                 ? listedTemporary.map((temp) => {
                     const current = currentPath === temp.remoteUrl || currentPath === temp.id
                     const isFavoriting = favoriteLoadingId === temp.id
+                    const tempRemotes = extractProjectRemotes({
+                      id: temp.id,
+                      name: temp.name,
+                      group: '',
+                      host: temp.provider === 'generic' ? 'local' : temp.provider,
+                      localPath: '',
+                      httpsUrl: temp.remoteUrl,
+                      local: false,
+                      remote: true,
+                      authorized: false,
+                    })
+                    const tempCloudType = getRemoteCloudType(tempRemotes)
                     return (
                       <div key={temp.id} className="group/temp relative flex h-8 w-full items-center pr-1 hover:bg-[var(--overlay-06)]">
                         <Button
@@ -592,6 +638,35 @@ export function GitProjectMenu({
                           </Tooltip>
                         </Button>
                         <div className="flex shrink-0 items-center gap-0.5 opacity-80 group-hover/temp:opacity-100">
+                          {tempCloudType === 'single-private' ? (
+                            <Tooltip content={`私有远端: ${tempRemotes[0].name} · 点击打开`}>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  window.open(tempRemotes[0].webUrl, '_blank')
+                                }}
+                                className="flex size-6 cursor-pointer items-center justify-center rounded text-warn transition-colors hover:bg-warn/15 hover:text-warn/80"
+                                aria-label={`私有远端: ${tempRemotes[0].name}`}
+                              >
+                                <TbCloudLock className="size-3.5 text-warn" aria-hidden="true" />
+                              </button>
+                            </Tooltip>
+                          ) : tempCloudType === 'single-public' ? (
+                            <Tooltip content={`开源远端: ${tempRemotes[0].name} · 点击打开`}>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  window.open(tempRemotes[0].webUrl, '_blank')
+                                }}
+                                className="flex size-6 cursor-pointer items-center justify-center rounded text-accent transition-colors hover:bg-accent/15 hover:text-[color-mix(in_oklab,var(--accent)_80%,black)]"
+                                aria-label={`开源远端: ${tempRemotes[0].name}`}
+                              >
+                                <LuCloud className="size-3.5 text-accent" aria-hidden="true" />
+                              </button>
+                            </Tooltip>
+                          ) : null}
                           <Button
                             variant="plain"
                             size="mini"
@@ -678,18 +753,14 @@ export function GitProjectMenu({
                   ? items.map((project, index) => {
                       const target = projectOpenTarget(project)
                       const online = !project.localPath && Boolean(target)
-                      const accessLabel = t(
-                        project.localPath
-                          ? project.authorized
-                            ? 'git.project.sourceLocal'
-                            : 'git.project.sourcePermission'
-                          : online
-                            ? 'git.project.sourceOnline'
-                            : 'git.project.sourceAssociate'
-                      )
                       const current = Boolean(target) && (target === currentPath || (online && remoteIdentity(target) === remoteIdentity(currentPath)))
                       const showBefore = dropTarget?.group === group && dropTarget.beforeId === project.id
                       const showAfter = dropTarget?.group === group && dropTarget.beforeId === null && index === items.length - 1 && draggingId !== project.id
+                      const isEdgeMode = getDriverMode() === 'edge'
+                      const remotes = extractProjectRemotes(project)
+                      const cloudType = getRemoteCloudType(remotes)
+                      const hasLocal = Boolean(project.localPath)
+
                       return (
                         <div
                           key={project.id}
@@ -698,51 +769,117 @@ export function GitProjectMenu({
                           onDrop={(event) => void commitDrop(event)}
                         >
                           {showBefore ? <span className="pointer-events-none absolute inset-x-2 top-0 z-10 h-0.5 -translate-y-1/2 rounded-full bg-accent" aria-hidden /> : null}
-                          <Button
-                            variant="plain"
-                            draggable={!busy}
-                            aria-current={current ? 'true' : undefined}
+                          <div
                             className={cn(
-                              'h-8 w-full cursor-grab justify-start gap-1.5 rounded-none px-2 pl-7 font-normal text-ink active:cursor-grabbing',
-                              current && 'bg-[color-mix(in_oklab,var(--accent)_18%,transparent)] hover:enabled:bg-[color-mix(in_oklab,var(--accent)_24%,transparent)]',
+                              'group/item flex h-8 w-full items-center pr-1.5 transition-colors hover:bg-[var(--overlay-06)]',
+                              current && 'bg-[color-mix(in_oklab,var(--accent)_18%,transparent)] hover:bg-[color-mix(in_oklab,var(--accent)_24%,transparent)]',
                               draggingId === project.id && 'opacity-50'
                             )}
-                            onDragStart={(event) => onProjectDragStart(event, project.id)}
-                            onDragEnd={onProjectDragEnd}
-                            onClick={() => {
-                              if (target) onOpen(target)
-                              else setCloneTarget(project)
-                            }}
                           >
-                            <HostIcon host={project.host} />
-                            <span className="min-w-0 flex-1 truncate whitespace-nowrap text-left text-xs">{project.name}</span>
-                            <Tooltip content={project.localPath ? '点击打开本地文件夹' : accessLabel}>
-                              <span
-                                role={project.localPath ? 'button' : undefined}
-                                aria-label={accessLabel}
-                                tabIndex={0}
-                                onClick={(e) => {
-                                  if (project.localPath) {
-                                    void handleOpenLocalFolder(e, project.localPath)
+                            <Button
+                              variant="plain"
+                              draggable={!busy}
+                              aria-current={current ? 'true' : undefined}
+                              className="h-8 min-w-0 flex-1 cursor-grab justify-start gap-1.5 rounded-none px-2 pl-7 font-normal text-ink active:cursor-grabbing hover:enabled:bg-transparent"
+                              onDragStart={(event) => onProjectDragStart(event, project.id)}
+                              onDragEnd={onProjectDragEnd}
+                              onClick={() => {
+                                if (target) onOpen(target)
+                                else setCloneTarget(project)
+                              }}
+                            >
+                              <HostIcon host={project.host} />
+                              <span className="min-w-0 flex-1 truncate whitespace-nowrap text-left text-xs">{project.name}</span>
+                            </Button>
+
+                            <div className="flex shrink-0 items-center gap-0.5">
+                              {/* 1. Local Folder Icon */}
+                              {hasLocal ? (
+                                <Tooltip
+                                  content={
+                                    isEdgeMode
+                                      ? 'Edge 模式不支持打开本地系统文件夹（仅在 Local 模式可用）'
+                                      : project.authorized === false
+                                        ? '需要授权访问本地目录'
+                                        : '打开本地文件夹'
                                   }
-                                }}
-                                className={cn(
-                                  'flex size-5 shrink-0 items-center justify-center text-ink-soft rounded transition-colors',
-                                  project.localPath ? 'hover:text-accent hover:bg-[var(--overlay-08)] cursor-pointer' : 'cursor-default'
-                                )}
-                              >
-                                {project.localPath && !project.authorized ? (
-                                  <LuLockKeyhole className="size-3.5 text-warn" aria-hidden />
-                                ) : project.localPath ? (
-                                  <LuHardDrive className="size-3.5 text-accent" aria-hidden />
-                                ) : online ? (
-                                  <LuGlobe className="size-3.5 text-accent" aria-hidden />
-                                ) : (
-                                  <LuLink className="size-3.5" aria-hidden />
-                                )}
-                              </span>
-                            </Tooltip>
-                          </Button>
+                                >
+                                  <button
+                                    type="button"
+                                    disabled={isEdgeMode}
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      if (!isEdgeMode && project.localPath) {
+                                        void handleOpenLocalFolder(e, project.localPath)
+                                      }
+                                    }}
+                                    className={cn(
+                                      'flex size-6 items-center justify-center rounded transition-colors',
+                                      isEdgeMode ? 'cursor-not-allowed opacity-35 text-ink-soft' : 'cursor-pointer text-ink-soft hover:bg-[var(--overlay-08)] hover:text-accent'
+                                    )}
+                                    aria-label={isEdgeMode ? 'Edge 模式不支持打开本地文件夹' : '打开本地文件夹'}
+                                  >
+                                    {isEdgeMode && project.authorized === false ? (
+                                      <LuLockKeyhole className="size-3.5 text-warn" aria-hidden="true" />
+                                    ) : (
+                                      <LuHardDrive className="size-3.5" aria-hidden="true" />
+                                    )}
+                                  </button>
+                                </Tooltip>
+                              ) : null}
+
+                              {/* 2. Remote Cloud Icon */}
+                              {cloudType === 'single-public' ? (
+                                <Tooltip content={`开源远端: ${remotes[0].name} · 点击打开`}>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      window.open(remotes[0].webUrl, '_blank')
+                                    }}
+                                    className="flex size-6 cursor-pointer items-center justify-center rounded text-accent transition-colors hover:bg-accent/15 hover:text-[color-mix(in_oklab,var(--accent)_80%,black)]"
+                                    aria-label={`开源远端: ${remotes[0].name}`}
+                                  >
+                                    <LuCloud className="size-3.5 text-accent" aria-hidden="true" />
+                                  </button>
+                                </Tooltip>
+                              ) : cloudType === 'single-private' ? (
+                                <Tooltip content={`私有远端: ${remotes[0].name} · 点击打开`}>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      window.open(remotes[0].webUrl, '_blank')
+                                    }}
+                                    className="flex size-6 cursor-pointer items-center justify-center rounded text-warn transition-colors hover:bg-warn/15 hover:text-warn/80"
+                                    aria-label={`私有远端: ${remotes[0].name}`}
+                                  >
+                                    <TbCloudLock className="size-3.5 text-warn" aria-hidden="true" />
+                                  </button>
+                                </Tooltip>
+                              ) : cloudType === 'mixed' ? (
+                                <Tooltip content="远端源列表 (多个源) · 点击展开">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      const rect = e.currentTarget.getBoundingClientRect()
+                                      setRemotesMenuAnchor((prev) => (prev?.projectId === project.id ? null : { projectId: project.id, rect, remotes }))
+                                    }}
+                                    className={cn(
+                                      'flex size-6 cursor-pointer items-center justify-center rounded text-ink-soft transition-colors hover:bg-[var(--overlay-08)] hover:text-ink',
+                                      remotesMenuAnchor?.projectId === project.id && 'bg-[var(--overlay-08)] text-accent'
+                                    )}
+                                    aria-label="远端源列表"
+                                    aria-haspopup="menu"
+                                    aria-expanded={remotesMenuAnchor?.projectId === project.id}
+                                  >
+                                    <LuCloud className="size-3.5" aria-hidden="true" />
+                                  </button>
+                                </Tooltip>
+                              ) : null}
+                            </div>
+                          </div>
                           {showAfter ? <span className="pointer-events-none absolute inset-x-2 bottom-0 z-10 h-0.5 translate-y-1/2 rounded-full bg-accent" aria-hidden /> : null}
                         </div>
                       )
@@ -756,6 +893,65 @@ export function GitProjectMenu({
           })}
         </ScrollArea>
       )}
+      {remotesMenuAnchor ? (
+        <div
+          data-remotes-popover="true"
+          style={{
+            position: 'fixed',
+            top: remotesMenuAnchor.rect.bottom + 4,
+            left: Math.max(12, Math.min(typeof window !== 'undefined' ? window.innerWidth - 268 : 300, remotesMenuAnchor.rect.right - 240)),
+            zIndex: 9999,
+          }}
+          className="w-64 rounded-xl border border-line bg-panel p-1.5 shadow-2xl backdrop-blur-md"
+        >
+          <div className="flex items-center justify-between border-b border-line px-2 py-1 text-[0.68rem] font-semibold text-ink-soft">
+            <span>远端源列表 ({remotesMenuAnchor.remotes.length})</span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                setRemotesMenuAnchor(null)
+              }}
+              className="flex size-4 cursor-pointer items-center justify-center rounded text-ink-soft hover:text-ink"
+              aria-label="关闭"
+            >
+              <LuX className="size-3" />
+            </button>
+          </div>
+          <div className="mt-1 flex max-h-48 flex-col gap-0.5 overflow-y-auto">
+            {remotesMenuAnchor.remotes.map((remote) => (
+              <button
+                key={remote.url}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setRemotesMenuAnchor(null)
+                  window.open(remote.webUrl, '_blank')
+                }}
+                className="flex cursor-pointer items-center justify-between gap-2 rounded-md p-1.5 text-left text-xs transition-colors hover:bg-[var(--overlay-08)] hover:text-accent"
+              >
+                <div className="flex min-w-0 flex-1 items-center gap-2">
+                  {remote.isPrivate ? (
+                    <TbCloudLock className="size-4 shrink-0 text-warn" aria-label="私有远端" />
+                  ) : (
+                    <LuCloud className="size-4 shrink-0 text-accent" aria-label="开源远端" />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="truncate font-mono font-medium text-xs">{remote.name}</span>
+                      <span className={cn('rounded px-1 text-[0.62rem] font-sans font-medium', remote.isPrivate ? 'bg-warn/15 text-warn' : 'bg-accent/15 text-accent')}>
+                        {remote.isPrivate ? '私有' : '开源'}
+                      </span>
+                    </div>
+                    <div className="truncate font-mono text-[0.68rem] text-ink-soft">{remote.webUrl.replace(/^https?:\/\//, '')}</div>
+                  </div>
+                </div>
+                <LuExternalLink className="size-3.5 shrink-0 text-ink-soft" aria-hidden="true" />
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
       <Modal
         open={folderOpen}
         title={t('git.project.newFolderTitle')}

@@ -153,6 +153,12 @@ export type GitProjectGroup = string
 
 export type GitProjectHost = 'gitlab' | 'github' | 'local'
 
+export type GitRemoteSource = {
+  name: string
+  url: string
+  isPrivate?: boolean
+}
+
 export type GitProjectView = {
   id: string
   name: string
@@ -163,6 +169,7 @@ export type GitProjectView = {
   local: boolean
   remote: boolean
   authorized: boolean
+  remotes?: GitRemoteSource[]
 }
 
 export type GitProjectCatalog = {

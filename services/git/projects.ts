@@ -5,7 +5,8 @@ import { promisify } from 'node:util'
 
 import { ROOT_PATH } from '@/constants/paths'
 import { normalizeRemote, projectId } from '@/lib/git/identity'
-import type { GitProjectCatalog, GitProjectGroup, GitProjectHost, GitProjectView } from '@/lib/git/types'
+import { isPrivateRemote } from '@/lib/git/project-access'
+import type { GitProjectCatalog, GitProjectGroup, GitProjectHost, GitProjectView, GitRemoteSource } from '@/lib/git/types'
 
 import { discoverGitRepos } from './discover'
 
@@ -27,6 +28,7 @@ type StoredProject = {
   httpsUrl: string
   localPath: string
   credentialId: string
+  remotes?: GitRemoteSource[]
 }
 
 type CatalogFile = {
@@ -138,8 +140,9 @@ function toView(project: StoredProject): GitProjectView {
     localPath: project.localPath,
     httpsUrl: project.httpsUrl,
     local: Boolean(project.localPath),
-    remote: Boolean(project.httpsUrl),
+    remote: Boolean(project.httpsUrl) || Boolean(project.remotes && project.remotes.length > 0),
     authorized: Boolean(project.credentialId),
+    remotes: project.remotes,
   }
 }
 
@@ -260,10 +263,33 @@ export async function originUrl(repo: string): Promise<string> {
   }
 }
 
+export async function getProjectRemotes(repo: string): Promise<GitRemoteSource[]> {
+  try {
+    const { stdout } = await execFileAsync('git', ['-C', repo, 'remote', '-v'], { timeout: 8000, encoding: 'utf8' })
+    const map = new Map<string, string>()
+    for (const line of stdout.split('\n')) {
+      const match = line.trim().match(/^([^\s]+)\s+([^\s]+)\s+\((?:fetch|push)\)$/)
+      if (match && match[1] && match[2]) {
+        if (!map.has(match[1])) {
+          map.set(match[1], match[2])
+        }
+      }
+    }
+    return Array.from(map.entries()).map(([name, url]) => ({
+      name,
+      url,
+      isPrivate: isPrivateRemote(url),
+    }))
+  } catch {
+    return []
+  }
+}
+
 export async function rememberLocalProject(repo: string, options?: { create?: boolean }): Promise<GitProjectView> {
   const absolute = path.resolve(repo.trim())
   const origin = await originUrl(absolute)
   const remote = normalizeRemote(origin)
+  const remotesList = await getProjectRemotes(absolute)
   const projects = readCatalog()
   const label = folderName(absolute)
   // Identity is the local worktree path. Linked worktrees share origin but must stay distinct.
@@ -274,6 +300,9 @@ export async function rememberLocalProject(repo: string, options?: { create?: bo
       byPath.remoteKey = remote.key
       byPath.httpsUrl = remote.httpsUrl
       byPath.host = remote.kind
+    }
+    if (remotesList.length > 0) {
+      byPath.remotes = remotesList
     }
     writeCatalog(projects)
     return toView(byPath)
@@ -286,6 +315,9 @@ export async function rememberLocalProject(repo: string, options?: { create?: bo
     remoteOnly.name = label
     remoteOnly.host = remote.kind
     remoteOnly.httpsUrl = remote.httpsUrl
+    if (remotesList.length > 0) {
+      remoteOnly.remotes = remotesList
+    }
     writeCatalog(projects)
     return toView(remoteOnly)
   }
@@ -301,8 +333,9 @@ export async function rememberLocalProject(repo: string, options?: { create?: bo
       localPath: absolute,
       httpsUrl: remote?.httpsUrl || '',
       local: true,
-      remote: Boolean(remote?.httpsUrl),
+      remote: Boolean(remote?.httpsUrl) || remotesList.length > 0,
       authorized: false,
+      remotes: remotesList.length > 0 ? remotesList : undefined,
     }
   }
 
@@ -317,6 +350,7 @@ export async function rememberLocalProject(repo: string, options?: { create?: bo
     httpsUrl: remote?.httpsUrl || '',
     localPath: absolute,
     credentialId: '',
+    remotes: remotesList.length > 0 ? remotesList : undefined,
   }
   projects.push(created)
   writeCatalog(projects, folders.length > 0 ? folders : [home])

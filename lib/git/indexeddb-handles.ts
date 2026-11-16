@@ -4,8 +4,8 @@
  * Manages Edge mode folders, project handles, and remote repositories client-side.
  */
 
-import { projectId } from '@/lib/git/identity'
-import { getTemporaryRepos } from '@/lib/git/temporary-store'
+import { normalizeRemote, projectId } from '@/lib/git/identity'
+import { consolidateProjects, isPrivateRemote, remoteIdentity } from '@/lib/git/project-access'
 import type { GitProjectCatalog, GitProjectHost, GitProjectView } from '@/lib/git/types'
 
 declare global {
@@ -410,23 +410,55 @@ export async function saveEdgeRemoteProject(record: StoredRemoteProjectRecord): 
  */
 export async function getEdgeCatalog(): Promise<GitProjectCatalog> {
   const folders = await getEdgeFolders()
-  const handles = await listDirectoryHandles()
-  const remotes = await getEdgeRemoteProjects()
-  const tempRepos = getTemporaryRepos()
+  const records = await listStoredDirectoryHandles()
+  const handles: StoredRepoRecord[] = []
+  for (const record of records) {
+    if (!(await findMatchingHandle(handles, record.handle))) handles.push(record)
+  }
+  const remoteRecords = await getEdgeRemoteProjects()
+  const seenRemotes = new Set<string>()
+  const remotes = remoteRecords.filter((record) => {
+    const key = remoteIdentity(record.url) || record.id
+    if (seenRemotes.has(key)) return false
+    seenRemotes.add(key)
+    return true
+  })
 
   const defaultFolder = folders[0] || ''
 
-  const handleProjects: GitProjectView[] = handles.map((h) => ({
-    id: h.id,
-    name: h.name,
-    group: h.group && folders.includes(h.group) ? h.group : defaultFolder,
-    host: 'local',
-    localPath: h.name,
-    httpsUrl: '',
-    local: true,
-    remote: false,
-    authorized: true,
-  }))
+  const handleProjects: GitProjectView[] = await Promise.all(
+    handles.map(async (h) => {
+      const authorized = await verifyHandlePermission(h.handle)
+      let remote = null
+      let remotesList: Array<{ name: string; url: string; isPrivate: boolean }> = []
+      if (authorized) {
+        try {
+          const [{ default: git }, { createDirectoryHandleFs }] = await Promise.all([import('isomorphic-git'), import('./driver/handle-fs')])
+          const gitRemotes = await git.listRemotes({ fs: createDirectoryHandleFs(h.handle), dir: '/' })
+          remotesList = gitRemotes.map((r) => ({
+            name: r.remote,
+            url: r.url,
+            isPrivate: isPrivateRemote(r.url),
+          }))
+          remote = normalizeRemote((gitRemotes.find((item) => item.remote === 'origin') || gitRemotes[0])?.url || '')
+        } catch {
+          // An unavailable directory must remain visible so permission can be restored.
+        }
+      }
+      return {
+        id: h.id,
+        name: h.name,
+        group: h.group && folders.includes(h.group) ? h.group : defaultFolder,
+        host: remote?.kind || 'local',
+        localPath: h.id,
+        httpsUrl: remote?.httpsUrl || '',
+        local: true,
+        remote: Boolean(remote) || remotesList.length > 0,
+        authorized,
+        remotes: remotesList.length > 0 ? remotesList : undefined,
+      }
+    })
+  )
 
   const remoteProjects: GitProjectView[] = remotes.map((r) => ({
     id: r.id,
@@ -437,26 +469,11 @@ export async function getEdgeCatalog(): Promise<GitProjectCatalog> {
     httpsUrl: r.url,
     local: false,
     remote: true,
-    authorized: Boolean(r.token) || r.host === 'github',
+    authorized: Boolean(r.token),
+    remotes: [{ name: 'origin', url: r.url, isPrivate: isPrivateRemote(r.url, Boolean(r.token)) }],
   }))
 
-  const existingIds = new Set([...handleProjects.map((p) => p.id), ...remoteProjects.map((p) => p.id)])
-
-  const tempProjects: GitProjectView[] = tempRepos
-    .filter((r) => !existingIds.has(r.fingerprint) && !existingIds.has(r.remoteUrl))
-    .map((r) => ({
-      id: r.fingerprint,
-      name: r.name,
-      group: defaultFolder,
-      host: (r.provider === 'gitlab' ? 'gitlab' : 'github') as GitProjectHost,
-      localPath: '',
-      httpsUrl: r.remoteUrl,
-      local: false,
-      remote: true,
-      authorized: true,
-    }))
-
-  const allProjects = [...handleProjects, ...remoteProjects, ...tempProjects]
+  const allProjects = consolidateProjects([...handleProjects, ...remoteProjects])
 
   if (folders.length > 0) {
     const folderRank = new Map(folders.map((name, index) => [name, index]))
@@ -558,35 +575,31 @@ export async function getDirectoryHandle(repoId: string): Promise<FileSystemDire
   })
 }
 
-/**
- * List all saved directory handles metadata (without loading full handles)
- */
-export async function listDirectoryHandles(): Promise<Array<{ id: string; name: string; group?: string; order?: number; updatedAt: number }>> {
-  const db = await openHandlesDatabase()
-  if (!db) return []
-
-  return new Promise((resolve, reject) => {
+/** Compare directory entries rather than folder names; permissions may have expired. */
+async function findMatchingHandle(records: StoredRepoRecord[], handle: FileSystemDirectoryHandle): Promise<StoredRepoRecord | undefined> {
+  for (const record of records) {
     try {
-      const tx = db.transaction(HANDLES_STORE, 'readonly')
-      const store = tx.objectStore(HANDLES_STORE)
-      const request = store.getAll()
-      request.onsuccess = () => {
-        const records = (request.result || []) as StoredRepoRecord[]
-        resolve(
-          records.map((r) => ({
-            id: r.id,
-            name: r.name,
-            group: r.group,
-            order: r.order,
-            updatedAt: r.updatedAt,
-          }))
-        )
-      }
-      request.onerror = () => reject(request.error)
-    } catch (err) {
-      reject(err)
+      if (record.handle === handle || (typeof handle.isSameEntry === 'function' && (await handle.isSameEntry(record.handle)))) return record
+    } catch {
+      // Keep sources separate if the browser cannot establish identity.
     }
-  })
+  }
+  return undefined
+}
+
+async function listStoredDirectoryHandles(): Promise<StoredRepoRecord[]> {
+  const db = await openHandlesDatabase()
+  return db ? getAllFromStore<StoredRepoRecord>(db, HANDLES_STORE) : []
+}
+
+/** Reuse the stored identity for a folder; allow different folders with the same name. */
+export async function findDirectoryHandleId(handle: FileSystemDirectoryHandle): Promise<string | undefined> {
+  return (await findMatchingHandle(await listStoredDirectoryHandles(), handle))?.id
+}
+
+/** List saved directory metadata without exposing browser handles to consumers. */
+export async function listDirectoryHandles(): Promise<Array<{ id: string; name: string; group?: string; order?: number; updatedAt: number }>> {
+  return (await listStoredDirectoryHandles()).map(({ id, name, group, order, updatedAt }) => ({ id, name, group, order, updatedAt }))
 }
 
 /**
