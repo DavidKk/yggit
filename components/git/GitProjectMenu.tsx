@@ -2,22 +2,7 @@
 
 import { type DragEvent, type RefObject, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { AiOutlineCloudSync } from 'react-icons/ai'
-import {
-  LuChevronDown,
-  LuChevronRight,
-  LuClock3,
-  LuCloud,
-  LuExternalLink,
-  LuFolder,
-  LuGithub,
-  LuGitlab,
-  LuGlobe,
-  LuHardDrive,
-  LuLockKeyhole,
-  LuStar,
-  LuTrash2,
-  LuX,
-} from 'react-icons/lu'
+import { LuChevronDown, LuChevronRight, LuClock3, LuCloud, LuFolder, LuGithub, LuGitlab, LuGlobe, LuHardDrive, LuLockKeyhole, LuStar, LuTrash2, LuX } from 'react-icons/lu'
 import { TbCloudLock, TbFolderPlus } from 'react-icons/tb'
 
 const FOLDER_EXPAND_MS = 450
@@ -806,18 +791,14 @@ export function GitProjectMenu({
                                 >
                                   <button
                                     type="button"
-                                    disabled={isEdgeMode}
                                     onClick={(e) => {
                                       e.stopPropagation()
                                       if (!isEdgeMode && project.localPath) {
                                         void handleOpenLocalFolder(e, project.localPath)
                                       }
                                     }}
-                                    className={cn(
-                                      'flex size-6 items-center justify-center rounded transition-colors',
-                                      isEdgeMode ? 'cursor-not-allowed opacity-35 text-ink-soft' : 'cursor-pointer text-ink-soft hover:bg-[var(--overlay-08)] hover:text-accent'
-                                    )}
-                                    aria-label={isEdgeMode ? 'Edge 模式不支持打开本地文件夹' : '打开本地文件夹'}
+                                    className="flex size-6 cursor-pointer items-center justify-center rounded text-ink-soft transition-colors hover:bg-[var(--overlay-08)] hover:text-accent"
+                                    aria-label={isEdgeMode ? 'Edge 模式不支持打开本地系统文件夹（仅在 Local 模式可用）' : '打开本地文件夹'}
                                   >
                                     {isEdgeMode && project.authorized === false ? (
                                       <LuLockKeyhole className="size-3.5 text-warn" aria-hidden="true" />
@@ -937,16 +918,10 @@ export function GitProjectMenu({
                     <LuCloud className="size-4 shrink-0 text-accent" aria-label="开源远端" />
                   )}
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      <span className="truncate font-mono font-medium text-xs">{remote.name}</span>
-                      <span className={cn('rounded px-1 text-[0.62rem] font-sans font-medium', remote.isPrivate ? 'bg-warn/15 text-warn' : 'bg-accent/15 text-accent')}>
-                        {remote.isPrivate ? '私有' : '开源'}
-                      </span>
-                    </div>
+                    <span className="truncate font-mono font-medium text-xs text-ink block">{remote.name}</span>
                     <div className="truncate font-mono text-[0.68rem] text-ink-soft">{remote.webUrl.replace(/^https?:\/\//, '')}</div>
                   </div>
                 </div>
-                <LuExternalLink className="size-3.5 shrink-0 text-ink-soft" aria-hidden="true" />
               </button>
             ))}
           </div>

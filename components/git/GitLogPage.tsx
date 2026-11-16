@@ -31,7 +31,6 @@ import { getDriverMode, getGitDriver } from '@/lib/git/driver'
 import { isFileSystemAccessSupported } from '@/lib/git/indexeddb-handles'
 import { gitSelectionHash } from '@/lib/git/scope'
 import { addTemporaryRepo, parseRemoteUrl } from '@/lib/git/temporary-store'
-import { analyzeMergeTopology } from '@/lib/git/topology'
 import {
   GIT_WORKTREE_COMMIT,
   GIT_WORKTREE_HASH,
@@ -919,12 +918,11 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                       commit={selected}
                       commits={commits}
                       highlighted={Boolean(lineageHashes && lineageHashes.length > 0)}
-                      onHighlight={(active) => {
-                        if (!active) {
+                      onHighlight={(active, hashes) => {
+                        if (!active || !hashes) {
                           setLineageHashes(null)
                         } else {
-                          const topology = analyzeMergeTopology(selected, new Map(commits.map((c) => [c.hash, c])))
-                          setLineageHashes(topology.commitsIncluded)
+                          setLineageHashes(hashes)
                         }
                       }}
                       onLocate={(hash) => {

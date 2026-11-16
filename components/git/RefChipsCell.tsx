@@ -261,7 +261,19 @@ export function RefChipsCell({
               data-git-ref-menu-row=""
               className="flex h-[22px] cursor-pointer items-center rounded-sm outline-none hover:bg-[var(--overlay-10)]"
               style={{ height: BADGE_H }}
-              onClick={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.stopPropagation()
+                if (commit && onSelectCommit) {
+                  onSelectCommit(commit)
+                }
+              }}
+              onMouseEnter={() => {
+                const bName = chip.name || chip.label
+                if (bName) onBranchHoverStart?.(bName)
+              }}
+              onMouseLeave={() => {
+                onBranchHoverEnd?.()
+              }}
               onContextMenu={(event) => {
                 event.preventDefault()
                 event.stopPropagation()

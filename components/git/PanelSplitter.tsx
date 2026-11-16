@@ -19,6 +19,8 @@ export function PanelSplitter({ label, value, min, max, onResize, onResizeEnd, o
   const origin = useRef(0)
   const dragging = useRef(false)
   const moved = useRef(false)
+  const rafRef = useRef<number | null>(null)
+  const pendingDeltaRef = useRef(0)
 
   return (
     <div
@@ -36,6 +38,7 @@ export function PanelSplitter({ label, value, min, max, onResize, onResizeEnd, o
         dragging.current = true
         moved.current = false
         origin.current = event.clientX
+        pendingDeltaRef.current = 0
         event.currentTarget.setPointerCapture(event.pointerId)
         document.body.style.cursor = 'col-resize'
         document.body.style.userSelect = 'none'
@@ -46,11 +49,27 @@ export function PanelSplitter({ label, value, min, max, onResize, onResizeEnd, o
         if (!delta) return
         origin.current = event.clientX
         moved.current = true
-        onResize(delta)
+        pendingDeltaRef.current += delta
+        if (rafRef.current === null) {
+          rafRef.current = requestAnimationFrame(() => {
+            rafRef.current = null
+            const d = pendingDeltaRef.current
+            pendingDeltaRef.current = 0
+            if (d) onResize(d)
+          })
+        }
       }}
       onPointerUp={(event) => {
         if (!dragging.current) return
         dragging.current = false
+        if (rafRef.current !== null) {
+          cancelAnimationFrame(rafRef.current)
+          rafRef.current = null
+        }
+        if (pendingDeltaRef.current) {
+          onResize(pendingDeltaRef.current)
+          pendingDeltaRef.current = 0
+        }
         if (event.currentTarget.hasPointerCapture(event.pointerId)) {
           event.currentTarget.releasePointerCapture(event.pointerId)
         }
@@ -61,6 +80,11 @@ export function PanelSplitter({ label, value, min, max, onResize, onResizeEnd, o
       onPointerCancel={(event) => {
         if (!dragging.current) return
         dragging.current = false
+        if (rafRef.current !== null) {
+          cancelAnimationFrame(rafRef.current)
+          rafRef.current = null
+        }
+        pendingDeltaRef.current = 0
         if (event.currentTarget.hasPointerCapture(event.pointerId)) {
           event.currentTarget.releasePointerCapture(event.pointerId)
         }

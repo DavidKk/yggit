@@ -13,7 +13,7 @@ type Props = {
   commit: GitCommit
   commits: GitCommit[]
   highlighted: boolean
-  onHighlight: (active: boolean) => void
+  onHighlight: (active: boolean, hashes?: string[]) => void
   onLocate: (hash: string) => void
   onClose?: () => void
 }
@@ -72,13 +72,13 @@ export function GitMergePanel({ commit, commits, highlighted, onHighlight, onLoc
           size="xs"
           className={cn(
             'h-7 gap-1.5 whitespace-nowrap px-2.5 text-xs font-medium transition-colors cursor-pointer',
-            highlighted ? 'bg-accent/15 text-accent hover:bg-accent/25' : 'text-ink-soft hover:text-ink hover:bg-[var(--overlay-06)]'
+            highlighted ? 'bg-accent/20 text-accent font-semibold border border-accent/40 shadow-xs' : 'text-ink-soft hover:text-ink hover:bg-[var(--overlay-06)]'
           )}
           aria-pressed={highlighted}
-          onClick={() => onHighlight(!highlighted)}
+          onClick={() => onHighlight(!highlighted, topology.commitsIncluded)}
         >
-          {highlighted ? <LuX className="size-3.5" aria-hidden /> : <LuEye className="size-3.5" aria-hidden />}
-          <span>{highlighted ? t('git.commit.clearHighlight') : t('git.commit.highlightLineage')}</span>
+          <LuEye className={cn('size-3.5 transition-colors', highlighted ? 'text-accent' : 'text-ink-soft')} aria-hidden />
+          <span>{t('git.commit.highlightLineage')}</span>
         </Button>
 
         {onClose ? (

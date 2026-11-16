@@ -388,11 +388,11 @@ function GitGraphComponent({
   const [graphView, setGraphView] = useGitUiPref('graph.viewWidth', GRAPH_DEFAULT_WIDTH, isPositiveNumber)
   const prefsReady = useGitUiReady()
   const [graphEdge, setGraphEdge] = useState({ left: false, right: false })
-  const [hoverHash, setHoverHash] = useState<string | null>(null)
   const frameRef = useRef<HTMLDivElement>(null)
   const graphScrollRef = useRef<HTMLDivElement>(null)
   const branchRef = useRef(branchWidth)
   const graphRef = useRef(graphView)
+  const cachedRoomRef = useRef<number | null>(null)
   const panRef = useRef<{ x: number; y: number; left: number; moved: boolean } | null>(null)
   const columns = `var(--git-branch-w) var(--git-graph-w) minmax(${MESSAGE_MIN}px, 1fr)`
 
@@ -412,7 +412,7 @@ function GitGraphComponent({
   }, [branchWidth, graphView])
   const checkedOut = useMemo(() => new Set(worktreeBranches), [worktreeBranches])
   const branchAt = useMemo(() => branchAtCommits(commits, points, remoteNames), [commits, points, remoteNames])
-  const room = () => frameRef.current?.clientWidth ?? 960
+  const room = () => cachedRoomRef.current ?? (cachedRoomRef.current = frameRef.current?.clientWidth ?? 960)
   const syncGraphEdge = () => {
     const node = graphScrollRef.current
     if (!node) return
@@ -435,8 +435,12 @@ function GitGraphComponent({
     const max = Math.max(GRAPH_MIN, room() - branchRef.current - MESSAGE_MIN)
     applyGraph(Math.min(max, Math.max(GRAPH_MIN, graphRef.current + delta)))
   }
-  const commitBranch = () => setBranchWidth(branchRef.current)
+  const commitBranch = () => {
+    cachedRoomRef.current = null
+    setBranchWidth(branchRef.current)
+  }
   const commitGraph = () => {
+    cachedRoomRef.current = null
     setGraphView(graphRef.current)
     requestAnimationFrame(syncGraphEdge)
   }
@@ -663,15 +667,18 @@ function GitGraphComponent({
                       ? 'bg-[color-mix(in_oklab,var(--ink)_10%,transparent)]'
                       : marked
                         ? 'bg-[color-mix(in_oklab,var(--ink)_8%,transparent)]'
-                        : 'group-hover/commit:bg-[color-mix(in_oklab,var(--ink)_6%,transparent)]'
+                        : ''
                 )
                 return (
-                  <li
-                    key={stash.name}
-                    className="relative z-0 h-[26px] max-h-[26px] min-w-0 shrink-0 overflow-visible hover:z-10"
-                    onPointerEnter={() => setHoverHash(stash.hash)}
-                    onPointerLeave={() => setHoverHash((prev) => (prev === stash.hash ? null : prev))}
-                  >
+                  <li key={stash.name} className="group/commit relative z-0 h-[26px] max-h-[26px] min-w-0 shrink-0 overflow-visible hover:z-10">
+                    {/* Stash node to message hover highlight pill */}
+                    <div
+                      className="pointer-events-none absolute inset-y-0.5 z-0 rounded-l-full rounded-r-md transition-opacity duration-150 opacity-0 group-hover/commit:opacity-100 bg-[color-mix(in_oklab,var(--accent)_12%,var(--overlay-06))]"
+                      style={{
+                        left: `calc(var(--git-branch-w) + ${xAt(stashPoint?.lane ?? 0) - 10}px)`,
+                        right: '0.5rem',
+                      }}
+                    />
                     {dateDivider}
                     <div
                       role="row"
@@ -755,16 +762,19 @@ function GitGraphComponent({
                             ? 'bg-[color-mix(in_oklab,var(--accent)_16%,transparent)] ring-1 ring-inset ring-accent/35'
                             : marked
                               ? 'bg-[color-mix(in_oklab,var(--ink)_8%,transparent)]'
-                              : 'group-hover/commit:bg-[color-mix(in_oklab,var(--ink)_6%,transparent)]'
+                              : ''
               )
-              const isHovered = hoverHash === commit.hash || isContextActive
+              const isHovered = isContextActive
               return (
-                <li
-                  key={commit.hash}
-                  className="relative z-0 h-[26px] max-h-[26px] min-w-0 shrink-0 overflow-visible hover:z-10"
-                  onPointerEnter={() => setHoverHash(commit.hash)}
-                  onPointerLeave={() => setHoverHash((prev) => (prev === commit.hash ? null : prev))}
-                >
+                <li key={commit.hash} className="group/commit relative z-0 h-[26px] max-h-[26px] min-w-0 shrink-0 overflow-visible hover:z-10">
+                  {/* Commit node to message hover highlight pill */}
+                  <div
+                    className="pointer-events-none absolute inset-y-0.5 z-0 rounded-l-full rounded-r-md transition-opacity duration-150 opacity-0 group-hover/commit:opacity-100 bg-[color-mix(in_oklab,var(--accent)_12%,var(--overlay-06))]"
+                    style={{
+                      left: `calc(var(--git-branch-w) + ${xAt(point?.lane ?? 0) - 10}px)`,
+                      right: '0.5rem',
+                    }}
+                  />
                   {dateDivider}
                   <div
                     role="row"
@@ -983,7 +993,7 @@ function GitGraphComponent({
                   const point = points[index]
                   if (!point) return null
                   const isContextActive = contextMenu?.type === 'commit' && contextMenu.commit.hash === commit.hash
-                  const isHovered = hoverHash === commit.hash || isContextActive
+                  const isHovered = isContextActive
                   if (chips.length === 0 && (!branch || !isHovered)) return null
                   const y = scene.commitRow[index] * ROW + ROW / 2
                   const isMerge = commit.parents.length > 1

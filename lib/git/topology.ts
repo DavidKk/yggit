@@ -158,18 +158,22 @@ export function getBranchCommitHashes(branchName: string, commits: GitCommit[]):
   const result = new Set<string>()
   if (!branchName || commits.length === 0) return result
 
-  const cleanName = branchName
-    .replace(/^refs\/(heads|remotes)\//, '')
-    .replace(/^HEAD -> /, '')
-    .trim()
+  const cleanRef = (ref: string) =>
+    ref
+      .replace(/^refs\/(heads|remotes)\//, '')
+      .replace(/^HEAD -> /, '')
+      .trim()
+  const target = cleanRef(branchName)
+  const targetBase = target.includes('/') ? target.slice(target.indexOf('/') + 1) : target
   const startHashes: string[] = []
 
   for (const commit of commits) {
-    if (
-      commit.refs.some(
-        (r) => r === cleanName || r === `HEAD -> ${cleanName}` || r === `refs/heads/${cleanName}` || r === `refs/remotes/${cleanName}` || r.endsWith(`/${cleanName}`)
-      )
-    ) {
+    const match = commit.refs.some((r) => {
+      const cRef = cleanRef(r)
+      const cBase = cRef.includes('/') ? cRef.slice(cRef.indexOf('/') + 1) : cRef
+      return cRef === target || cBase === target || cRef === targetBase || cBase === targetBase
+    })
+    if (match) {
       startHashes.push(commit.hash)
     }
   }
