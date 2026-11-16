@@ -74,4 +74,10 @@ export type GitAgentMessages = {
   analyzing: string
   analyzingLog: string
   executedTool: string
+  send: string
+  quickModelPopoverTitle: string
+  quickSwitchModel: string
+  channelProfile: string
+  manageSettingsLink: string
+  settingsPage: string
 }

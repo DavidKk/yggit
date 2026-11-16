@@ -1,14 +1,14 @@
 'use client'
 
-import Link from 'next/link'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { LuBot, LuPanelRight, LuSend, LuSettings, LuSparkles, LuX } from 'react-icons/lu'
+import { LuBot, LuPanelRight, LuSend, LuSparkles, LuX } from 'react-icons/lu'
 
 import { useT } from '@/components/i18n/LocaleProvider'
-import { Spinner } from '@/components/sk'
+import { Spinner, Tooltip } from '@/components/sk'
 import { useAgent } from '@/lib/agent/agent-context'
 import { cn } from '@/lib/utils'
 
+import { AgentQuickModelPopover } from './AgentQuickModelPopover'
 import { FormattedMessage } from './AgentWorkspace'
 
 interface Props {
@@ -146,6 +146,10 @@ export function GitAgentBar({ repoPath, className }: Props) {
     if (!expanded && !quickCardOpen) return
     function handleClickOutside(event: PointerEvent) {
       const target = event.target as Node
+      const element = target as Element
+      if (element?.closest?.('[data-agent-popover], [data-base-ui-positioner], [data-base-ui-popup]')) {
+        return
+      }
       const isInsideForm = formRef.current?.contains(target)
       const isInsideCard = containerRef.current?.contains(target)
 
@@ -217,31 +221,33 @@ export function GitAgentBar({ repoPath, className }: Props) {
 
           {/* Unified Header Control Pill */}
           <div className="flex items-center rounded-lg border border-line bg-panel-2/70 p-0.5 shadow-2xs">
-            <button
-              type="button"
-              onClick={() => {
-                setQuickCardOpen(false)
-                setDockMode('dock-right')
-              }}
-              className="flex items-center gap-1.5 rounded px-2 py-0.5 text-xs font-medium text-ink-soft hover:bg-panel hover:text-accent active:scale-95 transition-all cursor-pointer"
-              title={t('gitAgent.deepDiscussion')}
-            >
-              <LuPanelRight className="size-3.5 text-accent" />
-              <span>{t('gitAgent.deepDiscussion')}</span>
-            </button>
-            <span className="h-3.5 w-px bg-line/80 my-auto mx-0.5" aria-hidden="true" />
-            <button
-              type="button"
-              onClick={() => {
-                setQuickCardOpen(false)
-                closeBar()
-              }}
-              className="rounded p-1 text-ink-soft hover:bg-panel hover:text-ink active:scale-95 transition-all cursor-pointer"
-              title={t('common.close') || '关闭'}
-              aria-label="Close"
-            >
-              <LuX className="size-3.5" />
-            </button>
+            <Tooltip content={t('gitAgent.deepDiscussion')} placement="top">
+              <button
+                type="button"
+                onClick={() => {
+                  setQuickCardOpen(false)
+                  setDockMode('dock-right')
+                }}
+                className="flex size-6 items-center justify-center rounded text-ink-soft hover:bg-panel hover:text-accent active:scale-95 transition-all cursor-pointer"
+                aria-label={t('gitAgent.deepDiscussion')}
+              >
+                <LuPanelRight className="size-3.5 text-accent" />
+              </button>
+            </Tooltip>
+            <span className="h-3 w-px bg-line/80 my-auto mx-0.5" aria-hidden="true" />
+            <Tooltip content={t('common.close') || '关闭'} placement="top">
+              <button
+                type="button"
+                onClick={() => {
+                  setQuickCardOpen(false)
+                  closeBar()
+                }}
+                className="flex size-6 items-center justify-center rounded text-ink-soft hover:bg-panel hover:text-ink active:scale-95 transition-all cursor-pointer"
+                aria-label={t('common.close') || '关闭'}
+              >
+                <LuX className="size-3.5" />
+              </button>
+            </Tooltip>
           </div>
         </div>
 
@@ -270,27 +276,27 @@ export function GitAgentBar({ repoPath, className }: Props) {
             className="min-w-0 flex-1 bg-transparent px-1 text-xs text-ink placeholder:text-ink-soft/60 focus:outline-none"
           />
 
-          {/* Settings Link */}
-          <Link
-            href="/settings"
-            className="flex size-7 shrink-0 items-center justify-center rounded-full text-ink-soft hover:bg-[var(--overlay-06)] hover:text-ink active:scale-95 transition-all"
-            title={t('gitAgent.settingsTitle')}
-            aria-label={t('gitAgent.settingsTitle')}
-          >
-            <LuSettings className="size-3.5" />
-          </Link>
+          {/* Quick Model & Platform Popover */}
+          <AgentQuickModelPopover />
 
           {/* Send Button */}
-          {input.trim() ? (
-            <button
-              type="submit"
-              disabled={isProcessing}
-              className="flex size-7 shrink-0 items-center justify-center rounded-full bg-accent text-accent-ink shadow-xs hover:brightness-110 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
-              aria-label="Send query"
-            >
-              {isProcessing ? <Spinner className="size-3" /> : <LuSend className="size-3.5" />}
-            </button>
-          ) : null}
+          <Tooltip content={t('gitAgent.send')} placement="top">
+            <span className="inline-flex">
+              <button
+                type="submit"
+                disabled={!input.trim() || isProcessing}
+                className={cn(
+                  'flex size-7 shrink-0 items-center justify-center rounded-full transition-all',
+                  input.trim() && !isProcessing
+                    ? 'bg-accent text-accent-ink shadow-xs hover:brightness-110 active:scale-95 cursor-pointer'
+                    : 'bg-[var(--overlay-06)] text-ink-soft/40 cursor-not-allowed opacity-50'
+                )}
+                aria-label={t('gitAgent.send')}
+              >
+                {isProcessing ? <Spinner className="size-3 text-accent" /> : <LuSend className="size-3.5" />}
+              </button>
+            </span>
+          </Tooltip>
         </form>
       </div>
     )
@@ -363,29 +369,28 @@ export function GitAgentBar({ repoPath, className }: Props) {
           tabIndex={contentVisible ? 0 : -1}
         />
 
-        {/* Settings Link */}
-        <Link
-          href="/settings"
-          className="flex size-7 shrink-0 items-center justify-center rounded-full text-ink-soft hover:bg-[var(--overlay-06)] hover:text-ink active:scale-95 transition-all"
-          title={t('gitAgent.settingsTitle')}
-          aria-label={t('gitAgent.settingsTitle')}
-          tabIndex={contentVisible ? 0 : -1}
-        >
-          <LuSettings className="size-3.5" />
-        </Link>
+        {/* Quick Model & Platform Popover */}
+        <AgentQuickModelPopover tabIndex={contentVisible ? 0 : -1} />
 
         {/* Send Button */}
-        {input.trim() ? (
-          <button
-            type="submit"
-            disabled={isProcessing}
-            className="flex size-7 shrink-0 items-center justify-center rounded-full bg-accent text-accent-ink shadow-xs hover:brightness-110 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
-            aria-label="Send query"
-            tabIndex={contentVisible ? 0 : -1}
-          >
-            {isProcessing ? <Spinner className="size-3" /> : <LuSend className="size-3.5" />}
-          </button>
-        ) : null}
+        <Tooltip content={t('gitAgent.send')} placement="top">
+          <span className="inline-flex">
+            <button
+              type="submit"
+              disabled={!input.trim() || isProcessing}
+              className={cn(
+                'flex size-7 shrink-0 items-center justify-center rounded-full transition-all',
+                input.trim() && !isProcessing
+                  ? 'bg-accent text-accent-ink shadow-xs hover:brightness-110 active:scale-95 cursor-pointer'
+                  : 'bg-[var(--overlay-06)] text-ink-soft/40 cursor-not-allowed opacity-50'
+              )}
+              aria-label={t('gitAgent.send')}
+              tabIndex={contentVisible ? 0 : -1}
+            >
+              {isProcessing ? <Spinner className="size-3 text-accent" /> : <LuSend className="size-3.5" />}
+            </button>
+          </span>
+        </Tooltip>
       </div>
     </form>
   )

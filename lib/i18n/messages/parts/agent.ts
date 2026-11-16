@@ -74,6 +74,12 @@ export const gitAgentZh: { gitAgent: GitAgentMessages } = {
     analyzing: '分析中...',
     analyzingLog: '正在分析 Git 仓库与提交记录...',
     executedTool: '已执行 Git 分析：',
+    send: '发送',
+    quickModelPopoverTitle: '模型接入与切换',
+    quickSwitchModel: '快速切换模型',
+    channelProfile: '接入配置 / 渠道',
+    manageSettingsLink: '管理自定义 API Key / 隐私脱敏',
+    settingsPage: '设置页',
   },
 }
 
@@ -152,6 +158,12 @@ export const gitAgentEn: { gitAgent: GitAgentMessages } = {
     analyzing: 'Analyzing...',
     analyzingLog: 'Analyzing Git repository and commits...',
     executedTool: 'Executed Git tool: ',
+    send: 'Send',
+    quickModelPopoverTitle: 'Model Connections & Switcher',
+    quickSwitchModel: 'Switch Model',
+    channelProfile: 'Profile / Provider',
+    manageSettingsLink: 'Manage Custom API Keys & Privacy',
+    settingsPage: 'Settings',
   },
 }
 
