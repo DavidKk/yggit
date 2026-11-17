@@ -38,7 +38,7 @@ function commitMatches(commit: GitCommit, needle: string) {
   const terms = needle.trim().toLowerCase().split(/\s+/).filter(Boolean)
   if (terms.length === 0) return true
 
-  const hay = [commit.hash, commit.short, commit.subject, commit.author, commit.date, ...(commit.refs || []), ...(commit.parents || [])].join(' ').toLowerCase()
+  const hay = [commit.hash, commit.short, commit.subject, commit.author, commit.date, ...(commit.refs || [])].join(' ').toLowerCase()
 
   return terms.every((term) => {
     const clean = term.replace(/^#/, '')
@@ -185,7 +185,10 @@ export function GitHistory({
     if (!panel) return
     function onFind() {
       setFindOpen(true)
-      window.requestAnimationFrame(() => findInputRef.current?.focus({ preventScroll: true }))
+      window.requestAnimationFrame(() => {
+        findInputRef.current?.focus({ preventScroll: true })
+        findInputRef.current?.select()
+      })
     }
     panel.addEventListener(GIT_FIND_EVENT, onFind)
     return () => panel.removeEventListener(GIT_FIND_EVENT, onFind)

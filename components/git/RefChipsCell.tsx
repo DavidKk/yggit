@@ -1,29 +1,25 @@
 'use client'
 
-import { Fragment, type ReactNode, type RefObject, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import React, { Fragment, type ReactNode, type RefObject, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { LuClock, LuCloud, LuDiamond, LuGitBranch, LuHash, LuMonitor, LuTag, LuText, LuUser } from 'react-icons/lu'
+import { LuChevronRight, LuCloud, LuDiamond, LuMonitor, LuTag } from 'react-icons/lu'
 
 import { useT } from '@/components/i18n/LocaleProvider'
 import { useNotification } from '@/components/notification/useNotification'
-import { copyToClipboard } from '@/lib/clipboard'
+import { useOptionalAgent } from '@/lib/agent/agent-context'
+import { buildBranchContextMenu, type FloatingMenuItem } from '@/lib/git/branch-context-menu'
+import { useContextMenuConfig } from '@/lib/git/context-menu-config'
 import type { layoutCommitGraph } from '@/lib/git/graph'
 import { DOT } from '@/lib/git/graph-scene'
 import type { GitCommit } from '@/lib/git/types'
 import { cn } from '@/lib/utils'
 
+export type { FloatingMenuItem }
+
 const BADGE_H = DOT
 
 type RefChip = { name: string; label: string; kind: 'head' | 'local' | 'remote' | 'tag' }
 export type FloatingAnchor = { x: number; y: number; width?: number }
-export type FloatingMenuItem = {
-  key: string
-  label: string
-  icon: ReactNode
-  onSelect: () => Promise<void> | void
-  group?: string
-  dividerBefore?: boolean
-}
 
 function RefChipView({
   chip,
@@ -35,9 +31,7 @@ function RefChipView({
   chip: RefChip
   checkedOut: Set<string>
   tone?: 'default' | 'stack'
-  /** Lane / node color — branch badges follow the graph node. */
   color?: string
-  /** Soften historical / off-path labels. */
   dimmed?: boolean
 }) {
   const Icon = chip.kind === 'tag' ? LuTag : chip.kind === 'remote' ? LuCloud : checkedOut.has(chip.name) ? LuMonitor : LuDiamond
@@ -85,6 +79,9 @@ export function RefChipsCell({
 }) {
   const t = useT()
   const notify = useNotification()
+  const [contextConfig] = useContextMenuConfig()
+  const agent = useOptionalAgent()
+
   const triggerRef = useRef<HTMLElement | null>(null)
   const openTimerRef = useRef<number | null>(null)
   const closeTimerRef = useRef<number | null>(null)
@@ -103,6 +100,7 @@ export function RefChipsCell({
     setDropdownAnchor({ x: rect.left + window.scrollX, y: rect.top + window.scrollY, width: rect.width })
     setDropdownOpen(true)
   }
+
   const closeDropdown = useCallback(
     (force = false) => {
       if (!force && contextMenu) return
@@ -111,12 +109,14 @@ export function RefChipsCell({
     },
     [contextMenu]
   )
+
   const closeContextMenu = useCallback(() => {
     setContextMenu(null)
     setDropdownOpen(false)
     setDropdownAnchor(null)
     onBranchHoverEnd?.()
   }, [onBranchHoverEnd])
+
   const closeAll = useCallback(() => {
     if (openTimerRef.current !== null) window.clearTimeout(openTimerRef.current)
     if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current)
@@ -127,6 +127,7 @@ export function RefChipsCell({
     setDropdownAnchor(null)
     onBranchHoverEnd?.()
   }, [onBranchHoverEnd])
+
   const scheduleCloseDropdown = () => {
     if (chips.length === 0) return
     if (openTimerRef.current !== null) window.clearTimeout(openTimerRef.current)
@@ -134,6 +135,7 @@ export function RefChipsCell({
     if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current)
     closeTimerRef.current = window.setTimeout(() => closeDropdown(), 180)
   }
+
   useEffect(
     () => () => {
       if (openTimerRef.current !== null) window.clearTimeout(openTimerRef.current)
@@ -145,11 +147,11 @@ export function RefChipsCell({
   useEffect(() => {
     if (!dropdownOpen && !contextMenu) return
     const handleScroll = (event: Event) => {
-      if (event.target instanceof Element && event.target.closest('[data-git-floating-menu]')) return
+      if (event.target instanceof Element && (event.target.closest('[data-git-floating-menu]') || event.target.closest('[data-git-floating-submenu]'))) return
       closeAll()
     }
     const handleWheel = (event: WheelEvent) => {
-      if (event.target instanceof Element && event.target.closest('[data-git-floating-menu]')) return
+      if (event.target instanceof Element && (event.target.closest('[data-git-floating-menu]') || event.target.closest('[data-git-floating-submenu]'))) return
       if (Math.hypot(event.deltaX, event.deltaY) > 3) {
         closeAll()
       }
@@ -162,69 +164,34 @@ export function RefChipsCell({
     }
   }, [dropdownOpen, contextMenu, closeAll])
 
-  async function copyValue(value: string) {
-    const ok = await copyToClipboard(value)
-    if (ok) notify.success(t('common.copied'))
-    else notify.error(t('common.copyFailed'))
-  }
-
   function contextItems(chip: RefChip): FloatingMenuItem[] {
-    const items: FloatingMenuItem[] = [
-      {
-        key: 'branch',
-        label: `${t('git.graph.copyBranchName')} (${chip.label})`,
-        icon: <LuGitBranch className="size-3.5 shrink-0" aria-hidden />,
-        onSelect: () => void copyValue(chip.label),
-        group: '复制',
+    return buildBranchContextMenu({
+      branchName: chip.label,
+      commit,
+      config: contextConfig,
+      onNotify: (type, msg) => {
+        if (type === 'success') notify.success(msg)
+        else notify.error(msg)
       },
-    ]
-    if (commit) {
-      items.push(
-        {
-          key: 'subject',
-          label: t('git.graph.copyCommitSubject'),
-          icon: <LuText className="size-3.5 shrink-0" aria-hidden />,
-          onSelect: () => void copyValue(commit.subject),
-          group: '复制',
-        },
-        {
-          key: 'hash',
-          label: t('git.graph.copyCommitHash'),
-          icon: <LuHash className="size-3.5 shrink-0" aria-hidden />,
-          onSelect: () => void copyValue(commit.hash),
-          group: '复制',
-        },
-        {
-          key: 'short-hash',
-          label: `${t('git.graph.copyCommitHash')} (Short: ${commit.short || commit.hash.slice(0, 7)})`,
-          icon: <LuHash className="size-3.5 shrink-0" aria-hidden />,
-          onSelect: () => void copyValue(commit.short || commit.hash.slice(0, 7)),
-          group: '复制',
-        },
-        {
-          key: 'author',
-          label: `${t('git.graph.copyAuthor')} (${commit.author})`,
-          icon: <LuUser className="size-3.5 shrink-0" aria-hidden />,
-          onSelect: () => void copyValue(commit.author),
-          group: '复制',
+      onCheckoutBranch: (branch) => {
+        if (agent) {
+          agent.setDockMode('dock-right')
+          void agent.sendMessage(`帮我跳转到 ${branch}`)
         }
-      )
-      if (commit.date) {
-        items.push({
-          key: 'date',
-          label: `${t('git.graph.copyDate')} (${commit.date})`,
-          icon: <LuClock className="size-3.5 shrink-0" aria-hidden />,
-          onSelect: () => void copyValue(commit.date),
-          group: '复制',
-        })
-      }
-    }
-    return items
+      },
+      onAgentPrompt: (prompt) => {
+        if (agent) {
+          agent.setDockMode('dock-right')
+          void agent.sendMessage(prompt)
+        }
+      },
+    })
   }
 
   if (chips.length === 0) return null
   const first = chips[0]
   const extra = chips.length - 1
+
   return (
     <>
       <span
@@ -281,6 +248,7 @@ export function RefChipsCell({
           ) : null}
         </span>
       </span>
+
       {dropdownOpen && dropdownAnchor ? (
         <FloatingMenu
           anchor={dropdownAnchor}
@@ -298,35 +266,19 @@ export function RefChipsCell({
           {chips.map((chip) => (
             <div
               key={`${chip.kind}:${chip.name}`}
-              data-git-ref-menu-row=""
-              className="flex h-[22px] cursor-pointer items-center rounded-sm outline-none hover:bg-[var(--overlay-10)]"
-              style={{ height: BADGE_H }}
-              onClick={(event) => {
-                event.stopPropagation()
-                if (commit && onSelectCommit) {
-                  onSelectCommit(commit)
-                }
-              }}
-              onMouseEnter={() => {
-                const bName = chip.name || chip.label
-                if (bName) onBranchHoverStart?.(bName)
-              }}
-              onMouseLeave={() => {
-                onBranchHoverEnd?.()
-              }}
-              onContextMenu={(event) => {
-                event.preventDefault()
-                event.stopPropagation()
-                setDropdownOpen(true)
-                const rect = event.currentTarget.getBoundingClientRect()
+              className="px-2 py-1 hover:bg-[var(--overlay-08)] cursor-pointer text-xs"
+              onClick={(e) => {
+                e.stopPropagation()
+                const rect = e.currentTarget.getBoundingClientRect()
                 setContextMenu({ chip, anchor: { x: rect.left, y: rect.bottom + 2 } })
               }}
             >
-              <RefChipView chip={chip} checkedOut={checkedOut} tone="stack" color={color} />
+              <RefChipView chip={chip} checkedOut={checkedOut} color={color} />
             </div>
           ))}
         </FloatingMenu>
       ) : null}
+
       {contextMenu ? (
         <FloatingMenu anchor={contextMenu.anchor} ariaLabel={contextMenu.chip.name} color={color} onClose={closeContextMenu} items={contextItems(contextMenu.chip)} />
       ) : null}
@@ -334,6 +286,13 @@ export function RefChipsCell({
   )
 }
 
+/**
+ * Standard hierarchical context menu component:
+ * - Width: 220–260px (default w-[236px])
+ * - Item height: 32–36px (default h-[34px])
+ * - Cascading submenus with automatic left/right overflow flip
+ * - Secondary confirmation for dangerous operations
+ */
 export function FloatingMenu({
   anchor,
   ariaLabel,
@@ -378,6 +337,7 @@ export function FloatingMenu({
     const handlePointerDown = (event: PointerEvent) => {
       if (!(event.target instanceof Element)) return
       if (menuRef.current?.contains(event.target)) return
+      if (event.target.closest('[data-git-floating-submenu]')) return
       if (ignoreRef?.current?.contains(event.target)) return
       onClose()
     }
@@ -385,11 +345,11 @@ export function FloatingMenu({
       if (event.key === 'Escape') onClose()
     }
     const handleScroll = (event: Event) => {
-      if (event.target instanceof Element && menuRef.current?.contains(event.target)) return
+      if (event.target instanceof Element && (menuRef.current?.contains(event.target) || event.target.closest('[data-git-floating-submenu]'))) return
       onClose()
     }
     const handleWheel = (event: WheelEvent) => {
-      if (event.target instanceof Element && menuRef.current?.contains(event.target)) return
+      if (event.target instanceof Element && (menuRef.current?.contains(event.target) || event.target.closest('[data-git-floating-submenu]'))) return
       if (Math.hypot(event.deltaX, event.deltaY) > 3) {
         onClose()
       }
@@ -414,12 +374,10 @@ export function FloatingMenu({
       data-git-floating-menu=""
       className={cn(
         variant === 'overlay'
-          ? 'absolute z-[100] min-w-48 max-w-[min(24rem,calc(100vw-16px))] max-h-[min(240px,calc(100vh-16px))] overflow-y-auto rounded-sm p-0 outline-none'
-          : 'fixed z-[100] min-w-48 max-w-[min(20rem,calc(100vw-16px))] max-h-[min(224px,calc(100vh-16px))] overflow-y-auto rounded-sm border border-line p-0.5 shadow-[var(--shadow-menu)] outline-none'
+          ? 'absolute z-[100] min-w-48 max-w-[min(24rem,calc(100vw-16px))] max-h-[min(240px,calc(100vh-16px))] overflow-y-auto rounded-lg p-0 outline-none'
+          : 'fixed z-[100] w-[236px] min-w-[220px] max-w-[min(260px,calc(100vw-16px))] max-h-[min(480px,calc(100vh-16px))] overflow-y-auto overflow-x-visible rounded-xl border border-line/80 bg-panel/95 p-1.5 shadow-2xl backdrop-blur-md outline-none animate-in fade-in zoom-in-95 duration-100'
       )}
       style={{
-        color,
-        background: `color-mix(in oklab, ${color} 24%, var(--panel-2))`,
         left: position.x,
         top: position.y,
         minWidth: variant === 'overlay' ? anchor.width : undefined,
@@ -436,23 +394,153 @@ export function FloatingMenu({
             return (
               <Fragment key={item.key}>
                 {showDivider ? <div className="my-1 border-t border-line/60" role="separator" /> : null}
-                <button
-                  type="button"
-                  role="menuitem"
-                  className="flex w-full min-w-0 cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-left text-[12px] font-medium leading-none text-ink transition-colors hover:bg-[var(--overlay-10)] focus-visible:bg-[var(--overlay-10)] focus-visible:outline-none"
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    onClose()
-                    void item.onSelect()
-                  }}
-                >
-                  {item.icon}
-                  <span className="min-w-0 truncate">{item.label}</span>
-                </button>
+                <FloatingMenuItemRow item={item} color={color} onClose={onClose} />
               </Fragment>
             )
           })
         : children}
+    </div>,
+    document.body
+  )
+}
+
+function FloatingMenuItemRow({ item, onClose, color }: { item: FloatingMenuItem; onClose: () => void; color: string }) {
+  const rowRef = useRef<HTMLButtonElement | null>(null)
+  const [showSubmenu, setShowSubmenu] = useState(false)
+  const [confirming, setConfirming] = useState(false)
+  const closeTimerRef = useRef<number | null>(null)
+
+  const hasChildren = Boolean(item.children && item.children.length > 0)
+
+  const handleMouseEnter = () => {
+    if (closeTimerRef.current !== null) {
+      window.clearTimeout(closeTimerRef.current)
+      closeTimerRef.current = null
+    }
+    if (hasChildren) {
+      setShowSubmenu(true)
+    }
+  }
+
+  const handleMouseLeave = () => {
+    if (hasChildren) {
+      closeTimerRef.current = window.setTimeout(() => {
+        setShowSubmenu(false)
+      }, 180)
+    }
+    setConfirming(false)
+  }
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (hasChildren) {
+      setShowSubmenu(!showSubmenu)
+      return
+    }
+
+    if (item.danger && item.needsConfirm && !confirming) {
+      setConfirming(true)
+      return
+    }
+
+    onClose()
+    void item.onSelect?.()
+  }
+
+  return (
+    <div className="relative w-full" onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+      <button
+        ref={rowRef}
+        type="button"
+        role="menuitem"
+        disabled={item.disabled}
+        onClick={handleClick}
+        className={cn(
+          'flex h-[34px] w-full min-w-0 cursor-pointer items-center justify-between gap-2 rounded-md px-2.5 py-1 text-left text-xs font-medium transition-colors select-none',
+          item.danger ? (confirming ? 'bg-fail text-white font-semibold' : 'text-fail hover:bg-fail/15 hover:text-fail') : 'text-ink hover:bg-[var(--overlay-10)] hover:text-ink',
+          item.disabled && 'opacity-40 cursor-not-allowed'
+        )}
+      >
+        <div className="flex items-center gap-2 min-w-0 flex-1 truncate">
+          {item.icon}
+          <span className="truncate">{confirming ? item.confirmText || '确定执行？再次点击确认' : item.label}</span>
+        </div>
+
+        <div className="flex items-center gap-1.5 shrink-0 ml-1">
+          {item.badge && <span className="rounded bg-[var(--overlay-10)] px-1.5 py-0.5 text-[10px] font-mono font-medium text-ink-soft">{item.badge}</span>}
+          {item.shortcut && <span className="text-[11px] font-mono text-ink-soft/70">{item.shortcut}</span>}
+          {hasChildren && <LuChevronRight className="size-3.5 text-ink-soft/70 shrink-0" aria-hidden />}
+        </div>
+      </button>
+
+      {/* Cascading Submenu Flyout */}
+      {hasChildren && showSubmenu && rowRef.current && (
+        <FloatingSubmenu anchorRef={rowRef} items={item.children!} color={color} onClose={onClose} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave} />
+      )}
+    </div>
+  )
+}
+
+function FloatingSubmenu({
+  anchorRef,
+  items,
+  color,
+  onClose,
+  onMouseEnter,
+  onMouseLeave,
+}: {
+  anchorRef: React.RefObject<HTMLButtonElement | null>
+  items: FloatingMenuItem[]
+  color: string
+  onClose: () => void
+  onMouseEnter: () => void
+  onMouseLeave: () => void
+}) {
+  const submenuRef = useRef<HTMLDivElement | null>(null)
+  const [pos, setPos] = useState({ left: 0, top: 0 })
+
+  useLayoutEffect(() => {
+    const anchor = anchorRef.current
+    const submenu = submenuRef.current
+    if (!anchor || !submenu) return
+    const aRect = anchor.getBoundingClientRect()
+    const sRect = submenu.getBoundingClientRect()
+
+    let left = aRect.right - 2
+    if (left + sRect.width > window.innerWidth - 8) {
+      left = Math.max(8, aRect.left - sRect.width + 2)
+    }
+    let top = aRect.top - 2
+    if (top + sRect.height > window.innerHeight - 8) {
+      top = Math.max(8, window.innerHeight - sRect.height - 8)
+    }
+    setPos({ left, top })
+  }, [anchorRef])
+
+  return createPortal(
+    <div
+      ref={submenuRef}
+      role="menu"
+      data-git-floating-submenu=""
+      className="fixed z-[110] w-[236px] min-w-[220px] max-w-[min(260px,calc(100vw-16px))] overflow-hidden rounded-xl border border-line/80 bg-panel/95 p-1.5 shadow-2xl backdrop-blur-md animate-in fade-in zoom-in-95 duration-100 outline-none"
+      style={{
+        left: pos.left,
+        top: pos.top,
+      }}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {items.map((child, idx) => {
+        const prev = idx > 0 ? items[idx - 1] : undefined
+        const showDiv = Boolean(child.dividerBefore || (prev?.group && child.group && prev.group !== child.group))
+        return (
+          <Fragment key={child.key}>
+            {showDiv && <div className="my-1 border-t border-line/60" role="separator" />}
+            <FloatingMenuItemRow item={child} onClose={onClose} color={color} />
+          </Fragment>
+        )
+      })}
     </div>,
     document.body
   )
@@ -487,16 +575,11 @@ export function refChips(refs: string[], remoteNames: string[]): RefChip[] {
   })
 }
 
-/** Prefer HEAD/local tip, else remote tip — tags are not “branch at the time”. */
 function tipBranchLabel(chips: RefChip[]): string {
   const tip = chips.find((chip) => chip.kind === 'head' || chip.kind === 'local') || chips.find((chip) => chip.kind === 'remote')
   return tip?.label || ''
 }
 
-/**
- * Infer the branch name for each commit by walking newest→oldest and carrying tip
- * labels down the same graph color (first-parent lane), GitKraken-style.
- */
 export function branchAtCommits(commits: GitCommit[], points: ReturnType<typeof layoutCommitGraph>, remoteNames: string[]): Map<string, string> {
   const byColor = new Map<number, string>()
   const byHash = new Map<string, string>()

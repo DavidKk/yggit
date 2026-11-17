@@ -1,7 +1,7 @@
 'use client'
 
 import { type CSSProperties, memo, type ReactNode, type Ref, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { LuClock, LuCopy, LuGitBranch, LuHash, LuInbox, LuShare2, LuText, LuUser } from 'react-icons/lu'
+import { LuCopy, LuHash, LuInbox, LuText } from 'react-icons/lu'
 
 import { AnnotationBadge } from '@/components/git/agent/spotlight/AnnotationBadge'
 import { measureCellsFit } from '@/components/git/fitColumn'
@@ -10,12 +10,13 @@ import { branchAtCommits, type FloatingAnchor, FloatingMenu, type FloatingMenuIt
 import { useLocaleCode, useT } from '@/components/i18n/LocaleProvider'
 import { useNotification } from '@/components/notification/useNotification'
 import { EmptyState, ScrollArea } from '@/components/sk'
+import { useOptionalAgent } from '@/lib/agent/agent-context'
 import { useOptionalSpotlight } from '@/lib/agent/spotlight-context'
 import { copyToClipboard } from '@/lib/clipboard'
+import { buildBranchContextMenu } from '@/lib/git/branch-context-menu'
+import { useContextMenuConfig } from '@/lib/git/context-menu-config'
 import { formatCommitDateDivider } from '@/lib/git/format-commit-ago'
 import { COL, DOT, graphScene, isHighlightedStroke, laneColor, PAD, ROW, type Stroke, xAt } from '@/lib/git/graph-scene'
-import { makeShareUrl } from '@/lib/git/resolver'
-import { formatIssueShareCard, makeIssueShareUrl } from '@/lib/git/share-card'
 import { getBranchCommitHashes } from '@/lib/git/topology'
 import { GIT_WORKTREE_HASH, type GitCommit, type GitStash, gitStashAsCommit, type GitWorktree } from '@/lib/git/types'
 import { isPositiveNumber, useGitUiPref, useGitUiReady } from '@/lib/git/ui-prefs'
@@ -191,6 +192,8 @@ function GitGraphComponent({
   const t = useT()
   const locale = useLocaleCode()
   const notify = useNotification()
+  const [contextConfig] = useContextMenuConfig()
+  const agent = useOptionalAgent()
   const spotlight = useOptionalSpotlight()
   const isSpotlightActive = Boolean(spotlight?.active && spotlight.targets.length > 0)
   const spotlightMap = spotlight?.targetsMap
@@ -247,113 +250,52 @@ function GitGraphComponent({
   const commitContextItems = (commit: GitCommit, branchNames?: string[] | string): FloatingMenuItem[] => {
     const rawList = Array.isArray(branchNames) ? branchNames : branchNames ? [branchNames] : []
     const branches = Array.from(new Set(rawList.filter(Boolean)))
-    const items: FloatingMenuItem[] = []
-    for (const b of branches) {
-      items.push({
-        key: `branch-${b}`,
-        label: `${t('git.graph.copyBranchName')} (${b})`,
-        icon: <LuGitBranch className="size-3.5 shrink-0" aria-hidden />,
-        onSelect: () => void copyValue(b),
-        group: '复制',
-      })
-    }
-    items.push(
-      {
-        key: 'share-link',
-        label: t('git.graph.copyShareUrl'),
-        icon: <LuShare2 className="size-3.5 shrink-0" aria-hidden />,
-        onSelect: () => {
-          const shareUrl = makeShareUrl(repo || '', commit.hash, remoteUrl)
-          const full = typeof window !== 'undefined' ? `${window.location.origin}${shareUrl}` : shareUrl
-          void copyValue(full)
-        },
-        group: '复制',
+    const primaryBranch = branches[0]
+
+    return buildBranchContextMenu({
+      branchName: primaryBranch,
+      commit,
+      repo,
+      remoteUrl,
+      isReadOnly: false,
+      hasWorktrees: worktreeBranches.length > 0 || Boolean(worktree),
+      config: contextConfig,
+      onNotify: (type, msg) => {
+        if (type === 'success') notify.success(msg)
+        else notify.error(msg)
       },
-      {
-        key: 'share-issue-card',
-        label: t('git.commit.copyIssueCard'),
-        icon: <LuShare2 className="size-3.5 shrink-0" aria-hidden />,
-        onSelect: () => {
-          const fullShareUrl =
-            typeof window !== 'undefined'
-              ? `${window.location.origin}${makeIssueShareUrl({
-                  repoName: (repo || '').split('/').pop() || repo || '',
-                  repoPathOrUrl: repo || '',
-                  remoteUrl,
-                  commit,
-                })}`
-              : makeIssueShareUrl({
-                  repoName: (repo || '').split('/').pop() || repo || '',
-                  repoPathOrUrl: repo || '',
-                  remoteUrl,
-                  commit,
-                })
-          const card = formatIssueShareCard(
-            {
-              repoName: (repo || '').split('/').pop() || repo || '',
-              repoPathOrUrl: repo || '',
-              remoteUrl,
-              commit,
-            },
-            fullShareUrl
-          )
-          void copyValue(card.markdown)
-        },
-        group: '复制',
+      onCheckoutBranch: (branch) => {
+        if (agent) {
+          agent.setDockMode('dock-right')
+          void agent.sendMessage(`帮我跳转到 ${branch}`)
+        }
       },
-      {
-        key: 'subject',
-        label: t('git.graph.copyCommitSubject'),
-        icon: <LuText className="size-3.5 shrink-0" aria-hidden />,
-        onSelect: () => void copyValue(commit.subject),
-        group: '复制',
+      onAgentPrompt: (prompt) => {
+        if (agent) {
+          agent.setDockMode('dock-right')
+          void agent.sendMessage(prompt)
+        }
       },
-      {
-        key: 'hash',
-        label: t('git.graph.copyCommitHash'),
-        icon: <LuHash className="size-3.5 shrink-0" aria-hidden />,
-        onSelect: () => void copyValue(commit.hash),
-        group: '复制',
-      },
-      {
-        key: 'short-hash',
-        label: `${t('git.graph.copyCommitHash')} (Short: ${commit.short || commit.hash.slice(0, 7)})`,
-        icon: <LuHash className="size-3.5 shrink-0" aria-hidden />,
-        onSelect: () => void copyValue(commit.short || commit.hash.slice(0, 7)),
-        group: '复制',
-      },
-      {
-        key: 'author',
-        label: `${t('git.graph.copyAuthor')} (${commit.author})`,
-        icon: <LuUser className="size-3.5 shrink-0" aria-hidden />,
-        onSelect: () => void copyValue(commit.author),
-        group: '复制',
-      }
-    )
-    if (commit.date) {
-      items.push({
-        key: 'date',
-        label: `${t('git.graph.copyDate')} (${commit.date})`,
-        icon: <LuClock className="size-3.5 shrink-0" aria-hidden />,
-        onSelect: () => void copyValue(commit.date),
-        group: '复制',
-      })
-    }
-    return items
+    })
   }
 
   const worktreeContextItems = (wt: GitWorktree): FloatingMenuItem[] => [
     {
+      key: 'select-wt',
+      label: '查看工作区',
+      icon: <LuCopy className="size-4 shrink-0 text-accent" />,
+      onSelect: () => onSelectWorktree?.(),
+    },
+    {
       key: 'status',
       label: t('git.graph.copyWorktreeChanges'),
-      icon: <LuCopy className="size-3.5 shrink-0" aria-hidden />,
+      icon: <LuCopy className="size-4 shrink-0 text-ink-soft" />,
       onSelect: () =>
         void copyValue(
           wt.insertions || wt.deletions
             ? `${t('git.graph.workingTree')}: +${wt.insertions} -${wt.deletions} (${t('git.graph.filesCount', { count: wt.files })})`
             : `${t('git.graph.workingTree')}: ${t('git.graph.filesCount', { count: wt.files })}`
         ),
-      group: '复制',
     },
   ]
 

@@ -241,7 +241,7 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
               m.id === assistantMsgId
                 ? {
                     ...m,
-                    content: res.content || 'Executing Git analysis tools...',
+                    content: res.content || '',
                     tool_calls: toolCalls,
                     isStreaming: false,
                   }

@@ -5,8 +5,8 @@ import { createPortal } from 'react-dom'
 import { LuSearch } from 'react-icons/lu'
 
 import { GIT_FIND_ATTR, GIT_FIND_EVENT, useGitFindShortcutLabel } from '@/components/git/gitFind'
-import { Button, TextInput } from '@/components/sk'
-import { dropdownPopupClass } from '@/components/sk/dropdownMenu'
+import { GitFindBox } from '@/components/git/GitFindBox'
+import { Button } from '@/components/sk'
 import { useFloatingPanel } from '@/components/sk/useFloatingPanel'
 import { cn } from '@/lib/utils'
 
@@ -114,25 +114,20 @@ export function GitSearchDropdown({ value, onChange, placeholder, label, descrip
           <div
             ref={panelRef}
             id={listboxId}
-            role="dialog"
-            aria-label={label}
             data-git-search-dropdown=""
-            className={cn(dropdownPopupClass, 'w-56 p-2')}
             style={{ ...panelStyle, zIndex: 80 }}
             onMouseDown={(event) => event.stopPropagation()}
             onPointerDown={(event) => event.stopPropagation()}
           >
-            <TextInput
-              ref={inputRef}
-              search
-              clearable
-              fullWidth
-              autoFocus
-              aria-label={label}
-              placeholder={placeholder}
+            <GitFindBox
+              inputRef={inputRef}
               value={value}
-              className="border-accent/50 focus-within:border-accent text-black [&_input]:text-black [&_input]:font-medium"
-              onChange={(event) => onChange(event.target.value)}
+              placeholder={placeholder}
+              ariaLabel={label}
+              onChange={onChange}
+              onClose={() => setOpenState(false)}
+              size="medium"
+              autoFocus
             />
           </div>,
           document.body

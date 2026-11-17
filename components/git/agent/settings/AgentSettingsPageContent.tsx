@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from 'next/navigation'
 import React, { useState } from 'react'
-import { LuArrowLeft, LuCpu, LuShieldCheck, LuSlidersHorizontal } from 'react-icons/lu'
+import { LuArrowLeft, LuCpu, LuMousePointerClick, LuShieldCheck, LuSlidersHorizontal } from 'react-icons/lu'
 
 import { BrandLogo } from '@/components/BrandLogo'
 import { useT } from '@/components/i18n/LocaleProvider'
@@ -11,6 +11,7 @@ import { useInWorkspaceHeader, WorkspaceHeaderSlot } from '@/components/layout/W
 import { ThemeSwitcher } from '@/components/theme/ThemeSwitcher'
 
 import { GeneralSettingsSection } from './GeneralSettingsSection'
+import { MenuSettingsSection } from './MenuSettingsSection'
 import { ModelChannelSection } from './ModelChannelSection'
 import { PrivacyRedactSection } from './PrivacyRedactSection'
 import { type SettingsSectionKey, SettingsSideNav } from './SettingsSideNav'
@@ -30,7 +31,7 @@ export function AgentSettingsPageContent() {
   const searchParams = useSearchParams()
   const tabParam = searchParams.get('tab') as SettingsSectionKey | null
 
-  const [activeSection, setActiveSection] = useState<SettingsSectionKey>(tabParam && ['models', 'privacy', 'general'].includes(tabParam) ? tabParam : 'models')
+  const [activeSection, setActiveSection] = useState<SettingsSectionKey>(tabParam && ['models', 'privacy', 'general', 'menus'].includes(tabParam) ? tabParam : 'models')
 
   const handleBack = () => {
     if (typeof window !== 'undefined') {
@@ -68,6 +69,11 @@ export function AgentSettingsPageContent() {
       title: t('gitAgent.tabGeneral') || '通用设置',
       desc: '管理外观主题、语言偏好、Git 视图交互及底层执行模式。',
       icon: <LuSlidersHorizontal className="size-4 text-accent" aria-hidden="true" />,
+    },
+    menus: {
+      title: '右键菜单设置',
+      desc: '自定义主菜单快捷区、二级子菜单分组归类、操作安全防护与 Agent 智能扩展能力。',
+      icon: <LuMousePointerClick className="size-4 text-accent" aria-hidden="true" />,
     },
   }
 
@@ -128,6 +134,7 @@ export function AgentSettingsPageContent() {
               {activeSection === 'models' && <ModelChannelSection />}
               {activeSection === 'privacy' && <PrivacyRedactSection />}
               {activeSection === 'general' && <GeneralSettingsSection />}
+              {activeSection === 'menus' && <MenuSettingsSection />}
             </div>
           </div>
         </main>

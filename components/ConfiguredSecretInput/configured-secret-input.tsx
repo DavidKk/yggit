@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { LuEye, LuEyeOff, LuX } from 'react-icons/lu'
+import { LuCheck, LuX } from 'react-icons/lu'
 
 import { useT } from '@/components/i18n/LocaleProvider'
 import { Button, TextInput } from '@/components/sk'
@@ -20,7 +20,10 @@ export interface ConfiguredSecretInputProps {
   'aria-label'?: string
 }
 
-/** Saved credentials and input drafts are separate, matching the ticket system. */
+/**
+ * Custom masked token input without type="password", preventing browser password manager prompts.
+ * Strictly adheres to write-only security: once saved, tokens cannot be re-revealed in plaintext.
+ */
 export function ConfiguredSecretInput({
   configured,
   value,
@@ -35,15 +38,14 @@ export function ConfiguredSecretInput({
 }: ConfiguredSecretInputProps) {
   const t = useT()
   const [editing, setEditing] = useState(false)
-  const [revealed, setRevealed] = useState(false)
   const sealed = configured && !editing && !value
   const hasValue = sealed || Boolean(value)
 
   return (
-    <div className={cn('relative', className)}>
+    <div className={cn('relative w-full', className)}>
       <TextInput
         id={id}
-        name="agent_api_key_secret"
+        name="custom_api_secret_token"
         data-webmcp-sensitive=""
         data-1p-ignore="true"
         data-lpignore="true"
@@ -52,44 +54,49 @@ export function ConfiguredSecretInput({
         fullWidth
         disabled={disabled}
         autoFocus={autoFocus}
-        type={revealed && !sealed ? 'text' : 'password'}
-        autoComplete="new-password"
+        type="text"
+        autoComplete="off"
         spellCheck={false}
-        value={sealed ? '******' : value}
+        value={sealed ? '••••••••' : value}
         readOnly={sealed}
-        placeholder={placeholder ?? t('gitAgent.apiKeyPlaceholder')}
-        aria-label={ariaLabel ?? t('gitAgent.apiKey')}
+        style={{
+          ...({ WebkitTextSecurity: sealed || value ? 'disc' : 'none' } as React.CSSProperties),
+        }}
+        placeholder={placeholder ?? t('gitAgent.apiKeyPlaceholder') ?? '输入 Token 或 API 密钥…'}
+        aria-label={ariaLabel ?? t('gitAgent.apiKey') ?? 'API 密钥'}
         className="pr-20 font-mono"
         onFocus={() => {
-          if (!disabled) setEditing(true)
+          if (!disabled && !sealed) setEditing(true)
         }}
         onBlur={() => {
           if (!value.trim()) setEditing(false)
-          setRevealed(false)
         }}
         onChange={(event) => onChange(event.target.value)}
       />
-      {hasValue && !disabled && (
-        <div className="absolute right-1 top-1/2 flex -translate-y-1/2 gap-0.5">
-          {!sealed && (
-            <Button size="mini" variant="plain" aria-label={t(revealed ? 'gitAgent.hideKey' : 'gitAgent.showKey')} onClick={() => setRevealed(!revealed)}>
-              {revealed ? <LuEyeOff aria-hidden="true" /> : <LuEye aria-hidden="true" />}
-            </Button>
-          )}
+
+      <div className="absolute right-1.5 top-1/2 flex -translate-y-1/2 items-center gap-1">
+        {sealed && (
+          <span className="flex items-center gap-1 rounded bg-ok/10 px-1.5 py-0.5 text-[10px] font-medium text-ok select-none pointer-events-none">
+            <LuCheck className="size-3" aria-hidden="true" />
+            已配置
+          </span>
+        )}
+
+        {hasValue && !disabled && (
           <Button
             size="mini"
             variant="plain"
-            aria-label={t('gitAgent.clearKey')}
+            title={sealed ? '清除已存配置并重新输入' : t('gitAgent.clearKey') || '清除'}
+            aria-label={t('gitAgent.clearKey') || '清除密钥'}
             onClick={() => {
               onClear()
               setEditing(false)
-              setRevealed(false)
             }}
           >
-            <LuX aria-hidden="true" />
+            <LuX className="size-3.5" aria-hidden="true" />
           </Button>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }

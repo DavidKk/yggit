@@ -463,7 +463,10 @@ export function GitFileDiff({ repo, hash, path, status = 'M', onClose }: Props) 
     if (!section) return
     const handler = () => {
       setShowFind(true)
-      setTimeout(() => findInputRef.current?.focus(), 50)
+      setTimeout(() => {
+        findInputRef.current?.focus({ preventScroll: true })
+        findInputRef.current?.select()
+      }, 50)
     }
     section.addEventListener(GIT_FIND_EVENT, handler)
     return () => section.removeEventListener(GIT_FIND_EVENT, handler)

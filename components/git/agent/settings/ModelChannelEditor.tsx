@@ -217,12 +217,6 @@ export function ModelChannelEditor({ profile, isNew = false, onBack }: ModelChan
             handleNavigateBack()
           }}
         >
-          {/* Hidden decoy fields defuse browser credential autofill heuristics */}
-          <div className="sr-only" aria-hidden="true" style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', height: 0, width: 0, overflow: 'hidden' }}>
-            <input type="text" name="chrome_prevent_autofill_user" tabIndex={-1} autoComplete="username" />
-            <input type="password" name="chrome_prevent_autofill_pwd" tabIndex={-1} autoComplete="current-password" />
-          </div>
-
           <fieldset disabled={testing} className="divide-y divide-line/60">
             {/* Row 1: Profile Name */}
             <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 first:pt-0 items-start">
