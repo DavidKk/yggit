@@ -35,6 +35,7 @@ export interface InputSuggestionProps {
   onChange: (value: string) => void
   placeholder?: string
   disabled?: boolean
+  invalid?: boolean
   className?: string
   'aria-label'?: string
   autoComplete?: string
@@ -61,6 +62,7 @@ export function InputSuggestion({
   onChange,
   placeholder = '选择或输入...',
   disabled = false,
+  invalid = false,
   className,
   'aria-label': ariaLabel,
   autoComplete = 'off',
@@ -195,6 +197,7 @@ export function InputSuggestion({
         className={cn(
           formControlChrome,
           'relative flex h-9 items-center justify-between pl-3 pr-1.5 cursor-text focus-within:border-accent transition-colors',
+          invalid && '!border-fail ring-1 !ring-fail/30 focus-within:!border-fail',
           disabled && controlDisabledShell
         )}
       >

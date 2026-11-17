@@ -2,7 +2,7 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 
-import { DEFAULT_MODEL_FILTER, isModelAllowed, MODEL_FILTER_STORAGE_KEY, type ModelFilterOptions } from './model-filter'
+import { DEFAULT_MODEL_FILTER, isModelAllowed, type ModelFilterOptions } from './model-filter'
 import { type AgentModelProfile, DEFAULT_MODEL_PROFILE, MODEL_PROFILES_STORAGE_KEY, parseModelProfiles, serializeModelProfiles } from './model-profiles'
 import { sendAgentCompletion } from './openapi-client'
 import { createRedactionSession } from './redact/engine'
@@ -17,6 +17,7 @@ export interface AgentContextValue {
   profiles: AgentModelProfile[]
   activeProfileId: string
   saveProfile: (profile: AgentModelProfile) => void
+  deleteProfile: (id: string) => void
   selectProfile: (id: string) => void
   redactionOptions: RedactionOptions
   setRedactionOptions: React.Dispatch<React.SetStateAction<RedactionOptions>>
@@ -102,32 +103,40 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
     setProfiles((previous) => (previous.some((item) => item.id === profile.id) ? previous.map((item) => (item.id === profile.id ? profile : item)) : [...previous, profile]))
     selectProfile(profile.id)
   }, [])
-  const [modelFilter, setModelFilter] = useState<ModelFilterOptions>(DEFAULT_MODEL_FILTER)
-  const [modelFilterLoaded, setModelFilterLoaded] = useState(false)
 
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(MODEL_FILTER_STORAGE_KEY)
-      if (stored) {
-        const parsed = JSON.parse(stored)
-        if (parsed && Array.isArray(parsed.whitelist) && Array.isArray(parsed.blacklist)) {
-          setModelFilter(parsed)
+  const deleteProfile = useCallback(
+    (id: string) => {
+      setProfiles((previous) => {
+        if (previous.length <= 1) return previous
+        const next = previous.filter((item) => item.id !== id)
+        if (activeProfileId === id && next.length > 0) {
+          selectProfile(next[0].id)
         }
-      }
-    } catch {
-      // Keep in-memory defaults when browser storage is unavailable.
-    }
-    setModelFilterLoaded(true)
-  }, [])
+        return next
+      })
+    },
+    [activeProfileId]
+  )
 
-  useEffect(() => {
-    if (!modelFilterLoaded) return
-    try {
-      localStorage.setItem(MODEL_FILTER_STORAGE_KEY, JSON.stringify(modelFilter))
-    } catch {
-      // Storage optional
-    }
-  }, [modelFilter, modelFilterLoaded])
+  const activeProfile = useMemo(() => profiles.find((p) => p.id === activeProfileId) || profiles[0], [profiles, activeProfileId])
+
+  const modelFilter = activeProfile?.filter || DEFAULT_MODEL_FILTER
+
+  const setModelFilter = useCallback(
+    (action: React.SetStateAction<ModelFilterOptions>) => {
+      setProfiles((previous) =>
+        previous.map((item) => {
+          if (item.id === activeProfileId) {
+            const currentFilter = item.filter || DEFAULT_MODEL_FILTER
+            const nextFilter = typeof action === 'function' ? action(currentFilter) : action
+            return { ...item, filter: nextFilter }
+          }
+          return item
+        })
+      )
+    },
+    [activeProfileId]
+  )
   const [redactionOptions, setRedactionOptions] = useState<RedactionOptions>(DEFAULT_REDACTION_OPTIONS)
   const [dockMode, setDockMode] = useState<AgentDockMode>('collapsed')
   const [messages, setMessages] = useState<AgentChatMessage[]>([])
@@ -336,6 +345,7 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
       profiles,
       activeProfileId,
       saveProfile,
+      deleteProfile,
       selectProfile,
       redactionOptions,
       setRedactionOptions,
@@ -351,7 +361,23 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
       modelFilter,
       setModelFilter,
     }),
-    [config, profiles, activeProfileId, saveProfile, redactionOptions, dockMode, messages, isProcessing, sendMessage, clearMessages, activeResultSummary, activeRepo, modelFilter]
+    [
+      config,
+      profiles,
+      activeProfileId,
+      saveProfile,
+      deleteProfile,
+      redactionOptions,
+      dockMode,
+      messages,
+      isProcessing,
+      sendMessage,
+      clearMessages,
+      activeResultSummary,
+      activeRepo,
+      modelFilter,
+      setModelFilter,
+    ]
   )
 
   return <AgentContext.Provider value={value}>{children}</AgentContext.Provider>

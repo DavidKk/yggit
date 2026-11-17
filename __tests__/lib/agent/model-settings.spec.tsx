@@ -8,6 +8,14 @@ import { AgentProvider, useAgent } from '@/lib/agent/agent-context'
 import { MODEL_PROFILES_STORAGE_KEY } from '@/lib/agent/model-profiles'
 import { sendAgentCompletion, testAgentConnection } from '@/lib/agent/openapi-client'
 
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: jest.fn(),
+    replace: jest.fn(),
+    back: jest.fn(),
+  }),
+  useSearchParams: () => new URLSearchParams(),
+}))
 jest.mock('@/components/i18n/LocaleProvider', () => ({ useT: () => (key: string) => key }))
 jest.mock('@/lib/agent/openapi-client', () => ({ testAgentConnection: jest.fn(), sendAgentCompletion: jest.fn() }))
 jest.mock('@/lib/agent/spotlight-context', () => ({ useOptionalSpotlight: () => null }))
@@ -117,7 +125,7 @@ beforeEach(async () => {
   await act(async () => {
     root.render(
       <AgentProvider>
-        <ModelChannelSection />
+        <ModelChannelSection inline />
         <CurrentConfig />
       </AgentProvider>
     )

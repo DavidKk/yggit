@@ -1,9 +1,11 @@
+import type { ModelFilterOptions } from './model-filter'
 import { AGENT_PRESETS, DEFAULT_AGENT_CONFIG, type EphemeralAgentConfig } from './types'
 
 export interface AgentModelProfile {
   id: string
   name: string
   config: EphemeralAgentConfig
+  filter?: ModelFilterOptions
 }
 
 export const DEFAULT_MODEL_PROFILE: AgentModelProfile = {
@@ -14,13 +16,13 @@ export const DEFAULT_MODEL_PROFILE: AgentModelProfile = {
 
 export const MODEL_PROFILES_STORAGE_KEY = 'yggit.agent.model-profiles.v1'
 
-/** Credentials remain in memory; only connection metadata is persisted. */
+/** Credentials remain in memory; only connection metadata and channel filters are persisted. */
 export function serializeModelProfiles(profiles: AgentModelProfile[], activeId: string): string {
   return JSON.stringify({
     activeId,
-    profiles: profiles.map(({ config, ...profile }) => {
+    profiles: profiles.map(({ config, filter, ...profile }) => {
       const { apiKey: _apiKey, ...metadata } = config
-      return { ...profile, config: metadata }
+      return { ...profile, config: metadata, filter }
     }),
   })
 }
@@ -36,7 +38,14 @@ export function parseModelProfiles(raw: string | null): { profiles: AgentModelPr
       const config = item.config
       if (!config || !(config.provider in AGENT_PRESETS) || typeof config.model !== 'string') throw new Error('Invalid config')
       if (config.baseUrl !== undefined && typeof config.baseUrl !== 'string') throw new Error('Invalid endpoint')
-      return { id: item.id, name: item.name, config: { ...config, apiKey: undefined } }
+      const filter =
+        item.filter && Array.isArray(item.filter.whitelist) && Array.isArray(item.filter.blacklist)
+          ? {
+              whitelist: item.filter.whitelist.filter((s) => typeof s === 'string'),
+              blacklist: item.filter.blacklist.filter((s) => typeof s === 'string'),
+            }
+          : undefined
+      return { id: item.id, name: item.name, config: { ...config, apiKey: undefined }, filter }
     })
     return { profiles, activeId: profiles.some((profile) => profile.id === data.activeId) ? data.activeId : profiles[0].id }
   } catch {

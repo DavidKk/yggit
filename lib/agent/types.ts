@@ -2,13 +2,14 @@
  * Type definitions for ephemeral agent interaction, providers, and settings.
  */
 
-export type AgentProviderType = 'openai' | 'claude' | 'gemini' | 'deepseek' | 'ollama' | 'local-sdk' | 'byop' | 'vercel-free'
+export type AgentProviderType = 'openai' | 'claude' | 'gemini' | 'deepseek' | 'ollama' | 'local-sdk' | 'magpie' | 'byop' | 'vercel-free'
 
 export interface EphemeralAgentConfig {
   provider: AgentProviderType
   model: string
   apiKey?: string
   baseUrl?: string
+  modelsEndpoint?: string
   temperature?: number
   maxTokens?: number
   stream?: boolean
@@ -89,20 +90,20 @@ export const AGENT_PRESETS: Record<AgentProviderType, ModelPresetDefinition> = {
     description: 'DeepSeek 官方 OpenAI 兼容接口。',
   },
   ollama: {
-    name: 'Ollama (Local 本地)',
+    name: 'Ollama',
     provider: 'ollama',
     baseUrl: 'http://localhost:11434/v1',
     defaultModel: 'qwen2.5-coder',
     models: [
-      { id: 'qwen2.5-coder', name: 'Qwen 2.5 Coder (本地代码特化)' },
-      { id: 'deepseek-r1', name: 'DeepSeek R1 (本地推理蒸馏版)' },
-      { id: 'llama3.2', name: 'Llama 3.2 (轻量本地模型)' },
-      { id: 'mistral', name: 'Mistral (高能开源模型)' },
+      { id: 'qwen2.5-coder', name: 'Qwen 2.5 Coder' },
+      { id: 'deepseek-r1', name: 'DeepSeek R1' },
+      { id: 'llama3.2', name: 'Llama 3.2' },
+      { id: 'mistral', name: 'Mistral' },
     ],
     requiresKey: false,
     noZdrNotice: false,
-    isLocal: true,
-    description: '本地离线运行开源模型，数据不出内网。',
+    isLocal: false,
+    description: '运行开源模型，数据不出内网。',
   },
   'local-sdk': {
     name: 'Local SDK (本地直连 / LM Studio / vLLM)',
@@ -119,6 +120,22 @@ export const AGENT_PRESETS: Record<AgentProviderType, ModelPresetDefinition> = {
     noZdrNotice: false,
     isLocal: true,
     description: '本地端口（LM Studio、vLLM）零跳跃直连。',
+  },
+  magpie: {
+    name: 'Magpie (企业/自建网关)',
+    provider: 'magpie',
+    baseUrl: 'https://magpie.example.com/v1',
+    defaultModel: 'workbuddy/deepseek-v4-pro',
+    models: [
+      { id: 'codex/gpt-6.1-sol', name: 'codex/gpt-6.1-sol' },
+      { id: 'workbuddy/deepseek-v4-pro', name: 'workbuddy/deepseek-v4-pro' },
+      { id: 'workbuddy/deepseek-v4.1-flash', name: 'workbuddy/deepseek-v4.1-flash' },
+      { id: 'workbuddy/hy4flash-free', name: 'workbuddy/hy4flash-free' },
+      { id: 'workbuddy-ai/hy4flash-free', name: 'workbuddy-ai/hy4flash-free' },
+    ],
+    requiresKey: true,
+    noZdrNotice: false,
+    description: 'Magpie 企业网关，支持自定义模型列表接口与路由分组。',
   },
   byop: {
     name: 'Custom OpenAI-Compatible (自定义端点)',
