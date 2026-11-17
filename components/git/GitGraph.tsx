@@ -548,7 +548,7 @@ function GitGraphComponent({
                         <span
                           className={cn(
                             'flex min-w-0 flex-1 items-center truncate pr-3 pl-2 text-sm leading-none font-normal select-text cursor-pointer transition-colors duration-150',
-                            isSelected ? 'font-semibold text-ink' : isContextActive ? 'text-ink font-medium' : 'text-ink-soft'
+                            isSelected ? 'text-ink' : isContextActive ? 'text-ink' : 'text-ink-soft'
                           )}
                           style={{ height: DOT }}
                         >
@@ -790,9 +790,8 @@ function GitGraphComponent({
                     <span className="flex h-[26px] min-h-0 min-w-0 items-center">
                       <span
                         className={cn(
-                          'flex min-w-0 flex-1 items-center truncate pr-3 pl-2 text-sm leading-none select-text cursor-pointer transition-colors duration-150',
-                          selected ? 'font-semibold text-ink' : 'font-normal',
-                          isBranchActive ? (isBranchHit ? 'text-ink font-semibold' : 'text-ink-soft/40') : 'text-ink',
+                          'flex min-w-0 flex-1 items-center truncate pr-3 pl-2 text-sm leading-none font-normal select-text cursor-pointer transition-colors duration-150',
+                          isBranchActive && !isBranchHit ? 'text-ink-soft/40' : 'text-ink',
                           rowTintClass
                         )}
                         style={{ height: DOT }}
