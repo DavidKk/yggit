@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter, useSearchParams } from 'next/navigation'
-import React, { useState } from 'react'
+import React from 'react'
 import { LuArrowLeft, LuCpu, LuMousePointerClick, LuShieldCheck, LuSlidersHorizontal } from 'react-icons/lu'
 
 import { BrandLogo } from '@/components/BrandLogo'
@@ -25,13 +25,24 @@ import { type SettingsSectionKey, SettingsSideNav } from './SettingsSideNav'
  * - Scrollable body with standard padding (no flush / no unpadded margins).
  * - All controls, labels, helper texts, and buttons enclosed inside SettingsSectionCard cards.
  */
-export function AgentSettingsPageContent() {
+interface AgentSettingsPageContentProps {
+  section?: SettingsSectionKey
+}
+
+export function AgentSettingsPageContent({ section }: AgentSettingsPageContentProps = {}) {
   const t = useT()
   const router = useRouter()
   const searchParams = useSearchParams()
   const tabParam = searchParams.get('tab') as SettingsSectionKey | null
 
-  const [activeSection, setActiveSection] = useState<SettingsSectionKey>(tabParam && ['models', 'privacy', 'general', 'menus'].includes(tabParam) ? tabParam : 'models')
+  const activeSection = section || (tabParam && ['models', 'privacy', 'general', 'menus'].includes(tabParam) ? tabParam : 'models')
+
+  // Backward compatibility: redirect ?tab=privacy to /privacy
+  React.useEffect(() => {
+    if (!section && tabParam === 'privacy') {
+      router.replace('/privacy')
+    }
+  }, [section, tabParam, router])
 
   const handleBack = () => {
     if (typeof window !== 'undefined') {
@@ -105,7 +116,7 @@ export function AgentSettingsPageContent() {
       {/* 2. Main Workspace Split: Left Icon Rail + Right Content Hub */}
       <div className="flex min-h-0 flex-1 overflow-hidden bg-paper">
         {/* Left Sub-navigation Rail */}
-        <SettingsSideNav activeSection={activeSection} onSelectSection={setActiveSection} />
+        <SettingsSideNav activeSection={activeSection} />
 
         {/* Right Configuration Page */}
         <main className="flex min-h-0 flex-1 flex-col overflow-hidden">

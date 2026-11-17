@@ -22,6 +22,26 @@ describe('页面路由契约', () => {
     expect(typeof SettingsPage).toBe('function')
   })
 
+  it('/privacy 导出隐私设置独立页面', async () => {
+    const { default: PrivacyPage } = await import('@/app/(workspace)/privacy/page')
+    expect(typeof PrivacyPage).toBe('function')
+  })
+
+  it('/settings/privacy 导出隐私设置子路由页面', async () => {
+    const { default: SettingsPrivacyPage } = await import('@/app/(workspace)/settings/privacy/page')
+    expect(typeof SettingsPrivacyPage).toBe('function')
+  })
+
+  it('/settings/models/new 导出新建模型接入页面', async () => {
+    const { default: NewModelPage } = await import('@/app/(workspace)/settings/models/new/page')
+    expect(typeof NewModelPage).toBe('function')
+  })
+
+  it('/settings/models/[id] 导出编辑模型接入页面', async () => {
+    const { default: EditModelPage } = await import('@/app/(workspace)/settings/models/[id]/page')
+    expect(typeof EditModelPage).toBe('function')
+  })
+
   it('/repo/[...slug] 导出兼容重定向页面', async () => {
     const { default: LegacyRepoRedirectPage } = await import('@/app/repo/[...slug]/page')
     expect(typeof LegacyRepoRedirectPage).toBe('function')

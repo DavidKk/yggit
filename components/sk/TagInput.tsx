@@ -40,14 +40,22 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(function Tag
 
   const commitValue = useCallback(
     (raw: string) => {
-      const trimmed = raw.trim()
-      if (!trimmed) return
+      const trimmed = raw.trim().replace(/^[,;，；\s]+|[,;，；\s]+$/g, '')
+      if (!trimmed) {
+        setInputValue('')
+        return
+      }
       if (maxTags && value.length >= maxTags) return
 
-      // Don't add case-insensitive duplicates
-      const exists = value.some((tag) => tag.toLowerCase() === trimmed.toLowerCase())
-      if (!exists) {
-        onChange([...value, trimmed])
+      // Split by commas, semicolons or newlines to allow batch paste or typing
+      const tokens = trimmed
+        .split(/[,;，；\n]+/)
+        .map((t) => t.trim())
+        .filter(Boolean)
+
+      const toAdd = tokens.filter((t) => !value.some((tag) => tag.toLowerCase() === t.toLowerCase()))
+      if (toAdd.length > 0) {
+        onChange([...value, ...toAdd])
       }
       setInputValue('')
     },
@@ -57,9 +65,13 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(function Tag
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (disabled) return
 
-    if (e.key === 'Enter' || e.key === ',') {
-      e.preventDefault()
-      commitValue(inputValue)
+    if (e.key === 'Enter' || e.key === ',' || e.key === ';' || e.key === '，' || e.key === '；' || (e.key === 'Tab' && inputValue.trim())) {
+      if (e.key === 'Tab') {
+        commitValue(inputValue)
+      } else {
+        e.preventDefault()
+        commitValue(inputValue)
+      }
     } else if (e.key === 'Backspace' && !inputValue && value.length > 0) {
       e.preventDefault()
       onChange(value.slice(0, -1))
@@ -71,10 +83,10 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(function Tag
     const text = e.clipboardData.getData('text')
     if (!text) return
 
-    if (text.includes(',') || text.includes('\n')) {
+    if (text.includes(',') || text.includes('，') || text.includes(';') || text.includes('；') || text.includes('\n')) {
       e.preventDefault()
       const newTags = text
-        .split(/[\n,]/)
+        .split(/[\n,;，；]+/)
         .map((t) => t.trim())
         .filter(Boolean)
 
@@ -117,9 +129,9 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(function Tag
       {value.map((tag, idx) => (
         <span
           key={`${tag}-${idx}`}
-          className="inline-flex h-6 items-center gap-1 rounded bg-[var(--overlay-06)] border border-line/70 px-2 py-0 text-xs text-ink font-mono select-none"
+          className="inline-flex h-6 items-center gap-1.5 rounded-md bg-[color-mix(in_oklab,var(--ink)_8%,transparent)] border border-line/70 px-2 py-0 text-xs text-ink font-mono select-none"
         >
-          <span className="max-w-[180px] truncate leading-none">{tag}</span>
+          <span className="max-w-[200px] truncate leading-none">{tag}</span>
           {!disabled && (
             <button
               type="button"
@@ -127,7 +139,7 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(function Tag
                 e.stopPropagation()
                 removeTag(idx)
               }}
-              className="text-ink-soft hover:text-ink hover:bg-[var(--overlay-08)] rounded p-0.5 transition-colors cursor-pointer"
+              className="text-ink-soft hover:text-danger hover:bg-danger/10 rounded p-0.5 transition-colors cursor-pointer"
               aria-label={`Remove ${tag}`}
             >
               <LuX className="size-3" aria-hidden="true" />
@@ -146,7 +158,7 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(function Tag
         onKeyDown={handleKeyDown}
         onPaste={handlePaste}
         onBlur={handleBlur}
-        placeholder={value.length === 0 ? placeholder : ''}
+        placeholder={value.length === 0 ? placeholder : '+ 添加...'}
         aria-label={ariaLabel || placeholder}
         className={cn(
           'h-6 min-w-[5.5rem] flex-1 appearance-none border-none bg-transparent px-1 text-xs leading-normal text-ink placeholder:text-ink-soft/70 outline-none',

@@ -152,16 +152,17 @@ export function ModelChannelSection({ inline = false, onAdd, onEdit }: ModelChan
 
           <div className="divide-y divide-line/60">
             {/* Whitelist Input */}
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 first:pt-0 items-start">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 first:pt-0 items-center">
               <div className="md:col-span-5 min-w-0">
                 <label htmlFor="agent-model-whitelist" className="text-xs font-semibold text-ink">
                   {t('gitAgent.modelWhitelist')}
                 </label>
                 <p className="text-xs text-ink-soft leading-relaxed mt-0.5">{t('gitAgent.modelWhitelistDesc')}</p>
               </div>
-              <div className="md:col-span-7 min-w-0 max-w-[460px]">
+              <div className="md:col-span-7 min-w-0 max-w-[460px] md:ml-auto w-full flex justify-end">
                 <TagInput
                   id="agent-model-whitelist"
+                  className="w-full"
                   value={modelFilter.whitelist}
                   onChange={(whitelist) => setModelFilter((prev) => ({ ...prev, whitelist }))}
                   placeholder="留空允许所有；输入如 gpt-*、deepseek-chat 后回车添加..."
@@ -170,16 +171,17 @@ export function ModelChannelSection({ inline = false, onAdd, onEdit }: ModelChan
             </div>
 
             {/* Blacklist Input */}
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 items-start">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 items-center">
               <div className="md:col-span-5 min-w-0">
                 <label htmlFor="agent-model-blacklist" className="text-xs font-semibold text-ink">
                   {t('gitAgent.modelBlacklist')}
                 </label>
                 <p className="text-xs text-ink-soft leading-relaxed mt-0.5">{t('gitAgent.modelBlacklistDesc')}</p>
               </div>
-              <div className="md:col-span-7 min-w-0 max-w-[460px]">
+              <div className="md:col-span-7 min-w-0 max-w-[460px] md:ml-auto w-full flex justify-end">
                 <TagInput
                   id="agent-model-blacklist"
+                  className="w-full"
                   value={modelFilter.blacklist}
                   onChange={(blacklist) => setModelFilter((prev) => ({ ...prev, blacklist }))}
                   placeholder="输入要阻断的模型或通配符，如 *-mini、workbuddy/deepseek-v4-pro，回车添加..."

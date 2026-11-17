@@ -219,14 +219,14 @@ export function ModelChannelEditor({ profile, isNew = false, onBack }: ModelChan
         >
           <fieldset disabled={testing} className="divide-y divide-line/60">
             {/* Row 1: Profile Name */}
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 first:pt-0 items-start">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 first:pt-0 items-center">
               <div className="md:col-span-5 min-w-0">
                 <label htmlFor="agent-model-name" className="text-xs font-semibold text-ink">
                   {t('gitAgent.profileName')}
                 </label>
                 <p className="text-xs text-ink-soft leading-relaxed mt-0.5">便于辨识的配置别名。</p>
               </div>
-              <div className="md:col-span-7 min-w-0 max-w-[460px]">
+              <div className="md:col-span-7 min-w-0 max-w-[460px] md:ml-auto w-full">
                 <TextInput
                   id="agent-model-name"
                   fullWidth
@@ -238,14 +238,14 @@ export function ModelChannelEditor({ profile, isNew = false, onBack }: ModelChan
             </div>
 
             {/* Row 2: Provider */}
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 items-start">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 items-center">
               <div className="md:col-span-5 min-w-0">
                 <span className="text-xs font-semibold text-ink" id="agent-provider-label">
                   {t('gitAgent.modelProvider')}
                 </span>
                 <p className="text-xs text-ink-soft leading-relaxed mt-0.5">{preset.description || '服务商协议或网络直连方式。'}</p>
               </div>
-              <div className="md:col-span-7 min-w-0 max-w-[460px] flex flex-col gap-2">
+              <div className="md:col-span-7 min-w-0 max-w-[460px] md:ml-auto w-full flex flex-col gap-2">
                 <Select
                   aria-labelledby="agent-provider-label"
                   className="w-full"
@@ -270,14 +270,14 @@ export function ModelChannelEditor({ profile, isNew = false, onBack }: ModelChan
             </div>
 
             {/* Row 3: API Endpoint */}
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 items-start">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 items-center">
               <div className="md:col-span-5 min-w-0">
                 <label htmlFor="agent-model-endpoint" className="text-xs font-semibold text-ink">
                   {t('gitAgent.endpoint')}
                 </label>
                 <p className="text-xs text-ink-soft leading-relaxed mt-0.5">OpenAPI 规范的服务基地址。</p>
               </div>
-              <div className="md:col-span-7 min-w-0 max-w-[460px]">
+              <div className="md:col-span-7 min-w-0 max-w-[460px] md:ml-auto w-full">
                 <TextInput
                   id="agent-model-endpoint"
                   fullWidth
@@ -289,7 +289,7 @@ export function ModelChannelEditor({ profile, isNew = false, onBack }: ModelChan
             </div>
 
             {/* Row 4: Custom Models Catalog Endpoint (Special support for Magpie / Custom gateways) */}
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 items-start">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 items-center">
               <div className="md:col-span-5 min-w-0">
                 <label htmlFor="agent-models-endpoint" className="text-xs font-semibold text-ink">
                   {t('integration.agentModelsEndpoint') || '模型列表接口'}
@@ -298,7 +298,7 @@ export function ModelChannelEditor({ profile, isNew = false, onBack }: ModelChan
                   {t('integration.agentModelsEndpointDesc') || '可选。默认请求 /models。若代理网关使用不同模型列表接口（如 Magpie），可填相对路径或完整 URL。'}
                 </p>
               </div>
-              <div className="md:col-span-7 min-w-0 max-w-[460px]">
+              <div className="md:col-span-7 min-w-0 max-w-[460px] md:ml-auto w-full">
                 <TextInput
                   id="agent-models-endpoint"
                   fullWidth
@@ -310,14 +310,14 @@ export function ModelChannelEditor({ profile, isNew = false, onBack }: ModelChan
             </div>
 
             {/* Row 5: Default Model with InputSuggestion, Fetch Action, and zero-displacement attached error */}
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 items-start">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 items-center">
               <div className="md:col-span-5 min-w-0">
                 <label htmlFor="agent-model-id" className="text-xs font-semibold text-ink">
                   {t('gitAgent.defaultModel') || '默认模型'}
                 </label>
                 <p className="text-xs text-ink-soft leading-relaxed mt-0.5">预设规格或输入自定义模型代码。</p>
               </div>
-              <div className="md:col-span-7 min-w-0 max-w-[460px] flex flex-col gap-1">
+              <div className="md:col-span-7 min-w-0 max-w-[460px] md:ml-auto w-full flex flex-col gap-1">
                 {/* Form element with integrated zero-displacement bottom error */}
                 <div className="relative w-full">
                   <InputSuggestion
@@ -371,14 +371,14 @@ export function ModelChannelEditor({ profile, isNew = false, onBack }: ModelChan
 
             {/* Row 6: API Key */}
             {showApiKeyField && (
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 items-start">
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 items-center">
                 <div className="md:col-span-5 min-w-0">
                   <label htmlFor="agent-api-key" className="text-xs font-semibold text-ink">
                     {t('gitAgent.apiKey')}
                   </label>
                   <p className="text-xs text-ink-soft leading-relaxed mt-0.5">仅在客户端内存暂存，刷新即清空。</p>
                 </div>
-                <div className="md:col-span-7 min-w-0 max-w-[460px]">
+                <div className="md:col-span-7 min-w-0 max-w-[460px] md:ml-auto w-full">
                   <ConfiguredSecretInput
                     key={config.provider}
                     configured={Boolean(draft.config.apiKey) && !clearKey}
@@ -424,16 +424,17 @@ export function ModelChannelEditor({ profile, isNew = false, onBack }: ModelChan
 
             <div className="divide-y divide-line/60">
               {/* Whitelist Input */}
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 first:pt-0 items-start">
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 first:pt-0 items-center">
                 <div className="md:col-span-5 min-w-0">
                   <label htmlFor="agent-channel-whitelist" className="text-xs font-semibold text-ink">
                     {t('gitAgent.modelWhitelist')}
                   </label>
                   <p className="text-xs text-ink-soft leading-relaxed mt-0.5">{t('gitAgent.modelWhitelistDesc')}</p>
                 </div>
-                <div className="md:col-span-7 min-w-0 max-w-[460px]">
+                <div className="md:col-span-7 min-w-0 max-w-[460px] md:ml-auto w-full flex justify-end">
                   <TagInput
                     id="agent-channel-whitelist"
+                    className="w-full"
                     value={channelFilter.whitelist}
                     onChange={(whitelist) => setDraft((prev) => ({ ...prev, filter: { ...prev.filter, whitelist, blacklist: prev.filter?.blacklist || [] } }))}
                     placeholder="留空允许所有；输入如 gpt-*、codex/* 后回车添加..."
@@ -442,16 +443,17 @@ export function ModelChannelEditor({ profile, isNew = false, onBack }: ModelChan
               </div>
 
               {/* Blacklist Input */}
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 items-start">
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 items-center">
                 <div className="md:col-span-5 min-w-0">
                   <label htmlFor="agent-channel-blacklist" className="text-xs font-semibold text-ink">
                     {t('gitAgent.modelBlacklist')}
                   </label>
                   <p className="text-xs text-ink-soft leading-relaxed mt-0.5">{t('gitAgent.modelBlacklistDesc')}</p>
                 </div>
-                <div className="md:col-span-7 min-w-0 max-w-[460px]">
+                <div className="md:col-span-7 min-w-0 max-w-[460px] md:ml-auto w-full flex justify-end">
                   <TagInput
                     id="agent-channel-blacklist"
+                    className="w-full"
                     value={channelFilter.blacklist}
                     onChange={(blacklist) => setDraft((prev) => ({ ...prev, filter: { ...prev.filter, blacklist, whitelist: prev.filter?.whitelist || [] } }))}
                     placeholder="输入要阻断的模型或通配符，如 *-mini、workbuddy/deepseek-v4-pro，回车添加..."

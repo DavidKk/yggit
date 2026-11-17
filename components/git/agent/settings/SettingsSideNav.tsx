@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import React from 'react'
 import { LuCpu, LuMousePointerClick, LuShieldCheck, LuSlidersHorizontal } from 'react-icons/lu'
 
@@ -11,7 +12,7 @@ export type SettingsSectionKey = 'models' | 'privacy' | 'general' | 'menus'
 
 interface Props {
   activeSection: SettingsSectionKey
-  onSelectSection: (section: SettingsSectionKey) => void
+  onSelectSection?: (section: SettingsSectionKey) => void
 }
 
 export function SettingsSideNav({ activeSection, onSelectSection }: Props) {
@@ -21,21 +22,25 @@ export function SettingsSideNav({ activeSection, onSelectSection }: Props) {
     {
       id: 'models' as const,
       label: t('gitAgent.tabModels'),
+      href: '/settings',
       icon: <LuCpu className="h-4.5 w-4.5" aria-hidden="true" />,
     },
     {
       id: 'privacy' as const,
       label: t('gitAgent.tabPrivacy'),
+      href: '/privacy',
       icon: <LuShieldCheck className="h-4.5 w-4.5" aria-hidden="true" />,
     },
     {
       id: 'general' as const,
       label: t('gitAgent.tabGeneral') || '通用设置',
+      href: '/settings/general',
       icon: <LuSlidersHorizontal className="h-4.5 w-4.5" aria-hidden="true" />,
     },
     {
       id: 'menus' as const,
       label: '右键菜单',
+      href: '/settings/menus',
       icon: <LuMousePointerClick className="h-4.5 w-4.5" aria-hidden="true" />,
     },
   ]
@@ -47,11 +52,11 @@ export function SettingsSideNav({ activeSection, onSelectSection }: Props) {
           const isActive = activeSection === item.id
           return (
             <Tooltip key={item.id} content={item.label} placement="right">
-              <button
-                type="button"
+              <Link
+                href={item.href}
                 aria-label={item.label}
                 aria-current={isActive ? 'page' : undefined}
-                onClick={() => onSelectSection(item.id)}
+                onClick={() => onSelectSection?.(item.id)}
                 className={cn(
                   'group relative flex h-9 w-9 items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent',
                   isActive ? 'bg-accent/15 text-accent shadow-xs' : 'text-ink-soft hover:bg-[color-mix(in_oklab,var(--ink)_6%,transparent)] hover:text-ink'
@@ -59,7 +64,7 @@ export function SettingsSideNav({ activeSection, onSelectSection }: Props) {
               >
                 {isActive && <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-r bg-accent" aria-hidden="true" />}
                 {item.icon}
-              </button>
+              </Link>
             </Tooltip>
           )
         })}
