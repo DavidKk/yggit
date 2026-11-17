@@ -9,6 +9,24 @@ export const AGENT_GIT_TOOLS: AgentToolDefinition[] = [
   {
     type: 'function',
     function: {
+      name: 'focus_branch',
+      description:
+        'Focus and jump the visual Git graph view to a specific branch (e.g. "feat/agent-system", "master", "main"). In Yggdrasil, when a user asks to "跳转到/切换到/定位到/选中某分支", they mean focusing and jumping the visual Git graph to that branch\'s latest commit, NOT running git checkout on the local disk. ALWAYS call this tool for requests like "帮我跳转到 xxx", "切换到 xxx 分支", "定位分支 xxx", etc.',
+      parameters: {
+        type: 'object',
+        properties: {
+          branchName: {
+            type: 'string',
+            description: 'The name of the branch to jump to (e.g. "feat/agent-system", "master", "develop")',
+          },
+        },
+        required: ['branchName'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'get_unmerged_branches',
       description:
         'Get all branches that have not been merged into a target base branch (e.g. "master" or "main"). Returns the total unmerged branch count, list of unmerged branches, number of unmerged commits ahead, latest commit details, and graph spotlight targets.',

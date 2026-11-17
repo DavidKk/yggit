@@ -255,6 +255,11 @@ export function AgentWorkspace({ repoPath, className }: Props) {
               )
             }
 
+            // Do not render empty assistant bubble (e.g. intermediate turn with tool calls)
+            if (!isUser && !m.content?.trim() && !m.isStreaming) {
+              return null
+            }
+
             return (
               <div key={m.id} className={cn('flex flex-col gap-1', isUser ? 'items-end' : 'items-start')}>
                 <div className="flex items-center gap-1.5 text-[10px] text-ink-soft px-1">

@@ -11,6 +11,7 @@ import type { GitCommit, GitLogView, GitWorktree } from '@/lib/git/types'
 import { readBranchMarks } from './marks'
 import { listGitProjects, originUrl, rememberLocalProject, writeLastOpenedRepo } from './projects'
 import { parseGitHubRepo, readRemoteGitLog } from './remote-provider'
+import { resolveRepoSlug } from './resolver'
 
 const execFileAsync = promisify(execFile)
 const LOG_FORMAT = '%H%x1f%h%x1f%P%x1f%an%x1f%ad%x1f%D%x1f%s%x1e'
@@ -63,9 +64,24 @@ export async function resolveGitRepo(input?: string): Promise<string> {
           // Fall through
         }
       }
+
+      // Check if input is a repo slug / URL / route path
+      try {
+        const cleanSlug = raw
+          .replace(/^https?:\/\//, '')
+          .replace(/\.git$/, '')
+          .replace(/^\/git\//, '')
+          .split('/')
+        const { resolved } = resolveRepoSlug(cleanSlug)
+        if (resolved.repoPathOrUrl && fs.existsSync(resolved.repoPathOrUrl)) {
+          return (await git(resolved.repoPathOrUrl, ['rev-parse', '--show-toplevel'])).trim()
+        }
+      } catch {
+        // Fall through
+      }
     }
   }
-  const fallback = raw || ROOT_PATH
+  const fallback = (raw && fs.existsSync(raw) ? raw : '') || ROOT_PATH
   try {
     return (await git(fallback, ['rev-parse', '--show-toplevel'])).trim()
   } catch (error) {

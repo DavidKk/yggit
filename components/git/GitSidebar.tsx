@@ -1067,7 +1067,15 @@ function BranchTree({
               <span data-git-sidebar-label className="min-w-0 flex-1 truncate whitespace-nowrap text-left text-xs select-text">
                 {node.label}
               </span>
-              {node.item?.current ? <LuCheck className="size-3 shrink-0 text-accent select-none" aria-hidden /> : null}
+              {node.item ? (
+                <LuCheck
+                  className={cn(
+                    'ml-auto size-3 shrink-0 text-accent select-none pl-1 transition-opacity duration-150',
+                    node.item.current ? 'opacity-100' : 'pointer-events-none opacity-0'
+                  )}
+                  aria-hidden
+                />
+              ) : null}
             </div>
             {expanded ? (
               <BranchTree
@@ -1144,11 +1152,16 @@ function Row({
         handleTreeParentKey(event, parentId)
       }}
     >
-      {current ? <LuCheck className="size-3.5 shrink-0 text-accent select-none" aria-hidden /> : <span className="size-3.5 shrink-0 select-none" aria-hidden />}
       <span data-git-sidebar-label className="min-w-0 flex-1 truncate whitespace-nowrap text-left select-text">
         {label}
       </span>
-      {notice ? <span className="size-1.5 shrink-0 rounded-full bg-accent select-none" aria-label={t('git.sidebar.remoteNewAria')} /> : null}
+      <div className="ml-auto flex shrink-0 items-center gap-1.5 pl-2">
+        {notice ? <span className="size-1.5 shrink-0 rounded-full bg-accent select-none" aria-label={t('git.sidebar.remoteNewAria')} /> : null}
+        <LuCheck
+          className={cn('size-3.5 shrink-0 text-accent select-none transition-opacity duration-150', current ? 'opacity-100' : 'pointer-events-none opacity-0')}
+          aria-hidden
+        />
+      </div>
     </div>
   )
 }

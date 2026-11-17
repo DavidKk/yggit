@@ -70,13 +70,15 @@ export interface FindCommitsResult {
  */
 export async function checkBranchContainment(params: { repo?: string; sourceBranch: string; targetBranch: string }): Promise<BranchContainmentResult> {
   const { repo = '', sourceBranch, targetBranch } = params
+  const cleanSource = cleanBranchName(sourceBranch)
+  const resolvedTarget = await resolveTargetBranch(repo, targetBranch)
 
   try {
     // 1. Find common ancestor
-    const commonAncestor = await gitExec(repo, ['merge-base', sourceBranch, targetBranch]).catch(() => '')
+    const commonAncestor = await gitExec(repo, ['merge-base', cleanSource, resolvedTarget]).catch(() => '')
 
     // 2. Commits in sourceBranch but NOT in targetBranch
-    const sourceOnlyRaw = await gitExec(repo, ['log', `${targetBranch}..${sourceBranch}`, '--pretty=format:%H%x1f%s%x1f%an', '-n', '50']).catch(() => '')
+    const sourceOnlyRaw = await gitExec(repo, ['log', `${resolvedTarget}..${cleanSource}`, '--pretty=format:%H%x1f%s%x1f%an', '-n', '50']).catch(() => '')
 
     const unmergedCommits = sourceOnlyRaw
       ? sourceOnlyRaw
@@ -91,7 +93,7 @@ export async function checkBranchContainment(params: { repo?: string; sourceBran
     // 3. Check if targetBranch actually contains sourceBranch (is sourceBranch ancestor of targetBranch?)
     let isAncestor = false
     try {
-      await gitExec(repo, ['merge-base', '--is-ancestor', sourceBranch, targetBranch])
+      await gitExec(repo, ['merge-base', '--is-ancestor', cleanSource, resolvedTarget])
       isAncestor = true
     } catch {
       isAncestor = false
@@ -99,7 +101,7 @@ export async function checkBranchContainment(params: { repo?: string; sourceBran
 
     // 4. Commits in targetBranch that might have originated from sourceBranch
     // (Checking if any unmergedCommits were cherry-picked or already merged)
-    const contaminatingRaw = await gitExec(repo, ['log', `${commonAncestor}..${targetBranch}`, '--pretty=format:%H%x1f%s%x1f%an', '-n', '50']).catch(() => '')
+    const contaminatingRaw = await gitExec(repo, ['log', `${commonAncestor}..${resolvedTarget}`, '--pretty=format:%H%x1f%s%x1f%an', '-n', '50']).catch(() => '')
 
     const targetBranchCommits = contaminatingRaw
       ? contaminatingRaw
@@ -431,33 +433,43 @@ export interface UnmergedBranchesResult {
   spotlightTargets: SpotlightTarget[]
 }
 
+export function cleanBranchName(name?: string): string {
+  if (!name) return ''
+  let cleaned = name
+    .trim()
+    .replace(/^['"`]+|['"`]+$/g, '')
+    .trim()
+  cleaned = cleaned.replace(/(?:分支|branch)$/i, '').trim()
+  return cleaned
+}
+
 /**
  * Resolves the target branch candidate against available references.
  * Gracefully maps 'master' <-> 'main' if one is requested but the other exists.
  */
 async function resolveTargetBranch(repo: string, candidate?: string): Promise<string> {
-  if (candidate) {
-    const trimmed = candidate.trim()
+  const cleaned = cleanBranchName(candidate)
+  if (cleaned) {
     try {
-      await gitExec(repo, ['rev-parse', '--verify', trimmed])
-      return trimmed
+      await gitExec(repo, ['rev-parse', '--verify', cleaned])
+      return cleaned
     } catch {}
 
-    for (const alt of [trimmed.toLowerCase(), trimmed.toUpperCase()]) {
+    for (const alt of [cleaned.toLowerCase(), cleaned.toUpperCase()]) {
       try {
         await gitExec(repo, ['rev-parse', '--verify', alt])
         return alt
       } catch {}
     }
 
-    if (/^master$/i.test(trimmed)) {
+    if (/^master$/i.test(cleaned)) {
       for (const alt of ['main', 'origin/main', 'origin/master']) {
         try {
           await gitExec(repo, ['rev-parse', '--verify', alt])
           return alt
         } catch {}
       }
-    } else if (/^main$/i.test(trimmed)) {
+    } else if (/^main$/i.test(cleaned)) {
       for (const alt of ['master', 'origin/master', 'origin/main']) {
         try {
           await gitExec(repo, ['rev-parse', '--verify', alt])
@@ -467,8 +479,8 @@ async function resolveTargetBranch(repo: string, candidate?: string): Promise<st
     }
 
     try {
-      await gitExec(repo, ['rev-parse', '--verify', `origin/${trimmed}`])
-      return `origin/${trimmed}`
+      await gitExec(repo, ['rev-parse', '--verify', `origin/${cleaned}`])
+      return `origin/${cleaned}`
     } catch {}
   }
 
@@ -582,5 +594,80 @@ export async function getGitUnmergedBranches(params: GetUnmergedBranchesParams):
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     throw new Error(`Failed to check unmerged branches: ${msg}`)
+  }
+}
+
+export interface FocusBranchResult {
+  success: boolean
+  branchName: string
+  resolvedBranch: string
+  hash: string
+  shortHash: string
+  subject: string
+  author: string
+  date: string
+  message: string
+  spotlightTargets: SpotlightTarget[]
+}
+
+/**
+ * Focuses on a specific branch in the repository and retrieves its latest commit details
+ * for the visual graph to scroll and spotlight.
+ */
+export async function focusGitBranch(params: { repo?: string; branchName: string }): Promise<FocusBranchResult> {
+  const { repo = '', branchName } = params
+  const cleaned = cleanBranchName(branchName)
+  if (!cleaned) {
+    throw new Error('分支名称不能为空')
+  }
+
+  // 1. Resolve commit hash of branch
+  let commitHash = ''
+  let resolvedBranch = cleaned
+
+  const candidates = [cleaned, `refs/heads/${cleaned}`, `origin/${cleaned}`, `refs/remotes/origin/${cleaned}`]
+  for (const candidate of candidates) {
+    try {
+      const hash = await gitExec(repo, ['rev-parse', '--verify', candidate])
+      if (hash) {
+        commitHash = hash
+        resolvedBranch = candidate.replace(/^refs\/(?:heads|remotes)\//, '')
+        break
+      }
+    } catch {}
+  }
+
+  if (!commitHash) {
+    throw new Error(`未找到分支 "${branchName}"。请确认分支名称是否存在。`)
+  }
+
+  // 2. Fetch commit details
+  const rawMeta = await gitExec(repo, ['log', '-1', '--pretty=format:%H%x1f%h%x1f%s%x1f%an%x1f%ad', '--date=iso', commitHash])
+  const [hash, shortHash, subject, author, date] = (rawMeta || '').split('\x1f')
+
+  const spotlightTargets: SpotlightTarget[] = [
+    {
+      hash: hash || commitHash,
+      shortHash: shortHash || commitHash.slice(0, 7),
+      role: 'primary',
+      evidenceGrade: 'Fact',
+      reason: `已跳转并聚焦到分支 ${resolvedBranch} 最新提交`,
+      subject: subject || '',
+      author: author || '',
+      date: date || '',
+    },
+  ]
+
+  return {
+    success: true,
+    branchName,
+    resolvedBranch,
+    hash: hash || commitHash,
+    shortHash: shortHash || commitHash.slice(0, 7),
+    subject: subject || '',
+    author: author || '',
+    date: date || '',
+    message: `已为您定位到分支 "${resolvedBranch}"，其最新提交为 ${shortHash || commitHash.slice(0, 7)}（"${subject || ''}"）。图形界面已自动跳转并聚焦。`,
+    spotlightTargets,
   }
 }

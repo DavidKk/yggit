@@ -26,6 +26,8 @@ type Props = {
   truncated?: boolean
   /** For svg / markdown: preview vs source. Owned by the parent header. */
   pane?: GitFilePane
+  searchNeedle?: string
+  activeLineIndex?: number
 }
 
 function ImagePreview({ repo, hash, path }: { repo: string; hash: string; path: string }) {
@@ -119,7 +121,7 @@ function MarkdownPreview({ content }: { content: string }) {
   )
 }
 
-export function GitFilePreview({ kind, repo, hash, path, content, missing, binary, truncated, pane = 'preview' }: Props) {
+export function GitFilePreview({ kind, repo, hash, path, content, missing, binary, truncated, pane = 'preview', searchNeedle, activeLineIndex }: Props) {
   const t = useT()
   if (missing) {
     return <EmptyState density="compact" className="px-3 py-8" title={t('git.preview.fileGone')} message={t('git.preview.fileGoneMsg')} />
@@ -144,7 +146,7 @@ export function GitFilePreview({ kind, repo, hash, path, content, missing, binar
             <MarkdownPreview content={source} />
           )
         ) : (
-          <GitHighlightedCode content={source} path={path} />
+          <GitHighlightedCode content={source} path={path} searchNeedle={searchNeedle} activeIndex={activeLineIndex} />
         )}
         {truncated && pane === 'code' ? <p className="m-0 px-3 py-2 font-sans text-xs text-ink-soft">{t('git.preview.truncated')}</p> : null}
       </ScrollArea>
@@ -157,7 +159,7 @@ export function GitFilePreview({ kind, repo, hash, path, content, missing, binar
 
   return (
     <ScrollArea className="min-h-0 flex-1" indicator="both" reserveGutter={false}>
-      <GitHighlightedCode content={content || ''} path={path} />
+      <GitHighlightedCode content={content || ''} path={path} searchNeedle={searchNeedle} activeIndex={activeLineIndex} />
       {truncated ? <p className="m-0 px-3 py-2 font-sans text-xs text-ink-soft">{t('git.preview.truncated')}</p> : null}
     </ScrollArea>
   )

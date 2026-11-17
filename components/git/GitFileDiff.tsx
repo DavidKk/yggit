@@ -1,15 +1,17 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import { LuCodeXml, LuColumns2, LuEye, LuFileText, LuGitCompareArrows, LuListTree, LuPencil, LuRows3, LuX } from 'react-icons/lu'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { LuChevronDown, LuChevronUp, LuCodeXml, LuColumns2, LuEye, LuFileText, LuGitCompareArrows, LuListTree, LuPencil, LuRows3, LuSearch, LuX } from 'react-icons/lu'
 import { TiMinusOutline, TiPlusOutline } from 'react-icons/ti'
 import type { ThemedToken } from 'shiki'
 
 import { gitFileKind } from '@/components/git/fileKind'
 import { type GitFilePane, GitFilePreview } from '@/components/git/GitFilePreview'
+import { GIT_FIND_EVENT, useGitFindShortcutLabel } from '@/components/git/gitFind'
+import { GitFindTab } from '@/components/git/GitFindTab'
 import { GitDiffCodeText, useGitLineTokens } from '@/components/git/GitHighlightedCode'
 import { useT } from '@/components/i18n/LocaleProvider'
-import { Button, EmptyState, ScrollArea, SegmentedNav } from '@/components/sk'
+import { Button, EmptyState, ScrollArea, SegmentedNav, TextInput } from '@/components/sk'
 import { getGitDriver } from '@/lib/git/driver'
 import type { GitCommitChanges } from '@/lib/git/types'
 import { useGitUiPref } from '@/lib/git/ui-prefs'
@@ -133,7 +135,7 @@ function countChanges(hunks: Hunk[]): ChangeCounts {
   return { add: add - edit, edit, del: del - edit }
 }
 
-function PlainRows({ rows, path }: { rows: AlignedRow[]; path: string }) {
+function PlainRows({ rows, path, activeIndex, searchNeedle }: { rows: AlignedRow[]; path: string; activeIndex?: number; searchNeedle?: string }) {
   const liveLines = rows.filter((row) => row.kind !== 'del').map((row) => row.text)
   const delLines = rows.filter((row) => row.kind === 'del').map((row) => row.text)
   const liveTokens = useGitLineTokens(liveLines, path)
@@ -142,10 +144,16 @@ function PlainRows({ rows, path }: { rows: AlignedRow[]; path: string }) {
   let delAt = 0
   return rows.map((row, index) => {
     const tokens = row.kind === 'del' ? delTokens?.[delAt++] : liveTokens?.[liveAt++]
+    const isActive = activeIndex === index
+    const isMatch = Boolean(searchNeedle && row.text.toLowerCase().includes(searchNeedle.toLowerCase()))
     return (
-      <div key={index} className="flex min-w-0">
+      <div
+        key={index}
+        data-diff-line-idx={index}
+        className={cn('flex min-w-0 transition-colors', isActive && 'bg-accent/25 ring-1 ring-accent', !isActive && isMatch && 'bg-accent/5')}
+      >
         <span className="w-12 shrink-0 pr-2 text-right text-ink-soft select-none">{row.newNo ?? row.oldNo ?? ''}</span>
-        <GitDiffCodeText kind={row.kind} text={row.text} tokens={tokens} />
+        <GitDiffCodeText kind={row.kind} text={row.text} tokens={tokens} searchNeedle={searchNeedle} isActiveLine={isActive} />
       </div>
     )
   })
@@ -174,7 +182,7 @@ function splitPairs(rows: AlignedRow[]): Array<{ left?: AlignedRow; right?: Alig
   return pairs
 }
 
-function SplitRows({ rows, path }: { rows: AlignedRow[]; path: string }) {
+function SplitRows({ rows, path, activeIndex, searchNeedle }: { rows: AlignedRow[]; path: string; activeIndex?: number; searchNeedle?: string }) {
   const t = useT()
   const pairs = splitPairs(rows)
   const leftLines = pairs.map((pair) => pair.left?.text || '')
@@ -187,23 +195,41 @@ function SplitRows({ rows, path }: { rows: AlignedRow[]; path: string }) {
         <span className="px-3 py-1">{t('git.diff.before')}</span>
         <span className="border-l border-line px-3 py-1">{t('git.diff.after')}</span>
       </div>
-      {pairs.map((pair, index) => (
-        <div key={index} className="grid grid-cols-2 min-w-0">
-          <div className="flex min-w-0 overflow-hidden border-r border-line">
-            <span className="w-10 shrink-0 pr-2 text-right text-ink-soft select-none">{pair.left?.oldNo ?? ''}</span>
-            <GitDiffCodeText kind={pair.left?.kind || 'context'} text={pair.left?.text || ''} tokens={leftTokens?.[index]} />
+      {pairs.map((pair, index) => {
+        const isActive = activeIndex === index
+        const isMatch = Boolean(
+          searchNeedle &&
+          ((pair.left?.text && pair.left.text.toLowerCase().includes(searchNeedle.toLowerCase())) ||
+            (pair.right?.text && pair.right.text.toLowerCase().includes(searchNeedle.toLowerCase())))
+        )
+        return (
+          <div
+            key={index}
+            data-diff-line-idx={index}
+            className={cn('grid grid-cols-2 min-w-0 transition-colors', isActive && 'bg-accent/25 ring-1 ring-accent', !isActive && isMatch && 'bg-accent/5')}
+          >
+            <div className="flex min-w-0 overflow-hidden border-r border-line">
+              <span className="w-10 shrink-0 pr-2 text-right text-ink-soft select-none">{pair.left?.oldNo ?? ''}</span>
+              <GitDiffCodeText kind={pair.left?.kind || 'context'} text={pair.left?.text || ''} tokens={leftTokens?.[index]} searchNeedle={searchNeedle} isActiveLine={isActive} />
+            </div>
+            <div className="flex min-w-0 overflow-hidden">
+              <span className="w-10 shrink-0 pr-2 text-right text-ink-soft select-none">{pair.right?.newNo ?? ''}</span>
+              <GitDiffCodeText
+                kind={pair.right?.kind || 'context'}
+                text={pair.right?.text || ''}
+                tokens={rightTokens?.[index]}
+                searchNeedle={searchNeedle}
+                isActiveLine={isActive}
+              />
+            </div>
           </div>
-          <div className="flex min-w-0 overflow-hidden">
-            <span className="w-10 shrink-0 pr-2 text-right text-ink-soft select-none">{pair.right?.newNo ?? ''}</span>
-            <GitDiffCodeText kind={pair.right?.kind || 'context'} text={pair.right?.text || ''} tokens={rightTokens?.[index]} />
-          </div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
 
-function HunkBlock({ hunk, path }: { hunk: Hunk; path: string }) {
+function HunkBlock({ hunk, path, lineOffset = 0, activeIndex, searchNeedle }: { hunk: Hunk; path: string; lineOffset?: number; activeIndex?: number; searchNeedle?: string }) {
   // Highlight old/new sides separately so +/- lines do not break TextMate state.
   const oldLines = hunk.lines.filter((line) => line.kind === 'context' || line.kind === 'del').map((line) => line.text)
   const newLines = hunk.lines.filter((line) => line.kind === 'context' || line.kind === 'add').map((line) => line.text)
@@ -235,13 +261,22 @@ function HunkBlock({ hunk, path }: { hunk: Hunk; path: string }) {
   return (
     <>
       <div className="border-b border-line bg-[color-mix(in_oklab,var(--ink)_6%,transparent)] px-3 text-ink-soft">{hunk.header}</div>
-      {renderedLines.map(({ line, tokens }, index) => (
-        <div key={`${hunk.header}:${index}`} className="flex min-w-0">
-          <span className="w-10 shrink-0 pr-2 text-right text-ink-soft select-none">{line.oldNo ?? ''}</span>
-          <span className="w-10 shrink-0 border-r border-line pr-2 text-right text-ink-soft select-none">{line.newNo ?? ''}</span>
-          <GitDiffCodeText kind={line.kind} text={line.text} tokens={tokens} />
-        </div>
-      ))}
+      {renderedLines.map(({ line, tokens }, index) => {
+        const lineIdx = lineOffset + index
+        const isActive = activeIndex === lineIdx
+        const isMatch = Boolean(searchNeedle && line.text.toLowerCase().includes(searchNeedle.toLowerCase()))
+        return (
+          <div
+            key={`${hunk.header}:${index}`}
+            data-diff-line-idx={lineIdx}
+            className={cn('flex min-w-0 transition-colors', isActive && 'bg-accent/25 ring-1 ring-accent', !isActive && isMatch && 'bg-accent/5')}
+          >
+            <span className="w-10 shrink-0 pr-2 text-right text-ink-soft select-none">{line.oldNo ?? ''}</span>
+            <span className="w-10 shrink-0 border-r border-line pr-2 text-right text-ink-soft select-none">{line.newNo ?? ''}</span>
+            <GitDiffCodeText kind={line.kind} text={line.text} tokens={tokens} searchNeedle={searchNeedle} isActiveLine={isActive} />
+          </div>
+        )
+      })}
     </>
   )
 }
@@ -349,8 +384,105 @@ export function GitFileDiff({ repo, hash, path, status = 'M', onClose }: Props) 
   const counts = useMemo(() => countChanges(hunks), [hunks])
   const aligned = useMemo(() => alignFile(changes?.content, changes?.contentMissing === true, hunks), [changes, hunks])
 
+  const sectionRef = useRef<HTMLElement>(null)
+  const diffContainerRef = useRef<HTMLDivElement>(null)
+  const findInputRef = useRef<HTMLInputElement>(null)
+  const findShortcut = useGitFindShortcutLabel()
+
+  const [showFind, setShowFind] = useState(false)
+  const [findQuery, setFindQuery] = useState('')
+  const [matchIndex, setMatchIndex] = useState(0)
+
+  const needle = findQuery.trim().toLowerCase()
+
+  const searchableLines = useMemo(() => {
+    if (mode === 'file') {
+      return (changes?.content || '').replace(/\n$/, '').split('\n')
+    }
+    if (viewport === 'full' || viewport === 'split') {
+      return aligned.map((row) => row.text)
+    }
+    return hunks.flatMap((hunk) => hunk.lines.map((l) => l.text))
+  }, [mode, viewport, changes?.content, aligned, hunks])
+
+  const matches = useMemo(() => {
+    if (!needle || searchableLines.length === 0) return []
+    const result: number[] = []
+    searchableLines.forEach((line, idx) => {
+      if (line.toLowerCase().includes(needle)) {
+        result.push(idx)
+      }
+    })
+    return result
+  }, [needle, searchableLines])
+
+  useEffect(() => {
+    setMatchIndex(0)
+  }, [needle])
+
+  const stepMatch = useCallback(
+    (delta: number) => {
+      if (matches.length === 0) return
+      setMatchIndex((prev) => {
+        const next = (prev + delta + matches.length) % matches.length
+        const targetLineIndex = matches[next]
+        const el = diffContainerRef.current?.querySelector(`[data-diff-line-idx="${targetLineIndex}"]`)
+        if (el) {
+          el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+        }
+        return next
+      })
+    },
+    [matches]
+  )
+
+  useEffect(() => {
+    if (matches.length > 0) {
+      const firstIdx = matches[0]
+      const el = diffContainerRef.current?.querySelector(`[data-diff-line-idx="${firstIdx}"]`)
+      if (el) {
+        el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      }
+    }
+  }, [matches])
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'f') {
+        e.preventDefault()
+        setShowFind(true)
+        setTimeout(() => findInputRef.current?.focus(), 50)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  useEffect(() => {
+    const section = sectionRef.current
+    if (!section) return
+    const handler = () => {
+      setShowFind(true)
+      setTimeout(() => findInputRef.current?.focus(), 50)
+    }
+    section.addEventListener(GIT_FIND_EVENT, handler)
+    return () => section.removeEventListener(GIT_FIND_EVENT, handler)
+  }, [])
+
+  const hunkOffsets = useMemo(() => {
+    const offsets: number[] = []
+    let acc = 0
+    for (const hunk of hunks) {
+      offsets.push(acc)
+      acc += hunk.lines.length
+    }
+    return offsets
+  }, [hunks])
+
+  const activeLineIndex = needle && matches.length > 0 ? matches[matchIndex] : undefined
+
   return (
-    <section className="flex min-h-0 min-w-0 flex-1 flex-col bg-panel" aria-label={t('git.diff.aria')}>
+    <section ref={sectionRef} data-git-find="diff" className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-panel" aria-label={t('git.diff.aria')}>
       <header className="grid h-10 shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 border-b border-line px-2">
         <div className="flex min-w-0 items-center gap-2">
           <StatusIcon className={cn('size-3.5 shrink-0', mark.className)} aria-label={mark.label} />
@@ -368,12 +500,94 @@ export function GitFileDiff({ repo, hash, path, status = 'M', onClose }: Props) 
             <SegmentedNav aria-label={t('git.diff.viewport')} size="mini" value={viewport} onChange={setViewport} items={viewportItems} />
           ) : null}
         </div>
-        <div className="flex items-center justify-end">
+        <div className="flex items-center justify-end gap-1">
+          <Button
+            variant={showFind ? 'default' : 'plain'}
+            size="icon"
+            aria-label="搜索内容"
+            title={`搜索内容 (${findShortcut})`}
+            onClick={() => {
+              setShowFind((prev) => {
+                const next = !prev
+                if (next) {
+                  setTimeout(() => findInputRef.current?.focus(), 50)
+                }
+                return next
+              })
+            }}
+          >
+            <LuSearch className="size-3.5" aria-hidden />
+          </Button>
           <Button variant="plain" size="icon" aria-label={t('git.diff.close')} onClick={onClose}>
             <LuX aria-hidden />
           </Button>
         </div>
       </header>
+
+      {/* Floating Find Box in Detail View */}
+      {showFind ? (
+        <div className="absolute top-12 right-4 z-30 flex flex-col items-end">
+          <div
+            role="search"
+            className="flex max-w-[min(100%-1rem,24rem)] items-center overflow-hidden rounded-lg border border-accent/60 bg-panel shadow-2xl backdrop-blur-md focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/25"
+          >
+            <TextInput
+              ref={findInputRef}
+              search
+              clearable
+              aria-label="搜索内容"
+              placeholder="搜索代码或差异内容…"
+              value={findQuery}
+              className="min-w-[12rem] flex-1 border-transparent bg-transparent shadow-none focus-within:border-transparent text-black [&_input]:text-black [&_input]:font-medium [&_input]:placeholder:text-ink-soft/70"
+              onChange={(event) => setFindQuery(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault()
+                  stepMatch(event.shiftKey ? -1 : 1)
+                } else if (event.key === 'Escape') {
+                  event.preventDefault()
+                  setShowFind(false)
+                }
+              }}
+            />
+            <div className="flex shrink-0 items-center gap-0.5 self-stretch border-l border-line bg-panel-2/70 px-1 text-ink min-w-max">
+              <Button
+                variant="plain"
+                size="icon"
+                className="size-6 shrink-0 flex items-center justify-center p-0 text-ink-soft hover:enabled:bg-[var(--overlay-08)] hover:enabled:text-ink"
+                aria-label={t('git.history.prev') || '上一个'}
+                disabled={matches.length === 0}
+                onClick={() => stepMatch(-1)}
+              >
+                <LuChevronUp className="size-3.5" aria-hidden />
+              </Button>
+              <Button
+                variant="plain"
+                size="icon"
+                className="size-6 shrink-0 flex items-center justify-center p-0 text-ink-soft hover:enabled:bg-[var(--overlay-08)] hover:enabled:text-ink"
+                aria-label={t('git.history.next') || '下一个'}
+                disabled={matches.length === 0}
+                onClick={() => stepMatch(1)}
+              >
+                <LuChevronDown className="size-3.5" aria-hidden />
+              </Button>
+              <Button
+                variant="plain"
+                size="icon"
+                className="size-6 shrink-0 flex items-center justify-center p-0 text-ink-soft hover:enabled:bg-[var(--overlay-08)] hover:enabled:text-ink"
+                aria-label={t('git.history.closeFind') || '关闭搜索'}
+                onClick={() => setShowFind(false)}
+              >
+                <LuX className="size-3.5" aria-hidden />
+              </Button>
+            </div>
+          </div>
+
+          {/* Seamless fused inverted trapezoid counter tab */}
+          {needle ? <GitFindTab current={matchIndex >= 0 ? matchIndex : 0} total={matches.length} zeroText="未找到" className="mr-3" /> : null}
+        </div>
+      ) : null}
+
       {error ? (
         <p className="m-0 px-3 py-2 text-xs text-fail">{error}</p>
       ) : loading ? (
@@ -383,7 +597,7 @@ export function GitFileDiff({ repo, hash, path, status = 'M', onClose }: Props) 
           <div className="h-4 w-2/3 rounded-md bg-[color-mix(in_oklab,var(--ink)_8%,transparent)]" />
         </div>
       ) : mode === 'file' ? (
-        <div id="git-file-view" role="tabpanel" aria-label={t('git.diff.fileView')} className="flex min-h-0 flex-1 flex-col">
+        <div id="git-file-view" ref={diffContainerRef} role="tabpanel" aria-label={t('git.diff.fileView')} className="flex min-h-0 flex-1 flex-col">
           <GitFilePreview
             kind={resolvedKind}
             repo={repo}
@@ -394,6 +608,8 @@ export function GitFileDiff({ repo, hash, path, status = 'M', onClose }: Props) 
             binary={changes?.contentBinary === true}
             truncated={changes?.contentTruncated === true}
             pane={pane}
+            searchNeedle={needle}
+            activeLineIndex={activeLineIndex}
           />
         </div>
       ) : resolvedKind === 'image' ? (
@@ -409,15 +625,15 @@ export function GitFileDiff({ repo, hash, path, status = 'M', onClose }: Props) 
         <EmptyState density="compact" className="px-3 py-8" title={t('git.diff.noChanges')} message={t('git.diff.noTextDiff')} />
       ) : (
         <ScrollArea className="min-h-0 flex-1" indicator="both" reserveGutter={false}>
-          <div id="git-diff-view" role="tabpanel" aria-label={t('git.diff.diffView')} className="min-w-0 font-mono text-xs leading-5">
+          <div id="git-diff-view" ref={diffContainerRef} role="tabpanel" aria-label={t('git.diff.diffView')} className="min-w-0 font-mono text-xs leading-5">
             {viewport === 'split' ? (
-              <SplitRows rows={aligned} path={path} />
+              <SplitRows rows={aligned} path={path} activeIndex={activeLineIndex} searchNeedle={needle} />
             ) : viewport === 'full' ? (
-              <PlainRows rows={aligned} path={path} />
+              <PlainRows rows={aligned} path={path} activeIndex={activeLineIndex} searchNeedle={needle} />
             ) : (
               hunks.map((hunk, hunkIndex) => (
                 <div key={`${hunk.header}:${hunkIndex}`} className={hunkIndex > 0 ? 'border-t border-line' : undefined}>
-                  <HunkBlock hunk={hunk} path={path} />
+                  <HunkBlock hunk={hunk} path={path} lineOffset={hunkOffsets[hunkIndex]} activeIndex={activeLineIndex} searchNeedle={needle} />
                 </div>
               ))
             )}

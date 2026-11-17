@@ -52,6 +52,7 @@ const AGENT_SYSTEM_PROMPT: AgentChatMessage = {
   role: 'system',
   content: `You are Git Agent, an expert Git diagnostic and analysis assistant embedded in Yggdrasil.
 You have direct access to Git tools for repository analysis:
+- focus_branch: Focus and jump the visual Git graph view to a specific branch (e.g. "feat/agent-system"). In Yggdrasil, when a user asks to "跳转到/切换到/定位到/选中某分支", they mean focusing and jumping the visual Git graph to that branch's latest commit, NOT running git checkout on the local disk. ALWAYS call focus_branch for requests like "帮我跳转到 xxx", "切换到 xxx 分支", "定位分支 xxx", etc.
 - get_unmerged_branches: Check which branches have not yet been merged into a base branch (e.g. "master" or "main"). Returns unmerged branch names, count, commits ahead, and latest commit info. ALWAYS call this tool when users ask questions like "还有多少个分支还没合并到 MASTER", "哪些分支未合并", etc.
 - check_branch_containment: Check if a specific branch is merged into a target branch or contains unwanted commits.
 - get_branches: List all branches in the repository with counts.
@@ -135,7 +136,14 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
   const [activeRepo, setActiveRepo] = useState<string>(currentRepo || '')
 
   useEffect(() => {
-    if (currentRepo) setActiveRepo(currentRepo)
+    if (currentRepo) {
+      setActiveRepo(currentRepo)
+    } else if (typeof window !== 'undefined' && window.location.pathname.startsWith('/git/')) {
+      const match = window.location.pathname.match(/^\/git\/(.+?)(?:\/(?:commit|branch|tag|blob|tree)\/|$)/)
+      if (match?.[1]) {
+        setActiveRepo(match[1])
+      }
+    }
   }, [currentRepo])
 
   const redactionSessionRef = useRef<RedactionSession>(createRedactionSession())
@@ -155,7 +163,13 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
       const trimmed = userText.trim()
       if (!trimmed || isProcessing) return
 
-      const repo = repoPath || activeRepo || currentRepo || ''
+      let repo = repoPath || activeRepo || currentRepo || ''
+      if (!repo && typeof window !== 'undefined' && window.location.pathname.startsWith('/git/')) {
+        const match = window.location.pathname.match(/^\/git\/(.+?)(?:\/(?:commit|branch|tag|blob|tree)\/|$)/)
+        if (match?.[1]) {
+          repo = match[1]
+        }
+      }
       const userMsgId = `msg_${Date.now()}`
       const userMessage: AgentChatMessage = {
         id: userMsgId,

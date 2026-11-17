@@ -1,12 +1,26 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { LuChevronDown, LuChevronRight, LuChevronsDownUp, LuChevronsUpDown, LuEllipsis, LuFolderTree, LuList, LuPencil, LuX } from 'react-icons/lu'
+import {
+  LuChevronDown,
+  LuChevronRight,
+  LuChevronsDownUp,
+  LuChevronsUpDown,
+  LuCopy,
+  LuEllipsis,
+  LuExternalLink,
+  LuFileText,
+  LuFolder,
+  LuFolderTree,
+  LuList,
+  LuPencil,
+  LuX,
+} from 'react-icons/lu'
 import { TbFileStack } from 'react-icons/tb'
 import { TiMinusOutline, TiPlusOutline } from 'react-icons/ti'
 
 import { GitSearchDropdown } from '@/components/git/GitSearchDropdown'
-import { FloatingMenu } from '@/components/git/RefChipsCell'
+import { FloatingMenu, type FloatingMenuItem } from '@/components/git/RefChipsCell'
 import { handleTreeExpandKey, handleTreeParentKey } from '@/components/git/treeExpandKey'
 import { useT } from '@/components/i18n/LocaleProvider'
 import { Badge, Button, EmptyState, ScrollArea, SegmentedNav } from '@/components/sk'
@@ -168,6 +182,8 @@ function TreeRows({
   onSetOpen,
   onSelect,
   parentId,
+  onFileContextMenu,
+  onFolderContextMenu,
 }: {
   nodes: TreeNode[]
   depth: number
@@ -177,6 +193,8 @@ function TreeRows({
   onSetOpen: (path: string, next: boolean) => void
   onSelect: (path: string, status: string) => void
   parentId?: string
+  onFileContextMenu?: (event: React.MouseEvent, path: string, name: string, status: string) => void
+  onFolderContextMenu?: (event: React.MouseEvent, path: string, name: string) => void
 }) {
   const t = useT()
   return nodes.map((node) => {
@@ -192,6 +210,10 @@ function TreeRows({
             style={{ paddingLeft: 8 + depth * 14 }}
             aria-expanded={expanded}
             onClick={() => onToggle(node.path)}
+            onContextMenu={(event) => {
+              event.preventDefault()
+              onFolderContextMenu?.(event, node.path, node.name)
+            }}
             onKeyDown={(event) => {
               if (handleTreeExpandKey(event, expanded, (next) => onSetOpen(node.path, next))) return
               handleTreeParentKey(event, parentId)
@@ -204,7 +226,18 @@ function TreeRows({
             <CountMarks counts={tally(node)} />
           </Button>
           {expanded ? (
-            <TreeRows nodes={node.children} depth={depth + 1} open={open} selected={selected} onToggle={onToggle} onSetOpen={onSetOpen} onSelect={onSelect} parentId={node.path} />
+            <TreeRows
+              nodes={node.children}
+              depth={depth + 1}
+              open={open}
+              selected={selected}
+              onToggle={onToggle}
+              onSetOpen={onSetOpen}
+              onSelect={onSelect}
+              parentId={node.path}
+              onFileContextMenu={onFileContextMenu}
+              onFolderContextMenu={onFolderContextMenu}
+            />
           ) : null}
         </div>
       )
@@ -225,6 +258,10 @@ function TreeRows({
         )}
         style={{ paddingLeft: 8 + depth * 14 }}
         onClick={() => onSelect(node.path, status || 'M')}
+        onContextMenu={(event) => {
+          event.preventDefault()
+          onFileContextMenu?.(event, node.path, node.name, status || 'M')
+        }}
         onKeyDown={(event) => handleTreeParentKey(event, parentId)}
       >
         {mark ? <mark.Icon className={cn('size-3 shrink-0', mark.className)} aria-hidden /> : <span className="size-3 shrink-0" aria-hidden />}
@@ -236,11 +273,30 @@ function TreeRows({
   })
 }
 
-function PathRows({ groups, selected, onSelect }: { groups: PathGroup[]; selected: string; onSelect: (path: string, status: string) => void }) {
+function PathRows({
+  groups,
+  selected,
+  onSelect,
+  onFileContextMenu,
+  onFolderContextMenu,
+}: {
+  groups: PathGroup[]
+  selected: string
+  onSelect: (path: string, status: string) => void
+  onFileContextMenu?: (event: React.MouseEvent, path: string, name: string, status: string) => void
+  onFolderContextMenu?: (event: React.MouseEvent, path: string, name: string) => void
+}) {
   const t = useT()
   return groups.map((group) => (
     <div key={group.dir || '.'} className="mb-2">
-      <p className="m-0 truncate whitespace-nowrap px-2 py-1 text-[11px] font-medium text-ink" title={group.dir || '/'}>
+      <p
+        className="m-0 truncate whitespace-nowrap px-2 py-1 text-[11px] font-medium text-ink cursor-default"
+        title={group.dir || '/'}
+        onContextMenu={(event) => {
+          event.preventDefault()
+          onFolderContextMenu?.(event, group.dir || '.', group.dir || '/')
+        }}
+      >
         {group.dir || '/'}
       </p>
       {group.files.map((file) => {
@@ -256,6 +312,10 @@ function PathRows({ groups, selected, onSelect }: { groups: PathGroup[]; selecte
             title={file.path}
             className={cn('h-7 w-full justify-start gap-1.5 rounded-none px-2 font-normal text-ink', active && 'bg-[color-mix(in_oklab,var(--accent)_18%,transparent)]')}
             onClick={() => onSelect(file.path, file.status || 'M')}
+            onContextMenu={(event) => {
+              event.preventDefault()
+              onFileContextMenu?.(event, file.path, name, file.status || 'M')
+            }}
           >
             {mark ? <mark.Icon className={cn('size-3 shrink-0', mark.className)} aria-hidden /> : <span className="size-3 shrink-0" aria-hidden />}
             <span data-git-tree-label className="min-w-0 truncate whitespace-nowrap text-left text-xs">
@@ -287,6 +347,11 @@ export function GitCommitPanel({ repo, commit, width, title, selectedPath, onSel
   const [error, setError] = useState('')
   const [fileQuery, setFileQuery] = useState('')
   const [moreMenuAnchor, setMoreMenuAnchor] = useState<{ x: number; y: number } | null>(null)
+  const [contextMenu, setContextMenu] = useState<{
+    anchor: { x: number; y: number }
+    items: FloatingMenuItem[]
+    ariaLabel: string
+  } | null>(null)
   const fileNeedle = fileQuery.trim().toLowerCase()
   const [preferredView, setView] = useGitUiPref('commit.fileView', 'tree' as FileView, isFileView)
   // Working trees have no committed snapshot; keep the shared preference intact.
@@ -402,6 +467,77 @@ export function GitCommitPanel({ repo, commit, width, title, selectedPath, onSel
       if (next) copy.add(path)
       else copy.delete(path)
       return copy
+    })
+  }
+
+  const handleFileContextMenu = (e: React.MouseEvent, filePath: string, fileName: string, status: string) => {
+    const absPath = repo ? `${repo.replace(/\/+$/, '')}/${filePath}` : filePath
+    setContextMenu({
+      anchor: { x: e.clientX, y: e.clientY },
+      ariaLabel: fileName,
+      items: [
+        {
+          key: 'copy-relative',
+          label: '复制相对路径',
+          icon: <LuCopy className="size-3.5" />,
+          onSelect: () => void navigator.clipboard?.writeText(filePath),
+        },
+        {
+          key: 'copy-name',
+          label: '复制文件名',
+          icon: <LuFileText className="size-3.5" />,
+          onSelect: () => void navigator.clipboard?.writeText(fileName),
+        },
+        {
+          key: 'copy-absolute',
+          label: '复制绝对路径',
+          icon: <LuCopy className="size-3.5" />,
+          onSelect: () => void navigator.clipboard?.writeText(absPath),
+        },
+        {
+          key: 'view-diff',
+          label: '查看文件差异',
+          icon: <LuExternalLink className="size-3.5 text-accent" />,
+          dividerBefore: true,
+          onSelect: () => onSelect(filePath, status || 'M'),
+        },
+      ],
+    })
+  }
+
+  const handleFolderContextMenu = (e: React.MouseEvent, folderPath: string, folderName: string) => {
+    const absPath = repo ? `${repo.replace(/\/+$/, '')}/${folderPath}` : folderPath
+    const isOpen = openPaths.has(folderPath)
+    setContextMenu({
+      anchor: { x: e.clientX, y: e.clientY },
+      ariaLabel: folderName,
+      items: [
+        {
+          key: 'copy-folder-path',
+          label: '复制文件夹路径',
+          icon: <LuCopy className="size-3.5" />,
+          onSelect: () => void navigator.clipboard?.writeText(folderPath),
+        },
+        {
+          key: 'copy-folder-name',
+          label: '复制文件夹名',
+          icon: <LuFolder className="size-3.5" />,
+          onSelect: () => void navigator.clipboard?.writeText(folderName),
+        },
+        {
+          key: 'copy-abs-folder',
+          label: '复制绝对路径',
+          icon: <LuCopy className="size-3.5" />,
+          onSelect: () => void navigator.clipboard?.writeText(absPath),
+        },
+        {
+          key: 'toggle-folder',
+          label: isOpen ? '折叠文件夹' : '展开文件夹',
+          icon: isOpen ? <LuChevronDown className="size-3.5" /> : <LuChevronRight className="size-3.5" />,
+          dividerBefore: true,
+          onSelect: () => toggleFolder(folderPath),
+        },
+      ],
     })
   }
 
@@ -545,7 +681,7 @@ export function GitCommitPanel({ repo, commit, width, title, selectedPath, onSel
               />
             ) : (
               <div role="list" aria-label={t('git.commit.pathListAria')}>
-                <PathRows groups={pathGroups} selected={selectedPath} onSelect={onSelect} />
+                <PathRows groups={pathGroups} selected={selectedPath} onSelect={onSelect} onFileContextMenu={handleFileContextMenu} onFolderContextMenu={handleFolderContextMenu} />
               </div>
             )
           ) : view === 'all' ? (
@@ -558,7 +694,17 @@ export function GitCommitPanel({ repo, commit, width, title, selectedPath, onSel
               />
             ) : (
               <div role="tree" aria-label={t('git.commit.allFilesAria')}>
-                <TreeRows nodes={allTree} depth={0} open={openPaths} selected={selectedPath} onToggle={toggleFolder} onSetOpen={setFolderOpen} onSelect={onSelect} />
+                <TreeRows
+                  nodes={allTree}
+                  depth={0}
+                  open={openPaths}
+                  selected={selectedPath}
+                  onToggle={toggleFolder}
+                  onSetOpen={setFolderOpen}
+                  onSelect={onSelect}
+                  onFileContextMenu={handleFileContextMenu}
+                  onFolderContextMenu={handleFolderContextMenu}
+                />
               </div>
             )
           ) : filteredChangedFiles.length === 0 ? (
@@ -570,11 +716,25 @@ export function GitCommitPanel({ repo, commit, width, title, selectedPath, onSel
             />
           ) : (
             <div role="tree" aria-label={t('git.commit.treeAria')}>
-              <TreeRows nodes={changedTree} depth={0} open={openPaths} selected={selectedPath} onToggle={toggleFolder} onSetOpen={setFolderOpen} onSelect={onSelect} />
+              <TreeRows
+                nodes={changedTree}
+                depth={0}
+                open={openPaths}
+                selected={selectedPath}
+                onToggle={toggleFolder}
+                onSetOpen={setFolderOpen}
+                onSelect={onSelect}
+                onFileContextMenu={handleFileContextMenu}
+                onFolderContextMenu={handleFolderContextMenu}
+              />
             </div>
           )}
         </ScrollArea>
       )}
+
+      {contextMenu ? (
+        <FloatingMenu anchor={contextMenu.anchor} ariaLabel={contextMenu.ariaLabel} color="var(--accent)" onClose={() => setContextMenu(null)} items={contextMenu.items} />
+      ) : null}
     </aside>
   )
 }
