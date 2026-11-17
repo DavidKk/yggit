@@ -8,6 +8,7 @@ import { GIT_FIND_EVENT } from '@/components/git/gitFind'
 import { GitFindBox } from '@/components/git/GitFindBox'
 import { GitGraph } from '@/components/git/GitGraph'
 import { useT } from '@/components/i18n/LocaleProvider'
+import type { MergeConflictRecord } from '@/lib/git/conflict-cache'
 import { getGitDriver } from '@/lib/git/driver'
 import { type GitCommit, type GitStash, gitStashAsCommit, type GitWorktree } from '@/lib/git/types'
 
@@ -24,6 +25,8 @@ type Props = {
   remoteNames?: string[]
   worktreeBranches?: string[]
   selectedHash?: string
+  conflicts?: Record<string, MergeConflictRecord>
+  scrollRef?: React.RefObject<HTMLDivElement | null>
   focusRequest?: { hash: string } | null
   activeHoverBranch?: string | null
   onBranchHoverStart?: (branchName: string) => void
@@ -71,6 +74,8 @@ export function GitHistory({
   remoteNames,
   worktreeBranches,
   selectedHash,
+  conflicts,
+  scrollRef,
   focusRequest,
   activeHoverBranch,
   onBranchHoverStart,
@@ -80,7 +85,8 @@ export function GitHistory({
   onPage,
 }: Props) {
   const t = useT()
-  const rootRef = useRef<HTMLDivElement>(null)
+  const internalRootRef = useRef<HTMLDivElement>(null)
+  const rootRef = (scrollRef as React.RefObject<HTMLDivElement>) || internalRootRef
   const panelRef = useRef<HTMLDivElement>(null)
   const findInputRef = useRef<HTMLInputElement>(null)
   const sentinelRef = useRef<HTMLDivElement>(null)
@@ -164,7 +170,7 @@ export function GitHistory({
     if (!active?.closest?.('[data-git-sidebar]') && !active?.closest?.('[data-git-tree]')) {
       row.focus({ preventScroll: true })
     }
-  }, [repo, focusRequest, commits, stashes, hasMore, loadMore])
+  }, [repo, focusRequest, commits, stashes, hasMore, loadMore, rootRef])
 
   useEffect(() => {
     const root = rootRef.current
@@ -178,7 +184,7 @@ export function GitHistory({
     )
     observer.observe(sentinel)
     return () => observer.disconnect()
-  }, [hasMore, loadMore, commits.length])
+  }, [hasMore, loadMore, commits.length, rootRef])
 
   useEffect(() => {
     const panel = panelRef.current
@@ -238,7 +244,7 @@ export function GitHistory({
     if (!root) return
     const row = root.querySelector(`[data-git-commit-hash="${CSS.escape(selectedHash)}"]`)
     row?.scrollIntoView({ block: 'nearest' })
-  }, [showFind, selectedHash])
+  }, [showFind, selectedHash, rootRef])
 
   return (
     <div ref={panelRef} data-git-find="history" tabIndex={-1} className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden outline-none">
@@ -262,6 +268,7 @@ export function GitHistory({
         repo={repo}
         remoteUrl={remoteUrl}
         commits={commits}
+        conflicts={conflicts}
         worktree={worktree}
         stashes={stashes}
         highlight={highlight}

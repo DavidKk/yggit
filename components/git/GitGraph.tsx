@@ -1,7 +1,7 @@
 'use client'
 
 import { type CSSProperties, memo, type ReactNode, type Ref, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { LuCopy, LuHash, LuInbox, LuText } from 'react-icons/lu'
+import { LuCopy, LuHash, LuInbox, LuText, LuTriangleAlert } from 'react-icons/lu'
 
 import { AnnotationBadge } from '@/components/git/agent/spotlight/AnnotationBadge'
 import { measureCellsFit } from '@/components/git/fitColumn'
@@ -14,6 +14,7 @@ import { useOptionalAgent } from '@/lib/agent/agent-context'
 import { useOptionalSpotlight } from '@/lib/agent/spotlight-context'
 import { copyToClipboard } from '@/lib/clipboard'
 import { buildBranchContextMenu } from '@/lib/git/branch-context-menu'
+import type { MergeConflictRecord } from '@/lib/git/conflict-cache'
 import { useContextMenuConfig } from '@/lib/git/context-menu-config'
 import { formatCommitDateDivider } from '@/lib/git/format-commit-ago'
 import { COL, DOT, graphScene, isHighlightedStroke, laneColor, PAD, ROW, type Stroke, xAt } from '@/lib/git/graph-scene'
@@ -73,6 +74,7 @@ type Props = {
   scrollRef?: Ref<HTMLDivElement>
   /** Rendered at the end of the scrollable list (e.g. infinite-scroll sentinel). */
   footer?: ReactNode
+  conflicts?: Record<string, MergeConflictRecord>
   onSelect?: (commit: GitCommit) => void
   onSelectWorktree?: () => void
 }
@@ -186,6 +188,7 @@ function GitGraphComponent({
   findNeedle = '',
   scrollRef,
   footer,
+  conflicts,
   onSelect,
   onSelectWorktree,
 }: Props) {
@@ -939,6 +942,7 @@ function GitGraphComponent({
                 const y = scene.commitRow[index] * ROW + ROW / 2
                 const tint = laneColor(point.color)
                 const isMerge = commit.parents.length > 1
+                const isConflictedMerge = isMerge && Boolean(conflicts?.[commit.hash]?.hasConflict)
                 const isLineageHit = lineageHashes?.has(commit.hash)
                 const isSpotlightHit = Boolean(spotlightMap?.get(commit.hash.toLowerCase()))
                 const isSpotlightDimmed = isSpotlightActive && !isSpotlightHit
@@ -970,12 +974,16 @@ function GitGraphComponent({
                             width: MERGE_NODE_DOT,
                             height: MERGE_NODE_DOT,
                             background: 'var(--panel)',
-                            border: `1.5px solid ${tint}`,
-                            boxShadow: isSelected
-                              ? `0 0 0 2px var(--panel), 0 0 0 4px ${tint}, 0 0 10px ${tint}`
-                              : isBranchHit
-                                ? `0 0 0 2px var(--panel), 0 0 0 4px ${tint}, 0 0 12px ${tint}`
-                                : `0 0 3px color-mix(in oklab, ${tint} 30%, transparent)`,
+                            border: isConflictedMerge ? '1.5px solid var(--warn, #f59e0b)' : `1.5px solid ${tint}`,
+                            boxShadow: isConflictedMerge
+                              ? isSelected
+                                ? '0 0 0 2px var(--panel), 0 0 0 4px var(--warn, #f59e0b), 0 0 10px var(--warn, #f59e0b)'
+                                : '0 0 0 1px var(--panel), 0 0 6px var(--warn, #f59e0b)'
+                              : isSelected
+                                ? `0 0 0 2px var(--panel), 0 0 0 4px ${tint}, 0 0 10px ${tint}`
+                                : isBranchHit
+                                  ? `0 0 0 2px var(--panel), 0 0 0 4px ${tint}, 0 0 12px ${tint}`
+                                  : `0 0 3px color-mix(in oklab, ${tint} 30%, transparent)`,
                           }
                         : {
                             left: xAt(point.lane),
@@ -993,10 +1001,15 @@ function GitGraphComponent({
                             animation: isHead && !isSelected ? 'wt-head-breathe 2.8s ease-in-out infinite' : undefined,
                           }
                     }
+                    title={isConflictedMerge ? `曾发生冲突 (${conflicts?.[commit.hash]?.conflictCount || conflicts?.[commit.hash]?.conflictFiles?.length || 1} 个文件)` : undefined}
                     aria-label={commit.author}
                   >
                     {isMerge ? (
-                      <span className="size-1 rounded-full shrink-0" style={{ background: 'var(--wt-git-merge, var(--wt-merge, #d946ef))' }} aria-hidden />
+                      isConflictedMerge ? (
+                        <LuTriangleAlert className="size-2 text-warn shrink-0" aria-label="Merge conflict" />
+                      ) : (
+                        <span className="size-1 rounded-full shrink-0" style={{ background: 'var(--wt-git-merge, var(--wt-merge, #d946ef))' }} aria-hidden />
+                      )
                     ) : (
                       <>
                         {initials(commit.author)}

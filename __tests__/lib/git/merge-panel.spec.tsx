@@ -87,3 +87,38 @@ it('renders merge lineage controls and calls onHighlight and onLocate', async ()
   await act(async () => highlightBtn?.click())
   expect(onHighlight).toHaveBeenCalledWith(true, expect.any(Array))
 })
+
+it('does not render conflict badge when conflict is not present or clean', async () => {
+  await act(async () => {
+    root.render(
+      <GitMergePanel
+        commit={mergeCommit}
+        commits={[mergeCommit, p1, p2]}
+        conflict={{ hash: mergeCommit.hash, hasConflict: false, status: 'clean', analyzedAt: Date.now() }}
+        highlighted={false}
+        onHighlight={jest.fn()}
+        onLocate={jest.fn()}
+      />
+    )
+  })
+
+  expect(container.textContent).not.toContain('曾发生冲突')
+})
+
+it('renders conflict badge when conflict is detected', async () => {
+  await act(async () => {
+    root.render(
+      <GitMergePanel
+        commit={mergeCommit}
+        commits={[mergeCommit, p1, p2]}
+        conflict={{ hash: mergeCommit.hash, hasConflict: true, conflictCount: 3, conflictFiles: ['a.ts', 'b.ts', 'c.ts'], status: 'conflicted', analyzedAt: Date.now() }}
+        highlighted={false}
+        onHighlight={jest.fn()}
+        onLocate={jest.fn()}
+      />
+    )
+  })
+
+  expect(container.textContent).toContain('曾发生冲突 (3)')
+  expect(container.textContent).toContain('查看解决方案')
+})

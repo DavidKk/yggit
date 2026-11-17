@@ -16,6 +16,7 @@ import { GitModeSwitcher } from '@/components/git/GitModeSwitcher'
 import { GitProjectMenu } from '@/components/git/GitProjectMenu'
 import { GitSidebar } from '@/components/git/GitSidebar'
 import { PanelSplitter } from '@/components/git/PanelSplitter'
+import { useMergeConflicts } from '@/components/git/useMergeConflicts'
 import { useT } from '@/components/i18n/LocaleProvider'
 import { LocaleSwitcher } from '@/components/i18n/LocaleSwitcher'
 import { useInWorkspaceHeader, WorkspaceHeaderSlot } from '@/components/layout/WorkspaceHeaderContext'
@@ -119,8 +120,16 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
   const frameRef = useRef<HTMLDivElement>(null)
   const anchorRef = useRef<HTMLButtonElement>(null)
   const projectFindRef = useRef<HTMLDivElement>(null)
+  const historyScrollRef = useRef<HTMLDivElement | null>(null)
   useGitFindShortcut(worldRef)
   const inWorkspace = useInWorkspaceHeader()
+
+  const { conflicts } = useMergeConflicts({
+    repo: view?.repo,
+    commits,
+    loading: busy,
+    scrollRef: historyScrollRef,
+  })
 
   const spotlight = useOptionalSpotlight()
   const agent = useOptionalAgent()
@@ -961,6 +970,8 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                       remoteNames={[...new Set(view.remotes.map((item) => item.remote))]}
                       worktreeBranches={view.worktrees.filter((item) => item.branch && !item.current).map((item) => item.branch)}
                       selectedHash={selectedHash}
+                      conflicts={conflicts}
+                      scrollRef={historyScrollRef}
                       focusRequest={focusRequest}
                       activeHoverBranch={activeHoverBranch}
                       onBranchHoverStart={handleBranchHoverStart}
@@ -983,8 +994,10 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                   {/* Standalone Merge Lineage Panel beside Git history */}
                   {selected && selected.parents && selected.parents.length >= 2 ? (
                     <GitMergePanel
+                      repo={view.repo}
                       commit={selected}
                       commits={commits}
+                      conflict={conflicts[selected.hash]}
                       highlighted={Boolean(lineageHashes && lineageHashes.length > 0)}
                       onHighlight={(active, hashes) => {
                         if (!active || !hashes) {
