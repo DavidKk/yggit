@@ -1,6 +1,6 @@
 'use client'
 
-import React, { Fragment, type ReactNode, type RefObject, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import React, { Fragment, type ReactNode, type RefObject, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { LuChevronRight, LuCloud, LuDiamond, LuMonitor, LuTag } from 'react-icons/lu'
 
@@ -317,13 +317,35 @@ export function FloatingMenu({
   onMouseLeave?: () => void
 }) {
   const menuRef = useRef<HTMLDivElement | null>(null)
-  const [position, setPosition] = useState(anchor)
+  const isOverlay = variant === 'overlay'
+
+  // Calculate initial position directly to avoid (0,0) flash
+  const initialPos = useMemo(() => {
+    if (typeof window === 'undefined') return anchor
+    const estimatedW = isOverlay ? Math.max(192, anchor.width || 0) : 236
+    const estimatedH = 260
+    const left = isOverlay
+      ? Math.max(8, Math.min(anchor.x, window.scrollX + window.innerWidth - estimatedW - 8))
+      : Math.max(8, Math.min(anchor.x, window.innerWidth - estimatedW - 8))
+    const top = isOverlay
+      ? Math.max(8, Math.min(anchor.y, window.scrollY + window.innerHeight - estimatedH - 8))
+      : Math.max(8, Math.min(anchor.y, window.innerHeight - estimatedH - 8))
+    return { x: left, y: top }
+  }, [anchor, isOverlay])
+
+  const [position, setPosition] = useState(initialPos)
+  const [activeSubmenu, setActiveSubmenu] = useState<{
+    key: string
+    items: FloatingMenuItem[]
+    anchorRect: DOMRect
+  } | null>(null)
+
+  const submenuTimerRef = useRef<number | null>(null)
 
   useLayoutEffect(() => {
     const node = menuRef.current
     if (!node) return
     const rect = node.getBoundingClientRect()
-    const isOverlay = variant === 'overlay'
     const left = isOverlay
       ? Math.max(8, Math.min(anchor.x, window.scrollX + window.innerWidth - rect.width - 8))
       : Math.max(8, Math.min(anchor.x, window.innerWidth - rect.width - 8))
@@ -331,7 +353,7 @@ export function FloatingMenu({
       ? Math.max(8, Math.min(anchor.y, window.scrollY + window.innerHeight - rect.height - 8))
       : Math.max(8, Math.min(anchor.y, window.innerHeight - rect.height - 8))
     setPosition({ x: left, y: top })
-  }, [anchor, variant])
+  }, [anchor, isOverlay])
 
   useEffect(() => {
     const handlePointerDown = (event: PointerEvent) => {
@@ -363,78 +385,146 @@ export function FloatingMenu({
       document.removeEventListener('keydown', handleKeyDown, true)
       window.removeEventListener('scroll', handleScroll, true)
       window.removeEventListener('wheel', handleWheel, true)
+      if (submenuTimerRef.current !== null) window.clearTimeout(submenuTimerRef.current)
     }
   }, [ignoreRef, onClose])
 
+  const openSubmenuFor = useCallback((item: FloatingMenuItem, target: HTMLElement) => {
+    if (submenuTimerRef.current !== null) {
+      window.clearTimeout(submenuTimerRef.current)
+      submenuTimerRef.current = null
+    }
+    const rect = target.getBoundingClientRect()
+    setActiveSubmenu({
+      key: item.key,
+      items: item.children || [],
+      anchorRect: rect,
+    })
+  }, [])
+
+  const closeSubmenuWithDelay = useCallback((delayMs = 180) => {
+    if (submenuTimerRef.current !== null) {
+      window.clearTimeout(submenuTimerRef.current)
+    }
+    submenuTimerRef.current = window.setTimeout(() => {
+      setActiveSubmenu(null)
+      submenuTimerRef.current = null
+    }, delayMs)
+  }, [])
+
+  const cancelCloseSubmenu = useCallback(() => {
+    if (submenuTimerRef.current !== null) {
+      window.clearTimeout(submenuTimerRef.current)
+      submenuTimerRef.current = null
+    }
+  }, [])
+
   return createPortal(
-    <div
-      ref={menuRef}
-      role={variant === 'context' ? 'menu' : 'list'}
-      aria-label={ariaLabel}
-      data-git-floating-menu=""
-      className={cn(
-        variant === 'overlay'
-          ? 'absolute z-[100] min-w-48 max-w-[min(24rem,calc(100vw-16px))] max-h-[min(240px,calc(100vh-16px))] overflow-y-auto rounded-lg p-0 outline-none'
-          : 'fixed z-[100] w-[236px] min-w-[220px] max-w-[min(260px,calc(100vw-16px))] max-h-[min(480px,calc(100vh-16px))] overflow-y-auto overflow-x-visible rounded-xl border border-line/80 bg-panel/95 p-1.5 shadow-2xl backdrop-blur-md outline-none animate-in fade-in zoom-in-95 duration-100'
+    <>
+      <div
+        ref={menuRef}
+        role={variant === 'context' ? 'menu' : 'list'}
+        aria-label={ariaLabel}
+        data-git-floating-menu=""
+        className={cn(
+          variant === 'overlay'
+            ? 'absolute z-[100] min-w-48 max-w-[min(24rem,calc(100vw-16px))] max-h-[min(240px,calc(100vh-16px))] overflow-y-auto rounded-lg p-0 outline-none'
+            : 'fixed z-[100] w-[236px] min-w-[220px] max-w-[min(260px,calc(100vw-16px))] max-h-[min(480px,calc(100vh-16px))] overflow-y-auto overflow-x-visible rounded-xl border border-line/80 bg-panel/95 p-1.5 shadow-2xl backdrop-blur-md outline-none animate-in fade-in zoom-in-95 duration-100'
+        )}
+        style={{
+          left: position.x,
+          top: position.y,
+          minWidth: variant === 'overlay' ? anchor.width : undefined,
+        }}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
+        onClick={(event) => event.stopPropagation()}
+        onContextMenu={(event) => event.preventDefault()}
+      >
+        {items
+          ? items.map((item, index) => {
+              const prevItem = index > 0 ? items[index - 1] : undefined
+              const showDivider = Boolean(item.dividerBefore || (prevItem && prevItem.group && item.group && prevItem.group !== item.group))
+              return (
+                <Fragment key={item.key}>
+                  {showDivider ? <div className="my-1 border-t border-line/60" role="separator" /> : null}
+                  <FloatingMenuItemRow
+                    item={item}
+                    color={color}
+                    onClose={onClose}
+                    isSubmenuActive={activeSubmenu?.key === item.key}
+                    onHoverItem={(hoveredItem, el) => {
+                      if (hoveredItem.children && hoveredItem.children.length > 0) {
+                        openSubmenuFor(hoveredItem, el)
+                      } else {
+                        closeSubmenuWithDelay(120)
+                      }
+                    }}
+                    onLeaveItem={() => {
+                      closeSubmenuWithDelay(180)
+                    }}
+                    onClickItem={(clickedItem, el) => {
+                      openSubmenuFor(clickedItem, el)
+                    }}
+                  />
+                </Fragment>
+              )
+            })
+          : children}
+      </div>
+
+      {/* Cascading Submenu Flyout */}
+      {activeSubmenu && (
+        <FloatingSubmenu
+          anchorRect={activeSubmenu.anchorRect}
+          items={activeSubmenu.items}
+          color={color}
+          onClose={onClose}
+          onMouseEnter={cancelCloseSubmenu}
+          onMouseLeave={() => closeSubmenuWithDelay(180)}
+        />
       )}
-      style={{
-        left: position.x,
-        top: position.y,
-        minWidth: variant === 'overlay' ? anchor.width : undefined,
-      }}
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
-      onClick={(event) => event.stopPropagation()}
-      onContextMenu={(event) => event.preventDefault()}
-    >
-      {items
-        ? items.map((item, index) => {
-            const prevItem = index > 0 ? items[index - 1] : undefined
-            const showDivider = Boolean(item.dividerBefore || (prevItem && prevItem.group && item.group && prevItem.group !== item.group))
-            return (
-              <Fragment key={item.key}>
-                {showDivider ? <div className="my-1 border-t border-line/60" role="separator" /> : null}
-                <FloatingMenuItemRow item={item} color={color} onClose={onClose} />
-              </Fragment>
-            )
-          })
-        : children}
-    </div>,
+    </>,
     document.body
   )
 }
 
-function FloatingMenuItemRow({ item, onClose, color }: { item: FloatingMenuItem; onClose: () => void; color: string }) {
+function FloatingMenuItemRow({
+  item,
+  onClose,
+  color: _color,
+  isSubmenuActive = false,
+  onHoverItem,
+  onLeaveItem,
+  onClickItem,
+}: {
+  item: FloatingMenuItem
+  onClose: () => void
+  color?: string
+  isSubmenuActive?: boolean
+  onHoverItem?: (item: FloatingMenuItem, el: HTMLElement) => void
+  onLeaveItem?: () => void
+  onClickItem?: (item: FloatingMenuItem, el: HTMLElement) => void
+}) {
   const rowRef = useRef<HTMLButtonElement | null>(null)
-  const [showSubmenu, setShowSubmenu] = useState(false)
   const [confirming, setConfirming] = useState(false)
-  const closeTimerRef = useRef<number | null>(null)
-
   const hasChildren = Boolean(item.children && item.children.length > 0)
 
-  const handleMouseEnter = () => {
-    if (closeTimerRef.current !== null) {
-      window.clearTimeout(closeTimerRef.current)
-      closeTimerRef.current = null
-    }
-    if (hasChildren) {
-      setShowSubmenu(true)
+  const handlePointerEnter = () => {
+    if (rowRef.current) {
+      onHoverItem?.(item, rowRef.current)
     }
   }
 
-  const handleMouseLeave = () => {
-    if (hasChildren) {
-      closeTimerRef.current = window.setTimeout(() => {
-        setShowSubmenu(false)
-      }, 180)
-    }
+  const handlePointerLeave = () => {
     setConfirming(false)
+    onLeaveItem?.()
   }
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation()
-    if (hasChildren) {
-      setShowSubmenu(!showSubmenu)
+    if (hasChildren && rowRef.current) {
+      onClickItem?.(item, rowRef.current)
       return
     }
 
@@ -448,7 +538,7 @@ function FloatingMenuItemRow({ item, onClose, color }: { item: FloatingMenuItem;
   }
 
   return (
-    <div className="relative w-full" onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+    <div className="relative w-full" onPointerEnter={handlePointerEnter} onPointerLeave={handlePointerLeave}>
       <button
         ref={rowRef}
         type="button"
@@ -456,7 +546,8 @@ function FloatingMenuItemRow({ item, onClose, color }: { item: FloatingMenuItem;
         disabled={item.disabled}
         onClick={handleClick}
         className={cn(
-          'flex h-[34px] w-full min-w-0 cursor-pointer items-center justify-between gap-2 rounded-md px-2.5 py-1 text-left text-xs font-medium transition-colors select-none',
+          'relative flex h-[34px] w-full min-w-0 cursor-pointer items-center justify-between gap-2 rounded-md px-2.5 py-1 text-left text-xs font-medium transition-colors select-none',
+          isSubmenuActive ? 'bg-[var(--overlay-10)] text-ink' : '',
           item.danger ? (confirming ? 'bg-fail text-white font-semibold' : 'text-fail hover:bg-fail/15 hover:text-fail') : 'text-ink hover:bg-[var(--overlay-10)] hover:text-ink',
           item.disabled && 'opacity-40 cursor-not-allowed'
         )}
@@ -472,24 +563,19 @@ function FloatingMenuItemRow({ item, onClose, color }: { item: FloatingMenuItem;
           {hasChildren && <LuChevronRight className="size-3.5 text-ink-soft/70 shrink-0" aria-hidden />}
         </div>
       </button>
-
-      {/* Cascading Submenu Flyout */}
-      {hasChildren && showSubmenu && rowRef.current && (
-        <FloatingSubmenu anchorRef={rowRef} items={item.children!} color={color} onClose={onClose} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave} />
-      )}
     </div>
   )
 }
 
 function FloatingSubmenu({
-  anchorRef,
+  anchorRect,
   items,
   color,
   onClose,
   onMouseEnter,
   onMouseLeave,
 }: {
-  anchorRef: React.RefObject<HTMLButtonElement | null>
+  anchorRect: DOMRect
   items: FloatingMenuItem[]
   color: string
   onClose: () => void
@@ -497,39 +583,49 @@ function FloatingSubmenu({
   onMouseLeave: () => void
 }) {
   const submenuRef = useRef<HTMLDivElement | null>(null)
-  const [pos, setPos] = useState({ left: 0, top: 0 })
+
+  const submenuWidth = 236
+  const fitsRight = typeof window !== 'undefined' ? anchorRect.right + submenuWidth + 8 <= window.innerWidth : true
+  const initialLeft = fitsRight ? anchorRect.right - 2 : Math.max(8, anchorRect.left - submenuWidth + 2)
+  const initialTop = typeof window !== 'undefined' ? Math.max(8, Math.min(anchorRect.top - 4, window.innerHeight - 280)) : anchorRect.top
+
+  const [pos, setPos] = useState({ left: initialLeft, top: initialTop })
 
   useLayoutEffect(() => {
-    const anchor = anchorRef.current
-    const submenu = submenuRef.current
-    if (!anchor || !submenu) return
-    const aRect = anchor.getBoundingClientRect()
-    const sRect = submenu.getBoundingClientRect()
+    const node = submenuRef.current
+    if (!node) return
+    const sRect = node.getBoundingClientRect()
 
-    let left = aRect.right - 2
+    let left = fitsRight ? anchorRect.right - 2 : anchorRect.left - sRect.width + 2
     if (left + sRect.width > window.innerWidth - 8) {
-      left = Math.max(8, aRect.left - sRect.width + 2)
+      left = Math.max(8, anchorRect.left - sRect.width + 2)
     }
-    let top = aRect.top - 2
+    let top = anchorRect.top - 4
     if (top + sRect.height > window.innerHeight - 8) {
       top = Math.max(8, window.innerHeight - sRect.height - 8)
     }
     setPos({ left, top })
-  }, [anchorRef])
+  }, [anchorRect, fitsRight])
 
   return createPortal(
     <div
       ref={submenuRef}
       role="menu"
       data-git-floating-submenu=""
-      className="fixed z-[110] w-[236px] min-w-[220px] max-w-[min(260px,calc(100vw-16px))] overflow-hidden rounded-xl border border-line/80 bg-panel/95 p-1.5 shadow-2xl backdrop-blur-md animate-in fade-in zoom-in-95 duration-100 outline-none"
+      className={cn(
+        'fixed z-[110] w-[236px] min-w-[220px] max-w-[min(260px,calc(100vw-16px))] overflow-hidden rounded-xl border border-line/80 bg-panel/95 p-1.5 shadow-2xl backdrop-blur-md outline-none animate-in fade-in zoom-in-95 duration-100',
+        fitsRight
+          ? 'before:absolute before:-left-3 before:top-0 before:bottom-0 before:w-4 before:content-[""]'
+          : 'before:absolute before:-right-3 before:top-0 before:bottom-0 before:w-4 before:content-[""]'
+      )}
       style={{
         left: pos.left,
         top: pos.top,
       }}
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
+      onPointerEnter={onMouseEnter}
+      onPointerLeave={onMouseLeave}
       onClick={(e) => e.stopPropagation()}
+      onContextMenu={(e) => e.preventDefault()}
     >
       {items.map((child, idx) => {
         const prev = idx > 0 ? items[idx - 1] : undefined
