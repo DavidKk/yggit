@@ -1,17 +1,17 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { LuChevronDown, LuChevronUp, LuCodeXml, LuColumns2, LuEye, LuFileText, LuGitCompareArrows, LuListTree, LuPencil, LuRows3, LuSearch, LuX } from 'react-icons/lu'
+import { LuCodeXml, LuColumns2, LuEye, LuFileText, LuGitCompareArrows, LuListTree, LuPencil, LuRows3, LuSearch, LuX } from 'react-icons/lu'
 import { TiMinusOutline, TiPlusOutline } from 'react-icons/ti'
 import type { ThemedToken } from 'shiki'
 
 import { gitFileKind } from '@/components/git/fileKind'
 import { type GitFilePane, GitFilePreview } from '@/components/git/GitFilePreview'
 import { GIT_FIND_EVENT, useGitFindShortcutLabel } from '@/components/git/gitFind'
-import { GitFindTab } from '@/components/git/GitFindTab'
+import { GitFindBox } from '@/components/git/GitFindBox'
 import { GitDiffCodeText, useGitLineTokens } from '@/components/git/GitHighlightedCode'
 import { useT } from '@/components/i18n/LocaleProvider'
-import { Button, EmptyState, ScrollArea, SegmentedNav, TextInput } from '@/components/sk'
+import { Button, EmptyState, ScrollArea, SegmentedNav } from '@/components/sk'
 import { getGitDriver } from '@/lib/git/driver'
 import type { GitCommitChanges } from '@/lib/git/types'
 import { useGitUiPref } from '@/lib/git/ui-prefs'
@@ -526,65 +526,19 @@ export function GitFileDiff({ repo, hash, path, status = 'M', onClose }: Props) 
 
       {/* Floating Find Box in Detail View */}
       {showFind ? (
-        <div className="absolute top-12 right-4 z-30 flex flex-col items-end">
-          <div
-            role="search"
-            className="flex max-w-[min(100%-1rem,24rem)] items-center overflow-hidden rounded-lg border border-accent/60 bg-panel shadow-2xl backdrop-blur-md focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/25"
-          >
-            <TextInput
-              ref={findInputRef}
-              search
-              clearable
-              aria-label="搜索内容"
-              placeholder="搜索代码或差异内容…"
-              value={findQuery}
-              className="min-w-[12rem] flex-1 border-transparent bg-transparent shadow-none focus-within:border-transparent text-black [&_input]:text-black [&_input]:font-medium [&_input]:placeholder:text-ink-soft/70"
-              onChange={(event) => setFindQuery(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                  event.preventDefault()
-                  stepMatch(event.shiftKey ? -1 : 1)
-                } else if (event.key === 'Escape') {
-                  event.preventDefault()
-                  setShowFind(false)
-                }
-              }}
-            />
-            <div className="flex shrink-0 items-center gap-0.5 self-stretch border-l border-line bg-panel-2/70 px-1 text-ink min-w-max">
-              <Button
-                variant="plain"
-                size="icon"
-                className="size-6 shrink-0 flex items-center justify-center p-0 text-ink-soft hover:enabled:bg-[var(--overlay-08)] hover:enabled:text-ink"
-                aria-label={t('git.history.prev') || '上一个'}
-                disabled={matches.length === 0}
-                onClick={() => stepMatch(-1)}
-              >
-                <LuChevronUp className="size-3.5" aria-hidden />
-              </Button>
-              <Button
-                variant="plain"
-                size="icon"
-                className="size-6 shrink-0 flex items-center justify-center p-0 text-ink-soft hover:enabled:bg-[var(--overlay-08)] hover:enabled:text-ink"
-                aria-label={t('git.history.next') || '下一个'}
-                disabled={matches.length === 0}
-                onClick={() => stepMatch(1)}
-              >
-                <LuChevronDown className="size-3.5" aria-hidden />
-              </Button>
-              <Button
-                variant="plain"
-                size="icon"
-                className="size-6 shrink-0 flex items-center justify-center p-0 text-ink-soft hover:enabled:bg-[var(--overlay-08)] hover:enabled:text-ink"
-                aria-label={t('git.history.closeFind') || '关闭搜索'}
-                onClick={() => setShowFind(false)}
-              >
-                <LuX className="size-3.5" aria-hidden />
-              </Button>
-            </div>
-          </div>
-
-          {/* Seamless fused inverted trapezoid counter tab */}
-          {needle ? <GitFindTab current={matchIndex >= 0 ? matchIndex : 0} total={matches.length} zeroText="未找到" className="mr-3" /> : null}
+        <div className="absolute top-12 right-4 z-30">
+          <GitFindBox
+            inputRef={findInputRef}
+            value={findQuery}
+            onChange={setFindQuery}
+            onClose={() => setShowFind(false)}
+            onPrev={() => stepMatch(-1)}
+            onNext={() => stepMatch(1)}
+            current={matchIndex}
+            total={matches.length}
+            placeholder="搜索代码或差异内容…"
+            ariaLabel="搜索代码或差异内容"
+          />
         </div>
       ) : null}
 

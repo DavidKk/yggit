@@ -1,15 +1,13 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { LuChevronDown, LuChevronUp, LuX } from 'react-icons/lu'
 
 import { useGitUiDebugHoldExploreLoading } from '@/components/git/git-ui-debug'
 import { GitExploreStrip } from '@/components/git/GitExploreStrip'
 import { GIT_FIND_EVENT } from '@/components/git/gitFind'
-import { GitFindTab } from '@/components/git/GitFindTab'
+import { GitFindBox } from '@/components/git/GitFindBox'
 import { GitGraph } from '@/components/git/GitGraph'
 import { useT } from '@/components/i18n/LocaleProvider'
-import { Button, TextInput } from '@/components/sk'
 import { getGitDriver } from '@/lib/git/driver'
 import { type GitCommit, type GitStash, gitStashAsCommit, type GitWorktree } from '@/lib/git/types'
 
@@ -242,62 +240,19 @@ export function GitHistory({
   return (
     <div ref={panelRef} data-git-find="history" tabIndex={-1} className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden outline-none">
       {showFind ? (
-        <div className="absolute top-2 right-2 z-30 flex flex-col items-end">
-          <div
-            role="search"
-            className="flex max-w-[min(100%-1rem,24rem)] items-center overflow-hidden rounded-lg border border-accent/60 bg-panel shadow-2xl backdrop-blur-md focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/25"
-          >
-            <TextInput
-              ref={findInputRef}
-              search
-              clearable
-              aria-label={t('git.history.findCommit')}
-              placeholder="搜索提交、作者或 Hash…"
-              value={query}
-              className="min-w-[12rem] flex-1 border-transparent bg-transparent shadow-none focus-within:border-transparent text-black [&_input]:text-black [&_input]:font-medium [&_input]:placeholder:text-ink-soft/70"
-              onChange={(event) => setQuery(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                  event.preventDefault()
-                  stepMatch(event.shiftKey ? -1 : 1)
-                }
-              }}
-            />
-            <div className="flex shrink-0 items-center gap-0.5 self-stretch border-l border-line bg-panel-2/70 px-1 text-ink min-w-max">
-              <Button
-                variant="plain"
-                size="icon"
-                className="size-6 shrink-0 flex items-center justify-center p-0 text-ink-soft hover:enabled:bg-[var(--overlay-08)] hover:enabled:text-ink"
-                aria-label={t('git.history.prev')}
-                disabled={matches.length === 0}
-                onClick={() => stepMatch(-1)}
-              >
-                <LuChevronUp className="size-3.5" aria-hidden />
-              </Button>
-              <Button
-                variant="plain"
-                size="icon"
-                className="size-6 shrink-0 flex items-center justify-center p-0 text-ink-soft hover:enabled:bg-[var(--overlay-08)] hover:enabled:text-ink"
-                aria-label={t('git.history.next')}
-                disabled={matches.length === 0}
-                onClick={() => stepMatch(1)}
-              >
-                <LuChevronDown className="size-3.5" aria-hidden />
-              </Button>
-              <Button
-                variant="plain"
-                size="icon"
-                className="size-6 shrink-0 flex items-center justify-center p-0 text-ink-soft hover:enabled:bg-[var(--overlay-08)] hover:enabled:text-ink"
-                aria-label={t('git.history.closeFind')}
-                onClick={closeFind}
-              >
-                <LuX className="size-3.5" aria-hidden />
-              </Button>
-            </div>
-          </div>
-
-          {/* Seamless fused inverted trapezoid counter tab */}
-          {needle ? <GitFindTab current={matchPos >= 0 ? matchPos : 0} total={matches.length} zeroText={t('git.history.findZero')} className="mr-3" /> : null}
+        <div className="absolute top-2 right-2 z-30">
+          <GitFindBox
+            inputRef={findInputRef}
+            value={query}
+            onChange={setQuery}
+            onClose={closeFind}
+            onPrev={() => stepMatch(-1)}
+            onNext={() => stepMatch(1)}
+            current={matchPos}
+            total={matches.length}
+            placeholder="搜索提交、作者或 Hash…"
+            ariaLabel={t('git.history.findCommit')}
+          />
         </div>
       ) : null}
       <GitGraph
