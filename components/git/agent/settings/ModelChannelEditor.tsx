@@ -71,14 +71,14 @@ export function ModelChannelEditor({ profile, isNew = false, onBack }: ModelChan
   const channelFilter = useMemo(() => draft.filter || { whitelist: [], blacklist: [] }, [draft.filter])
 
   const availableModels = useMemo(() => {
-    const list = [...(preset.models || [])]
-    for (const rm of remoteModels) {
-      if (!list.some((item) => item.id === rm.id)) {
-        list.push(rm)
-      }
+    // When remote models are successfully fetched from the upstream endpoint,
+    // exclusively display the actual models returned by the server, rather than hardcoded presets.
+    const baseList = remoteModels.length > 0 ? [...remoteModels] : [...(preset.models || [])]
+    if (config.model && !baseList.some((item) => item.id === config.model)) {
+      baseList.unshift({ id: config.model, name: config.model })
     }
-    return filterAllowedModels(list, channelFilter)
-  }, [preset.models, remoteModels, channelFilter])
+    return filterAllowedModels(baseList, channelFilter)
+  }, [config.model, preset.models, remoteModels, channelFilter])
 
   const isModelBlocked = Boolean(config.model.trim()) && !isModelAllowed(config.model.trim(), channelFilter)
   const filterConflicts = getModelFilterConflicts(channelFilter)

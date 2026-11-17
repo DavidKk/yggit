@@ -5,12 +5,14 @@ import React from 'react'
 import { LuArrowLeft } from 'react-icons/lu'
 
 import { BrandLogo } from '@/components/BrandLogo'
+import { useT } from '@/components/i18n/LocaleProvider'
 import { LocaleSwitcher } from '@/components/i18n/LocaleSwitcher'
 import { useInWorkspaceHeader, WorkspaceHeaderSlot } from '@/components/layout/WorkspaceHeaderContext'
 import { ThemeSwitcher } from '@/components/theme/ThemeSwitcher'
 import { useAgent } from '@/lib/agent/agent-context'
 
 import { ModelChannelEditor } from './ModelChannelEditor'
+import { SettingsSideNav } from './SettingsSideNav'
 
 interface Props {
   profileId?: string
@@ -18,6 +20,7 @@ interface Props {
 }
 
 export function ModelChannelEditPageContent({ profileId, isNew = false }: Props) {
+  const t = useT()
   const router = useRouter()
   const inWorkspace = useInWorkspaceHeader()
   const { profiles } = useAgent()
@@ -35,14 +38,14 @@ export function ModelChannelEditPageContent({ profileId, isNew = false }: Props)
     <div className="flex h-full w-full min-h-0 flex-1 flex-col overflow-hidden bg-paper text-ink select-text">
       {inWorkspace ? (
         <WorkspaceHeaderSlot>
-          <span className="text-xs font-semibold text-ink">{title}</span>
+          <span className="text-xs font-semibold text-ink">{t('gitAgent.settingsTitle')}</span>
         </WorkspaceHeaderSlot>
       ) : (
         <header className="flex shrink-0 items-center justify-between gap-3 border-b border-line bg-panel-2/60 px-3 py-1.5">
           <div className="flex items-center gap-3">
             <BrandLogo href="/" className="shrink-0" markClassName="size-7" wordmarkClassName="text-[0.95rem]" />
             <span className="h-4 w-px shrink-0 bg-[color-mix(in_oklab,var(--ink)_16%,transparent)]" aria-hidden="true" />
-            <span className="text-xs font-semibold text-ink">{title}</span>
+            <span className="text-xs font-semibold text-ink">{t('gitAgent.settingsTitle')}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <ThemeSwitcher compact />
@@ -51,43 +54,50 @@ export function ModelChannelEditPageContent({ profileId, isNew = false }: Props)
         </header>
       )}
 
-      <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        {/* Header bar */}
-        <div className="shrink-0 border-b border-line bg-paper-2 p-3">
-          <div className="flex items-center justify-between gap-3">
-            <button
-              type="button"
-              onClick={handleBack}
-              className="flex size-8 shrink-0 items-center justify-center rounded-md border border-line bg-panel text-ink-soft hover:bg-[color-mix(in_oklab,var(--ink)_6%,transparent)] hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent active:scale-95 transition-all cursor-pointer"
-              title="返回设置"
-            >
-              <LuArrowLeft className="size-4" aria-hidden="true" />
-              <span className="sr-only">返回设置</span>
-            </button>
-            <div className="min-w-0 flex-1">
-              <h1 className="text-xs font-bold text-ink">{title}</h1>
-              <p className="mt-0.5 text-xs text-ink-soft leading-relaxed">{desc}</p>
+      {/* Main Workspace Split: Left Icon Rail + Right Content Hub */}
+      <div className="flex min-h-0 flex-1 overflow-hidden bg-paper">
+        {/* Left Sub-navigation Rail */}
+        <SettingsSideNav activeSection="models" onSelectSection={(section) => router.push(section === 'models' ? '/settings?tab=models' : `/settings?tab=${section}`)} />
+
+        {/* Right Configuration Page */}
+        <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          {/* Header bar */}
+          <div className="shrink-0 border-b border-line bg-paper-2 p-3">
+            <div className="flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={handleBack}
+                className="flex size-8 shrink-0 items-center justify-center rounded-md border border-line bg-panel text-ink-soft hover:bg-[color-mix(in_oklab,var(--ink)_6%,transparent)] hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent active:scale-95 transition-all cursor-pointer"
+                title="返回模型列表"
+              >
+                <LuArrowLeft className="size-4" aria-hidden="true" />
+                <span className="sr-only">返回模型列表</span>
+              </button>
+              <div className="min-w-0 flex-1">
+                <h1 className="text-xs font-bold text-ink">{title}</h1>
+                <p className="mt-0.5 text-xs text-ink-soft leading-relaxed">{desc}</p>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Content body */}
-        <div className="flex-1 min-h-0 overflow-y-auto p-3">
-          <div className="w-full max-w-4xl mx-auto">
-            {profileId && !profile && !isNew ? (
-              <div className="rounded-xl border border-line bg-panel p-6 text-center space-y-3">
-                <p className="text-xs text-ink-soft">未找到对应的模型配置，可能已被移除或尚未加载。</p>
-                <button type="button" onClick={handleBack} className="inline-flex items-center gap-1.5 text-xs text-accent hover:underline cursor-pointer">
-                  <LuArrowLeft className="size-3.5" />
-                  返回模型列表
-                </button>
-              </div>
-            ) : (
-              <ModelChannelEditor profile={profile} isNew={isNew} onBack={handleBack} />
-            )}
+          {/* Content body - left aligned with standard padding */}
+          <div className="flex-1 min-h-0 overflow-y-auto p-3">
+            <div className="grid w-full max-w-4xl gap-3">
+              {profileId && !profile && !isNew ? (
+                <div className="rounded-xl border border-line bg-panel p-6 text-center space-y-3">
+                  <p className="text-xs text-ink-soft">未找到对应的模型配置，可能已被移除或尚未加载。</p>
+                  <button type="button" onClick={handleBack} className="inline-flex items-center gap-1.5 text-xs text-accent hover:underline cursor-pointer">
+                    <LuArrowLeft className="size-3.5" />
+                    返回模型列表
+                  </button>
+                </div>
+              ) : (
+                <ModelChannelEditor profile={profile} isNew={isNew} onBack={handleBack} />
+              )}
+            </div>
           </div>
-        </div>
-      </main>
+        </main>
+      </div>
     </div>
   )
 }
