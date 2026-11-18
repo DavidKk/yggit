@@ -33,6 +33,7 @@ type Props = {
   onBranchHoverEnd?: () => void
   onSelect?: (commit: GitCommit) => void
   onSelectWorktree?: () => void
+  onOpenConflictView?: (hash: string, file?: string) => void
   onPage: (scope: string, commits: GitCommit[], hasMore: boolean) => void
 }
 
@@ -82,6 +83,7 @@ export function GitHistory({
   onBranchHoverEnd,
   onSelect,
   onSelectWorktree,
+  onOpenConflictView,
   onPage,
 }: Props) {
   const t = useT()
@@ -284,6 +286,7 @@ export function GitHistory({
         footer={hasMore ? <div ref={sentinelRef} className="h-px" aria-hidden /> : null}
         onSelect={onSelect}
         onSelectWorktree={onSelectWorktree}
+        onOpenConflictView={onOpenConflictView}
       />
       {showExplore ? <GitExploreStrip className="pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-panel/95 py-0.5" /> : null}
     </div>

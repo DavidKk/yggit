@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react'
 export interface AgentCustomMenuAction {
   id: string
   label: string
+  description?: string
   prompt: string
   enabled: boolean
 }

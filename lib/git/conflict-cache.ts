@@ -9,6 +9,8 @@ export interface MergeConflictRecord {
   hasConflict: boolean
   conflictCount?: number
   conflictFiles?: string[]
+  unresolvedConflictFiles?: string[] | null
+  conflictFileCounts?: Record<string, number | null>
   parent1?: string
   parent2?: string
   status: 'clean' | 'conflicted' | 'unsupported' | 'error'
@@ -42,7 +44,10 @@ function openDB(): Promise<IDBDatabase | null> {
           db.createObjectStore(STORE_NAME, { keyPath: 'key' })
         }
       }
-      request.onsuccess = () => resolve(request.result)
+      request.onsuccess = () => {
+        request.result.onversionchange = () => request.result.close()
+        resolve(request.result)
+      }
       request.onerror = () => resolve(null)
     } catch {
       resolve(null)
@@ -160,7 +165,11 @@ export async function queryConflictsBatch(repo: string, commits: Array<{ hash: s
   const hashes = commits.map((c) => c.hash)
   const cachedMap = await getCachedConflictsBatch(repo, hashes)
 
-  const uncached = commits.filter((c) => !cachedMap[c.hash] && c.parents.length >= 2)
+  const uncached = commits.filter(
+    (c) =>
+      c.parents.length >= 2 &&
+      (!cachedMap[c.hash] || (cachedMap[c.hash].hasConflict && (!cachedMap[c.hash].conflictFileCounts || cachedMap[c.hash].unresolvedConflictFiles === undefined)))
+  )
   if (uncached.length === 0) {
     return cachedMap
   }

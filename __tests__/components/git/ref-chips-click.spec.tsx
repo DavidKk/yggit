@@ -75,6 +75,7 @@ it('synchronously dismisses tooltip when right-click context menu is closed', as
     trigger.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, relatedTarget: document.body }))
   })
   expect(document.querySelector('[data-git-floating-menu]')).not.toBeNull()
+  expect(document.querySelector('[data-git-floating-menu]')?.classList.contains('bg-panel')).toBe(true)
 
   // Right-click to open context menu
   await act(async () => {

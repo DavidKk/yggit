@@ -16,15 +16,18 @@ import { AGENT_PRESETS, type AgentProviderType, DEFAULT_AGENT_CONFIG } from '@/l
 import { cn } from '@/lib/utils'
 
 import { PrivacyNoticeCallout } from './PrivacyNoticeCallout'
+import { RuleDebugger } from './RuleDebugger'
+import { SettingsColumns } from './SettingsColumns'
 import { SettingsSectionCard } from './SettingsSectionCard'
 
 interface ModelChannelEditorProps {
+  showTools?: boolean
   profile?: AgentModelProfile
   isNew?: boolean
   onBack?: () => void
 }
 
-export function ModelChannelEditor({ profile, isNew = false, onBack }: ModelChannelEditorProps) {
+export function ModelChannelEditor({ profile, isNew = false, onBack, showTools = false }: ModelChannelEditorProps) {
   const t = useT()
   let router: ReturnType<typeof useRouter> | null = null
   try {
@@ -172,7 +175,7 @@ export function ModelChannelEditor({ profile, isNew = false, onBack }: ModelChan
       return
     }
     if (router?.push) {
-      router.push('/settings?tab=models')
+      router.push('/settings/models')
     }
   }
 
@@ -184,11 +187,11 @@ export function ModelChannelEditor({ profile, isNew = false, onBack }: ModelChan
 
   const showApiKeyField = config.provider !== 'local-sdk'
 
-  return (
+  const content = (
     <div className="flex flex-col gap-4">
       <SettingsSectionCard
         title={isNew ? '新增模型接入项目' : t('gitAgent.modelDetails')}
-        description={isNew ? '配置新的模型渠道、服务商、接口地址与专属黑白名单。' : '配置服务渠道、接口地址、默认模型与 API 密钥。'}
+        description={isNew ? '配置新模型渠道、接口地址与黑白名单。' : '修改渠道接口地址、默认模型与黑白名单。'}
         titleAction={
           !isNew && profiles.length > 1 ? (
             <Button variant="outline-fail" size="mini" onClick={handleDelete} title="删除该模型配置">
@@ -232,7 +235,7 @@ export function ModelChannelEditor({ profile, isNew = false, onBack }: ModelChan
                   fullWidth
                   value={draft.name}
                   onChange={(event) => setDraft({ ...draft, name: event.target.value })}
-                  placeholder="例如：Magpie 主力 / DeepSeek-V3 / 团队网关"
+                  placeholder="例如：DeepSeek-V3 / 团队网关"
                 />
               </div>
             </div>
@@ -294,9 +297,7 @@ export function ModelChannelEditor({ profile, isNew = false, onBack }: ModelChan
                 <label htmlFor="agent-models-endpoint" className="text-xs font-semibold text-ink">
                   {t('integration.agentModelsEndpoint') || '模型列表接口'}
                 </label>
-                <p className="text-xs text-ink-soft leading-relaxed mt-0.5">
-                  {t('integration.agentModelsEndpointDesc') || '可选。默认请求 /models。若代理网关使用不同模型列表接口（如 Magpie），可填相对路径或完整 URL。'}
-                </p>
+                <p className="text-xs text-ink-soft leading-relaxed mt-0.5">{t('integration.agentModelsEndpointDesc') || '可选。自定义拉取可用模型的接口路径。'}</p>
               </div>
               <div className="md:col-span-7 min-w-0 max-w-[460px] md:ml-auto w-full">
                 <TextInput
@@ -304,7 +305,7 @@ export function ModelChannelEditor({ profile, isNew = false, onBack }: ModelChan
                   fullWidth
                   value={config.modelsEndpoint || ''}
                   onChange={(event) => updateConfig({ modelsEndpoint: event.target.value })}
-                  placeholder="默认 /models（Magpie 网关可填 /v1/models 或自定义接口）"
+                  placeholder="默认 /models，或填相对路径 / 完整 URL"
                 />
               </div>
             </div>
@@ -331,7 +332,7 @@ export function ModelChannelEditor({ profile, isNew = false, onBack }: ModelChan
                       setModelsFetchMsg('')
                     }}
                     options={availableModels.map((m) => ({ value: m.id, label: m.name }))}
-                    placeholder="选择或输入默认模型（如 gpt-4o, deepseek-chat...）"
+                    placeholder="选择或输入模型 ID（如 gpt-4o）"
                     action={{
                       icon: <AiOutlineFileSync className={cn('size-3.5', fetchingModels && 'animate-spin')} />,
                       title: '从远程接口动态拉取模型列表',
@@ -402,10 +403,8 @@ export function ModelChannelEditor({ profile, isNew = false, onBack }: ModelChan
           {/* Model Whitelist & Blacklist Follows Model Channel */}
           <div className="border-t border-line/60 pt-3 flex flex-col gap-3">
             <div>
-              <h3 className="text-xs font-semibold text-ink">渠道模型白名单与黑名单</h3>
-              <p className="text-xs text-ink-soft leading-relaxed mt-0.5">
-                仅作用于当前「{draft.name || '该'}」模型渠道。黑名单比白名单优先，设置了黑名单后，同名或匹配模型将被彻底禁止提交。
-              </p>
+              <h3 className="text-xs font-semibold text-ink">渠道白名单 / 黑名单</h3>
+              <p className="text-xs text-ink-soft leading-relaxed mt-0.5">仅作用于当前「{draft.name || '该'}」渠道。黑名单优先，命中即禁。</p>
             </div>
 
             {/* Whitelist / Blacklist Conflicts Notice */}
@@ -415,7 +414,7 @@ export function ModelChannelEditor({ profile, isNew = false, onBack }: ModelChan
                 <div className="flex-1">
                   <p className="font-semibold">{t('gitAgent.modelConflictNotice')}</p>
                   <p className="mt-0.5 text-warn/80">
-                    黑名单拥有最高优先级。以下白名单中的规则已被黑名单直接阻断并隐藏：
+                    黑名单优先。以下白名单规则已被阻断：
                     <span className="ml-1 font-mono font-semibold">{filterConflicts.join(', ')}</span>
                   </p>
                 </div>
@@ -437,7 +436,7 @@ export function ModelChannelEditor({ profile, isNew = false, onBack }: ModelChan
                     className="w-full"
                     value={channelFilter.whitelist}
                     onChange={(whitelist) => setDraft((prev) => ({ ...prev, filter: { ...prev.filter, whitelist, blacklist: prev.filter?.blacklist || [] } }))}
-                    placeholder="留空允许所有；输入如 gpt-*、codex/* 后回车添加..."
+                    placeholder="如 gpt-*、*-mini，回车添加..."
                   />
                 </div>
               </div>
@@ -456,7 +455,7 @@ export function ModelChannelEditor({ profile, isNew = false, onBack }: ModelChan
                     className="w-full"
                     value={channelFilter.blacklist}
                     onChange={(blacklist) => setDraft((prev) => ({ ...prev, filter: { ...prev.filter, blacklist, whitelist: prev.filter?.whitelist || [] } }))}
-                    placeholder="输入要阻断的模型或通配符，如 *-mini、workbuddy/deepseek-v4-pro，回车添加..."
+                    placeholder="如 *-mini、gpt-3.5*，回车添加..."
                   />
                 </div>
               </div>
@@ -496,4 +495,5 @@ export function ModelChannelEditor({ profile, isNew = false, onBack }: ModelChan
       </SettingsSectionCard>
     </div>
   )
+  return showTools ? <SettingsColumns tools={<RuleDebugger filter={channelFilter} modelId={config.model} />}>{content}</SettingsColumns> : content
 }

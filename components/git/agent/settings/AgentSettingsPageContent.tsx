@@ -10,10 +10,13 @@ import { LocaleSwitcher } from '@/components/i18n/LocaleSwitcher'
 import { useInWorkspaceHeader, WorkspaceHeaderSlot } from '@/components/layout/WorkspaceHeaderContext'
 import { ThemeSwitcher } from '@/components/theme/ThemeSwitcher'
 
+import { AgentMenuActionEditor } from './AgentMenuActionEditor'
 import { GeneralSettingsSection } from './GeneralSettingsSection'
 import { MenuSettingsSection } from './MenuSettingsSection'
 import { ModelChannelSection } from './ModelChannelSection'
 import { PrivacyRedactSection } from './PrivacyRedactSection'
+import { RuleDebugger } from './RuleDebugger'
+import { SettingsColumns } from './SettingsColumns'
 import { type SettingsSectionKey, SettingsSideNav } from './SettingsSideNav'
 
 /**
@@ -26,23 +29,24 @@ import { type SettingsSectionKey, SettingsSideNav } from './SettingsSideNav'
  * - All controls, labels, helper texts, and buttons enclosed inside SettingsSectionCard cards.
  */
 interface AgentSettingsPageContentProps {
+  menuActionId?: string
   section?: SettingsSectionKey
 }
 
-export function AgentSettingsPageContent({ section }: AgentSettingsPageContentProps = {}) {
+export function AgentSettingsPageContent({ section = 'models', menuActionId }: AgentSettingsPageContentProps = {}) {
   const t = useT()
   const router = useRouter()
   const searchParams = useSearchParams()
   const tabParam = searchParams.get('tab') as SettingsSectionKey | null
 
-  const activeSection = section || (tabParam && ['models', 'privacy', 'general', 'menus'].includes(tabParam) ? tabParam : 'models')
+  const activeSection = section
 
-  // Backward compatibility: redirect ?tab=privacy to /privacy
+  // Canonical path redirection: if accessed with legacy ?tab= query parameter, redirect to path route
   React.useEffect(() => {
-    if (!section && tabParam === 'privacy') {
-      router.replace('/privacy')
+    if (tabParam && ['models', 'privacy', 'general', 'menus'].includes(tabParam)) {
+      router.replace(`/settings/${tabParam}`)
     }
-  }, [section, tabParam, router])
+  }, [tabParam, router])
 
   const handleBack = () => {
     if (typeof window !== 'undefined') {
@@ -73,7 +77,7 @@ export function AgentSettingsPageContent({ section }: AgentSettingsPageContentPr
     },
     privacy: {
       title: t('gitAgent.tabPrivacy'),
-      desc: '在客户端本地完成密钥、邮箱、拓扑与自定义敏感词的双向可逆掩盖，防范敏感资产外泄。',
+      desc: t('gitAgent.privacySettingsDesc'),
       icon: <LuShieldCheck className="size-4 text-accent" aria-hidden="true" />,
     },
     general: {
@@ -82,8 +86,8 @@ export function AgentSettingsPageContent({ section }: AgentSettingsPageContentPr
       icon: <LuSlidersHorizontal className="size-4 text-accent" aria-hidden="true" />,
     },
     menus: {
-      title: '右键菜单设置',
-      desc: '自定义主菜单快捷区、二级子菜单分组归类、操作安全防护与 Agent 智能扩展能力。',
+      title: t('gitAgent.menusSettingsTitle'),
+      desc: t('gitAgent.menusSettingsDesc'),
       icon: <LuMousePointerClick className="size-4 text-accent" aria-hidden="true" />,
     },
   }
@@ -140,12 +144,22 @@ export function AgentSettingsPageContent({ section }: AgentSettingsPageContentPr
           </div>
 
           {/* Content Body: Standard padding (No flush / No NOPADDING), Form Cards Container */}
-          <div className="flex-1 min-h-0 overflow-y-auto p-3">
-            <div className="grid w-full max-w-4xl gap-3">
+          <div className="@container/settings flex-1 min-h-0 overflow-y-auto p-3 pb-24">
+            <div className="grid w-full gap-3">
               {activeSection === 'models' && <ModelChannelSection />}
-              {activeSection === 'privacy' && <PrivacyRedactSection />}
-              {activeSection === 'general' && <GeneralSettingsSection />}
-              {activeSection === 'menus' && <MenuSettingsSection />}
+              {activeSection === 'privacy' && (
+                <SettingsColumns tools={<RuleDebugger />}>
+                  <PrivacyRedactSection />
+                </SettingsColumns>
+              )}
+              {activeSection === 'general' && (
+                <div className="max-w-4xl">
+                  <GeneralSettingsSection />
+                </div>
+              )}
+              {activeSection === 'menus' && (
+                <div className="max-w-4xl">{menuActionId ? <AgentMenuActionEditor key={menuActionId} actionId={menuActionId} /> : <MenuSettingsSection />}</div>
+              )}
             </div>
           </div>
         </main>

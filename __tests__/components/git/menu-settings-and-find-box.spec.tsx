@@ -2,8 +2,13 @@
 import React, { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 
+import { ConfirmProvider } from '@/components/confirm/ConfirmProvider'
 import { MenuSettingsSection } from '@/components/git/agent/settings/MenuSettingsSection'
 import { formatCompactCount, GitFindBox } from '@/components/git/GitFindBox'
+import { LocaleProvider } from '@/components/i18n/LocaleProvider'
+import { CONTEXT_MENU_STORAGE_KEY } from '@/lib/git/context-menu-config'
+
+jest.mock('next/navigation', () => ({ useRouter: () => ({ push: jest.fn() }) }))
 
 let root: Root
 let host: HTMLDivElement
@@ -80,7 +85,13 @@ describe('GitFindBox component', () => {
 describe('MenuSettingsSection component', () => {
   it('renders all three setting zones and allows toggling quick actions', async () => {
     await act(async () => {
-      root.render(<MenuSettingsSection />)
+      root.render(
+        <LocaleProvider initialLocale="zh" initialPreference="zh">
+          <ConfirmProvider>
+            <MenuSettingsSection />
+          </ConfirmProvider>
+        </LocaleProvider>
+      )
     })
 
     // Zone 1: 快捷区
@@ -104,4 +115,29 @@ describe('MenuSettingsSection component', () => {
     expect(host.textContent).toContain('Agent 智能菜单扩展')
     expect(host.textContent).toContain('AI 审查分支改动')
   })
+})
+
+it('requires confirmation for deleting a menu action from the list', async () => {
+  await act(async () =>
+    root.render(
+      <LocaleProvider initialLocale="zh" initialPreference="zh">
+        <ConfirmProvider>
+          <MenuSettingsSection />
+        </ConfirmProvider>
+      </LocaleProvider>
+    )
+  )
+  const title = 'AI 审查分支改动'
+  const deleteButton = () =>
+    [...host.querySelectorAll('button')].find((item) => item.getAttribute('aria-label')?.includes(title) && item.querySelector('svg') && !item.hasAttribute('role'))!
+  const readActions = () => JSON.parse(localStorage.getItem(CONTEXT_MENU_STORAGE_KEY)!).agentActions
+  await act(async () => deleteButton().click())
+  expect(host.textContent).toContain(title)
+  const cancel = [...document.body.querySelectorAll('button')].find((item) => item.textContent?.trim() === '取消')!
+  await act(async () => cancel.click())
+  expect(host.textContent).toContain(title)
+  await act(async () => deleteButton().click())
+  await act(async () => document.querySelector<HTMLButtonElement>('[data-modal-initial="confirm"]')!.click())
+  expect(readActions().some((item: { label: string }) => item.label === title)).toBe(false)
+  expect([...host.querySelectorAll('li a')].some((item) => item.textContent?.includes(title))).toBe(false)
 })

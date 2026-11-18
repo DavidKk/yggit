@@ -22,13 +22,13 @@ export function SettingsSideNav({ activeSection, onSelectSection }: Props) {
     {
       id: 'models' as const,
       label: t('gitAgent.tabModels'),
-      href: '/settings',
+      href: '/settings/models',
       icon: <LuCpu className="h-4.5 w-4.5" aria-hidden="true" />,
     },
     {
       id: 'privacy' as const,
       label: t('gitAgent.tabPrivacy'),
-      href: '/privacy',
+      href: '/settings/privacy',
       icon: <LuShieldCheck className="h-4.5 w-4.5" aria-hidden="true" />,
     },
     {

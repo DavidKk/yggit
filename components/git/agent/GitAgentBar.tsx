@@ -18,6 +18,16 @@ interface Props {
 }
 
 const FULL_LABEL = 'Git Agent'
+const STORAGE_KEY = 'yggit.agent.bar-pos.v1'
+export const THRESHOLD_DISTANCE = 180
+export const SNAP_DISTANCE = 64
+
+export function getPillDistance(pos: { x: number; y: number }): number {
+  if (typeof window === 'undefined') return 0
+  const defaultX = (window.innerWidth - 132) / 2
+  const defaultY = window.innerHeight - 20 - 40
+  return Math.hypot(pos.x - defaultX, pos.y - defaultY)
+}
 
 export function GitAgentBar({ repoPath, className }: Props) {
   const t = useT()
@@ -30,12 +40,70 @@ export function GitAgentBar({ repoPath, className }: Props) {
   const [contentVisible, setContentVisible] = useState(false)
   const [quickCardOpen, setQuickCardOpen] = useState(false)
 
+  // Drag state for collapsed mini pill (anchored to the Robot Icon handle)
+  const [position, setPosition] = useState<{ x: number; y: number } | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
+  const [isSnapping, setIsSnapping] = useState(false)
+  const [iconSlid, setIconSlid] = useState(false)
+  const [vanishGhost, setVanishGhost] = useState<{ x: number; y: number } | null>(null)
+  const [reappearGhost, setReappearGhost] = useState<{ x: number; y: number } | null>(null)
+  const [isClosing, setIsClosing] = useState(false)
+  const dragStartRef = useRef<{
+    pointerId: number
+    startX: number
+    startY: number
+    clientX: number
+    clientY: number
+  } | null>(null)
+  const hasMovedRef = useRef(false)
+  const wasDraggingRef = useRef(false)
+  const currentPosRef = useRef<{ x: number; y: number } | null>(null)
+
   const inputRef = useRef<HTMLInputElement>(null)
   const formRef = useRef<HTMLFormElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const openTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const snapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const typewriterTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Restore saved dragged position from localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY)
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (typeof parsed?.x === 'number' && typeof parsed?.y === 'number') {
+          const pillWidth = 132
+          const pillHeight = 40
+          const margin = 12
+          const safeX = Math.max(margin, Math.min(window.innerWidth - pillWidth - margin, parsed.x))
+          const safeY = Math.max(margin, Math.min(window.innerHeight - pillHeight - margin, parsed.y))
+          setPosition({ x: safeX, y: safeY })
+        }
+      }
+    } catch {}
+  }, [])
+
+  // Keep position clamped within window on resize
+  useEffect(() => {
+    function handleResize() {
+      if (!position) return
+      const pillWidth = 132
+      const pillHeight = 40
+      const margin = 12
+      const maxX = Math.max(margin, window.innerWidth - pillWidth - margin)
+      const maxY = Math.max(margin, window.innerHeight - pillHeight - margin)
+      if (position.x > maxX || position.y > maxY) {
+        setPosition({
+          x: Math.max(margin, Math.min(maxX, position.x)),
+          y: Math.max(margin, Math.min(maxY, position.y)),
+        })
+      }
+    }
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [position])
 
   const clearTimers = useCallback(() => {
     if (openTimerRef.current) {
@@ -46,7 +114,27 @@ export function GitAgentBar({ repoPath, className }: Props) {
       clearTimeout(closeTimerRef.current)
       closeTimerRef.current = null
     }
+    if (snapTimerRef.current) {
+      clearTimeout(snapTimerRef.current)
+      snapTimerRef.current = null
+    }
   }, [])
+
+  const snapToDefaultCenter = useCallback(() => {
+    if (!position || isSnapping || expanded || isClosing) return
+    const defaultX = (window.innerWidth - 132) / 2
+    const defaultY = window.innerHeight - 20 - 40
+    setIsSnapping(true)
+    setPosition({ x: defaultX, y: defaultY })
+    if (snapTimerRef.current) clearTimeout(snapTimerRef.current)
+    snapTimerRef.current = setTimeout(() => {
+      setPosition(null)
+      setIsSnapping(false)
+      try {
+        localStorage.removeItem(STORAGE_KEY)
+      } catch {}
+    }, 350)
+  }, [position, isSnapping, expanded, isClosing])
 
   const clearTypewriter = useCallback(() => {
     if (typewriterTimerRef.current) {
@@ -66,14 +154,15 @@ export function GitAgentBar({ repoPath, className }: Props) {
         typewriterTimerRef.current = setTimeout(step, 40)
       }
     }
-    typewriterTimerRef.current = setTimeout(step, 60)
+    typewriterTimerRef.current = setTimeout(step, 140)
   }, [clearTypewriter])
 
-  // Initial typewriter effect on page load/mount
+  // Initial independent icon glide & typewriter effect on page load/mount
   useEffect(() => {
     const initTimer = setTimeout(() => {
+      setIconSlid(true)
       startTypewriter()
-    }, 280)
+    }, 350)
     return () => {
       clearTimeout(initTimer)
       clearTypewriter()
@@ -81,32 +170,57 @@ export function GitAgentBar({ repoPath, className }: Props) {
   }, [startTypewriter, clearTypewriter])
 
   const openBar = useCallback(() => {
+    if (expanded || isClosing || isSnapping) return
     clearTimers()
     clearTypewriter()
-    // Staged sequence: 1. Hide text immediately so pill stretches cleanly
     setDisplayText('')
-    // 2. Expand container width with spring curve
+    setIconSlid(false)
+
+    // Any custom position uses dual-pill vanish-expand animation
+    if (position) {
+      setVanishGhost({ x: position.x, y: position.y })
+      setTimeout(() => {
+        setVanishGhost(null)
+      }, 400)
+    }
+
     setExpanded(true)
-    // 3. Staged: reveal expanded input & actions only after width stretch settles
     openTimerRef.current = setTimeout(() => {
       setContentVisible(true)
-    }, 280)
-  }, [clearTimers, clearTypewriter])
+    }, 400)
+  }, [clearTimers, clearTypewriter, position, expanded, isClosing, isSnapping])
 
   const closeBar = useCallback(() => {
-    if (!expanded) return
+    if (!expanded || isClosing) return
     clearTimers()
     clearTypewriter()
-    // Staged sequence: 1. Hide expanded content immediately
+
     setContentVisible(false)
-    // 2. Collapse container width with spring recoil; text is empty so icon stays centered
-    setExpanded(false)
     setDisplayText('')
-    // 3. Staged: start typewriter to glide icon leftward only after container bounce settles
-    closeTimerRef.current = setTimeout(() => {
-      startTypewriter()
-    }, 360)
-  }, [expanded, clearTimers, clearTypewriter, startTypewriter])
+    setIconSlid(false)
+
+    // Any custom position uses dual-pill vanish-reappear animation
+    if (position) {
+      // Bottom bar vanishes symmetrically in-place at bottom center (same curve as mini pill)
+      setIsClosing(true)
+      // Remote mini pill simultaneously reappears at (position.x, position.y)
+      setReappearGhost({ x: position.x, y: position.y })
+
+      closeTimerRef.current = setTimeout(() => {
+        setIsClosing(false)
+        setExpanded(false)
+        setReappearGhost(null)
+        setIconSlid(true)
+        startTypewriter()
+      }, 400)
+    } else {
+      setExpanded(false)
+      closeTimerRef.current = setTimeout(() => {
+        setIconSlid(true)
+        startTypewriter()
+      }, 300)
+    }
+  }, [expanded, isClosing, clearTimers, clearTypewriter, startTypewriter, position])
 
   const toggleBar = useCallback(() => {
     if (quickCardOpen) {
@@ -150,6 +264,7 @@ export function GitAgentBar({ repoPath, className }: Props) {
     function handleClickOutside(event: PointerEvent) {
       const target = event.target as Node
       const element = target as Element
+      if (isClosing) return
       if (element?.closest?.('[data-agent-popover], [data-base-ui-positioner], [data-base-ui-popup], [data-listbox-panel]')) {
         return
       }
@@ -167,7 +282,7 @@ export function GitAgentBar({ repoPath, className }: Props) {
     }
     document.addEventListener('pointerdown', handleClickOutside)
     return () => document.removeEventListener('pointerdown', handleClickOutside)
-  }, [expanded, quickCardOpen, input, isProcessing, closeBar])
+  }, [expanded, quickCardOpen, input, isProcessing, closeBar, isClosing])
 
   // Auto-open quick card when processing starts if not docked
   useEffect(() => {
@@ -184,6 +299,105 @@ export function GitAgentBar({ repoPath, className }: Props) {
     setInput('')
     setQuickCardOpen(true)
     await sendMessage(trimmed, repoPath)
+  }
+
+  // Pointer drag event handlers specifically attached to the Robot Icon handle
+  const handleIconPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (expanded || quickCardOpen || isSnapping) return
+    if (e.button !== 0) return
+
+    const rect = formRef.current?.getBoundingClientRect()
+    if (!rect) return
+
+    dragStartRef.current = {
+      pointerId: e.pointerId,
+      startX: rect.left,
+      startY: rect.top,
+      clientX: e.clientX,
+      clientY: e.clientY,
+    }
+    hasMovedRef.current = false
+    wasDraggingRef.current = false
+
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId)
+    } catch {}
+  }
+
+  const handleIconPointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (!dragStartRef.current) return
+    const dx = e.clientX - dragStartRef.current.clientX
+    const dy = e.clientY - dragStartRef.current.clientY
+
+    if (!hasMovedRef.current && Math.hypot(dx, dy) > 4) {
+      hasMovedRef.current = true
+      wasDraggingRef.current = true
+      setIsDragging(true)
+    }
+
+    if (hasMovedRef.current) {
+      const pillWidth = 132
+      const pillHeight = 40
+      const margin = 12
+
+      const nextX = Math.max(margin, Math.min(window.innerWidth - pillWidth - margin, dragStartRef.current.startX + dx))
+      const nextY = Math.max(margin, Math.min(window.innerHeight - pillHeight - margin, dragStartRef.current.startY + dy))
+
+      currentPosRef.current = { x: nextX, y: nextY }
+      setPosition({ x: nextX, y: nextY })
+    }
+  }
+
+  const handleIconPointerUp = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (!dragStartRef.current) return
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId)
+    } catch {}
+
+    const moved = hasMovedRef.current
+    dragStartRef.current = null
+    hasMovedRef.current = false
+    setIsDragging(false)
+
+    if (moved) {
+      setTimeout(() => {
+        wasDraggingRef.current = false
+      }, 100)
+
+      // Snap back to default center with smooth animation if dropped near bottom-center
+      const defaultX = (window.innerWidth - 132) / 2
+      const defaultY = window.innerHeight - 20 - 40
+      const droppedPos = currentPosRef.current || position
+      currentPosRef.current = null
+      const distToDefault = droppedPos ? Math.hypot(droppedPos.x - defaultX, droppedPos.y - defaultY) : Infinity
+
+      if (droppedPos && distToDefault < SNAP_DISTANCE) {
+        setIsSnapping(true)
+        setPosition({ x: defaultX, y: defaultY })
+        if (snapTimerRef.current) clearTimeout(snapTimerRef.current)
+        snapTimerRef.current = setTimeout(() => {
+          setPosition(null)
+          setIsSnapping(false)
+          try {
+            localStorage.removeItem(STORAGE_KEY)
+          } catch {}
+        }, 350)
+      } else if (droppedPos) {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(droppedPos))
+        } catch {}
+      }
+    }
+  }
+
+  const handleIconPointerCancel = () => {
+    dragStartRef.current = null
+    hasMovedRef.current = false
+    currentPosRef.current = null
+    setIsDragging(false)
+    setTimeout(() => {
+      wasDraggingRef.current = false
+    }, 100)
   }
 
   if (dockMode !== 'collapsed') return null
@@ -305,98 +519,364 @@ export function GitAgentBar({ repoPath, className }: Props) {
     )
   }
 
+  const positionStyle: React.CSSProperties =
+    !expanded && !isClosing && position
+      ? {
+          left: `${position.x}px`,
+          top: `${position.y}px`,
+          bottom: 'auto',
+          transform: 'none',
+        }
+      : {
+          left: '50%',
+          bottom: '1.25rem',
+          top: 'auto',
+          transform: 'translateX(-50%)',
+        }
+
+  const formStyle: React.CSSProperties = {
+    ...positionStyle,
+    ...(expanded && position && !contentVisible && !isClosing
+      ? {
+          transformOrigin: 'center center',
+          animation: 'bottom-bar-expand 400ms cubic-bezier(0.4, 0, 0.2, 1) forwards',
+        }
+      : {}),
+    ...(isClosing
+      ? {
+          transformOrigin: 'center center',
+          animation: 'bottom-bar-vanish 400ms cubic-bezier(0.4, 0, 0.2, 1) forwards',
+        }
+      : {}),
+  }
+
   return (
-    <form
-      ref={formRef}
-      onSubmit={handleSubmit}
-      onClick={() => {
-        if (!expanded) {
-          openBar()
+    <>
+      <style>{`
+        @keyframes pill-vanish {
+          0% {
+            width: 132px;
+            left: var(--ghost-x);
+            transform: scale(1);
+            opacity: 1;
+          }
+          40% {
+            width: 49px;
+            left: calc(var(--ghost-x) + 41.5px);
+            transform: scale(1);
+            opacity: 1;
+          }
+          55% {
+            width: 40px;
+            left: calc(var(--ghost-x) + 46px);
+            transform: scale(0.85);
+            opacity: 1;
+          }
+          85% {
+            width: 40px;
+            left: calc(var(--ghost-x) + 46px);
+            transform: scale(0.2);
+            opacity: 0.8;
+          }
+          100% {
+            width: 40px;
+            left: calc(var(--ghost-x) + 46px);
+            transform: scale(0);
+            opacity: 0;
+          }
         }
-      }}
-      onKeyDown={(event) => {
-        if (event.key === 'Escape') {
-          if (!expanded) return
-          event.preventDefault()
-          closeBar()
+
+        @keyframes icon-scale-vanish {
+          0% {
+            transform: scale(1);
+            opacity: 1;
+          }
+          40% {
+            transform: scale(1);
+            opacity: 1;
+          }
+          55% {
+            transform: scale(0.85);
+            opacity: 1;
+          }
+          85% {
+            transform: scale(0.2);
+            opacity: 0.8;
+          }
+          100% {
+            transform: scale(0);
+            opacity: 0;
+          }
         }
-      }}
-      aria-label={t('gitAgent.barAria')}
-      className={cn(
-        'fixed bottom-5 left-1/2 -translate-x-1/2 z-40 flex h-10 items-center overflow-hidden rounded-full border border-accent bg-panel/90 shadow-lg backdrop-blur-md transition-[width,padding,background-color,border-color,box-shadow,opacity] duration-350 ease-[cubic-bezier(0.175,0.885,0.32,1.15)] motion-reduce:transition-none select-none',
-        expanded
-          ? 'w-[min(90vw,500px)] px-3 opacity-100 focus-within:ring-2 focus-within:ring-accent/25'
-          : 'w-[128px] justify-center px-3.5 cursor-pointer opacity-70 hover:opacity-100 hover:shadow-accent/20 hover:bg-panel active:scale-[0.98]',
-        className
+
+        @keyframes pill-reappear {
+          0% {
+            width: 40px;
+            left: calc(var(--ghost-x) + 46px);
+            transform: scale(0);
+            opacity: 0;
+          }
+          45% {
+            width: 40px;
+            left: calc(var(--ghost-x) + 46px);
+            transform: scale(1);
+            opacity: 1;
+          }
+          100% {
+            width: 132px;
+            left: var(--ghost-x);
+            transform: scale(1);
+            opacity: 1;
+          }
+        }
+
+        @keyframes icon-scale-reappear {
+          0% {
+            transform: scale(0);
+            opacity: 0;
+          }
+          45% {
+            transform: scale(1);
+            opacity: 1;
+          }
+          100% {
+            transform: scale(1);
+            opacity: 1;
+          }
+        }
+
+        @keyframes bottom-bar-expand {
+          0% {
+            width: 40px;
+            transform: translateX(-50%) scale(0.7);
+            opacity: 0.6;
+          }
+          30% {
+            width: 40px;
+            transform: translateX(-50%) scale(1);
+            opacity: 1;
+          }
+          100% {
+            width: min(90vw, 500px);
+            transform: translateX(-50%) scale(1);
+            opacity: 1;
+          }
+        }
+
+        @keyframes bottom-bar-vanish {
+          0% {
+            width: min(90vw, 500px);
+            transform: translateX(-50%) scale(1);
+            opacity: 1;
+          }
+          40% {
+            width: 86px;
+            transform: translateX(-50%) scale(1);
+            opacity: 1;
+          }
+          55% {
+            width: 40px;
+            transform: translateX(-50%) scale(0.85);
+            opacity: 1;
+          }
+          85% {
+            width: 40px;
+            transform: translateX(-50%) scale(0.2);
+            opacity: 0.8;
+          }
+          100% {
+            width: 40px;
+            transform: translateX(-50%) scale(0);
+            opacity: 0;
+          }
+        }
+      `}</style>
+
+      {/* Vanishing Pill at Remote Position (shrinks symmetrically to circle, with robot icon visibly scaling down to 0) */}
+      {vanishGhost && (
+        <div
+          style={
+            {
+              '--ghost-x': `${vanishGhost.x}px`,
+              top: `${vanishGhost.y}px`,
+              transformOrigin: 'center center',
+              animation: 'pill-vanish 400ms cubic-bezier(0.4, 0, 0.2, 1) forwards',
+            } as React.CSSProperties
+          }
+          className="fixed z-40 flex h-10 items-center overflow-hidden rounded-full border border-accent bg-panel/90 shadow-md pointer-events-none pl-[5px]"
+        >
+          <div
+            style={{
+              transformOrigin: 'center center',
+              animation: 'icon-scale-vanish 400ms cubic-bezier(0.4, 0, 0.2, 1) forwards',
+            }}
+            className="flex size-7 shrink-0 items-center justify-center rounded-full text-accent"
+          >
+            <LuBot className="size-4" />
+          </div>
+        </div>
       )}
-    >
-      {/* Left Agent Robot Icon */}
-      <button
-        type="button"
-        tabIndex={expanded ? 0 : -1}
-        aria-expanded={expanded}
-        aria-label={t('gitAgent.barAria')}
-        title={expanded ? t('common.close') || '收起' : t('gitAgent.barAria')}
-        onClick={(e) => {
-          if (expanded) {
-            e.stopPropagation()
+
+      {/* Reappearing Pill at Remote Position (scales in as circle with icon, then expands symmetrically to 132px mini capsule) */}
+      {reappearGhost && (
+        <div
+          style={
+            {
+              '--ghost-x': `${reappearGhost.x}px`,
+              top: `${reappearGhost.y}px`,
+              transformOrigin: 'center center',
+              animation: 'pill-reappear 400ms cubic-bezier(0.4, 0, 0.2, 1) forwards',
+            } as React.CSSProperties
+          }
+          className="fixed z-40 flex h-10 items-center overflow-hidden rounded-full border border-accent bg-panel/90 shadow-md pointer-events-none pl-[5px]"
+        >
+          <div
+            style={{
+              transformOrigin: 'center center',
+              animation: 'icon-scale-reappear 400ms cubic-bezier(0.4, 0, 0.2, 1) forwards',
+            }}
+            className="flex size-7 shrink-0 items-center justify-center rounded-full text-accent"
+          >
+            <LuBot className="size-4" />
+          </div>
+        </div>
+      )}
+
+      <form
+        ref={formRef}
+        style={formStyle}
+        onSubmit={handleSubmit}
+        onClick={() => {
+          if (wasDraggingRef.current) return
+          if (!expanded) {
+            openBar()
+          }
+        }}
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') {
+            if (!expanded) return
+            event.preventDefault()
             closeBar()
           }
         }}
+        aria-label={t('gitAgent.barAria')}
         className={cn(
-          'flex size-6 shrink-0 items-center justify-center rounded-full text-accent outline-none transition-colors duration-200',
-          expanded ? 'hover:bg-accent/15 cursor-pointer' : 'pointer-events-none'
+          'fixed z-40 flex h-10 items-center overflow-hidden rounded-full border border-accent bg-panel/90 shadow-lg backdrop-blur-md select-none',
+          isDragging || isClosing
+            ? 'transition-none'
+            : isSnapping
+              ? 'transition-[left,top,width,background-color,border-color,box-shadow,opacity] duration-350 ease-[cubic-bezier(0.25,1,0.5,1)] motion-reduce:transition-none'
+              : 'transition-[width,background-color,border-color,box-shadow,opacity] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none',
+          expanded || isClosing
+            ? 'w-[min(90vw,500px)] px-[5px] opacity-100 focus-within:ring-2 focus-within:ring-accent/25'
+            : 'w-[132px] pl-[5px] pr-2 cursor-pointer opacity-75 hover:opacity-100 hover:shadow-accent/20 hover:bg-panel active:scale-[0.99]',
+          className
         )}
       >
-        {isProcessing ? <Spinner className="size-3.5" /> : <LuBot className="size-4" />}
-      </button>
+        {/* Left Agent Robot Icon: Dedicated drag handle in collapsed mode; Close button in expanded mode */}
+        <button
+          type="button"
+          tabIndex={expanded || isClosing ? 0 : -1}
+          aria-expanded={expanded && !isClosing}
+          aria-label={expanded ? t('common.close') || '收起' : t('gitAgent.barAria')}
+          title={expanded ? t('common.close') : t('gitAgent.barDragHint')}
+          onPointerDown={handleIconPointerDown}
+          onPointerMove={handleIconPointerMove}
+          onPointerUp={handleIconPointerUp}
+          onPointerCancel={handleIconPointerCancel}
+          onDoubleClick={(event) => {
+            if (expanded || isClosing || isSnapping) return
+            event.stopPropagation()
+            snapToDefaultCenter()
+          }}
+          onClick={(e) => {
+            e.stopPropagation()
+            if (isClosing || isSnapping) return
+            if (expanded) {
+              closeBar()
+            } else if (!wasDraggingRef.current) {
+              openBar()
+            }
+          }}
+          style={{
+            transform: !expanded && !isClosing && !iconSlid ? 'translateX(46px)' : 'translateX(0px)',
+            transition: isDragging ? 'none' : 'transform 500ms cubic-bezier(0.25, 1, 0.5, 1)',
+            ...(isClosing
+              ? {
+                  transformOrigin: 'center center',
+                  animation: 'icon-scale-vanish 400ms cubic-bezier(0.4, 0, 0.2, 1) forwards',
+                }
+              : {}),
+          }}
+          className={cn(
+            'flex size-7 shrink-0 items-center justify-center rounded-full text-accent outline-none',
+            expanded || isClosing
+              ? 'hover:bg-accent/15 cursor-pointer'
+              : isDragging
+                ? 'cursor-grabbing bg-accent/25 scale-105 shadow-xs'
+                : 'cursor-grab hover:bg-accent/15 touch-none'
+          )}
+        >
+          {isProcessing ? <Spinner className="size-3.5" /> : <LuBot className="size-4" />}
+        </button>
 
-      {/* Collapsed Label with Typewriter effect */}
-      {!expanded && displayText ? <span className="text-[13px] font-medium tracking-wide text-ink whitespace-nowrap overflow-hidden select-none ml-2">{displayText}</span> : null}
-
-      {/* Expanded Content: Input & Actions */}
-      <div
-        className={cn(
-          'flex items-center gap-1.5',
-          expanded ? 'flex-1 min-w-0' : 'w-0 max-w-0 overflow-hidden flex-none',
-          contentVisible
-            ? 'opacity-100 translate-x-0 transition-[opacity,transform] duration-200 ease-out'
-            : 'opacity-0 -translate-x-2 pointer-events-none transition-[opacity,transform] duration-150 ease-in'
-        )}
-      >
-        <input
-          ref={inputRef}
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder={t('gitAgent.barPlaceholder')}
-          className="min-w-0 flex-1 bg-transparent px-1 text-xs text-ink placeholder:text-ink-soft/60 focus:outline-none"
-          tabIndex={contentVisible ? 0 : -1}
-        />
-
-        {/* Quick Model & Platform Popover */}
-        <AgentQuickModelPopover tabIndex={contentVisible ? 0 : -1} />
-
-        {/* Send Button */}
-        <Tooltip content={isModelBlocked ? t('gitAgent.modelBlockedNotice') : t('gitAgent.send')} placement="top">
-          <span className="inline-flex">
-            <button
-              type="submit"
-              disabled={!input.trim() || isProcessing || isModelBlocked}
-              className={cn(
-                'flex size-7 shrink-0 items-center justify-center rounded-full transition-all',
-                input.trim() && !isProcessing && !isModelBlocked
-                  ? 'bg-accent text-accent-ink shadow-xs hover:brightness-110 active:scale-95 cursor-pointer'
-                  : 'bg-[var(--overlay-06)] text-ink-soft/40 cursor-not-allowed opacity-50'
-              )}
-              aria-label={t('gitAgent.send')}
-              tabIndex={contentVisible ? 0 : -1}
-            >
-              {isProcessing ? <Spinner className="size-3 text-accent" /> : <LuSend className="size-3.5" />}
-            </button>
+        {/* Collapsed Label with Typewriter effect: fades in as icon glides independently */}
+        {!expanded && (
+          <span
+            className={cn(
+              'inline-flex items-center overflow-hidden text-[13px] font-medium tracking-wide text-ink whitespace-nowrap select-none ml-1.5',
+              'transition-opacity duration-200 ease-out',
+              displayText && iconSlid ? 'opacity-100' : 'opacity-0 pointer-events-none'
+            )}
+          >
+            {displayText}
           </span>
-        </Tooltip>
-      </div>
-    </form>
+        )}
+
+        {/* Expanded Content: Input & Actions */}
+        <div
+          className={cn(
+            'flex items-center gap-1.5',
+            expanded ? 'flex-1 min-w-0 ml-1.5' : 'w-0 max-w-0 overflow-hidden flex-none',
+            contentVisible
+              ? 'opacity-100 translate-x-0 transition-[opacity,transform] duration-200 ease-out'
+              : 'opacity-0 -translate-x-2 pointer-events-none transition-[opacity,transform] duration-150 ease-in'
+          )}
+        >
+          <input
+            ref={inputRef}
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder={t('gitAgent.barPlaceholder')}
+            className="min-w-0 flex-1 bg-transparent px-1 text-xs text-ink placeholder:text-ink-soft/60 focus:outline-none"
+            tabIndex={contentVisible ? 0 : -1}
+          />
+
+          {/* Quick Model & Platform Popover */}
+          <AgentQuickModelPopover tabIndex={contentVisible ? 0 : -1} />
+
+          {/* Send Button */}
+          <Tooltip content={isModelBlocked ? t('gitAgent.modelBlockedNotice') : t('gitAgent.send')} placement="top">
+            <span className="inline-flex">
+              <button
+                type="submit"
+                disabled={!input.trim() || isProcessing || isModelBlocked}
+                className={cn(
+                  'flex size-7 shrink-0 items-center justify-center rounded-full transition-all',
+                  input.trim() && !isProcessing && !isModelBlocked
+                    ? 'bg-accent text-accent-ink shadow-xs hover:brightness-110 active:scale-95 cursor-pointer'
+                    : 'bg-[var(--overlay-06)] text-ink-soft/40 cursor-not-allowed opacity-50'
+                )}
+                aria-label={t('gitAgent.send')}
+                tabIndex={contentVisible ? 0 : -1}
+              >
+                {isProcessing ? <Spinner className="size-3 text-accent" /> : <LuSend className="size-3.5" />}
+              </button>
+            </span>
+          </Tooltip>
+        </div>
+      </form>
+    </>
   )
 }

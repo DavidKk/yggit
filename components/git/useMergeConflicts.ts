@@ -11,6 +11,7 @@ interface UseMergeConflictsOptions {
   loading?: boolean
   scrollRef?: React.RefObject<HTMLDivElement | null> | null
   enabled?: boolean
+  selectedHash?: string
 }
 
 /**
@@ -22,7 +23,7 @@ interface UseMergeConflictsOptions {
  * 4. Only inspects visible, uncached merge commits in small batches (max 5 at a time).
  * 5. Uses IndexedDB and local file cache for O(1) instant return without Git overhead.
  */
-export function useMergeConflicts({ repo = '', commits, loading = false, scrollRef, enabled = true }: UseMergeConflictsOptions) {
+export function useMergeConflicts({ repo = '', commits, loading = false, scrollRef, enabled = true, selectedHash }: UseMergeConflictsOptions) {
   const [conflicts, setConflicts] = useState<Record<string, MergeConflictRecord>>({})
 
   const isScrollingRef = useRef(false)
@@ -66,11 +67,17 @@ export function useMergeConflicts({ repo = '', commits, loading = false, scrollR
     const startIdx = Math.max(0, Math.floor(scrollTop / rowHeight) - 5)
     const endIdx = Math.min(commits.length, Math.ceil((scrollTop + clientHeight) / rowHeight) + 10)
 
-    const slice = commits.slice(startIdx, endIdx)
+    const selected = commits.find((commit) => commit.hash === selectedHash)
+    const visible = commits.slice(startIdx, endIdx)
+    // The selected file panel may belong to a merge outside the visible graph.
+    const slice = selected ? [selected, ...visible.filter((commit) => commit.hash !== selected.hash)] : visible
 
     for (const commit of slice) {
       if (commit && commit.parents && commit.parents.length >= 2) {
-        if (!conflicts[commit.hash]) {
+        if (
+          !conflicts[commit.hash] ||
+          (conflicts[commit.hash].hasConflict && (!conflicts[commit.hash].conflictFileCounts || conflicts[commit.hash].unresolvedConflictFiles === undefined))
+        ) {
           uncachedMerges.push({ hash: commit.hash, parents: commit.parents })
         }
       }
@@ -97,7 +104,7 @@ export function useMergeConflicts({ repo = '', commits, loading = false, scrollR
       .finally(() => {
         inFlightRef.current = false
       })
-  }, [enabled, loading, repo, commits, conflicts, scrollRef])
+  }, [enabled, loading, repo, commits, conflicts, scrollRef, selectedHash])
 
   // 3. Scroll listener: Cancel running task immediately during scroll, schedule idle detection when stopped
   useEffect(() => {
@@ -130,6 +137,8 @@ export function useMergeConflicts({ repo = '', commits, loading = false, scrollR
 
     return () => {
       el.removeEventListener('scroll', handleScroll)
+      // Cleanup cancels the scroll timer, so it must also clear its busy flag.
+      isScrollingRef.current = false
       if (idleTimerRef.current !== null) {
         window.clearTimeout(idleTimerRef.current)
       }

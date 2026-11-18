@@ -94,3 +94,14 @@ it('supports pasting comma or newline separated values', async () => {
 
   expect(onChange).toHaveBeenCalledWith(['existing', 'new1', 'new2', 'new3'])
 })
+
+it('supports multiline and custom rows layout', async () => {
+  await act(async () => {
+    root.render(<TagInput value={['tag1']} onChange={jest.fn()} multiline rows={3} />)
+  })
+
+  const container = host.querySelector('div')!
+  expect(container.className).toContain('min-h-24')
+  expect(container.className).toContain('items-start')
+  expect(container.className).toContain('content-start')
+})

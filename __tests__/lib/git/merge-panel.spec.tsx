@@ -72,7 +72,6 @@ it('renders merge lineage controls and calls onHighlight and onLocate', async ()
   })
 
   expect(container.textContent).toContain('git.commit.mergeLineage')
-  expect(container.textContent).toContain('git.commit.highlightLineage')
 
   // Click source or target button
   const buttons = container.querySelectorAll('button')
@@ -82,7 +81,7 @@ it('renders merge lineage controls and calls onHighlight and onLocate', async ()
   expect(onLocate).toHaveBeenCalledWith(p2.hash)
 
   // Toggle highlight
-  const highlightBtn = [...buttons].find((b) => b.getAttribute('aria-pressed') === 'false')
+  const highlightBtn = [...buttons].find((b) => b.getAttribute('aria-pressed') === 'false' || b.getAttribute('aria-label') === 'git.commit.highlightLineage')
   expect(highlightBtn).toBeTruthy()
   await act(async () => highlightBtn?.click())
   expect(onHighlight).toHaveBeenCalledWith(true, expect.any(Array))
@@ -102,10 +101,11 @@ it('does not render conflict badge when conflict is not present or clean', async
     )
   })
 
-  expect(container.textContent).not.toContain('曾发生冲突')
+  expect(container.querySelector('[aria-label*="曾发生冲突"]')).toBeNull()
 })
 
-it('renders conflict badge when conflict is detected', async () => {
+it('renders conflict badge when conflict is detected and calls onOpenConflictView on click', async () => {
+  const onOpenConflictView = jest.fn()
   await act(async () => {
     root.render(
       <GitMergePanel
@@ -115,10 +115,13 @@ it('renders conflict badge when conflict is detected', async () => {
         highlighted={false}
         onHighlight={jest.fn()}
         onLocate={jest.fn()}
+        onOpenConflictView={onOpenConflictView}
       />
     )
   })
 
-  expect(container.textContent).toContain('曾发生冲突 (3)')
-  expect(container.textContent).toContain('查看解决方案')
+  const conflictBtn = container.querySelector<HTMLButtonElement>('button[aria-label="曾发生冲突"]')
+  expect(conflictBtn).toBeTruthy()
+  await act(async () => conflictBtn?.click())
+  expect(onOpenConflictView).toHaveBeenCalled()
 })

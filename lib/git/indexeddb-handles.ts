@@ -112,7 +112,10 @@ export function openHandlesDatabase(): Promise<IDBDatabase | null> {
         }
       }
 
-      request.onsuccess = () => resolve(request.result)
+      request.onsuccess = () => {
+        request.result.onversionchange = () => request.result.close()
+        resolve(request.result)
+      }
       request.onerror = () => reject(request.error)
     } catch (err) {
       reject(err)
@@ -494,6 +497,36 @@ export async function saveEdgeRemoteProject(record: StoredRemoteProjectRecord): 
     record.group = folders[0] || '未分类'
   }
   await putInStore(db, REMOTE_PROJECTS_STORE, record)
+}
+
+/** Commit a fully enumerated import and its folder assignments atomically. */
+export async function importEdgeRemoteProjects(records: StoredRemoteProjectRecord[], group: string, localIds: string[]): Promise<void> {
+  const db = await openHandlesDatabase()
+  if (!db) throw new Error('REMOTE_GROUP_STORAGE_UNAVAILABLE')
+  const folder = group.trim().replace(/\s+/g, ' ')
+  if (!folder || /[/\\]/.test(folder)) throw new Error('REMOTE_GROUP_INVALID_FOLDER')
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction([FOLDERS_STORE, REMOTE_PROJECTS_STORE, HANDLES_STORE, META_STORE], 'readwrite')
+    tx.oncomplete = () => resolve()
+    tx.onabort = () => reject(tx.error || new Error('REMOTE_GROUP_STORAGE_FAILED'))
+    tx.onerror = () => reject(tx.error || new Error('REMOTE_GROUP_STORAGE_FAILED'))
+    const folders = tx.objectStore(FOLDERS_STORE)
+    const request = folders.getAll()
+    request.onsuccess = () => {
+      if (!(request.result as StoredFolderRecord[]).some((item) => item.name === folder)) {
+        folders.put({ name: folder, order: request.result.length, updatedAt: Date.now() })
+      }
+    }
+    tx.objectStore(META_STORE).put({ key: 'folders_initialized', value: true })
+    for (const record of records) tx.objectStore(REMOTE_PROJECTS_STORE).put({ ...record, group: folder })
+    const handles = tx.objectStore(HANDLES_STORE)
+    for (const id of localIds) {
+      const request = handles.get(id)
+      request.onsuccess = () => {
+        if (request.result) handles.put({ ...request.result, group: folder, updatedAt: Date.now() })
+      }
+    }
+  })
 }
 
 /**

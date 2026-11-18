@@ -32,6 +32,21 @@ describe('页面路由契约', () => {
     expect(typeof SettingsPrivacyPage).toBe('function')
   })
 
+  it('/settings/general 导出通用偏好子路由页面', async () => {
+    const { default: SettingsGeneralPage } = await import('@/app/(workspace)/settings/general/page')
+    expect(typeof SettingsGeneralPage).toBe('function')
+  })
+
+  it('/settings/menus 导出右键菜单子路由页面', async () => {
+    const { default: SettingsMenusPage } = await import('@/app/(workspace)/settings/menus/page')
+    expect(typeof SettingsMenusPage).toBe('function')
+  })
+
+  it('/settings/models 导出模型接入子路由页面', async () => {
+    const { default: SettingsModelsPage } = await import('@/app/(workspace)/settings/models/page')
+    expect(typeof SettingsModelsPage).toBe('function')
+  })
+
   it('/settings/models/new 导出新建模型接入页面', async () => {
     const { default: NewModelPage } = await import('@/app/(workspace)/settings/models/new/page')
     expect(typeof NewModelPage).toBe('function')

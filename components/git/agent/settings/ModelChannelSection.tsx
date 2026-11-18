@@ -12,6 +12,8 @@ import type { AgentModelProfile } from '@/lib/agent/model-profiles'
 import { AGENT_PRESETS, DEFAULT_AGENT_CONFIG } from '@/lib/agent/types'
 
 import { ModelChannelEditor } from './ModelChannelEditor'
+import { RuleDebugger } from './RuleDebugger'
+import { SettingsColumns } from './SettingsColumns'
 import { SettingsSectionCard } from './SettingsSectionCard'
 
 interface ModelChannelSectionProps {
@@ -65,7 +67,7 @@ export function ModelChannelSection({ inline = false, onAdd, onEdit }: ModelChan
   const isCurrentModelBlocked = currentProfile ? !isModelAllowed(currentProfile.config.model, modelFilter) : false
   const filterConflicts = getModelFilterConflicts(modelFilter)
 
-  return (
+  const content = (
     <div className="flex flex-col gap-4">
       {/* Model Channel Projects List */}
       <SettingsSectionCard
@@ -120,7 +122,7 @@ export function ModelChannelSection({ inline = false, onAdd, onEdit }: ModelChan
       {/* Active Model Channel Filter Card */}
       <SettingsSectionCard
         title={`当前生效渠道模型访问控制「${currentProfile?.name || currentProfile?.config?.model || '默认'}」`}
-        description="黑白名单跟随当前选中的模型渠道。黑名单比白名单优先，若设置了黑名单，同名或匹配模型将被全面禁止提交。"
+        description="当前渠道黑白名单。黑名单优先，命中即禁。"
       >
         <div className="flex flex-col gap-3">
           {/* Active Model Blocked Warning */}
@@ -143,7 +145,7 @@ export function ModelChannelSection({ inline = false, onAdd, onEdit }: ModelChan
               <div className="flex-1">
                 <p className="font-semibold">{t('gitAgent.modelConflictNotice')}</p>
                 <p className="mt-0.5 text-warn/80">
-                  黑名单拥有绝对最高优先级。以下白名单中的规则已被黑名单直接阻断并隐藏：
+                  黑名单优先。以下白名单规则已被阻断：
                   <span className="ml-1 font-mono font-semibold">{filterConflicts.join(', ')}</span>
                 </p>
               </div>
@@ -165,7 +167,7 @@ export function ModelChannelSection({ inline = false, onAdd, onEdit }: ModelChan
                   className="w-full"
                   value={modelFilter.whitelist}
                   onChange={(whitelist) => setModelFilter((prev) => ({ ...prev, whitelist }))}
-                  placeholder="留空允许所有；输入如 gpt-*、deepseek-chat 后回车添加..."
+                  placeholder="如 gpt-*、*-mini，回车添加..."
                 />
               </div>
             </div>
@@ -184,7 +186,7 @@ export function ModelChannelSection({ inline = false, onAdd, onEdit }: ModelChan
                   className="w-full"
                   value={modelFilter.blacklist}
                   onChange={(blacklist) => setModelFilter((prev) => ({ ...prev, blacklist }))}
-                  placeholder="输入要阻断的模型或通配符，如 *-mini、workbuddy/deepseek-v4-pro，回车添加..."
+                  placeholder="如 *-mini、gpt-3.5*，回车添加..."
                 />
               </div>
             </div>
@@ -193,4 +195,5 @@ export function ModelChannelSection({ inline = false, onAdd, onEdit }: ModelChan
       </SettingsSectionCard>
     </div>
   )
+  return inline ? content : <SettingsColumns tools={<RuleDebugger filter={modelFilter} modelId={currentProfile?.config.model} />}>{content}</SettingsColumns>
 }

@@ -62,8 +62,6 @@ export function PrivacyRedactSection() {
             <span>脱敏引擎已停用：发送给大模型的内容将包含原始上下文，适合私有化自部署环境。</span>
           </div>
         )}
-
-        <p className="text-xs text-ink-soft leading-relaxed">脱敏字典与替换映射完全运行在浏览器内存中，无任何服务端数据流转或持久化行为。</p>
       </SettingsSectionCard>
 
       {/* Card 2: Built-in Categories */}
@@ -99,13 +97,29 @@ export function PrivacyRedactSection() {
       </SettingsSectionCard>
 
       {/* Card 3: Custom Words */}
-      <SettingsSectionCard title={t('gitAgent.privacyCustomWords')} description="配置需要额外强制脱敏的项目特有专有词汇或敏感代号（发送前替换为语义占位符并在回复时自动还原）">
+      <SettingsSectionCard
+        title={t('gitAgent.privacyCustomWords')}
+        description="配置需要额外强制脱敏的项目特有专有词汇或敏感代号（发送前替换为语义占位符并在回复时自动还原）"
+        titleAction={
+          redactionOptions.customWords.length > 0 && redactionOptions.enabled ? (
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-ink-soft font-mono">{redactionOptions.customWords.length}</span>
+              <button type="button" onClick={() => handleCustomWordsChange([])} className="text-[11px] text-ink-soft hover:text-danger transition-colors cursor-pointer">
+                {t('common.clear')}
+              </button>
+            </div>
+          ) : undefined
+        }
+      >
         <div className={cn('flex flex-col gap-2', !redactionOptions.enabled && 'pointer-events-none opacity-50')}>
           <TagInput
+            id="privacy-custom-words"
             value={redactionOptions.customWords.map((cw) => cw.word)}
             onChange={handleCustomWordsChange}
             placeholder={t('gitAgent.privacyCustomWordsPlaceholder') || '输入敏感词后按 Enter 或逗号添加...'}
             disabled={!redactionOptions.enabled}
+            multiline
+            rows={3}
           />
           <p className="text-xs text-ink-soft leading-relaxed">
             以标签形式管理多个项目敏感代号，支持通配符（如 <code className="font-mono text-ink">PROJ_*</code>、<code className="font-mono text-ink">secret_?</code>），按 Enter
@@ -115,13 +129,29 @@ export function PrivacyRedactSection() {
       </SettingsSectionCard>
 
       {/* Card 4: Allowlist */}
-      <SettingsSectionCard title={t('gitAgent.privacyAllowList')} description="配置即使命中内置脱敏规则也不被掩盖的豁免词汇">
+      <SettingsSectionCard
+        title={t('gitAgent.privacyAllowList')}
+        description="配置即使命中内置脱敏规则也不被掩盖的豁免词汇"
+        titleAction={
+          redactionOptions.allowList.length > 0 && redactionOptions.enabled ? (
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-ink-soft font-mono">{redactionOptions.allowList.length}</span>
+              <button type="button" onClick={() => handleAllowListChange([])} className="text-[11px] text-ink-soft hover:text-danger transition-colors cursor-pointer">
+                {t('common.clear')}
+              </button>
+            </div>
+          ) : undefined
+        }
+      >
         <div className={cn('flex flex-col gap-2', !redactionOptions.enabled && 'pointer-events-none opacity-50')}>
           <TagInput
+            id="privacy-allow-list"
             value={redactionOptions.allowList}
             onChange={handleAllowListChange}
             placeholder={t('gitAgent.privacyAllowListPlaceholder') || '输入豁免词后按 Enter 或逗号添加...'}
             disabled={!redactionOptions.enabled}
+            multiline
+            rows={3}
           />
           <p className="text-xs text-ink-soft leading-relaxed">
             配置白名单标签，支持域名与名称通配符（如 <code className="font-mono text-ink">*.internal.net</code>、<code className="font-mono text-ink">public-*</code>

@@ -183,7 +183,7 @@ export function AgentWorkspace({ repoPath, className }: Props) {
           {/* Settings */}
           <Tooltip content={t('gitAgent.settingsTitle')} placement="bottom">
             <Link
-              href="/settings"
+              href="/settings/models"
               className="flex size-6 items-center justify-center rounded text-ink-soft hover:bg-[var(--overlay-06)] hover:text-ink active:scale-95 transition-all cursor-pointer"
               aria-label={t('gitAgent.settingsTitle')}
             >

@@ -1,6 +1,8 @@
 'use client'
 
-import React, { useState } from 'react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import React from 'react'
 import {
   LuBot,
   LuExternalLink,
@@ -9,15 +11,17 @@ import {
   LuGitBranchPlus,
   LuGitPullRequest,
   LuHash,
+  LuPencil,
   LuPlus,
   LuShare2,
   LuShieldAlert,
-  LuSparkles,
   LuText,
   LuTrash2,
   LuUser,
 } from 'react-icons/lu'
 
+import { useConfirm } from '@/components/confirm/ConfirmProvider'
+import { useT } from '@/components/i18n/LocaleProvider'
 import { Button, SwitchToggle } from '@/components/sk'
 import { useContextMenuConfig } from '@/lib/git/context-menu-config'
 import { cn } from '@/lib/utils'
@@ -129,9 +133,9 @@ const AVAILABLE_GROUPS: GroupDef[] = [
 
 export function MenuSettingsSection() {
   const [config, setConfig] = useContextMenuConfig()
-  const [newActionLabel, setNewActionLabel] = useState('')
-  const [newActionPrompt, setNewActionPrompt] = useState('')
-  const [isAddingAgentAction, setIsAddingAgentAction] = useState(false)
+  const t = useT()
+  const confirm = useConfirm()
+  const router = useRouter()
 
   const handleToggleQuickAction = (id: string, checked: boolean) => {
     const current = config.quickActions || []
@@ -162,32 +166,16 @@ export function MenuSettingsSection() {
     setConfig({ ...config, agentActions: updated })
   }
 
-  const handleDeleteAgentAction = (id: string) => {
-    const updated = (config.agentActions || []).filter((action) => action.id !== id)
-    setConfig({ ...config, agentActions: updated })
-  }
-
-  const handleAddAgentAction = (e: React.FormEvent) => {
-    e.preventDefault()
-    const trimmedLabel = newActionLabel.trim()
-    const trimmedPrompt = newActionPrompt.trim()
-    if (!trimmedLabel || !trimmedPrompt) return
-
-    const newId = `agent_custom_${Date.now()}`
-    const updated = [
-      ...(config.agentActions || []),
-      {
-        id: newId,
-        label: trimmedLabel,
-        prompt: trimmedPrompt,
-        enabled: true,
-      },
-    ]
-
-    setConfig({ ...config, agentActions: updated })
-    setNewActionLabel('')
-    setNewActionPrompt('')
-    setIsAddingAgentAction(false)
+  const handleDeleteAgentAction = async (id: string) => {
+    const action = config.agentActions.find((item) => item.id === id)
+    if (!action) return
+    await confirm({
+      title: t('gitAgent.deleteActionConfirm', { name: action.label }),
+      description: t('gitAgent.deleteActionHint'),
+      confirmLabel: t('gitAgent.deleteAction', { name: action.label }),
+      confirmVariant: 'fail',
+      onConfirm: () => setConfig({ ...config, agentActions: config.agentActions.filter((item) => item.id !== id) }),
+    })
   }
 
   return (
@@ -291,8 +279,8 @@ export function MenuSettingsSection() {
           <div className="flex items-start justify-between gap-3 py-3 first:pt-0">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5 text-xs font-semibold text-ink">
-                <LuShieldAlert className="size-3.5 text-fail shrink-0" />
                 <span>危险操作二次确认 (防误触保护)</span>
+                <LuShieldAlert className="size-3.5 text-fail shrink-0" aria-hidden="true" />
               </div>
               <p className="text-xs text-ink-soft leading-relaxed mt-0.5">
                 开启后，针对「删除分支」等不可逆破坏性操作，首次点击将切换为确认状态（“确定删除？再次点击执行”），必须二次点击才会触发。
@@ -318,105 +306,43 @@ export function MenuSettingsSection() {
         </fieldset>
       </SettingsSectionCard>
 
-      {/* 4. Agent 智能菜单能力扩展 (Agent Assisted Menu Extensions) */}
+      {/* Agent menu actions open a dedicated editor. */}
       <SettingsSectionCard
-        title="Agent 智能菜单扩展"
-        description="管理在右键菜单「Agent 智能诊断 ›」中呈现的 AI 快捷指令。支持自定义 Prompt，点击时将当前分支或 Commit 自动填入提示词发起智能分析。"
+        title={t('gitAgent.menuActionsTitle')}
+        description={t('gitAgent.menuActionsDesc')}
         titleAction={
-          !isAddingAgentAction ? (
-            <Button variant="default" size="xs" onClick={() => setIsAddingAgentAction(true)} className="gap-1.5 text-xs font-medium cursor-pointer">
-              <LuPlus className="size-3.5 text-accent" />
-              <span>添加 Agent 动作</span>
-            </Button>
-          ) : null
+          <Button variant="accent" onClick={() => router.push('/settings/menus/new')}>
+            <LuPlus className="size-3.5" aria-hidden="true" />
+            {t('gitAgent.addAction')}
+          </Button>
         }
       >
-        <div className="flex flex-col gap-2">
-          {/* List of current Agent Menu Actions */}
-          {(config.agentActions || []).map((agentAction) => {
-            return (
-              <div key={agentAction.id} className="flex items-start justify-between gap-3 rounded-lg border border-line/80 bg-panel-2/30 p-2.5 transition-all">
-                <div className="flex items-start gap-2.5 min-w-0 flex-1">
-                  <div className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded bg-accent/15 text-accent">
-                    <LuSparkles className="size-3" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold text-ink">{agentAction.label}</span>
-                    </div>
-                    <p className="text-[11px] text-ink-soft leading-relaxed font-mono mt-0.5 bg-panel/60 rounded px-1.5 py-1 border border-line/50">{agentAction.prompt}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 shrink-0 pt-0.5">
-                  <SwitchToggle
-                    checked={agentAction.enabled}
-                    onCheckedChange={(val) => handleToggleAgentAction(agentAction.id, val)}
-                    size="sm"
-                    aria-label={`启用 ${agentAction.label}`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteAgentAction(agentAction.id)}
-                    className="flex size-6 items-center justify-center rounded text-ink-soft hover:text-fail hover:bg-fail/10 transition-colors cursor-pointer"
-                    title="删除此 Agent 动作"
-                    aria-label={`删除 ${agentAction.label}`}
-                  >
-                    <LuTrash2 className="size-3.5" />
-                  </button>
-                </div>
-              </div>
-            )
-          })}
-
-          {/* Add Agent Action Inline Form */}
-          {isAddingAgentAction && (
-            <form onSubmit={handleAddAgentAction} className="flex flex-col gap-2.5 rounded-lg border border-accent/60 bg-panel p-3 shadow-md animate-in fade-in duration-150">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-ink flex items-center gap-1.5">
-                  <LuSparkles className="size-3.5 text-accent" />
-                  <span>添加新的 Agent 上下文动作</span>
+        <ul className="divide-y divide-line">
+          {(config.agentActions || []).map((action) => (
+            <li key={action.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+              <Link
+                href={`/settings/menus/${encodeURIComponent(action.id)}`}
+                className="group min-w-0 flex-1 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                aria-label={t('gitAgent.editNamedAction', { name: action.label })}
+              >
+                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-ink group-hover:text-accent">
+                  {action.label}
+                  <LuPencil className="size-3" aria-hidden="true" />
                 </span>
-                <button type="button" onClick={() => setIsAddingAgentAction(false)} className="text-xs text-ink-soft hover:text-ink cursor-pointer">
-                  取消
-                </button>
-              </div>
-
-              <div className="flex flex-col gap-1">
-                <label className="text-[11px] font-semibold text-ink-soft">菜单显示名称</label>
-                <input
-                  type="text"
-                  required
-                  value={newActionLabel}
-                  onChange={(e) => setNewActionLabel(e.target.value)}
-                  placeholder="例如：AI 生成变更说明、检查冲突隐患…"
-                  className="h-8 rounded border border-line bg-panel-2/60 px-2.5 text-xs text-ink placeholder:text-ink-soft/50 outline-none focus:border-accent"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1">
-                <label className="text-[11px] font-semibold text-ink-soft">向 Agent 发送的 Prompt 提示词</label>
-                <textarea
-                  required
-                  rows={2}
-                  value={newActionPrompt}
-                  onChange={(e) => setNewActionPrompt(e.target.value)}
-                  placeholder="例如：请分析当前分支的提交内容，并生成简洁的发布更新文档…"
-                  className="rounded border border-line bg-panel-2/60 p-2 text-xs text-ink placeholder:text-ink-soft/50 outline-none focus:border-accent resize-none"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-1">
-                <Button type="button" variant="ghost" size="xs" onClick={() => setIsAddingAgentAction(false)}>
-                  取消
-                </Button>
-                <Button type="submit" variant="accent" size="xs" disabled={!newActionLabel.trim() || !newActionPrompt.trim()}>
-                  确认添加
-                </Button>
-              </div>
-            </form>
-          )}
-        </div>
+                <span className="mt-0.5 block truncate text-xs text-ink-soft">{action.description || action.prompt}</span>
+              </Link>
+              <Button size="mini" variant="plain" aria-label={t('gitAgent.deleteAction', { name: action.label })} onClick={() => handleDeleteAgentAction(action.id)}>
+                <LuTrash2 className="size-3.5" aria-hidden="true" />
+              </Button>
+              <SwitchToggle
+                checked={action.enabled}
+                onCheckedChange={(checked) => handleToggleAgentAction(action.id, checked)}
+                size="sm"
+                aria-label={t('gitAgent.enableAction', { name: action.label })}
+              />
+            </li>
+          ))}
+        </ul>
       </SettingsSectionCard>
     </div>
   )

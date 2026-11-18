@@ -452,7 +452,7 @@ export function LandingPage() {
 
         <div className="mt-8 flex justify-center">
           <Link
-            href="/settings?tab=privacy"
+            href="/settings/privacy"
             className="flex items-center gap-2 rounded-lg border border-line bg-panel-2 px-4 py-2 text-xs font-semibold text-ink hover:bg-panel transition-colors"
           >
             <LuSettings className="size-3.5 text-accent" />

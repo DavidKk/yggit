@@ -60,8 +60,16 @@ export function VirtualList({
     return () => ro.disconnect()
   }, [measure])
 
+  useLayoutEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const maxTop = Math.max(0, (headerRef.current?.offsetHeight ?? 0) + count * rowHeight - el.clientHeight)
+    if (el.scrollTop > maxTop) el.scrollTop = maxTop
+    measure()
+  }, [count, rowHeight, measure])
+
   const bodyTop = Math.max(0, viewport.top - viewport.headerHeight)
-  const first = Math.floor(bodyTop / rowHeight)
+  const first = Math.min(Math.max(0, count - 1), Math.floor(bodyTop / rowHeight))
   const visibleCount = Math.ceil((viewport.height || rowHeight * 20) / rowHeight) + 1
   const start = Math.max(0, first - overscan)
   const end = Math.min(count, first + visibleCount + overscan)

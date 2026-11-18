@@ -28,10 +28,10 @@ export function ModelChannelEditPageContent({ profileId, isNew = false }: Props)
   const profile = profileId ? profiles.find((p) => p.id === profileId) : undefined
 
   const title = isNew ? '新增模型接入项目' : profile ? `编辑模型：${profile.name || profile.config.model}` : '编辑模型接入项目'
-  const desc = isNew ? '配置新的模型渠道、网关地址、默认模型及专属黑白名单规则。' : '修改服务渠道、网关接口地址、默认模型及专属黑白名单规则。'
+  const desc = isNew ? '配置新模型渠道与黑白名单。' : `编辑渠道接口与黑白名单。`
 
   const handleBack = () => {
-    router.push('/settings?tab=models')
+    router.push('/settings/models')
   }
 
   return (
@@ -57,7 +57,7 @@ export function ModelChannelEditPageContent({ profileId, isNew = false }: Props)
       {/* Main Workspace Split: Left Icon Rail + Right Content Hub */}
       <div className="flex min-h-0 flex-1 overflow-hidden bg-paper">
         {/* Left Sub-navigation Rail */}
-        <SettingsSideNav activeSection="models" onSelectSection={(section) => router.push(section === 'models' ? '/settings?tab=models' : `/settings?tab=${section}`)} />
+        <SettingsSideNav activeSection="models" />
 
         {/* Right Configuration Page */}
         <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -81,8 +81,8 @@ export function ModelChannelEditPageContent({ profileId, isNew = false }: Props)
           </div>
 
           {/* Content body - left aligned with standard padding */}
-          <div className="flex-1 min-h-0 overflow-y-auto p-3">
-            <div className="grid w-full max-w-4xl gap-3">
+          <div className="@container/settings flex-1 min-h-0 overflow-y-auto p-3 pb-24">
+            <div className="grid w-full gap-3">
               {profileId && !profile && !isNew ? (
                 <div className="rounded-xl border border-line bg-panel p-6 text-center space-y-3">
                   <p className="text-xs text-ink-soft">未找到对应的模型配置，可能已被移除或尚未加载。</p>
@@ -92,7 +92,7 @@ export function ModelChannelEditPageContent({ profileId, isNew = false }: Props)
                   </button>
                 </div>
               ) : (
-                <ModelChannelEditor profile={profile} isNew={isNew} onBack={handleBack} />
+                <ModelChannelEditor showTools profile={profile} isNew={isNew} onBack={handleBack} />
               )}
             </div>
           </div>

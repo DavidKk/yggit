@@ -23,7 +23,16 @@ export const POST = defineApiRoute('post:/api/git/conflicts', async ({ request }
     let dirty = false
 
     // Identify uncached merge commits, limit batch to at most 5 per request to maintain 0 lag
-    const uncached = commits.filter((c) => c && c.hash && !cached[c.hash] && Array.isArray(c.parents) && c.parents.length >= 2).slice(0, 5)
+    const uncached = commits
+      .filter(
+        (c) =>
+          c &&
+          c.hash &&
+          Array.isArray(c.parents) &&
+          c.parents.length >= 2 &&
+          (!cached[c.hash] || (cached[c.hash].hasConflict && (!cached[c.hash].conflictFileCounts || cached[c.hash].unresolvedConflictFiles === undefined)))
+      )
+      .slice(0, 5)
 
     if (uncached.length > 0) {
       for (const item of uncached) {

@@ -44,7 +44,7 @@ export function WorkspaceHeader() {
 
         <Tooltip content={t('gitAgent.settingsTitle')} placement="bottom">
           <Link
-            href="/settings"
+            href="/settings/models"
             className={cn(dropdownTriggerClass, 'px-2', isSettings && 'bg-[color-mix(in_oklab,var(--ink)_9%,transparent)] font-semibold text-accent')}
             aria-label={t('gitAgent.settingsTitle')}
           >

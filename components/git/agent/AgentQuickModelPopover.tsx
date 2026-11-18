@@ -122,7 +122,7 @@ export function AgentQuickModelPopover({ tabIndex, className }: Props) {
               </div>
               <Tooltip content={t('gitAgent.settingsTitle')} placement="top">
                 <Link
-                  href="/settings"
+                  href="/settings/models"
                   onClick={() => setOpen(false)}
                   className="flex size-6 items-center justify-center rounded text-ink-soft hover:bg-[var(--overlay-06)] hover:text-accent transition-colors cursor-pointer"
                   aria-label={t('gitAgent.settingsTitle')}

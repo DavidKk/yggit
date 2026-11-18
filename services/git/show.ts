@@ -167,11 +167,11 @@ export async function readCommitChanges(repoInput: string | undefined, hash: str
   }
   if (!HASH.test(revision)) throw new Error('无效的提交')
   const picked = filePath ? assertFilePath(filePath) : ''
-  const statusArgs = ['diff-tree', '--root', '-m', '--first-parent', '--no-commit-id', '--name-status', '-r', '--find-renames', revision]
+  const statusArgs = ['diff-tree', '--root', '--diff-merges=first-parent', '--no-commit-id', '--name-status', '-r', '--find-renames', revision]
   try {
     if (picked) {
       const [patchText, blob] = await Promise.all([
-        git(repo, ['show', '--format=', '--unified=3', '-m', '--first-parent', revision, '--', picked]),
+        git(repo, ['show', '--format=', '--unified=3', '--diff-merges=first-parent', revision, '--', picked]),
         gitBuffer(repo, ['show', `${revision}:${picked}`]).then(
           (buffer) => ({ buffer, missing: false as const }),
           () => ({ buffer: Buffer.alloc(0), missing: true as const })
@@ -210,7 +210,7 @@ export async function readCommitChanges(repoInput: string | undefined, hash: str
       files.sort((left, right) => left.path.localeCompare(right.path))
       return { hash: revision, files, patch: '', truncated: false }
     }
-    const [statusText, patchText] = await Promise.all([git(repo, statusArgs), git(repo, ['show', '--format=', '--unified=3', '-m', '--first-parent', revision])])
+    const [statusText, patchText] = await Promise.all([git(repo, statusArgs), git(repo, ['show', '--format=', '--unified=3', '--diff-merges=first-parent', revision])])
     const truncated = patchText.length > PATCH_LIMIT
     return {
       hash: revision,

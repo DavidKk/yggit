@@ -73,6 +73,10 @@ export function GitSearchDropdown({ value, onChange, placeholder, label, descrip
     if (!scope) return
     function onFind() {
       setOpenState(true)
+      window.requestAnimationFrame(() => {
+        inputRef.current?.focus({ preventScroll: true })
+        inputRef.current?.select()
+      })
     }
     scope.addEventListener(GIT_FIND_EVENT, onFind)
     return () => scope.removeEventListener(GIT_FIND_EVENT, onFind)

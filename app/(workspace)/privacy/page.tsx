@@ -1,7 +1,5 @@
 import type { Metadata } from 'next'
-import { Suspense } from 'react'
-
-import { AgentSettingsPageContent } from '@/components/git/agent/settings/AgentSettingsPageContent'
+import { redirect } from 'next/navigation'
 
 export const metadata: Metadata = {
   title: '隐私与脱敏 — 设置 — Yggit',
@@ -9,9 +7,5 @@ export const metadata: Metadata = {
 }
 
 export default function PrivacyPage() {
-  return (
-    <Suspense fallback={<div className="h-full w-full bg-paper" />}>
-      <AgentSettingsPageContent section="privacy" />
-    </Suspense>
-  )
+  redirect('/settings/privacy')
 }

@@ -4,8 +4,10 @@ import path from 'node:path'
 import { promisify } from 'node:util'
 
 import { ROOT_PATH } from '@/constants/paths'
+import type { AddRemoteProjectOptions } from '@/lib/git/driver/types'
 import { normalizeRemote, projectId } from '@/lib/git/identity'
 import { isPrivateRemote } from '@/lib/git/project-access'
+import { listRemoteGroup, remoteGroupLocation } from '@/lib/git/remote-groups'
 import type { GitProjectCatalog, GitProjectGroup, GitProjectHost, GitProjectView, GitRemoteSource } from '@/lib/git/types'
 
 import { discoverGitRepos } from './discover'
@@ -439,7 +441,7 @@ function upsertRemote(projects: StoredProject[], remote: RemoteProject, credenti
     existing.remoteKey = remote.remoteKey
     existing.httpsUrl = remote.httpsUrl
     existing.host = remote.host
-    existing.credentialId = credentialId
+    if (credentialId) existing.credentialId = credentialId
     if (!existing.name) existing.name = remote.name
     // Keep the user's folder assignment when syncing.
     return
@@ -560,7 +562,26 @@ export async function authorizeGitHost(input: { host: Exclude<GitProjectHost, 'l
 }
 
 /** Add one remote by URL; optional token for private hosts; syncAccount lists every repo on that host. */
-export async function addRemoteProject(input: { url: string; token?: string; syncAccount?: boolean }): Promise<GitProjectCatalog & { projectId: string }> {
+export async function addRemoteProject(input: AddRemoteProjectOptions): Promise<GitProjectCatalog & { projectId: string }> {
+  if (input.importGroup) {
+    if (input.provider !== 'github' && input.provider !== 'gitlab') throw new Error('REMOTE_GROUP_INVALID_PROVIDER')
+    const group = normalizeFolderName(input.group || '')
+    if (!group) throw new Error('REMOTE_GROUP_FOLDER_REQUIRED')
+    const location = remoteGroupLocation({ ...input, provider: input.provider })
+    const existingCredential = findCredential(input.provider, location.origin)
+    const token = input.token?.trim() || existingCredential?.token
+    const remotes = await listRemoteGroup({ ...input, provider: input.provider, token })
+    if (!remotes.length) throw new Error('REMOTE_GROUP_EMPTY')
+    const credential = token && input.token?.trim() ? await saveCredential({ host: input.provider, baseUrl: location.origin, token }) : existingCredential
+    const catalog = readCatalog()
+    for (const remote of remotes) {
+      upsertRemote(catalog, { ...remote, group }, credential?.id || '')
+      const project = catalog.find((item) => item.remoteKey === remote.remoteKey)
+      if (project) project.group = group
+    }
+    writeCatalog(catalog, [...new Set([...readFolders(), group])])
+    return { ...listGitCatalog(), projectId: projectId(remotes[0].remoteKey) }
+  }
   const remote = normalizeRemote(input.url)
   if (!remote) throw new Error('填写有效的仓库地址（https 或 git@）')
   const baseUrl = baseUrlForHost(remote.host)

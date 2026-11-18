@@ -10,6 +10,7 @@ import {
   LuCopy,
   LuExternalLink,
   LuFolder,
+  LuFolderGit2,
   LuGithub,
   LuGitlab,
   LuGlobe,
@@ -21,6 +22,8 @@ import {
   LuX,
 } from 'react-icons/lu'
 import { TbCloudLock, TbFolderPlus } from 'react-icons/tb'
+
+import type { AddRemoteProjectOptions } from '@/lib/git/driver/types'
 
 const FOLDER_EXPAND_MS = 450
 const AUTO_SCROLL_EDGE = 36
@@ -52,7 +55,7 @@ type Props = {
   onClose: () => void
   onOpen: (path: string) => void
   onAddLocal: () => void
-  onAddRemote: (input: { url: string; token?: string; syncAccount?: boolean }) => Promise<string>
+  onAddRemote: (input: AddRemoteProjectOptions) => Promise<string>
   onClone: (project: GitProjectView) => Promise<string>
   onCreateFolder: (name: string) => Promise<string>
   onDeleteFolder: (name: string) => Promise<{ error: string; removedCount?: number }>
@@ -105,6 +108,9 @@ export function GitProjectMenu({
   const [folderOpen, setFolderOpen] = useState(false)
   const [folderName, setFolderName] = useState('')
   const [cloneTarget, setCloneTarget] = useState<GitProjectView | null>(null)
+  const [importGroup, setImportGroup] = useState(false)
+  const [groupProvider, setGroupProvider] = useState<'github' | 'gitlab'>('gitlab')
+  const [targetFolder, setTargetFolder] = useState('')
   const [remoteUrl, setRemoteUrl] = useState('')
   const [token, setToken] = useState('')
   const [tokenUnlocked, setTokenUnlocked] = useState(true)
@@ -253,6 +259,36 @@ export function GitProjectMenu({
     })
   }
 
+  const requestRemoveProject = async (project: GitProjectView) => {
+    if (!onRemoveProject) return
+    setFolderDeleting(true)
+    try {
+      await confirm({
+        title: t('git.project.removeProjectConfirm', { name: project.label || project.name }),
+        description: t('git.project.removeProjectHint'),
+        confirmLabel: t('git.project.removeProject'),
+        confirmVariant: 'fail',
+        onConfirm: async () => {
+          const message = await onRemoveProject(project.id)
+          if (message) {
+            notify.error(message)
+            throw new Error(message)
+          }
+          const target = projectOpenTarget(project)
+          if (target && (target === currentPath || remoteIdentity(target) === remoteIdentity(currentPath)))
+            onOpen(
+              projects
+                .filter((item) => item.id !== project.id)
+                .map(projectOpenTarget)
+                .find(Boolean) || ''
+            )
+        },
+      })
+    } finally {
+      setFolderDeleting(false)
+    }
+  }
+
   const handleProjectContextMenu = (e: React.MouseEvent, project: GitProjectView) => {
     e.preventDefault()
     e.stopPropagation()
@@ -332,11 +368,7 @@ export function GitProjectMenu({
               key: 'remove-project',
               label: '从项目切换器中移除',
               icon: <LuTrash2 className="size-3.5 text-fail" />,
-              onSelect: async () => {
-                const msg = await onRemoveProject(project.id)
-                if (msg) notify.error(msg)
-                else notify.success('已移除项目')
-              },
+              onSelect: () => void requestRemoveProject(project),
               dividerBefore: true,
             },
           ]
@@ -442,11 +474,20 @@ export function GitProjectMenu({
   }
 
   const handleRemoveTemporary = (temp: TemporaryRepo) => {
-    removeTemporaryRepo(temp.id)
-    if (currentPath === temp.remoteUrl || currentPath === temp.id) {
-      const fallback = projects.map(projectOpenTarget).find(Boolean) || ''
-      onOpen(fallback)
-    }
+    setFolderDeleting(true)
+    void confirm({
+      title: t('git.project.removeProjectConfirm', { name: temp.name }),
+      description: t('git.project.removeProjectHint'),
+      confirmLabel: t('git.project.removeProject'),
+      confirmVariant: 'fail',
+      onConfirm: () => {
+        removeTemporaryRepo(temp.id)
+        if (currentPath === temp.remoteUrl || currentPath === temp.id) {
+          const fallback = projects.map(projectOpenTarget).find(Boolean) || ''
+          onOpen(fallback)
+        }
+      },
+    }).finally(() => setFolderDeleting(false))
   }
 
   const handleOpenRemoteTemporary = (parsed: ReturnType<typeof parseRemoteUrl>) => {
@@ -513,7 +554,8 @@ export function GitProjectMenu({
     const url = remoteUrl.trim()
     const nextInvalid = {
       url: !url,
-      token: syncAccount && !token.trim(),
+      token: !importGroup && syncAccount && !token.trim(),
+      folder: importGroup && !targetFolder.trim(),
     }
     setFieldInvalid(nextInvalid)
     if (nextInvalid.url) {
@@ -526,13 +568,20 @@ export function GitProjectMenu({
       document.getElementById(tokenId)?.focus()
       return
     }
+    if (nextInvalid.folder) {
+      setFormError(t('git.project.targetFolder'))
+      return
+    }
     const message = await onAddRemote({
       url,
+      importGroup,
+      provider: importGroup ? groupProvider : undefined,
+      group: importGroup ? targetFolder.trim() : undefined,
       token: token.trim() || undefined,
-      syncAccount,
+      syncAccount: !importGroup && syncAccount,
     })
     if (message) {
-      setFormError(message)
+      setFormError(importGroup ? t(message.includes('REMOTE_GROUP_EMPTY') ? 'git.project.importGroupEmpty' : 'git.project.importGroupFailed') : message)
       ;(syncAccount || token.trim() ? document.getElementById(tokenId) : urlRef.current)?.focus()
       return
     }
@@ -763,9 +812,29 @@ export function GitProjectMenu({
             aria-label={t('git.project.addRemote')}
             tooltip={t('git.project.addRemoteTip')}
             disabled={busy}
-            onClick={() => setRemoteOpen(true)}
+            onClick={() => {
+              setImportGroup(false)
+              setRemoteOpen(true)
+            }}
           >
             <AiOutlineCloudSync className="size-3.5" aria-hidden />
+          </Button>
+          <Button
+            variant="plain"
+            size="icon"
+            className="size-7 shrink-0"
+            aria-label={t('git.project.addRemoteGroup')}
+            tooltip={t('git.project.addRemoteGroup')}
+            disabled={busy}
+            onClick={() => {
+              setImportGroup(true)
+              setRemoteUrl('')
+              setTargetFolder(folders[0] || '')
+              setFormError('')
+              setRemoteOpen(true)
+            }}
+          >
+            <LuFolderGit2 className="size-3.5" aria-hidden />
           </Button>
           <Button
             variant="plain"
@@ -1106,6 +1175,21 @@ export function GitProjectMenu({
                             )}
 
                             <div className="flex shrink-0 items-center gap-0.5">
+                              {onRemoveProject && (
+                                <Button
+                                  variant="plain"
+                                  size="icon"
+                                  className="size-6 text-ink-soft hover:enabled:text-fail"
+                                  aria-label={t('git.project.removeProjectConfirm', { name: project.label || project.name })}
+                                  disabled={busy}
+                                  onClick={(event) => {
+                                    event.stopPropagation()
+                                    void requestRemoveProject(project)
+                                  }}
+                                >
+                                  <LuTrash2 className="size-3.5" aria-hidden />
+                                </Button>
+                              )}
                               {/* Edit project label button on hover */}
                               <Tooltip content={project.label ? '修改项目别名' : '设置项目别名'}>
                                 <button
@@ -1327,8 +1411,8 @@ export function GitProjectMenu({
       </Modal>
       <Modal
         open={remoteOpen}
-        title={t('git.project.addRemoteTitle')}
-        description={t('git.project.addRemoteDesc')}
+        title={t(importGroup ? 'git.project.addRemoteGroup' : 'git.project.addRemoteTitle')}
+        description={t(importGroup ? 'git.project.remoteGroupDesc' : 'git.project.addRemoteDesc')}
         busy={busy}
         onClose={closeRemoteModal}
         footer={
@@ -1337,7 +1421,7 @@ export function GitProjectMenu({
               {t('common.cancel')}
             </Button>
             <Button variant="accent" loading={busy} onClick={() => void submitRemote()}>
-              {syncAccount ? t('git.project.syncAndAdd') : t('git.project.add')}
+              {importGroup ? t('git.project.importGroup') : syncAccount ? t('git.project.syncAndAdd') : t('git.project.add')}
             </Button>
           </>
         }
@@ -1345,14 +1429,16 @@ export function GitProjectMenu({
         <div className="flex flex-col gap-3">
           <div className={formField}>
             <label className={formTitle} htmlFor={urlId}>
-              {t('git.project.repoUrl')}
+              {t(importGroup ? 'git.project.groupUrl' : 'git.project.repoUrl')}
             </label>
-            <p className={formDesc}>{t('git.project.repoUrlHint')}</p>
+            {!importGroup && <p className={formDesc}>{t('git.project.repoUrlHint')}</p>}
             <div className={formControl}>
               <TextInput
                 ref={urlRef}
                 id={urlId}
-                placeholder="https://gitlab.com/group/repo.git"
+                placeholder={
+                  importGroup ? (groupProvider === 'github' ? 'https://github.com/organization' : 'https://gitlab.com/group/subgroup') : 'https://gitlab.com/group/repo.git'
+                }
                 fullWidth
                 spellCheck={false}
                 invalid={fieldInvalid.url}
@@ -1388,14 +1474,48 @@ export function GitProjectMenu({
               />
             </div>
           </div>
-          <div className={cn(formFieldInlineDense, 'grid-cols-[minmax(0,1fr)_auto]')}>
-            <label className={formTitleInline} htmlFor={syncId}>
-              {t('git.project.syncAccount')}
-            </label>
-            <div className="col-start-2 row-span-1 row-start-1 flex items-center justify-end">
-              <SwitchToggle id={syncId} checked={syncAccount} onCheckedChange={setSyncAccount} disabled={busy} aria-label={t('git.project.syncAccount')} />
+          {importGroup && (
+            <>
+              <label className="grid gap-1.5 text-xs">
+                {t('git.project.provider')}
+                <select
+                  className="h-8 rounded-md border border-line bg-panel px-2"
+                  value={groupProvider}
+                  onChange={(event) => setGroupProvider(event.target.value as 'github' | 'gitlab')}
+                  disabled={busy}
+                >
+                  <option value="gitlab">GitLab</option>
+                  <option value="github">GitHub</option>
+                </select>
+              </label>
+              <label className="grid gap-1.5 text-xs">
+                {t('git.project.targetFolder')}
+                <TextInput
+                  fullWidth
+                  list={`${urlId}-folders`}
+                  value={targetFolder}
+                  onChange={(event) => setTargetFolder(event.target.value)}
+                  disabled={busy}
+                  invalid={fieldInvalid.folder}
+                />
+                <datalist id={`${urlId}-folders`}>
+                  {folders.map((folder) => (
+                    <option key={folder} value={folder} />
+                  ))}
+                </datalist>
+              </label>
+            </>
+          )}
+          {!importGroup && (
+            <div className={cn(formFieldInlineDense, 'grid-cols-[minmax(0,1fr)_auto]')}>
+              <label className={formTitleInline} htmlFor={syncId}>
+                {t('git.project.syncAccount')}
+              </label>
+              <div className="col-start-2 row-span-1 row-start-1 flex items-center justify-end">
+                <SwitchToggle id={syncId} checked={syncAccount} onCheckedChange={setSyncAccount} disabled={busy} aria-label={t('git.project.syncAccount')} />
+              </div>
             </div>
-          </div>
+          )}
           {formError && remoteOpen ? (
             <p id={formErrorId} className="m-0 text-xs text-fail" role="alert">
               {formError}
@@ -1420,6 +1540,7 @@ export function GitProjectMenu({
                 onClick={() => {
                   setCloneTarget(null)
                   setFormError('')
+                  setImportGroup(false)
                   setRemoteUrl(cloneTarget?.httpsUrl || '')
                   setRemoteOpen(true)
                 }}

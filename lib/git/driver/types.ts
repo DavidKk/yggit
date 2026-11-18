@@ -38,6 +38,8 @@ export interface GitDeleteFolderResult {
 }
 
 export interface AddRemoteProjectOptions {
+  importGroup?: boolean
+  provider?: 'github' | 'gitlab'
   url: string
   token?: string
   syncAccount?: boolean

@@ -18,8 +18,13 @@ function extractModelsFromResponse(json: unknown): ModelItem[] {
 
   function addModel(rawId: unknown, rawName?: unknown) {
     if (typeof rawId !== 'string') return
-    const id = rawId.trim()
-    if (!id || seen.has(id)) return
+    let id = rawId.trim()
+    if (!id) return
+    // Clean Gemini 'models/' prefix if present
+    if (id.startsWith('models/')) {
+      id = id.slice(7)
+    }
+    if (seen.has(id)) return
     seen.add(id)
     const name = typeof rawName === 'string' && rawName.trim() ? rawName.trim() : id
     results.push({ id, name })
@@ -88,10 +93,23 @@ export const POST = defineApiRoute('post:/api/git/agent/models', async ({ reques
       Accept: 'application/json',
     }
 
-    if (cleanBaseUrl.includes('anthropic.com')) {
+    const isAnthropic = cleanBaseUrl.includes('anthropic.com') || provider === 'claude'
+    const isGemini = cleanBaseUrl.includes('googleapis.com') || provider === 'gemini'
+    const isVercelGateway = cleanBaseUrl.includes('ai-gateway.vercel.sh') || provider === 'vercel-free'
+
+    if (isAnthropic) {
       if (apiKey) {
         headers['x-api-key'] = apiKey
         headers['anthropic-version'] = '2023-06-01'
+      }
+    } else if (isGemini) {
+      if (apiKey) {
+        headers['x-goog-api-key'] = apiKey
+      }
+    } else if (isVercelGateway) {
+      if (apiKey) {
+        headers['x-ai-gateway-api-key'] = apiKey
+        headers['Authorization'] = `Bearer ${apiKey}`
       }
     } else if (apiKey) {
       headers['Authorization'] = `Bearer ${apiKey}`
@@ -108,6 +126,8 @@ export const POST = defineApiRoute('post:/api/git/agent/models', async ({ reques
       } else {
         targetUrl = `${cleanBaseUrl}/${ep}`
       }
+    } else if (isGemini) {
+      targetUrl = `${cleanBaseUrl}/models${apiKey ? `?key=${encodeURIComponent(apiKey)}` : ''}`
     } else {
       targetUrl = `${cleanBaseUrl}/models`
     }
@@ -121,13 +141,34 @@ export const POST = defineApiRoute('post:/api/git/agent/models', async ({ reques
         headers,
         signal: AbortSignal.timeout(6000),
       })
-
       if (response.ok) {
         const json = await response.json().catch(() => null)
         models = extractModelsFromResponse(json)
       }
     } catch {
       // Fallback below
+    }
+
+    // Attempt 1.5: If primary returned 401/403 or failed when auth headers were attached,
+    // retry WITHOUT auth headers (e.g. Vercel AI Gateway public /models catalog rejects unknown bearer tokens)
+    if (models.length === 0 && apiKey) {
+      try {
+        const publicHeaders: Record<string, string> = {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        }
+        const publicRes = await fetch(targetUrl, {
+          method: 'GET',
+          headers: publicHeaders,
+          signal: AbortSignal.timeout(4000),
+        })
+        if (publicRes.ok) {
+          const json = await publicRes.json().catch(() => null)
+          models = extractModelsFromResponse(json)
+        }
+      } catch {
+        // Fallback below
+      }
     }
 
     // Attempt 2: if primary failed and no custom endpoint was given, try /v1/models
@@ -143,6 +184,17 @@ export const POST = defineApiRoute('post:/api/git/agent/models', async ({ reques
           if (res.ok) {
             const json = await res.json().catch(() => null)
             models = extractModelsFromResponse(json)
+          } else if (res.status === 401 || res.status === 403) {
+            // Try without auth headers on /v1/models as well
+            const noAuthRes = await fetch(v1Url, {
+              method: 'GET',
+              headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+              signal: AbortSignal.timeout(4000),
+            })
+            if (noAuthRes.ok) {
+              const json = await noAuthRes.json().catch(() => null)
+              models = extractModelsFromResponse(json)
+            }
           }
         } catch {
           // Ignore fallback error

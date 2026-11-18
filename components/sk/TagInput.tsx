@@ -16,6 +16,8 @@ export interface TagInputProps {
   id?: string
   'aria-label'?: string
   maxTags?: number
+  multiline?: boolean
+  rows?: number
 }
 
 /**
@@ -26,9 +28,10 @@ export interface TagInputProps {
  * - Multi-item paste (comma or newline separated)
  * - Auto-commit on blur
  * - Clickable removal buttons for each tag
+ * - Optional multiline / multi-row default height
  */
 export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(function TagInput(
-  { value = [], onChange, placeholder = '输入内容后按 Enter 添加...', disabled = false, invalid = false, className, id, 'aria-label': ariaLabel, maxTags },
+  { value = [], onChange, placeholder = '输入内容后按 Enter 添加...', disabled = false, invalid = false, className, id, 'aria-label': ariaLabel, maxTags, multiline = false, rows },
   forwardedRef
 ) {
   const generatedId = useId()
@@ -37,6 +40,9 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(function Tag
   const inputRef = (forwardedRef as React.RefObject<HTMLInputElement>) || internalInputRef
 
   const [inputValue, setInputValue] = useState('')
+
+  const isMultiline = multiline || (typeof rows === 'number' && rows > 1)
+  const multilineHeightClass = rows ? (rows >= 5 ? 'min-h-36' : rows === 4 ? 'min-h-32' : rows === 3 ? 'min-h-24' : 'min-h-16') : isMultiline ? 'min-h-24' : 'min-h-9'
 
   const commitValue = useCallback(
     (raw: string) => {
@@ -120,7 +126,8 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(function Tag
       onClick={() => inputRef.current?.focus()}
       className={cn(
         formControlChrome,
-        'h-auto min-h-9 flex flex-wrap items-center gap-x-2 gap-y-1.5 px-2.5 py-[5px] cursor-text transition-colors',
+        'h-auto flex flex-wrap gap-x-2 gap-y-1.5 px-2.5 py-1.5 cursor-text transition-colors',
+        isMultiline ? cn(multilineHeightClass, 'items-start content-start max-h-56 overflow-y-auto') : 'min-h-9 items-center',
         invalid && 'border-fail',
         disabled && controlDisabledShell,
         className

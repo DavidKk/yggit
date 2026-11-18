@@ -28,7 +28,7 @@ import { FloatingMenu, type FloatingMenuItem } from '@/components/git/RefChipsCe
 import { handleTreeExpandKey, handleTreeParentKey } from '@/components/git/treeExpandKey'
 import { useT } from '@/components/i18n/LocaleProvider'
 import { useNotification } from '@/components/notification/useNotification'
-import { Badge, Button, EmptyState, ScrollArea, Tooltip } from '@/components/sk'
+import { Badge, Button, EmptyState, Tooltip, VirtualList } from '@/components/sk'
 import { copyToClipboard } from '@/lib/clipboard'
 import { useGitDriver } from '@/lib/git/driver'
 import type { GitLogView, GitRemoteProbe, GitSelection } from '@/lib/git/types'
@@ -133,6 +133,22 @@ function buildBranchTree(items: BranchItem[]): BranchNode[] {
     .map((raw) => toNode(raw, ''))
     .sort((left, right) => Number(right.children.length > 0) - Number(left.children.length > 0) || left.label.localeCompare(right.label))
 }
+
+type BranchRow = { node: BranchNode; depth: number; parentId: string }
+
+function visibleBranchRows(nodes: BranchNode[], prefix: string, folderOpen: (id: string) => boolean, depth: number, parentId: string): BranchRow[] {
+  const rows: BranchRow[] = []
+  const visit = (items: BranchNode[], level: number, parent: string) => {
+    for (const node of items) {
+      rows.push({ node, depth: level, parentId: parent })
+      if (node.children.length && folderOpen(`${prefix}:${node.id}`)) visit(node.children, level + 1, `${prefix}:${node.id}`)
+    }
+  }
+  visit(nodes, depth, parentId)
+  return rows
+}
+
+type SidebarRow = { id: string; render: () => ReactNode }
 
 function collectFolderIds(nodes: BranchNode[], idPrefix: string, into: string[] = []): string[] {
   for (const node of nodes) {
@@ -604,7 +620,7 @@ export function GitSidebar({ view, selection, width, remoteUpdates = [], remoteP
       total: number
       matchCount: number
       icon: typeof LuGitBranch
-      body: ReactNode
+      rows: SidebarRow[]
       notice?: number
       expand?: { allOpen: boolean; disabled: boolean; onToggle: () => void }
       probe?: boolean
@@ -618,21 +634,24 @@ export function GitSidebar({ view, selection, width, remoteUpdates = [], remoteP
         icon: LuGitBranch,
         searchPlaceholder: t('git.sidebar.search.branch'),
         expand: { allOpen: localAllOpen, disabled: localFolderIds.length === 0, onToggle: toggleLocalAll },
-        body: (
-          <BranchTree
-            nodes={localTree}
-            depth={0}
-            active={active}
-            kind="local"
-            folderOpen={folderOpen}
-            onToggleFolder={toggleFolder}
-            onSetFolder={setFolderOpen}
-            onSelect={onSelect}
-            onContextMenu={handleBranchContextMenu}
-            onFolderContextMenu={handleFolderContextMenu}
-            parentId="section:local"
-          />
-        ),
+        rows: visibleBranchRows(localTree, 'local', folderOpen, 0, 'section:local').map((row) => ({
+          id: `local:${row.node.id}`,
+          render: () => (
+            <BranchTree
+              nodes={[row.node]}
+              depth={row.depth}
+              active={active}
+              kind="local"
+              folderOpen={folderOpen}
+              onToggleFolder={toggleFolder}
+              onSetFolder={setFolderOpen}
+              onSelect={onSelect}
+              onContextMenu={handleBranchContextMenu}
+              onFolderContextMenu={handleFolderContextMenu}
+              parentId={row.parentId}
+            />
+          ),
+        })),
       },
       {
         id: 'remote',
@@ -648,71 +667,79 @@ export function GitSidebar({ view, selection, width, remoteUpdates = [], remoteP
           disabled: remoteTrees.length === 0 && remoteFolderIds.length === 0,
           onToggle: toggleRemoteAll,
         },
-        body: remoteTrees.map((group) => {
+        rows: remoteTrees.flatMap((group): SidebarRow[] => {
           const sourceId = `remote-source:${group.source}`
           const expanded = openRemotes[group.source] ?? remoteDefault
           const sourceUpdates = updatesByRemote.get(group.source) || 0
-          return (
-            <div key={group.source}>
-              <div
-                role="treeitem"
-                tabIndex={0}
-                data-git-tree-id={sourceId}
-                aria-expanded={expanded}
-                aria-selected={false}
-                className="flex h-7 w-full cursor-pointer select-text items-center justify-start gap-1.5 rounded-none px-2 font-normal text-xs text-ink-soft hover:bg-[var(--overlay-06)] outline-none focus-visible:ring-1 focus-visible:ring-accent"
-                onClick={() => {
-                  const sel = typeof window !== 'undefined' ? window.getSelection() : null
-                  if (sel && sel.toString().trim().length > 0) return
-                  setOpenRemotes((prev) => ({ ...prev, [group.source]: !(prev[group.source] ?? remoteDefault) }))
-                }}
-                onContextMenu={(e) => handleRemoteGroupContextMenu(e, group)}
-                onKeyDown={(event) => {
-                  if (handleTreeExpandKey(event, expanded, (next) => setOpenRemotes((prev) => ({ ...prev, [group.source]: next })))) return
-                  handleTreeParentKey(event, 'section:remote')
-                }}
-              >
-                <span
-                  role="button"
-                  tabIndex={-1}
-                  className="inline-flex size-3 shrink-0 cursor-pointer items-center justify-center select-none"
-                  onClick={(e) => {
-                    e.stopPropagation()
+          return [
+            {
+              id: sourceId,
+              render: () => (
+                <div
+                  role="treeitem"
+                  tabIndex={0}
+                  data-git-tree-id={sourceId}
+                  aria-expanded={expanded}
+                  aria-selected={false}
+                  className="flex h-8 w-full cursor-pointer select-text items-center justify-start gap-1.5 rounded-none px-2 font-normal text-xs text-ink-soft hover:bg-[var(--overlay-06)] outline-none focus-visible:ring-1 focus-visible:ring-accent"
+                  onClick={() => {
+                    const sel = typeof window !== 'undefined' ? window.getSelection() : null
+                    if (sel && sel.toString().trim().length > 0) return
                     setOpenRemotes((prev) => ({ ...prev, [group.source]: !(prev[group.source] ?? remoteDefault) }))
                   }}
+                  onContextMenu={(e) => handleRemoteGroupContextMenu(e, group)}
+                  onKeyDown={(event) => {
+                    if (handleTreeExpandKey(event, expanded, (next) => setOpenRemotes((prev) => ({ ...prev, [group.source]: next })))) return
+                    handleTreeParentKey(event, 'section:remote')
+                  }}
                 >
-                  {expanded ? <LuChevronDown className="size-3 shrink-0" aria-hidden /> : <LuChevronRight className="size-3 shrink-0" aria-hidden />}
-                </span>
-                <span data-git-sidebar-label className="min-w-0 flex-1 truncate whitespace-nowrap text-left text-xs select-text">
-                  {group.source}
-                </span>
-                {sourceUpdates > 0 ? (
-                  <Badge tone="accent" size="mini" dot={false} className="shrink-0 select-none" title={t('git.sidebar.remoteBranchUpdates', { count: sourceUpdates })}>
-                    {sourceUpdates}
-                  </Badge>
-                ) : (
-                  <span className="shrink-0 whitespace-nowrap tabular-nums text-[11px] select-none text-ink-soft">{group.count}</span>
-                )}
-              </div>
-              {expanded ? (
-                <BranchTree
-                  nodes={group.tree}
-                  depth={1}
-                  active={active}
-                  kind="remote"
-                  folderOpen={folderOpen}
-                  onToggleFolder={toggleFolder}
-                  onSetFolder={setFolderOpen}
-                  onSelect={onSelect}
-                  onContextMenu={handleBranchContextMenu}
-                  onFolderContextMenu={handleFolderContextMenu}
-                  idPrefix={`remote:${group.source}`}
-                  parentId={sourceId}
-                  updateByName={updateByName}
-                />
-              ) : null}
-            </div>
-          )
+                  <span
+                    role="button"
+                    tabIndex={-1}
+                    className="inline-flex size-3 shrink-0 cursor-pointer items-center justify-center select-none"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setOpenRemotes((prev) => ({ ...prev, [group.source]: !(prev[group.source] ?? remoteDefault) }))
+                    }}
+                  >
+                    {expanded ? <LuChevronDown className="size-3 shrink-0" aria-hidden /> : <LuChevronRight className="size-3 shrink-0" aria-hidden />}
+                  </span>
+                  <span data-git-sidebar-label className="min-w-0 flex-1 truncate whitespace-nowrap text-left text-xs select-text">
+                    {group.source}
+                  </span>
+                  {sourceUpdates > 0 ? (
+                    <Badge tone="accent" size="mini" dot={false} className="shrink-0 select-none" title={t('git.sidebar.remoteBranchUpdates', { count: sourceUpdates })}>
+                      {sourceUpdates}
+                    </Badge>
+                  ) : (
+                    <span className="shrink-0 whitespace-nowrap tabular-nums text-[11px] select-none text-ink-soft">{group.count}</span>
+                  )}
+                </div>
+              ),
+            },
+            ...(expanded
+              ? visibleBranchRows(group.tree, `remote:${group.source}`, folderOpen, 1, sourceId).map((row) => ({
+                  id: `remote:${group.source}:${row.node.id}`,
+                  render: () => (
+                    <BranchTree
+                      nodes={[row.node]}
+                      depth={row.depth}
+                      active={active}
+                      kind="remote"
+                      folderOpen={folderOpen}
+                      onToggleFolder={toggleFolder}
+                      onSetFolder={setFolderOpen}
+                      onSelect={onSelect}
+                      onContextMenu={handleBranchContextMenu}
+                      onFolderContextMenu={handleFolderContextMenu}
+                      idPrefix={`remote:${group.source}`}
+                      parentId={row.parentId}
+                      updateByName={updateByName}
+                    />
+                  ),
+                }))
+              : []),
+          ]
         }),
       },
       {
@@ -722,17 +749,20 @@ export function GitSidebar({ view, selection, width, remoteUpdates = [], remoteP
         matchCount: filteredStashes.length,
         icon: LuArchive,
         searchPlaceholder: t('git.sidebar.search.stash'),
-        body: filteredStashes.map((stash) => (
-          <Row
-            key={stash.name}
-            label={stash.subject || stash.name}
-            title={stash.name}
-            active={active === `stash:${stash.name}`}
-            parentId="section:stash"
-            onClick={() => onSelect({ kind: 'stash', name: stash.name })}
-            onContextMenu={(e) => handleStashContextMenu(e, stash)}
-          />
-        )),
+        rows: filteredStashes.map((stash) => ({
+          id: stash.name,
+          render: () => (
+            <Row
+              key={stash.name}
+              label={stash.subject || stash.name}
+              title={stash.name}
+              active={active === `stash:${stash.name}`}
+              parentId="section:stash"
+              onClick={() => onSelect({ kind: 'stash', name: stash.name })}
+              onContextMenu={(e) => handleStashContextMenu(e, stash)}
+            />
+          ),
+        })),
       },
       {
         id: 'tag',
@@ -741,16 +771,19 @@ export function GitSidebar({ view, selection, width, remoteUpdates = [], remoteP
         matchCount: filteredTags.length,
         icon: LuTag,
         searchPlaceholder: t('git.sidebar.search.tag'),
-        body: filteredTags.map((tag) => (
-          <Row
-            key={tag.name}
-            label={tag.name}
-            active={active === `tag:${tag.name}`}
-            parentId="section:tag"
-            onClick={() => onSelect({ kind: 'tag', name: tag.name })}
-            onContextMenu={(e) => handleTagContextMenu(e, tag)}
-          />
-        )),
+        rows: filteredTags.map((tag) => ({
+          id: tag.name,
+          render: () => (
+            <Row
+              key={tag.name}
+              label={tag.name}
+              active={active === `tag:${tag.name}`}
+              parentId="section:tag"
+              onClick={() => onSelect({ kind: 'tag', name: tag.name })}
+              onContextMenu={(e) => handleTagContextMenu(e, tag)}
+            />
+          ),
+        })),
       },
       {
         id: 'worktree',
@@ -759,18 +792,21 @@ export function GitSidebar({ view, selection, width, remoteUpdates = [], remoteP
         matchCount: filteredWorktrees.length,
         icon: LuFolderGit2,
         searchPlaceholder: t('git.sidebar.search.worktree'),
-        body: filteredWorktrees.map((entry) => (
-          <Row
-            key={entry.path}
-            label={entry.branch || t('git.sidebar.detached')}
-            title={entry.path}
-            current={entry.current}
-            active={active === `worktree:${entry.path}`}
-            parentId="section:worktree"
-            onClick={() => onSelect({ kind: 'worktree', path: entry.path })}
-            onContextMenu={(e) => handleWorktreeContextMenu(e, entry)}
-          />
-        )),
+        rows: filteredWorktrees.map((entry) => ({
+          id: entry.path,
+          render: () => (
+            <Row
+              key={entry.path}
+              label={entry.branch || t('git.sidebar.detached')}
+              title={entry.path}
+              current={entry.current}
+              active={active === `worktree:${entry.path}`}
+              parentId="section:worktree"
+              onClick={() => onSelect({ kind: 'worktree', path: entry.path })}
+              onContextMenu={(e) => handleWorktreeContextMenu(e, entry)}
+            />
+          ),
+        })),
       },
       {
         id: 'submodule',
@@ -779,9 +815,10 @@ export function GitSidebar({ view, selection, width, remoteUpdates = [], remoteP
         matchCount: filteredSubmodules.length,
         icon: LuBoxes,
         searchPlaceholder: t('git.sidebar.search.submodule'),
-        body: filteredSubmodules.map((sub) => (
-          <Row key={sub.path} label={sub.path} title={sub.describe || sub.hash} active={false} parentId="section:submodule" onClick={() => onOpenRepo(sub.repo)} />
-        )),
+        rows: filteredSubmodules.map((sub) => ({
+          id: sub.path,
+          render: () => <Row key={sub.path} label={sub.path} title={sub.describe || sub.hash} active={false} parentId="section:submodule" onClick={() => onOpenRepo(sub.repo)} />,
+        })),
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -835,7 +872,7 @@ export function GitSidebar({ view, selection, width, remoteUpdates = [], remoteP
             <section
               key={section.id}
               data-git-find={`sidebar-${section.id}`}
-              className={cn('group/sec flex flex-col', expanded && 'min-h-0 flex-1 border-b border-transparent hover:border-line')}
+              className={cn('group/sec flex flex-col', expanded ? 'min-h-8 flex-1 border-b border-transparent hover:border-line' : 'shrink-0')}
             >
               <div className="flex h-8 w-full shrink-0 items-center">
                 <Button
@@ -940,9 +977,15 @@ export function GitSidebar({ view, selection, width, remoteUpdates = [], remoteP
                     message={empty ? undefined : t('git.sidebar.noMatchesHint')}
                   />
                 ) : (
-                  <ScrollArea className="min-h-0 flex-1" indicator="vertical" reserveGutter={false} scrollClassName="px-2">
-                    {section.body}
-                  </ScrollArea>
+                  <VirtualList
+                    key={section.id}
+                    className="px-2"
+                    count={section.rows.length}
+                    rowHeight={32}
+                    getRowId={(index) => section.rows[index].id}
+                    renderRow={(index) => section.rows[index].render()}
+                    aria-label={section.title}
+                  />
                 )
               ) : null}
             </section>
@@ -1028,7 +1071,7 @@ function BranchTree({
               aria-selected={branchActive}
               aria-current={branchActive ? 'true' : undefined}
               className={cn(
-                'group/folder flex h-7 w-full cursor-pointer select-text items-center justify-start gap-1.5 rounded-none px-2 font-normal text-xs text-ink-soft transition-colors outline-none focus-visible:ring-1 focus-visible:ring-accent',
+                'group/folder flex h-8 w-full cursor-pointer select-text items-center justify-start gap-1.5 rounded-none px-2 font-normal text-xs text-ink-soft transition-colors outline-none focus-visible:ring-1 focus-visible:ring-accent',
                 branchActive
                   ? 'bg-[color-mix(in_oklab,var(--accent)_16%,transparent)] text-accent font-medium hover:bg-[color-mix(in_oklab,var(--accent)_24%,transparent)]'
                   : 'hover:bg-[color-mix(in_oklab,var(--accent)_9%,transparent)]'
@@ -1077,23 +1120,6 @@ function BranchTree({
                 />
               ) : null}
             </div>
-            {expanded ? (
-              <BranchTree
-                nodes={node.children}
-                depth={depth + 1}
-                active={active}
-                kind={kind}
-                folderOpen={folderOpen}
-                onToggleFolder={onToggleFolder}
-                onSetFolder={onSetFolder}
-                onSelect={onSelect}
-                onContextMenu={onContextMenu}
-                onFolderContextMenu={onFolderContextMenu}
-                idPrefix={idPrefix}
-                parentId={folderId}
-                updateByName={updateByName}
-              />
-            ) : null}
           </div>
         )
       })}

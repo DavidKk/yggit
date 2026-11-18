@@ -75,26 +75,55 @@ export function useGitLineTokens(lines: string[], path: string): ThemedToken[][]
   const theme = useThemeMode()
   const [tokens, setTokens] = useState<ThemedToken[][] | null>(null)
   const sourceKey = lines.join('\n')
+  const lineCount = lines.length
 
   useEffect(() => {
     let cancelled = false
+    let timer: ReturnType<typeof setTimeout> | undefined
     setTokens(null)
-    const splitLines = sourceKey.length === 0 ? [] : sourceKey.split('\n')
-    if (splitLines.length === 0) {
+    const sourceLines = lineCount === 0 ? [] : sourceKey.split('\n')
+    if (sourceLines.length === 0) {
       setTokens([])
       return
     }
-    void highlightGitLines(splitLines, path)
-      .then((next) => {
-        if (!cancelled) setTokens(next)
+
+    // Fast initial batch for immediate responsiveness
+    const MAX_CHUNK = 600
+    const initialBatch = sourceLines.length > MAX_CHUNK ? sourceLines.slice(0, MAX_CHUNK) : sourceLines
+
+    void highlightGitLines(initialBatch, path)
+      .then((initialTokens) => {
+        if (cancelled) return
+        if (sourceLines.length <= MAX_CHUNK) {
+          setTokens(initialTokens)
+        } else {
+          // Pad initial tokens with empty arrays so visible lines render instantly
+          const padded = initialTokens.slice()
+          while (padded.length < sourceLines.length) padded.push([])
+          setTokens(padded)
+
+          // Schedule tokenizing the remaining lines in background
+          timer = setTimeout(() => {
+            if (cancelled) return
+            void highlightGitLines(sourceLines, path)
+              .then((fullTokens) => {
+                if (!cancelled) setTokens(fullTokens)
+              })
+              .catch(() => {
+                // Keep the initial tokens if background highlighting fails.
+              })
+          }, 80)
+        }
       })
       .catch(() => {
         if (!cancelled) setTokens(null)
       })
+
     return () => {
       cancelled = true
+      clearTimeout(timer)
     }
-  }, [sourceKey, path, theme])
+  }, [sourceKey, lineCount, path, theme])
 
   return tokens
 }

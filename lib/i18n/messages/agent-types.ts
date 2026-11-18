@@ -2,8 +2,53 @@
  * Type definition for Git Agent messages across all supported locales.
  */
 export type GitAgentMessages = {
+  storageTitle: string
+  storageDesc: string
+  storageRefresh: string
+  storageClear: string
+  storageClearConfirm: string
+  storageClearFailed: string
+  storageEmpty: string
+  storagePrevious: string
+  storageNext: string
+  storagePreviewHint: string
+  menuActionsTitle: string
+  menuActionsDesc: string
+  addAction: string
+  newAction: string
+  editAction: string
+  actionTitle: string
+  actionDescription: string
+  actionPrompt: string
+  actionNotFound: string
+  deleteActionConfirm: string
+  deleteActionHint: string
+  deleteAction: string
+  enableAction: string
+  editNamedAction: string
+  backToMenus: string
+  ruleTools: string
+  ruleToolsDesc: string
+  testModel: string
+  testSentence: string
+  testSentencePlaceholder: string
+  agentPreview: string
+  matchedRules: string
+  noRuleMatches: string
+  modelAllowed: string
+  modelDenied: string
+  privacyDisabled: string
+  replacementMap: string
+  testEmpty: string
+  privacySettingsDesc: string
+  menusSettingsTitle: string
+  menusSettingsDesc: string
+  previousFile: string
+  nextFile: string
+
   barPlaceholder: string
   barAria: string
+  barDragHint: string
   settingsTitle: string
   backToGraph: string
   modelList: string

@@ -9,6 +9,8 @@ import {
   getDirectoryHandle,
   getEdgeCatalog,
   getEdgeFolders,
+  getEdgeRemoteProjects,
+  importEdgeRemoteProjects,
   moveEdgeProject,
   removeEdgeProject,
   renameEdgeFolder,
@@ -16,7 +18,8 @@ import {
   saveEdgeRemoteProject,
   setEdgeProjectLabel,
 } from '@/lib/git/indexeddb-handles'
-import { uniqueLocalProject } from '@/lib/git/project-access'
+import { remoteIdentity, uniqueLocalProject } from '@/lib/git/project-access'
+import { listRemoteGroup } from '@/lib/git/remote-groups'
 import { parseRemoteUrl } from '@/lib/git/temporary-store'
 import type { GitCommit, GitCommitChanges, GitLogView, GitProjectCatalog, GitProjectHost, GitProjectView, GitRemoteBranch, GitWorktree } from '@/lib/git/types'
 import { parseGitHubRepo, readRemoteBlobData, readRemoteCommitChanges, readRemoteGitLog } from '@/services/git/remote-provider'
@@ -373,6 +376,35 @@ export class EdgeGitDriver implements IGitDriver {
   }
 
   async addRemoteProject(input: AddRemoteProjectOptions): Promise<GitProjectCatalog> {
+    if (input.importGroup) {
+      if (!input.provider || !input.group?.trim()) throw new Error('REMOTE_GROUP_INVALID_INPUT')
+      const remotes = await listRemoteGroup({ ...input, provider: input.provider })
+      if (!remotes.length) throw new Error('REMOTE_GROUP_EMPTY')
+      const group = input.group.trim().replace(/\s+/g, ' ')
+      const existing = await getEdgeRemoteProjects()
+      if (/[/\\]/.test(group)) throw new Error('REMOTE_GROUP_INVALID_FOLDER')
+      const catalog = await getEdgeCatalog()
+      const keys = new Set(remotes.map((remote) => remoteIdentity(remote.httpsUrl)))
+      const localIds = catalog.projects.filter((project) => project.local && keys.has(remoteIdentity(project.httpsUrl))).map((project) => project.localPath)
+      const records = remotes.map((remote) => {
+        const parsed = parseRemoteUrl(remote.httpsUrl)
+        const id = parsed?.fingerprint || remote.remoteKey
+        const previous = existing.find((item) => item.id === id)
+        return {
+          ...previous,
+          id,
+          name: previous?.name || remote.name,
+          url: remote.httpsUrl,
+          host: input.provider!,
+          group,
+          token: input.token || previous?.token,
+          order: previous?.order ?? Date.now(),
+          updatedAt: Date.now(),
+        }
+      })
+      await importEdgeRemoteProjects(records, group, localIds)
+      return getEdgeCatalog()
+    }
     const parsed = parseRemoteUrl(input.url)
     const name =
       input.name ||

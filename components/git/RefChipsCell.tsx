@@ -2,7 +2,7 @@
 
 import React, { Fragment, type ReactNode, type RefObject, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { LuChevronRight, LuCloud, LuDiamond, LuMonitor, LuTag } from 'react-icons/lu'
+import { LuCheck, LuChevronRight, LuCloud, LuDiamond, LuMonitor, LuTag } from 'react-icons/lu'
 
 import { useT } from '@/components/i18n/LocaleProvider'
 import { useNotification } from '@/components/notification/useNotification'
@@ -428,7 +428,7 @@ export function FloatingMenu({
         data-git-floating-menu=""
         className={cn(
           variant === 'overlay'
-            ? 'absolute z-[100] min-w-48 max-w-[min(24rem,calc(100vw-16px))] max-h-[min(240px,calc(100vh-16px))] overflow-y-auto rounded-lg p-0 outline-none'
+            ? 'absolute z-[100] min-w-48 max-w-[min(24rem,calc(100vw-16px))] max-h-[min(240px,calc(100vh-16px))] overflow-y-auto rounded-lg bg-panel p-0 shadow-lg outline-none'
             : 'fixed z-[100] w-[236px] min-w-[220px] max-w-[min(260px,calc(100vw-16px))] max-h-[min(480px,calc(100vh-16px))] overflow-y-auto overflow-x-visible rounded-xl border border-line/80 bg-panel/95 p-1.5 shadow-2xl backdrop-blur-md outline-none animate-in fade-in zoom-in-95 duration-100'
         )}
         style={{
@@ -542,7 +542,8 @@ function FloatingMenuItemRow({
       <button
         ref={rowRef}
         type="button"
-        role="menuitem"
+        role={item.checked === undefined ? 'menuitem' : 'menuitemcheckbox'}
+        aria-checked={item.checked}
         disabled={item.disabled}
         onClick={handleClick}
         className={cn(
@@ -558,6 +559,7 @@ function FloatingMenuItemRow({
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0 ml-1">
+          {item.checked ? <LuCheck className="size-3.5 text-accent" aria-hidden="true" /> : null}
           {item.badge && <span className="rounded bg-[var(--overlay-10)] px-1.5 py-0.5 text-[10px] font-mono font-medium text-ink-soft">{item.badge}</span>}
           {item.shortcut && <span className="text-[11px] font-mono text-ink-soft/70">{item.shortcut}</span>}
           {hasChildren && <LuChevronRight className="size-3.5 text-ink-soft/70 shrink-0" aria-hidden />}

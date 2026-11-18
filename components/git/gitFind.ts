@@ -1,6 +1,6 @@
 'use client'
 
-import { type RefObject, useEffect, useSyncExternalStore } from 'react'
+import { type RefObject, useEffect, useRef, useSyncExternalStore } from 'react'
 
 export const GIT_FIND_ATTR = 'data-git-find'
 export const GIT_FIND_EVENT = 'git-panel-find'
@@ -10,7 +10,7 @@ function isApplePlatform() {
   return /Mac|iPhone|iPad|iPod/i.test(navigator.platform) || /Mac OS X/i.test(navigator.userAgent)
 }
 
-/** macOS → ⌘F；Windows / Linux → Ctrl+F */
+/** Display the conventional shortcut while accepting both modifiers on every platform. */
 export function gitFindShortcutLabel(apple = isApplePlatform()) {
   return apple ? '⌘F' : 'Ctrl+F'
 }
@@ -23,12 +23,39 @@ export function useGitFindShortcutLabel() {
   )
 }
 
-function isFindChord(event: KeyboardEvent) {
-  if (event.altKey || event.shiftKey) return false
-  if (event.key.toLowerCase() !== 'f') return false
-  // Match OS find shortcut: ⌘F on Apple, Ctrl+F elsewhere.
-  if (isApplePlatform()) return event.metaKey && !event.ctrlKey
-  return event.ctrlKey && !event.metaKey
+export function isGitFindChord(event: Pick<KeyboardEvent, 'altKey' | 'shiftKey' | 'key' | 'metaKey' | 'ctrlKey'>) {
+  return !event.altKey && !event.shiftKey && event.key.toLowerCase() === 'f' && (event.metaKey || event.ctrlKey)
+}
+
+export function useGitFindPanel(rootRef: RefObject<HTMLElement | null>, inputRef: RefObject<HTMLInputElement | null>, onOpen: () => void) {
+  const openRef = useRef(onOpen)
+  openRef.current = onOpen
+  useEffect(() => {
+    const root = rootRef.current
+    if (!root) return
+    let frame = 0
+    const open = () => {
+      openRef.current()
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => {
+        inputRef.current?.focus({ preventScroll: true })
+        inputRef.current?.select()
+      })
+    }
+    const onKey = (event: KeyboardEvent) => {
+      if (!isGitFindChord(event)) return
+      event.preventDefault()
+      event.stopPropagation()
+      open()
+    }
+    root.addEventListener(GIT_FIND_EVENT, open)
+    root.addEventListener('keydown', onKey)
+    return () => {
+      cancelAnimationFrame(frame)
+      root.removeEventListener(GIT_FIND_EVENT, open)
+      root.removeEventListener('keydown', onKey)
+    }
+  }, [rootRef, inputRef])
 }
 
 /**
@@ -38,28 +65,21 @@ function isFindChord(event: KeyboardEvent) {
 export function useGitFindShortcut(rootRef: RefObject<HTMLElement | null>) {
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
-      if (!isFindChord(event)) return
+      if (!isGitFindChord(event)) return
       const root = rootRef.current
       if (!root) return
 
-      // 1. If mouse is hovering over sidebar or a specific panel with data-git-find, prioritize it
-      let scope: Element | null = null
-      const hoveredSidebar = document.querySelector('[data-git-sidebar]:hover')
-      if (hoveredSidebar && root.contains(hoveredSidebar)) {
-        scope = hoveredSidebar.querySelector(`[${GIT_FIND_ATTR}]:hover`) || hoveredSidebar.querySelector(`[${GIT_FIND_ATTR}]`)
+      const active = document.activeElement
+      if (active instanceof HTMLInputElement && active.closest('[data-git-search-dropdown]')) {
+        event.preventDefault()
+        event.stopPropagation()
+        active.select()
+        return
       }
-
-      if (!scope) {
-        const hoveredFind = document.querySelector(`[${GIT_FIND_ATTR}]:hover`)
-        if (hoveredFind && root.contains(hoveredFind)) {
-          scope = hoveredFind
-        }
-      }
-
-      // 2. Fall back to focused element
-      if (!scope) {
-        const active = document.activeElement
-        scope = (active instanceof Element ? active.closest(`[${GIT_FIND_ATTR}]`) : null) || (event.target instanceof Element ? event.target.closest(`[${GIT_FIND_ATTR}]`) : null)
+      let scope = active instanceof Element ? active.closest(`[${GIT_FIND_ATTR}]`) : null
+      if (!scope || !root.contains(scope)) {
+        const hovered = Array.from(root.querySelectorAll(`[${GIT_FIND_ATTR}]:hover`))
+        scope = hovered.at(-1) || null
       }
 
       if (!scope || !root.contains(scope)) return

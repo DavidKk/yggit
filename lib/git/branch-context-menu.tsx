@@ -39,6 +39,7 @@ export type FloatingMenuItem = {
   needsConfirm?: boolean
   confirmText?: string
   shortcut?: string
+  checked?: boolean
   badge?: string
   disabled?: boolean
 }

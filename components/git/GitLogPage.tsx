@@ -7,6 +7,7 @@ import { LuCheck, LuChevronsUpDown, LuFolderGit2, LuSettings, LuShare2 } from 'r
 import { BrandLogo } from '@/components/BrandLogo'
 import { measurePanelFit } from '@/components/git/fitColumn'
 import { GitCommitPanel } from '@/components/git/GitCommitPanel'
+import { GitConflict3WayDiff } from '@/components/git/GitConflict3WayDiff'
 import { GitDebug } from '@/components/git/GitDebug'
 import { GitFileDiff } from '@/components/git/GitFileDiff'
 import { GIT_FIND_EVENT, useGitFindShortcut } from '@/components/git/gitFind'
@@ -27,6 +28,7 @@ import { useOptionalAgent } from '@/lib/agent/agent-context'
 import { useOptionalSpotlight } from '@/lib/agent/spotlight-context'
 import { readApiErrorMessage } from '@/lib/api-error'
 import { getDriverMode, getGitDriver } from '@/lib/git/driver'
+import type { AddRemoteProjectOptions } from '@/lib/git/driver/types'
 import { isFileSystemAccessSupported } from '@/lib/git/indexeddb-handles'
 import { gitSelectionHash } from '@/lib/git/scope'
 import { addTemporaryRepo, parseRemoteUrl } from '@/lib/git/temporary-store'
@@ -34,6 +36,7 @@ import {
   GIT_WORKTREE_COMMIT,
   GIT_WORKTREE_HASH,
   type GitCommit,
+  type GitFileChange,
   type GitLogView,
   type GitProjectView,
   type GitRemoteCheck,
@@ -109,6 +112,28 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
   const [selectedHash, setSelectedHash] = useState(initialCommitHash || '')
   const [selectedFile, setSelectedFile] = useState(() => initialFilePath || (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('file') || '' : ''))
   const [selectedStatus, setSelectedStatus] = useState('')
+  const [commitFiles, setCommitFiles] = useState<GitFileChange[]>([])
+
+  const currentFileIndex = useMemo(() => {
+    if (!commitFiles.length || !selectedFile) return -1
+    return commitFiles.findIndex((f) => f.path === selectedFile)
+  }, [commitFiles, selectedFile])
+
+  const handlePrevFile = useCallback(() => {
+    if (commitFiles.length <= 1 || currentFileIndex === -1) return
+    const prevIdx = (currentFileIndex - 1 + commitFiles.length) % commitFiles.length
+    const file = commitFiles[prevIdx]
+    setSelectedFile(file.path)
+    setSelectedStatus(file.status)
+  }, [commitFiles, currentFileIndex])
+
+  const handleNextFile = useCallback(() => {
+    if (commitFiles.length <= 1 || currentFileIndex === -1) return
+    const nextIdx = (currentFileIndex + 1) % commitFiles.length
+    const file = commitFiles[nextIdx]
+    setSelectedFile(file.path)
+    setSelectedStatus(file.status)
+  }, [commitFiles, currentFileIndex])
   const [lineageHashes, setLineageHashes] = useState<string[] | null>(null)
   const lineageSet = useMemo(() => (lineageHashes && lineageHashes.length > 0 ? new Set(lineageHashes) : null), [lineageHashes])
   const [sidebarWidth, setSidebarWidth] = useGitUiPref('layout.sidebarWidth', 256, isPositiveNumber)
@@ -127,9 +152,30 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
   const { conflicts } = useMergeConflicts({
     repo: view?.repo,
     commits,
+    selectedHash,
     loading: busy,
     scrollRef: historyScrollRef,
   })
+
+  const [conflictViewActive, setConflictViewActive] = useState(false)
+
+  const handleOpenConflictView = useCallback(
+    (hash?: string, file?: string) => {
+      if (hash) {
+        setSelectedHash(hash)
+        setFocusRequest({ hash })
+      }
+      const targetHash = hash || selectedHash
+      const conflictRecord = conflicts[targetHash]
+      const targetFile = file || (conflictRecord?.conflictFiles && conflictRecord.conflictFiles[0]) || ''
+      if (targetFile) {
+        setSelectedFile(targetFile)
+        setSelectedStatus('M')
+      }
+      setConflictViewActive(true)
+    },
+    [selectedHash, conflicts]
+  )
 
   const spotlight = useOptionalSpotlight()
   const agent = useOptionalAgent()
@@ -570,7 +616,7 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
     }
   }
 
-  async function addRemote(input: { url: string; token?: string; syncAccount?: boolean }) {
+  async function addRemote(input: AddRemoteProjectOptions) {
     setBusy(true)
     try {
       const driver = getGitDriver()
@@ -878,7 +924,7 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
               <ThemeSwitcher compact />
               <LocaleSwitcher compact />
               <Tooltip content={t('gitAgent.settingsTitle')} placement="bottom">
-                <Link href="/settings" className={cn(dropdownTriggerClass, 'px-2')} aria-label={t('gitAgent.settingsTitle')}>
+                <Link href="/settings/models" className={cn(dropdownTriggerClass, 'px-2')} aria-label={t('gitAgent.settingsTitle')}>
                   <LuSettings className="size-4 shrink-0" aria-hidden="true" />
                   <span className="sr-only sm:not-sr-only">{t('gitAgent.settingsTitle')}</span>
                 </Link>
@@ -913,12 +959,33 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
           </EmptyState>
         ) : (
           <div ref={frameRef} className="flex min-h-0 flex-1 overflow-hidden" style={frameStyle}>
-            {selected && selectedFile ? (
+            {selected && conflictViewActive ? (
+              <GitConflict3WayDiff
+                repo={view.repo}
+                commit={selected}
+                commits={commits}
+                conflict={conflicts[selected.hash]}
+                selectedPath={selectedFile}
+                onSelectPath={(path) => {
+                  setSelectedFile(path)
+                  setSelectedStatus('M')
+                }}
+                onClose={() => {
+                  setConflictViewActive(false)
+                  setSelectedFile('')
+                  setSelectedStatus('')
+                }}
+              />
+            ) : selected && selectedFile ? (
               <GitFileDiff
                 repo={view.repo}
                 hash={selected.hash}
                 path={selectedFile}
                 status={selectedStatus}
+                fileIndex={currentFileIndex >= 0 ? currentFileIndex : undefined}
+                fileCount={commitFiles.length > 0 ? commitFiles.length : undefined}
+                onPrevFile={commitFiles.length > 1 ? handlePrevFile : undefined}
+                onNextFile={commitFiles.length > 1 ? handleNextFile : undefined}
                 onClose={() => {
                   setSelectedFile('')
                   setSelectedStatus('')
@@ -981,13 +1048,16 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                         setSelectedFile('')
                         setSelectedStatus('')
                         setLineageHashes(null)
+                        setConflictViewActive(false)
                       }}
                       onSelectWorktree={() => {
                         setSelectedHash(GIT_WORKTREE_HASH)
                         setSelectedFile('')
                         setSelectedStatus('')
                         setLineageHashes(null)
+                        setConflictViewActive(false)
                       }}
+                      onOpenConflictView={handleOpenConflictView}
                       onPage={onPage}
                     />
                   )}
@@ -1010,6 +1080,7 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                         setSelectedHash(hash)
                         setFocusRequest({ hash })
                       }}
+                      onOpenConflictView={() => handleOpenConflictView(selected.hash)}
                     />
                   ) : null}
                 </section>
@@ -1033,7 +1104,10 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                   commit={selected}
                   width={treeWidth}
                   title={selectedIsWorktree ? t('git.panel.worktree') : t('git.panel.files')}
+                  conflictFiles={conflicts[selected.hash]?.conflictFiles}
+                  conflictFileCounts={conflicts[selected.hash]?.conflictFileCounts}
                   selectedPath={selectedFile}
+                  onFilesLoaded={setCommitFiles}
                   onSelect={(path, status) => {
                     setSelectedFile(path)
                     setSelectedStatus(status)
@@ -1043,6 +1117,7 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                     setSelectedFile('')
                     setSelectedStatus('')
                     setLineageHashes(null)
+                    setConflictViewActive(false)
                   }}
                 />
               </>

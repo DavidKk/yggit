@@ -35,6 +35,8 @@ export const POST = defineApiRoute('post:/api/git/projects', async ({ request })
     discover?: unknown
     url?: unknown
     token?: unknown
+    importGroup?: unknown
+    provider?: unknown
     syncAccount?: unknown
   } | null
   try {
@@ -62,6 +64,9 @@ export const POST = defineApiRoute('post:/api/git/projects', async ({ request })
     if (typeof body?.url === 'string' && body.url.trim()) {
       const result = await addRemoteProject({
         url: body.url,
+        importGroup: body.importGroup === true,
+        provider: body.provider === 'github' ? 'github' : body.provider === 'gitlab' ? 'gitlab' : undefined,
+        group: typeof body.group === 'string' ? body.group : undefined,
         token: typeof body.token === 'string' ? body.token : undefined,
         syncAccount: body.syncAccount === true,
       })
