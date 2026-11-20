@@ -459,6 +459,7 @@ function GitGraphComponent({
     if (!node) return
     const max = Math.max(0, node.scrollWidth - node.clientWidth)
     setGraphEdge({ left: node.scrollLeft > 1, right: node.scrollLeft < max - 1, scrollLeft: node.scrollLeft })
+    frameRef.current?.style.setProperty('--git-graph-scroll-x', `${node.scrollLeft}px`)
   }, [])
 
   useEffect(() => {
@@ -466,6 +467,7 @@ function GitGraphComponent({
     graphRef.current = graphView
     document.documentElement.style.setProperty('--git-branch-w', `${branchWidth}px`)
     document.documentElement.style.setProperty('--git-graph-w', `${graphView}px`)
+    frameRef.current?.style.setProperty('--git-graph-scroll-x', '0px')
     requestAnimationFrame(syncGraphEdge)
   }, [branchWidth, graphView, syncGraphEdge])
   const checkedOut = useMemo(() => new Set(worktreeBranches), [worktreeBranches])
@@ -661,6 +663,20 @@ function GitGraphComponent({
     }
   }, [contentWidth, syncGraphEdge])
 
+  const dateBoundaries = useMemo(() => {
+    const boundaries: Array<{ rowIndex: number; date: string }> = []
+    for (let rowIndex = 1; rowIndex < scene.rows.length; rowIndex++) {
+      const row = scene.rows[rowIndex]
+      const currDate = row.kind === 'commit' ? commits[row.index]?.date : row.kind === 'stash' ? row.stash.date : ''
+      const prevRow = scene.rows[rowIndex - 1]
+      const prevDate = prevRow?.kind === 'commit' ? commits[prevRow.index]?.date : prevRow?.kind === 'stash' ? prevRow.stash.date : ''
+      if (currDate && prevDate && toDateKey(currDate) !== toDateKey(prevDate)) {
+        boundaries.push({ rowIndex, date: currDate })
+      }
+    }
+    return boundaries
+  }, [scene.rows, commits])
+
   if (commits.length === 0 && !worktree && stashes.length === 0) {
     return <EmptyState title={t('git.graph.noCommits')} message={t('git.graph.noCommitsMessage')} density="panel" />
   }
@@ -724,36 +740,41 @@ function GitGraphComponent({
         scrollProps={{ 'aria-label': t('git.graph.historyAria'), onScroll: handleListScroll }}
       >
         <div className="relative min-w-0 pb-6">
+          {/* Date boundary dividers rendered precisely on the seam between rows (rowIndex - 1 and rowIndex) */}
+          <div className="pointer-events-none absolute inset-0 z-20 overflow-visible" aria-hidden>
+            {dateBoundaries.map((b) => (
+              <div
+                key={`date-boundary-${b.rowIndex}`}
+                className="absolute right-0 flex h-0 items-center pr-3"
+                style={{
+                  top: b.rowIndex * ROW,
+                  left: 'calc(var(--git-branch-w) + var(--git-graph-w))',
+                }}
+              >
+                <div className="h-px flex-1 bg-[color-mix(in_oklab,var(--ink)_14%,transparent)]" />
+                <span className="ml-2 shrink-0 rounded border border-[color-mix(in_oklab,var(--ink)_12%,transparent)] bg-[var(--panel)] px-1.5 py-0.5 text-[10px] font-medium leading-none text-ink-soft select-none shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
+                  {formatCommitDateDivider(b.date, locale)}
+                </span>
+              </div>
+            ))}
+          </div>
           <ol className="m-0 list-none">
-            {scene.rows.map((row, rowIndex) => {
-              const currDate = row.kind === 'commit' ? commits[row.index]?.date : row.kind === 'stash' ? row.stash.date : ''
-              const prevRow = rowIndex > 0 ? scene.rows[rowIndex - 1] : undefined
-              const prevDate = prevRow?.kind === 'commit' ? commits[prevRow.index]?.date : prevRow?.kind === 'stash' ? prevRow.stash.date : ''
-              const isDateBoundary = Boolean(rowIndex > 0 && currDate && prevDate && toDateKey(currDate) !== toDateKey(prevDate))
-              const dateDivider =
-                isDateBoundary && currDate ? (
-                  <div
-                    className="pointer-events-none absolute top-0 right-0 z-20 flex h-4 items-center pr-3"
-                    style={{ left: 'calc(var(--git-branch-w) + var(--git-graph-w))' }}
-                    aria-hidden
-                  >
-                    <div className="h-px flex-1 bg-[color-mix(in_oklab,var(--ink)_14%,transparent)]" />
-                    <span className="ml-2 shrink-0 rounded border border-[color-mix(in_oklab,var(--ink)_12%,transparent)] bg-[var(--panel)] px-1.5 py-0.5 text-[10px] font-medium leading-none text-ink-soft select-none shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
-                      {formatCommitDateDivider(currDate, locale)}
-                    </span>
-                  </div>
-                ) : null
-
+            {scene.rows.map((row) => {
               if (row.kind === 'worktree' && worktree) {
                 const isContextActive = contextMenu?.type === 'worktree'
                 const wipDot = scene.dots.find((dot) => dot.key === 'wip')
                 const color = wipDot?.color || laneColor(headIndex >= 0 ? (points[headIndex]?.color ?? 0) : 0)
                 const isSelected = selectedHash === GIT_WORKTREE_HASH
+                const nodeX = wipDot ? wipDot.x - 8 : 16
                 return (
                   <li key="worktree" className="group/commit git-commit-row relative z-0 h-[26px] max-h-[26px] min-w-0 shrink-0 overflow-visible hover:z-10">
-                    {/* Fixed unified highlight pill */}
-                    <div className="git-row-pill" data-selected={isSelected ? 'true' : 'false'} style={{ '--row-tint': color } as React.CSSProperties} />
-                    {dateDivider}
+                    {/* Seamless dual highlight pills across graph and message columns */}
+                    <div
+                      className="git-graph-col-pill"
+                      data-selected={isSelected ? 'true' : 'false'}
+                      style={{ '--row-tint': color, '--node-x': `${nodeX}px` } as React.CSSProperties}
+                    />
+                    <div className="git-message-col-pill" data-selected={isSelected ? 'true' : 'false'} style={{ '--row-tint': color } as React.CSSProperties} />
                     <div
                       role="row"
                       tabIndex={0}
@@ -822,11 +843,16 @@ function GitGraphComponent({
                 const findHit = stashFindHit(stash, findNeedle)
                 const isContextActive = contextMenu?.type === 'stash' && contextMenu.stash.hash === stash.hash
                 const rowTintClass = cn(isContextActive ? 'bg-[color-mix(in_oklab,var(--accent)_12%,transparent)]' : '')
+                const nodeX = xAt(stashPoint?.lane ?? 0) - 8
                 return (
                   <li key={stash.name} className="group/commit git-commit-row relative z-0 h-[26px] max-h-[26px] min-w-0 shrink-0 overflow-visible hover:z-10">
-                    {/* Fixed unified highlight pill */}
-                    <div className="git-row-pill" data-selected={selected ? 'true' : 'false'} style={{ '--row-tint': color } as React.CSSProperties} />
-                    {dateDivider}
+                    {/* Seamless dual highlight pills across graph and message columns */}
+                    <div
+                      className="git-graph-col-pill"
+                      data-selected={selected ? 'true' : 'false'}
+                      style={{ '--row-tint': color, '--node-x': `${nodeX}px` } as React.CSSProperties}
+                    />
+                    <div className="git-message-col-pill" data-selected={selected ? 'true' : 'false'} style={{ '--row-tint': color } as React.CSSProperties} />
                     <div
                       role="row"
                       tabIndex={0}
@@ -906,6 +932,7 @@ function GitGraphComponent({
                       : ''
               )
               const isHovered = isContextActive || hoveredHash === commit.hash
+              const nodeX = xAt(point?.lane ?? 0) - 8
               return (
                 <li
                   key={commit.hash}
@@ -919,14 +946,19 @@ function GitGraphComponent({
                     setHoveredHash(null)
                   }}
                 >
-                  {/* Localized message column highlight pill */}
+                  {/* Seamless dual highlight pills across graph and message columns */}
                   <div
-                    className="git-row-pill"
+                    className="git-graph-col-pill"
+                    data-selected={selected ? 'true' : 'false'}
+                    data-branch-hit={isBranchHit ? 'true' : 'false'}
+                    style={{ '--row-tint': color, '--node-x': `${nodeX}px` } as React.CSSProperties}
+                  />
+                  <div
+                    className="git-message-col-pill"
                     data-selected={selected ? 'true' : 'false'}
                     data-branch-hit={isBranchHit ? 'true' : 'false'}
                     style={{ '--row-tint': color } as React.CSSProperties}
                   />
-                  {dateDivider}
                   <div
                     role="row"
                     tabIndex={0}
