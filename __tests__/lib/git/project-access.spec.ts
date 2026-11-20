@@ -73,7 +73,7 @@ describe('project access', () => {
     expect(isPrivateRemote('https://github.com/DavidKk/yggit.git')).toBe(false)
     expect(isPrivateRemote('git@github.com:DavidKk/yggit.git')).toBe(false)
     expect(isPrivateRemote('https://gitlab.com/gitlab-org/gitlab.git')).toBe(false)
-    expect(isPrivateRemote('https://git.inshopline.com/team/repo.git')).toBe(true)
+    expect(isPrivateRemote('https://git.internal-corp.com/team/repo.git')).toBe(true)
     expect(isPrivateRemote('git@git.internal.corp:fintech/service.git')).toBe(true)
     expect(isPrivateRemote('https://github.com/my-org/private-repo.git', true)).toBe(true)
     expect(isPrivateRemote('https://ghp_secret@github.com/my-org/repo.git')).toBe(true)
@@ -99,7 +99,7 @@ describe('project access', () => {
     // 2. Single private remote
     const privProject: GitProjectView = {
       ...project,
-      httpsUrl: 'https://git.inshopline.com/team/janitor.git',
+      httpsUrl: 'https://git.internal-corp.com/team/janitor.git',
     }
     const privRemotes = extractProjectRemotes(privProject)
     expect(privRemotes).toHaveLength(1)
@@ -111,7 +111,7 @@ describe('project access', () => {
       ...project,
       remotes: [
         { name: 'origin', url: 'https://github.com/DavidKk/yggit.git', isPrivate: false },
-        { name: 'corp', url: 'https://git.inshopline.com/team/yggit.git', isPrivate: true },
+        { name: 'corp', url: 'https://git.internal-corp.com/team/yggit.git', isPrivate: true },
       ],
     }
     const multiRemotes = extractProjectRemotes(multiProject)

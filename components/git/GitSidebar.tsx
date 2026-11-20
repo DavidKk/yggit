@@ -332,7 +332,11 @@ export function GitSidebar({
   const localFolderIds = useMemo(() => collectFolderIds(localTree, 'local'), [localTree])
   const remoteFolderIds = useMemo(() => remoteTrees.flatMap((group) => collectFolderIds(group.tree, `remote:${group.source}`)), [remoteTrees])
 
-  const folderOpen = (id: string) => openFolders[id] ?? folderDefault
+  const isBranchSearching = Boolean(localNeedle || remoteNeedle)
+  const folderOpen = (id: string) => {
+    if (isBranchSearching) return true
+    return openFolders[id] ?? folderDefault
+  }
   const setFolderOpen = (id: string, next: boolean) => setOpenFolders((prev) => ({ ...prev, [id]: next }))
   const toggleFolder = (id: string) => setFolderOpen(id, !(openFolders[id] ?? folderDefault))
 
@@ -886,7 +890,7 @@ export function GitSidebar({
         },
         rows: remoteTrees.flatMap((group): SidebarRow[] => {
           const sourceId = `remote-source:${group.source}`
-          const expanded = openRemotes[group.source] ?? remoteDefault
+          const expanded = Boolean(remoteNeedle) || (openRemotes[group.source] ?? remoteDefault)
           const sourceUpdates = updatesByRemote.get(group.source) || 0
           return [
             {
@@ -1072,8 +1076,13 @@ export function GitSidebar({
     ]
   )
 
-  // SSR: headers only (all collapsed). Client: real prefs on first paint — no skeleton / no forced local-open.
-  const expandedOf = (id: SectionId) => (ready ? Boolean(open[id]) : false)
+  // SSR: headers only (all collapsed). Client: real prefs on first paint — auto-expand when searching.
+  const expandedOf = (id: SectionId) => {
+    if (!ready) return false
+    const needle = id === 'local' ? localNeedle : id === 'remote' ? remoteNeedle : needleOf(id)
+    if (needle) return true
+    return Boolean(open[id])
+  }
 
   return (
     <aside data-git-sidebar data-git-tree-root className="flex h-full min-h-0 shrink-0 flex-col overflow-hidden select-text" style={{ width: `var(--git-sidebar-w, ${width}px)` }}>

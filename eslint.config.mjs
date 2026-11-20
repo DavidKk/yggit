@@ -62,6 +62,21 @@ const eslintConfig = defineConfig([
     },
   },
   {
+    // 代码文件行数过长告警（超过 800 行发出 WARNING 提示拆分）
+    files: ['**/*.{ts,tsx,js,jsx,mjs}'],
+    ignores: ['lib/i18n/messages/**', '__tests__/**'],
+    rules: {
+      'max-lines': [
+        'warn',
+        {
+          max: 800,
+          skipBlankLines: true,
+          skipComments: true,
+        },
+      ],
+    },
+  },
+  {
     // cloud 构建按扩展名剔除 *.server / *.dev 路由；普通模块引用它们会把仅本机代码带回 cloud 包
     files: ['**/*.{ts,tsx}'],
     ignores: ['**/*.server.{ts,tsx}', '**/*.dev.{ts,tsx}', 'app/api/mcp/**', '__tests__/**'],

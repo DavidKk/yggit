@@ -3,6 +3,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { promisify } from 'node:util'
 
+import { cleanGitMessage } from '@/lib/git/clean-git-message'
+
 import { resolveGitRepo } from './read'
 
 const execFileAsync = promisify(execFile)
@@ -357,7 +359,7 @@ export async function gitPush(
   }
 
   const { stdout, stderr } = await runGit(repo, args)
-  return { ok: true, message: stdout || stderr || '推送成功' }
+  return { ok: true, message: cleanGitMessage(stdout || stderr, '推送成功') }
 }
 
 export async function gitPull(repoInput: string, options?: { remote?: string; branch?: string; rebase?: boolean; ffOnly?: boolean }): Promise<{ ok: boolean; message: string }> {
@@ -372,7 +374,7 @@ export async function gitPull(repoInput: string, options?: { remote?: string; br
   if (options?.branch) args.push(options.branch)
 
   const { stdout, stderr } = await runGit(repo, args)
-  return { ok: true, message: stdout || stderr || '拉取成功' }
+  return { ok: true, message: cleanGitMessage(stdout || stderr, '拉取成功') }
 }
 
 export async function gitFetch(repoInput: string, options?: { remote?: string; all?: boolean }): Promise<{ ok: boolean; message: string }> {
@@ -385,7 +387,7 @@ export async function gitFetch(repoInput: string, options?: { remote?: string; a
   }
 
   const { stdout, stderr } = await runGit(repo, args)
-  return { ok: true, message: stdout || stderr || '抓取完成' }
+  return { ok: true, message: cleanGitMessage(stdout || stderr, '抓取完成') }
 }
 
 export async function gitStash(
@@ -404,28 +406,28 @@ export async function gitStash(
       args.push('--', ...options.paths)
     }
     const { stdout, stderr } = await runGit(repo, args)
-    return { ok: true, message: stdout || stderr || '已暂存工作区更改' }
+    return { ok: true, message: cleanGitMessage(stdout || stderr, '已暂存工作区更改') }
   }
 
   if (options.action === 'pop') {
     const args = ['stash', 'pop']
     if (stashRef) args.push(stashRef)
     const { stdout, stderr } = await runGit(repo, args)
-    return { ok: true, message: stdout || stderr || '已恢复暂存内容' }
+    return { ok: true, message: cleanGitMessage(stdout || stderr, '已恢复暂存内容') }
   }
 
   if (options.action === 'apply') {
     const args = ['stash', 'apply']
     if (stashRef) args.push(stashRef)
     const { stdout, stderr } = await runGit(repo, args)
-    return { ok: true, message: stdout || stderr || '已应用暂存内容' }
+    return { ok: true, message: cleanGitMessage(stdout || stderr, '已应用暂存内容') }
   }
 
   if (options.action === 'drop') {
     const args = ['stash', 'drop']
     if (stashRef) args.push(stashRef)
     const { stdout, stderr } = await runGit(repo, args)
-    return { ok: true, message: stdout || stderr || '已删除暂存' }
+    return { ok: true, message: cleanGitMessage(stdout || stderr, '已删除暂存') }
   }
 
   throw new Error(`未知的暂存操作: ${String(options.action)}`)

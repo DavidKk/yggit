@@ -21,6 +21,6 @@ module.exports = {
   '**/*.{ts,tsx,mjs}': (files) => {
     const filtered = files.filter(isEslintPath)
     if (filtered.length === 0) return []
-    return `eslint --config eslint.config.mjs --max-warnings 0 --no-warn-ignored ${filtered.map((file) => JSON.stringify(file)).join(' ')}`
+    return `eslint --config eslint.config.mjs --no-warn-ignored ${filtered.map((file) => JSON.stringify(file)).join(' ')}`
   },
 }

@@ -6,6 +6,7 @@ import { IoAlertCircleOutline, IoCheckmarkCircleOutline, IoCloseOutline, IoInfor
 
 import { NOTIFICATION_DURATION_MS, type NotificationItem, type NotificationType } from '@/components/notification/types'
 import { cn } from '@/lib/utils'
+import { stripAnsi } from '@/lib/utils/strip-ansi'
 
 interface NotificationContextValue {
   notify: (type: NotificationType, message: string, duration?: number) => void
@@ -26,11 +27,18 @@ const iconTone: Record<NotificationType, string> = {
 
 function NotificationToast({ notification, onClose }: { notification: NotificationItem; onClose: () => void }) {
   const [visible, setVisible] = useState(false)
+  const [showDetails, setShowDetails] = useState(false)
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => setVisible(true))
     return () => cancelAnimationFrame(frame)
   }, [])
+
+  const cleanMessage = stripAnsi(notification.message).trim()
+  const lines = cleanMessage.split(/\r?\n/).filter(Boolean)
+  const headline = lines[0] || ''
+  const details = lines.slice(1).join('\n')
+  const hasDetails = lines.length > 1
 
   const Icon =
     notification.type === 'success'
@@ -44,7 +52,7 @@ function NotificationToast({ notification, onClose }: { notification: Notificati
   return (
     <div
       className={cn(
-        'pointer-events-auto flex items-center gap-2 rounded-md border border-line bg-panel px-3 py-2',
+        'pointer-events-auto flex flex-col rounded-md border border-line bg-panel p-3',
         'shadow-[0_8px_24px_rgb(0_0_0_/_0.35),inset_0_1px_0_rgb(255_255_255_/_0.04)]',
         'transition-[opacity,transform] duration-200 ease-out',
         visible ? 'translate-x-0 opacity-100' : 'translate-x-2 opacity-0'
@@ -52,16 +60,34 @@ function NotificationToast({ notification, onClose }: { notification: Notificati
       role="status"
       aria-live="polite"
     >
-      <Icon className={cn('shrink-0', iconTone[notification.type])} size={16} aria-hidden />
-      <span className="min-w-0 flex-1 text-sm leading-[1.35] text-ink">{notification.message}</span>
-      <button
-        type="button"
-        className="inline-flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded border-0 bg-transparent p-0 text-ink-soft transition-[background,color] duration-150 hover:bg-[color-mix(in_oklab,var(--ink)_8%,transparent)] hover:text-ink"
-        onClick={onClose}
-        aria-label="关闭通知"
-      >
-        <IoCloseOutline size={14} aria-hidden />
-      </button>
+      <div className="flex items-start gap-2">
+        <Icon className={cn('shrink-0 mt-0.5', iconTone[notification.type])} size={16} aria-hidden />
+        <span className="min-w-0 flex-1 text-sm font-medium leading-[1.35] text-ink break-words">{headline}</span>
+        <button
+          type="button"
+          className="inline-flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded border-0 bg-transparent p-0 text-ink-soft transition-[background,color] duration-150 hover:bg-[color-mix(in_oklab,var(--ink)_8%,transparent)] hover:text-ink"
+          onClick={onClose}
+          aria-label="关闭通知"
+        >
+          <IoCloseOutline size={14} aria-hidden />
+        </button>
+      </div>
+      {hasDetails && (
+        <div className="mt-1.5 pl-6">
+          <button
+            type="button"
+            onClick={() => setShowDetails((prev) => !prev)}
+            className="text-[11px] text-accent hover:underline cursor-pointer select-none inline-flex items-center gap-1"
+          >
+            {showDetails ? '收起详情' : `查看详情 (${lines.length - 1} 行)`}
+          </button>
+          {showDetails && (
+            <pre className="mt-1 max-h-36 overflow-y-auto rounded bg-panel-2 p-1.5 text-[11px] font-mono leading-relaxed text-ink-soft whitespace-pre-wrap break-all border border-line/60">
+              {details}
+            </pre>
+          )}
+        </div>
+      )}
     </div>
   )
 }
