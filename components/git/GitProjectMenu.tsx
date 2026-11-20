@@ -1179,7 +1179,7 @@ export function GitProjectMenu({
                                 <Button
                                   variant="plain"
                                   size="icon"
-                                  className="size-6 text-ink-soft hover:enabled:text-fail opacity-0 group-hover/item:opacity-100 transition-opacity"
+                                  className="size-6 text-ink-soft hover:enabled:text-fail opacity-0 pointer-events-none group-hover/item:pointer-events-auto group-hover/item:opacity-100 disabled:opacity-0 group-hover/item:disabled:opacity-40 transition-opacity"
                                   aria-label={t('git.project.removeProjectConfirm', { name: project.label || project.name })}
                                   tooltip={t('git.project.removeProject')}
                                   disabled={busy}
@@ -1200,13 +1200,13 @@ export function GitProjectMenu({
                                     setEditingLabelProjectId(project.id)
                                     setProjectLabelDraft(project.label || '')
                                   }}
-                                  className="flex size-6 opacity-0 group-hover/item:opacity-100 cursor-pointer items-center justify-center rounded text-ink-soft transition-all hover:bg-[var(--overlay-08)] hover:text-accent"
+                                  className="flex size-6 opacity-0 pointer-events-none group-hover/item:pointer-events-auto group-hover/item:opacity-100 cursor-pointer items-center justify-center rounded text-ink-soft transition-all hover:bg-[var(--overlay-08)] hover:text-accent"
                                   aria-label="设置项目别名"
                                 >
                                   <LuPencil className="size-3" aria-hidden="true" />
                                 </button>
                               </Tooltip>
-                              {/* 1. Local Folder Icon */}
+                              {/* 1. Local Folder Icon Slot */}
                               {hasLocal ? (
                                 <Tooltip content={isEdgeMode ? '本地项目' : '打开本地项目'}>
                                   <button
@@ -1227,9 +1227,11 @@ export function GitProjectMenu({
                                     )}
                                   </button>
                                 </Tooltip>
-                              ) : null}
+                              ) : (
+                                <span className="size-6 shrink-0" aria-hidden="true" />
+                              )}
 
-                              {/* 2. Remote Cloud Icon */}
+                              {/* 2. Remote Cloud Icon Slot */}
                               {cloudType === 'single-public' ? (
                                 <Tooltip content={`开源远端: ${remotes[0].name} · 点击打开`}>
                                   <button
@@ -1278,7 +1280,9 @@ export function GitProjectMenu({
                                     <LuCloud className="size-3.5" aria-hidden="true" />
                                   </button>
                                 </Tooltip>
-                              ) : null}
+                              ) : (
+                                <span className="size-6 shrink-0" aria-hidden="true" />
+                              )}
                             </div>
                           </div>
                           {showAfter ? <span className="pointer-events-none absolute inset-x-2 bottom-0 z-10 h-0.5 translate-y-1/2 rounded-full bg-accent" aria-hidden /> : null}

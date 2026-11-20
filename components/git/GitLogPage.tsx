@@ -16,6 +16,7 @@ import { GitMergePanel } from '@/components/git/GitMergePanel'
 import { GitModeSwitcher } from '@/components/git/GitModeSwitcher'
 import { GitProjectMenu } from '@/components/git/GitProjectMenu'
 import { GitSidebar } from '@/components/git/GitSidebar'
+import { GitToolbar } from '@/components/git/GitToolbar'
 import { PanelSplitter } from '@/components/git/PanelSplitter'
 import { useMergeConflicts } from '@/components/git/useMergeConflicts'
 import { useT } from '@/components/i18n/LocaleProvider'
@@ -978,6 +979,12 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                 </Button>
               </Tooltip>
             ) : null}
+            {view?.repo ? (
+              <>
+                <span className="mx-1 h-3.5 w-px shrink-0 bg-[color-mix(in_oklab,var(--ink)_14%,transparent)]" aria-hidden />
+                <GitToolbar repo={view.repo} currentBranch={view.head || view.branch} hasStashes={view.stashes.length > 0} disabled={busy} onRefresh={() => void load(view.repo)} />
+              </>
+            ) : null}
           </WorkspaceHeaderSlot>
         ) : (
           <header className="flex shrink-0 items-center gap-3 border-b border-line bg-panel-2/60 px-3 py-1.5">
@@ -1056,6 +1063,12 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                   <span>{copiedHeaderShare ? t('common.copied') : t('git.header.share')}</span>
                 </Button>
               </Tooltip>
+            ) : null}
+            {view?.repo ? (
+              <>
+                <span className="mx-1 h-3.5 w-px shrink-0 bg-[color-mix(in_oklab,var(--ink)_14%,transparent)]" aria-hidden />
+                <GitToolbar repo={view.repo} currentBranch={view.head || view.branch} hasStashes={view.stashes.length > 0} disabled={busy} onRefresh={() => void load(view.repo)} />
+              </>
             ) : null}
             <div className="ml-auto flex shrink-0 items-center gap-1.5">
               <GitModeSwitcher />
