@@ -244,7 +244,7 @@ function GitGraphComponent({
   commits,
   worktree,
   stashes = [],
-  highlight: _highlight,
+  highlight,
   lineageHashes,
   remoteNames = [],
   worktreeBranches = [],
@@ -781,6 +781,7 @@ function GitGraphComponent({
                       role="row"
                       tabIndex={0}
                       aria-selected={isSelected}
+                      data-git-commit-hash={GIT_WORKTREE_HASH}
                       className="group/commit grid h-[26px] max-h-[26px] w-full min-w-0 cursor-pointer select-text items-center justify-start gap-0 rounded-none border-0 bg-transparent px-0 text-left leading-none font-normal outline-none focus:outline-none focus-visible:outline-none"
                       style={{ gridTemplateColumns: columns }}
                       onClick={() => {
@@ -924,7 +925,10 @@ function GitGraphComponent({
               const isCurrentBranchHead = Boolean(
                 isHead || (currentBranch && commit.refs.some((r) => r === currentBranch || r === `HEAD -> ${currentBranch}` || r.endsWith(`/${currentBranch}`)))
               )
-              const isBranchHit = isHoverBranchActive ? Boolean(isBranchActive && branchHashes?.has(commit.hash)) : isCurrentBranchHead
+              const marked = Boolean(
+                highlight && commit.refs.some((r) => r === highlight || r === `HEAD -> ${highlight}` || r === `tag: ${highlight}` || r.endsWith(`/${highlight}`))
+              )
+              const isBranchHit = isHoverBranchActive ? Boolean(isBranchActive && branchHashes?.has(commit.hash)) : isCurrentBranchHead || marked
               const rowTintClass = cn(
                 isSpotlightHit && spotlightTarget?.role === 'primary'
                   ? 'bg-[color-mix(in_oklab,var(--accent)_22%,transparent)] ring-1 ring-inset ring-accent/60'

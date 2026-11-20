@@ -354,7 +354,35 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
 
   function select(next: GitSelection) {
     setSelection(next)
-    setFocusRequest(view ? { hash: gitSelectionHash(view, next) } : null)
+    let targetHash = view ? gitSelectionHash(view, next) : ''
+    if (next.kind === 'worktree') {
+      const entry = view?.worktrees.find((item) => item.path === next.path)
+      if (entry?.current || next.path === view?.repo) {
+        targetHash = GIT_WORKTREE_HASH
+      }
+    }
+    if (!targetHash && (next.kind === 'local' || next.kind === 'remote' || next.kind === 'tag' || next.kind === 'stash')) {
+      const hit = commits.find((c) =>
+        c.refs.some(
+          (r) =>
+            r === next.name ||
+            r === `HEAD -> ${next.name}` ||
+            r === `tag: ${next.name}` ||
+            r === `refs/heads/${next.name}` ||
+            r === `refs/remotes/${next.name}` ||
+            r.endsWith(`/${next.name}`)
+        )
+      )
+      if (hit) targetHash = hit.hash
+    }
+    if (targetHash) {
+      setSelectedHash(targetHash)
+      setSelectedFile('')
+      setSelectedStatus('')
+      setLineageHashes(null)
+      setConflictViewActive(false)
+      setFocusRequest({ hash: targetHash })
+    }
   }
 
   const scope = view ? '*' : ''

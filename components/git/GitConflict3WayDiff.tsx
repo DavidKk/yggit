@@ -119,6 +119,13 @@ export function GitConflict3WayDiff({ repo = '', commit, commits, conflict, sele
               { id: 'wrap', label: t('git.diff.wrap'), icon: <LuWrapText /> },
             ]}
           />
+          {onSwitchToDiff && (
+            <Tooltip content={t('git.diff.diffView')}>
+              <Button variant="plain" size="mini" aria-label={t('git.diff.diffView')} onClick={onSwitchToDiff}>
+                <LuFileCode className="size-3.5 text-accent" />
+              </Button>
+            </Tooltip>
+          )}
         </div>
         <div className="flex items-center justify-end gap-1">
           {regions.length > 0 && (
@@ -130,13 +137,6 @@ export function GitConflict3WayDiff({ repo = '', commit, commits, conflict, sele
           <Button variant="plain" size="mini" disabled={loading || !regions.length} aria-label={t('git.diff.nextConflict')} onClick={() => step(1)}>
             <LuChevronDown />
           </Button>
-          {onSwitchToDiff && (
-            <Tooltip content={t('git.diff.diffView')}>
-              <Button variant="plain" size="mini" aria-label={t('git.diff.diffView')} onClick={onSwitchToDiff}>
-                <LuFileCode className="size-3.5 text-accent" />
-              </Button>
-            </Tooltip>
-          )}
           <Button variant="plain" size="mini" aria-label={t('common.close')} onClick={onClose}>
             <LuX />
           </Button>
