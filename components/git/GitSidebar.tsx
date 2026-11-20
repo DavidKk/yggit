@@ -332,7 +332,7 @@ export function GitSidebar({
   const localFolderIds = useMemo(() => collectFolderIds(localTree, 'local'), [localTree])
   const remoteFolderIds = useMemo(() => remoteTrees.flatMap((group) => collectFolderIds(group.tree, `remote:${group.source}`)), [remoteTrees])
 
-  const isBranchSearching = Boolean(localNeedle || remoteNeedle)
+  const isBranchSearching = Boolean(localNeedle || remoteNeedle || rawLocalNeedle || rawRemoteNeedle)
   const folderOpen = (id: string) => {
     if (isBranchSearching) return true
     return openFolders[id] ?? folderDefault

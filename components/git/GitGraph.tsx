@@ -1,9 +1,10 @@
 'use client'
 
 import { type CSSProperties, Fragment, memo, type ReactNode, type Ref, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { LuCopy, LuHash, LuInbox, LuText } from 'react-icons/lu'
+import { LuCopy, LuHash, LuInbox, LuText, LuTriangleAlert } from 'react-icons/lu'
 
 import { AnnotationBadge } from '@/components/git/agent/spotlight/AnnotationBadge'
+import { CommitStatusBadge } from '@/components/git/CommitStatusBadge'
 import { measureCellsFit } from '@/components/git/fitColumn'
 import { PanelSplitter } from '@/components/git/PanelSplitter'
 import { branchAtCommits, type FloatingAnchor, FloatingMenu, type FloatingMenuItem, refChips, RefChipsCell } from '@/components/git/RefChipsCell'
@@ -257,7 +258,7 @@ function GitGraphComponent({
   conflicts,
   onSelect,
   onSelectWorktree,
-  onOpenConflictView: _onOpenConflictView,
+  onOpenConflictView,
   onCheckoutBranch,
   onRefresh,
   currentBranch,
@@ -765,7 +766,8 @@ function GitGraphComponent({
                 const wipDot = scene.dots.find((dot) => dot.key === 'wip')
                 const color = wipDot?.color || laneColor(headIndex >= 0 ? (points[headIndex]?.color ?? 0) : 0)
                 const isSelected = selectedHash === GIT_WORKTREE_HASH
-                const nodeX = wipDot ? wipDot.x - 8 : 16
+                const nodeRadius = wipDot ? (isSelected ? wipDot.radius + 4 : wipDot.radius + 1) : 8
+                const nodeX = (wipDot ? wipDot.x : 16) + nodeRadius
                 return (
                   <li key="worktree" className="group/commit git-commit-row relative z-0 h-[26px] max-h-[26px] min-w-0 shrink-0 overflow-visible hover:z-10">
                     {/* Seamless dual highlight pills across graph and message columns */}
@@ -843,7 +845,8 @@ function GitGraphComponent({
                 const findHit = stashFindHit(stash, findNeedle)
                 const isContextActive = contextMenu?.type === 'stash' && contextMenu.stash.hash === stash.hash
                 const rowTintClass = cn(isContextActive ? 'bg-[color-mix(in_oklab,var(--accent)_12%,transparent)]' : '')
-                const nodeX = xAt(stashPoint?.lane ?? 0) - 8
+                const nodeRadius = selected ? 13 : 9
+                const nodeX = xAt(stashPoint?.lane ?? 0) + nodeRadius
                 return (
                   <li key={stash.name} className="group/commit git-commit-row relative z-0 h-[26px] max-h-[26px] min-w-0 shrink-0 overflow-visible hover:z-10">
                     {/* Seamless dual highlight pills across graph and message columns */}
@@ -932,7 +935,10 @@ function GitGraphComponent({
                       : ''
               )
               const isHovered = isContextActive || hoveredHash === commit.hash
-              const nodeX = xAt(point?.lane ?? 0) - 8
+              const isMerge = commit.parents.length > 1
+              const isConflictedMerge = isMerge && Boolean(conflicts?.[commit.hash]?.hasConflict)
+              const nodeRadius = isMerge ? (selected ? 9 : 5) : selected ? 13 : isHead ? 11 : 9
+              const nodeX = xAt(point?.lane ?? 0) + nodeRadius
               return (
                 <li
                   key={commit.hash}
@@ -1061,6 +1067,7 @@ function GitGraphComponent({
                       <span className="w-0.5 shrink-0" style={{ height: DOT, background: color }} aria-hidden />
                     </span>
                     <span data-git-message-cell className={cn('flex h-[26px] min-h-0 min-w-0 items-center pl-2', rowTintClass)}>
+                      {isConflictedMerge && <CommitStatusBadge commit={commit} conflict={conflicts?.[commit.hash]} onOpenConflictView={onOpenConflictView} />}
                       <span
                         className="flex min-w-0 flex-1 items-center truncate pr-3 text-sm leading-none font-normal select-text cursor-pointer transition-colors duration-150 text-ink"
                         style={{ height: DOT }}
@@ -1197,8 +1204,14 @@ function GitGraphComponent({
                             width: MERGE_NODE_DOT,
                             height: MERGE_NODE_DOT,
                             background: 'var(--panel)',
-                            border: `1.5px solid ${tint}`,
-                            boxShadow: isSelected ? `0 0 0 2px var(--panel), 0 0 0 4px ${tint}, 0 0 10px ${tint}` : `0 0 3px color-mix(in oklab, ${tint} 30%, transparent)`,
+                            border: isConflictedMerge ? '1.5px solid var(--warn, #f59e0b)' : `1.5px solid ${tint}`,
+                            boxShadow: isConflictedMerge
+                              ? isSelected
+                                ? '0 0 0 2px var(--panel), 0 0 0 4px var(--warn, #f59e0b), 0 0 10px var(--warn, #f59e0b)'
+                                : '0 0 0 1px var(--panel), 0 0 6px var(--warn, #f59e0b)'
+                              : isSelected
+                                ? `0 0 0 2px var(--panel), 0 0 0 4px ${tint}, 0 0 10px ${tint}`
+                                : `0 0 3px color-mix(in oklab, ${tint} 30%, transparent)`,
                           }
                         : {
                             left: xAt(point.lane),
@@ -1224,7 +1237,11 @@ function GitGraphComponent({
                     aria-label={commit.author}
                   >
                     {isMerge ? (
-                      <span className="size-1 rounded-full shrink-0" style={{ background: 'var(--wt-git-merge, var(--wt-merge, #d946ef))' }} aria-hidden />
+                      isConflictedMerge ? (
+                        <LuTriangleAlert className="size-2 text-warn shrink-0" aria-label="Merge conflict" />
+                      ) : (
+                        <span className="size-1 rounded-full shrink-0" style={{ background: 'var(--wt-git-merge, var(--wt-merge, #d946ef))' }} aria-hidden />
+                      )
                     ) : (
                       <>
                         {initials(commit.author)}

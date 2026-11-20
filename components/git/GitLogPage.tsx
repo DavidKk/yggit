@@ -1126,6 +1126,7 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                   setSelectedFile(path)
                   setSelectedStatus('M')
                 }}
+                onSwitchToDiff={() => setConflictViewActive(false)}
                 onClose={() => {
                   setConflictViewActive(false)
                   setSelectedFile('')
@@ -1142,6 +1143,11 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                 fileCount={commitFiles.length > 0 ? commitFiles.length : undefined}
                 onPrevFile={commitFiles.length > 1 ? handlePrevFile : undefined}
                 onNextFile={commitFiles.length > 1 ? handleNextFile : undefined}
+                hasConflict={Boolean(
+                  conflicts[selected.hash]?.hasConflict &&
+                  (conflicts[selected.hash]?.conflictFiles?.includes(selectedFile) || conflicts[selected.hash]?.unresolvedConflictFiles?.includes(selectedFile))
+                )}
+                onOpenConflictView={() => handleOpenConflictView(selected.hash, selectedFile)}
                 onClose={() => {
                   setSelectedFile('')
                   setSelectedStatus('')

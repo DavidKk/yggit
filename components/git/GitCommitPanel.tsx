@@ -268,6 +268,7 @@ function TreeRows({
   onStage,
   onUnstage,
   onDiscard,
+  isSearching = false,
 }: {
   nodes: TreeNode[]
   depth: number
@@ -286,11 +287,12 @@ function TreeRows({
   onStage?: (path: string) => void
   onUnstage?: (path: string) => void
   onDiscard?: (path: string) => void
+  isSearching?: boolean
 }) {
   const t = useT()
   return nodes.map((node) => {
     const folder = node.children.length > 0
-    const expanded = folder && open.has(node.path)
+    const expanded = folder && (isSearching || open.has(node.path))
     if (folder) {
       return (
         <div key={node.path}>
@@ -335,6 +337,7 @@ function TreeRows({
               onStage={onStage}
               onUnstage={onUnstage}
               onDiscard={onDiscard}
+              isSearching={isSearching}
             />
           )}
         </div>
@@ -788,17 +791,19 @@ export function GitCommitPanel({ repo, commit, width, title, conflictFiles, conf
     return index
   }, [activeTree, conflictCounts])
 
+  const isSearching = Boolean(fileNeedle || filterConflicts)
+
   const treeRows = useMemo(() => {
     const rows: Array<{ node: TreeNode; depth: number; parentId?: string }> = []
     const visit = (nodes: TreeNode[], depth: number, parentId?: string) => {
       for (const node of nodes) {
         rows.push({ node, depth, parentId })
-        if (node.children.length && openPaths.has(node.path)) visit(node.children, depth + 1, node.path)
+        if (node.children.length && (isSearching || openPaths.has(node.path))) visit(node.children, depth + 1, node.path)
       }
     }
     visit(activeTree, 0)
     return rows
-  }, [activeTree, openPaths])
+  }, [activeTree, openPaths, isSearching])
 
   const pathRows = useMemo(
     () =>
@@ -1336,6 +1341,7 @@ export function GitCommitPanel({ repo, commit, width, title, conflictFiles, conf
         onStage={handleStage}
         onUnstage={handleUnstage}
         onDiscard={handleDiscard}
+        isSearching={isSearching}
       />
     )
   }
@@ -1669,6 +1675,7 @@ export function GitCommitPanel({ repo, commit, width, title, conflictFiles, conf
                 onStage={handleStage}
                 onUnstage={handleUnstage}
                 onDiscard={handleDiscard}
+                isSearching={isSearching}
               />
             )
           }}

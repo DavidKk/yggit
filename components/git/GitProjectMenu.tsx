@@ -999,7 +999,7 @@ export function GitProjectMenu({
           {visibleFolders.map((group) => {
             const items = listed.filter((project) => project.group === group)
             if (needle && items.length === 0) return null
-            const expanded = openGroups[group] !== false
+            const expanded = Boolean(needle) || openGroups[group] !== false
             const droppingFolder = dropTarget?.group === group && dropTarget.beforeId === null && !expanded
             const droppingBody = dropTarget?.group === group && dropTarget.beforeId === null && expanded
             const groupCount = needle ? items.length : projects.filter((project) => project.group === group).length
