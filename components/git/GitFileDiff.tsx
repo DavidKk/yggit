@@ -539,7 +539,7 @@ function fileStatus(status: string, t: TFn): { label: string; className: string;
   return { label: status === 'R' ? t('git.status.rename') : t('git.status.modify'), className: 'text-warn', Icon: LuPencil }
 }
 
-export function GitFileDiff({ repo, hash, path, status = 'M', onClose, onPrevFile, onNextFile, hasConflict, onOpenConflictView }: Props) {
+export function GitFileDiff({ repo, hash, path, status = 'M', onClose, onPrevFile: _onPrevFile, onNextFile: _onNextFile, hasConflict, onOpenConflictView }: Props) {
   const t = useT()
   const parentHash = hash === 'WORKTREE' ? 'HEAD' : `${hash}~1`
   const beforeBlameMap = useGitBlame(repo, path, parentHash)
@@ -782,27 +782,17 @@ export function GitFileDiff({ repo, hash, path, status = 'M', onClose, onPrevFil
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
-      if (e.altKey && (e.key === 'ArrowUp' || e.key === 'k')) {
+      if (e.key === 'F7' || (e.altKey && (e.key === 'ArrowDown' || e.key === 'j'))) {
+        e.preventDefault()
+        stepChange(e.shiftKey ? -1 : 1)
+      } else if (e.altKey && (e.key === 'ArrowUp' || e.key === 'k')) {
         e.preventDefault()
         stepChange(-1)
-      } else if (e.altKey && (e.key === 'ArrowDown' || e.key === 'j')) {
-        e.preventDefault()
-        stepChange(1)
-      } else if (e.altKey && (e.key === 'ArrowLeft' || e.key === 'h')) {
-        if (onPrevFile) {
-          e.preventDefault()
-          onPrevFile()
-        }
-      } else if (e.altKey && (e.key === 'ArrowRight' || e.key === 'l')) {
-        if (onNextFile) {
-          e.preventDefault()
-          onNextFile()
-        }
       }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [stepChange, onPrevFile, onNextFile])
+  }, [stepChange])
 
   const activeLineIndex = showFind && needle && matches.length > 0 ? matches[matchIndex] : activeChangeLineIndex
 
@@ -844,14 +834,32 @@ export function GitFileDiff({ repo, hash, path, status = 'M', onClose, onPrevFil
             ]}
           />
         </div>
-        <div className="flex items-center justify-end gap-1.5">
-          {/* File navigation stays compact; change navigation remains available through keyboard shortcuts. */}
-          {(onPrevFile || onNextFile) && (
+        <div className="flex items-center justify-end gap-1">
+          {mode === 'diff' && activeChangeBlocks.length > 0 && (
+            <span className="mr-1 text-xs text-ink-soft tabular-nums font-mono">
+              {changeNavigation.index >= 0 ? `${changeNavigation.index + 1}/${activeChangeBlocks.length}` : `${activeChangeBlocks.length}`}
+            </span>
+          )}
+          {mode === 'diff' && (
             <div className="flex items-center gap-0.5">
-              <Button variant="plain" size="mini" onClick={onPrevFile} disabled={!onPrevFile} aria-label={t('gitAgent.previousFile')}>
+              <Button
+                variant="plain"
+                size="mini"
+                disabled={loading || activeChangeBlocks.length === 0}
+                aria-label={t('git.diff.prevChange')}
+                title={t('git.diff.prevChange')}
+                onClick={() => stepChange(-1)}
+              >
                 <LuChevronUp className="size-3.5" aria-hidden="true" />
               </Button>
-              <Button variant="plain" size="mini" onClick={onNextFile} disabled={!onNextFile} aria-label={t('gitAgent.nextFile')}>
+              <Button
+                variant="plain"
+                size="mini"
+                disabled={loading || activeChangeBlocks.length === 0}
+                aria-label={t('git.diff.nextChange')}
+                title={t('git.diff.nextChange')}
+                onClick={() => stepChange(1)}
+              >
                 <LuChevronDown className="size-3.5" aria-hidden="true" />
               </Button>
             </div>
@@ -860,7 +868,7 @@ export function GitFileDiff({ repo, hash, path, status = 'M', onClose, onPrevFil
           {!(mode === 'diff' && viewport === 'split') && (
             <Button
               variant={showFind ? 'default' : 'plain'}
-              size="icon"
+              size="mini"
               aria-label={t('git.diff.searchContent')}
               title={`${t('git.diff.searchContent')} (${findShortcut})`}
               onClick={() => {
@@ -878,13 +886,13 @@ export function GitFileDiff({ repo, hash, path, status = 'M', onClose, onPrevFil
           )}
           {hasConflict && onOpenConflictView ? (
             <Tooltip content={t('git.diff.conflictComparison')}>
-              <Button variant="plain" size="icon" onClick={onOpenConflictView} aria-label={t('git.diff.conflictComparison')}>
+              <Button variant="plain" size="mini" onClick={onOpenConflictView} aria-label={t('git.diff.conflictComparison')}>
                 <LuGitMerge className="size-3.5 text-warn" />
               </Button>
             </Tooltip>
           ) : null}
-          <Button variant="plain" size="icon" aria-label={t('git.diff.close')} onClick={onClose}>
-            <LuX aria-hidden />
+          <Button variant="plain" size="mini" aria-label={t('git.diff.close')} onClick={onClose}>
+            <LuX className="size-3.5" aria-hidden />
           </Button>
         </div>
       </header>
