@@ -766,15 +766,15 @@ function GitGraphComponent({
                 const wipDot = scene.dots.find((dot) => dot.key === 'wip')
                 const color = wipDot?.color || laneColor(headIndex >= 0 ? (points[headIndex]?.color ?? 0) : 0)
                 const isSelected = selectedHash === GIT_WORKTREE_HASH
-                const nodeRadius = wipDot ? (isSelected ? wipDot.radius + 4 : wipDot.radius + 1) : 8
-                const nodeX = (wipDot ? wipDot.x : 16) + nodeRadius
+                const nodeRadius = wipDot ? (isSelected ? wipDot.radius + 2.5 : wipDot.radius + 1) : 8
+                const nodeX = wipDot ? wipDot.x : 16
                 return (
                   <li key="worktree" className="group/commit git-commit-row relative z-0 h-[26px] max-h-[26px] min-w-0 shrink-0 overflow-visible hover:z-10">
                     {/* Seamless dual highlight pills across graph and message columns */}
                     <div
                       className="git-graph-col-pill"
                       data-selected={isSelected ? 'true' : 'false'}
-                      style={{ '--row-tint': color, '--node-x': `${nodeX}px` } as React.CSSProperties}
+                      style={{ '--row-tint': color, '--node-x': `${nodeX}px`, '--node-radius': `${nodeRadius}px` } as React.CSSProperties}
                     />
                     <div className="git-message-col-pill" data-selected={isSelected ? 'true' : 'false'} style={{ '--row-tint': color } as React.CSSProperties} />
                     <div
@@ -846,15 +846,15 @@ function GitGraphComponent({
                 const findHit = stashFindHit(stash, findNeedle)
                 const isContextActive = contextMenu?.type === 'stash' && contextMenu.stash.hash === stash.hash
                 const rowTintClass = cn(isContextActive ? 'bg-[color-mix(in_oklab,var(--accent)_12%,transparent)]' : '')
-                const nodeRadius = selected ? 13 : 9
-                const nodeX = xAt(stashPoint?.lane ?? 0) + nodeRadius
+                const nodeRadius = selected ? 12.5 : 8
+                const nodeX = xAt(stashPoint?.lane ?? 0)
                 return (
                   <li key={stash.name} className="group/commit git-commit-row relative z-0 h-[26px] max-h-[26px] min-w-0 shrink-0 overflow-visible hover:z-10">
                     {/* Seamless dual highlight pills across graph and message columns */}
                     <div
                       className="git-graph-col-pill"
                       data-selected={selected ? 'true' : 'false'}
-                      style={{ '--row-tint': color, '--node-x': `${nodeX}px` } as React.CSSProperties}
+                      style={{ '--row-tint': color, '--node-x': `${nodeX}px`, '--node-radius': `${nodeRadius}px` } as React.CSSProperties}
                     />
                     <div className="git-message-col-pill" data-selected={selected ? 'true' : 'false'} style={{ '--row-tint': color } as React.CSSProperties} />
                     <div
@@ -941,8 +941,8 @@ function GitGraphComponent({
               const isHovered = isContextActive || hoveredHash === commit.hash
               const isMerge = commit.parents.length > 1
               const isConflictedMerge = isMerge && Boolean(conflicts?.[commit.hash]?.hasConflict)
-              const nodeRadius = isMerge ? (selected ? 9 : 5) : selected ? 13 : isHead ? 11 : 9
-              const nodeX = xAt(point?.lane ?? 0) + nodeRadius
+              const nodeRadius = isMerge ? (selected ? 8.5 : 4) : selected ? 12.5 : isHead ? 10 : 8
+              const nodeX = xAt(point?.lane ?? 0)
               return (
                 <li
                   key={commit.hash}
@@ -961,7 +961,13 @@ function GitGraphComponent({
                     className="git-graph-col-pill"
                     data-selected={selected ? 'true' : 'false'}
                     data-branch-hit={isBranchHit ? 'true' : 'false'}
-                    style={{ '--row-tint': color, '--node-x': `${nodeX}px` } as React.CSSProperties}
+                    style={
+                      {
+                        '--row-tint': color,
+                        '--node-x': `${nodeX}px`,
+                        '--node-radius': `${nodeRadius}px`,
+                      } as React.CSSProperties
+                    }
                   />
                   <div
                     className="git-message-col-pill"

@@ -113,8 +113,11 @@
   position: absolute;
   top: 0.125rem;
   bottom: 0.125rem;
-  left: calc(var(--git-branch-w) + max(0px, calc(var(--node-x, 0px) - var(--git-graph-scroll-x, 0px))));
-  width: max(0px, calc(var(--git-graph-w) - max(0px, calc(var(--node-x, 0px) - var(--git-graph-scroll-x, 0px)))));
+  left: calc(var(--git-branch-w) + var(--node-x, 0px) - var(--git-graph-scroll-x, 0px));
+  width: max(0px, calc(var(--git-graph-w) - (var(--node-x, 0px) - var(--git-graph-scroll-x, 0px))));
+  clip-path: inset(0 0 0 max(0px, calc(var(--git-graph-scroll-x, 0px) - var(--node-x, 0px))));
+  mask-image: radial-gradient(circle at left center, transparent calc(var(--node-radius, 8px) - 0.5px), black var(--node-radius, 8px));
+  -webkit-mask-image: radial-gradient(circle at left center, transparent calc(var(--node-radius, 8px) - 0.5px), black var(--node-radius, 8px));
   border-radius: 0;
   z-index: 0;
   pointer-events: none;
