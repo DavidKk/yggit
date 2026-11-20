@@ -843,13 +843,6 @@ export function GitFileDiff({ repo, hash, path, status = 'M', onClose, onPrevFil
               { id: 'wrap', label: t('git.diff.wrap'), icon: <LuWrapText /> },
             ]}
           />
-          {hasConflict && onOpenConflictView ? (
-            <Tooltip content={t('git.diff.conflictComparison')}>
-              <Button variant="plain" size="mini" onClick={onOpenConflictView} aria-label={t('git.diff.conflictComparison')}>
-                <LuGitMerge className="size-3.5 text-warn" />
-              </Button>
-            </Tooltip>
-          ) : null}
         </div>
         <div className="flex items-center justify-end gap-1.5">
           {/* File navigation stays compact; change navigation remains available through keyboard shortcuts. */}
@@ -883,6 +876,13 @@ export function GitFileDiff({ repo, hash, path, status = 'M', onClose, onPrevFil
               <LuSearch className="size-3.5" aria-hidden />
             </Button>
           )}
+          {hasConflict && onOpenConflictView ? (
+            <Tooltip content={t('git.diff.conflictComparison')}>
+              <Button variant="plain" size="icon" onClick={onOpenConflictView} aria-label={t('git.diff.conflictComparison')}>
+                <LuGitMerge className="size-3.5 text-warn" />
+              </Button>
+            </Tooltip>
+          ) : null}
           <Button variant="plain" size="icon" aria-label={t('git.diff.close')} onClick={onClose}>
             <LuX aria-hidden />
           </Button>
