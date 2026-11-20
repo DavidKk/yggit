@@ -7,6 +7,7 @@
 import { normalizeRemote, projectId } from '@/lib/git/identity'
 import { consolidateProjects, isPrivateRemote, remoteIdentity } from '@/lib/git/project-access'
 import type { GitProjectCatalog, GitProjectHost, GitProjectView } from '@/lib/git/types'
+import { HANDLES_DATABASE } from '@/lib/storage/databases'
 
 declare global {
   interface Window {
@@ -57,7 +58,7 @@ export interface StoredMetaRecord {
   value: unknown
 }
 
-const DB_NAME = 'yggit_handles_store'
+const DB_NAME = HANDLES_DATABASE
 const DB_VERSION = 2
 const HANDLES_STORE = 'directory_handles'
 const ALIASES_STORE = 'repo_aliases'

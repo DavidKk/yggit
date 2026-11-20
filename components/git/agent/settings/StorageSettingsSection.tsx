@@ -1,31 +1,33 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { LuRefreshCw, LuTrash2 } from 'react-icons/lu'
 
 import { useConfirm } from '@/components/confirm/ConfirmProvider'
 import { useT } from '@/components/i18n/LocaleProvider'
-import { Button } from '@/components/sk'
-import { clearBrowserStorage, inspectBrowserStorage, readStoragePage, STORAGE_PAGE_SIZE, type StorageEntry, type StorageSource } from '@/lib/storage/browser-storage'
+import { Button, Tooltip } from '@/components/sk'
+import { clearBrowserStorage, deleteBrowserDatabase, inspectBrowserStorage, type StorageSource } from '@/lib/storage/browser-storage'
 
 import { SettingsSectionCard } from './SettingsSectionCard'
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(1)} KB`
+  if (bytes < 1024 ** 3) return `${(bytes / 1024 ** 2).toFixed(1)} MB`
+  return `${(bytes / 1024 ** 3).toFixed(1)} GB`
+}
 
 export function StorageSettingsSection() {
   const t = useT()
   const confirm = useConfirm()
   const [sources, setSources] = useState<StorageSource[]>([])
-  const [selected, setSelected] = useState<StorageSource | null>(null)
-  const [entries, setEntries] = useState<StorageEntry[]>([])
-  const [page, setPage] = useState(0)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const generation = useRef(0)
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     const current = ++generation.current
     setBusy(true)
     setError('')
-    setSelected(null)
-    setEntries([])
     try {
       const result = await inspectBrowserStorage()
       if (current === generation.current) setSources(result)
@@ -34,30 +36,35 @@ export function StorageSettingsSection() {
     } finally {
       if (current === generation.current) setBusy(false)
     }
-  }
+  }, [])
   useEffect(() => {
     const counter = generation
     void refresh()
     return () => {
       counter.current++
     }
-  }, [])
-  const read = async (source: StorageSource, nextPage: number) => {
-    const current = ++generation.current
-    setSelected(source)
-    setPage(nextPage)
-    setEntries([])
-    setError('')
-    setBusy(true)
-    try {
-      const result = await readStoragePage(source, nextPage * STORAGE_PAGE_SIZE)
-      if (current === generation.current) setEntries(result)
-    } catch (err) {
-      if (current === generation.current) setError(String(err))
-    } finally {
-      if (current === generation.current) setBusy(false)
-    }
-  }
+  }, [refresh])
+
+  const remove = (name?: string) =>
+    confirm({
+      title: t(name ? 'gitAgent.storageDelete' : 'gitAgent.storageClear'),
+      description: name ? t('gitAgent.storageDeleteConfirm', { name }) : t('gitAgent.storageClearConfirm'),
+      confirmLabel: t(name ? 'gitAgent.storageDelete' : 'gitAgent.storageClear'),
+      confirmVariant: 'fail',
+      onConfirm: async () => {
+        setBusy(true)
+        setError('')
+        try {
+          if (name) await deleteBrowserDatabase(name)
+          else await clearBrowserStorage()
+          window.location.reload()
+        } catch (err) {
+          await refresh()
+          setError(`${t('gitAgent.storageClearFailed')} ${String(err)}`)
+        }
+      },
+    })
+
   return (
     <SettingsSectionCard
       title={t('gitAgent.storageTitle')}
@@ -68,29 +75,7 @@ export function StorageSettingsSection() {
             <LuRefreshCw aria-hidden />
             {t('gitAgent.storageRefresh')}
           </Button>
-          <Button
-            variant="fail"
-            disabled={busy}
-            onClick={() =>
-              void confirm({
-                title: t('gitAgent.storageClear'),
-                description: t('gitAgent.storageClearConfirm'),
-                confirmLabel: t('gitAgent.storageClear'),
-                confirmVariant: 'fail',
-                onConfirm: async () => {
-                  setBusy(true)
-                  setError('')
-                  try {
-                    await clearBrowserStorage()
-                    window.location.reload()
-                  } catch (err) {
-                    setError(`${t('gitAgent.storageClearFailed')} ${String(err)}`)
-                    setBusy(false)
-                  }
-                },
-              })
-            }
-          >
+          <Button variant="fail" disabled={busy || sources.length === 0} onClick={() => void remove()}>
             <LuTrash2 aria-hidden />
             {t('gitAgent.storageClear')}
           </Button>
@@ -102,53 +87,32 @@ export function StorageSettingsSection() {
           {error}
         </p>
       )}
-      <div className="flex max-h-64 flex-col overflow-auto rounded border border-line">
-        {sources.map((source) => (
-          <Button
-            key={`${source.kind}:${source.name}:${source.store ?? ''}`}
-            variant="plain"
-            disabled={busy || !!source.error}
-            className="min-h-8 shrink-0 justify-between rounded-none text-xs"
-            onClick={() => void read(source, 0)}
-          >
-            <span className="min-w-0 truncate">
-              {source.kind === 'idb' ? 'IndexedDB · ' : source.kind === 'cache' ? 'Cache Storage · ' : ''}
-              {source.name}
-              {source.store ? ` / ${source.store}` : ''}
-            </span>
-            <span>{source.error ?? source.count ?? '—'}</span>
-          </Button>
-        ))}
-      </div>
-      {!busy && sources.length === 0 && <p className="text-xs text-ink-soft">{t('gitAgent.storageEmpty')}</p>}
-      {selected && (
-        <div className="grid gap-2">
-          <div className="flex items-center justify-between gap-2 text-xs">
-            <span className="truncate">
-              {selected.name}
-              {selected.store ? ` / ${selected.store}` : ''}
-            </span>
-            <div className="flex gap-2">
-              <Button disabled={busy || page === 0} onClick={() => void read(selected, page - 1)}>
-                {t('gitAgent.storagePrevious')}
+      <p className="text-xs text-ink-soft" aria-live="polite">
+        {t('gitAgent.storageDatabaseCount', { count: sources.length })}
+      </p>
+      {sources.length > 0 && (
+        <ul className="max-h-64 overflow-auto divide-y divide-line rounded border border-line">
+          {sources.map((source) => (
+            <li key={source.name} className="flex min-h-10 items-center gap-3 px-3 py-1 text-xs">
+              <span className="min-w-0 flex-1 break-all font-mono">{source.name}</span>
+              <Tooltip content={source.error ? t('gitAgent.storageSizeUnknown') : t('gitAgent.storageSizeHint')}>
+                <span className="shrink-0 tabular-nums text-ink-soft">{source.bytes === undefined ? '—' : `≈ ${formatBytes(source.bytes)}`}</span>
+              </Tooltip>
+              <Button
+                variant="plain"
+                size="mini"
+                disabled={busy}
+                aria-label={t('gitAgent.storageDeleteDatabase', { name: source.name })}
+                tooltip={t('gitAgent.storageDelete')}
+                onClick={() => void remove(source.name)}
+              >
+                <LuTrash2 aria-hidden />
               </Button>
-              <Button disabled={busy || entries.length < STORAGE_PAGE_SIZE} onClick={() => void read(selected, page + 1)}>
-                {t('gitAgent.storageNext')}
-              </Button>
-            </div>
-          </div>
-          <p className="text-xs text-ink-soft">{t('gitAgent.storagePreviewHint')}</p>
-          <div className="max-h-96 overflow-auto rounded border border-line">
-            {entries.map((entry) => (
-              <details key={entry.key} className="border-b border-line p-2 text-xs">
-                <summary className="cursor-pointer break-all font-mono">{entry.key}</summary>
-                <pre className="overflow-auto whitespace-pre-wrap break-all pt-2">{entry.value}</pre>
-              </details>
-            ))}
-            {!busy && entries.length === 0 && <p className="p-2 text-xs text-ink-soft">{t('gitAgent.storageEmpty')}</p>}
-          </div>
-        </div>
+            </li>
+          ))}
+        </ul>
       )}
+      {!busy && sources.length === 0 && <p className="text-xs text-ink-soft">{t('gitAgent.storageEmpty')}</p>}
     </SettingsSectionCard>
   )
 }

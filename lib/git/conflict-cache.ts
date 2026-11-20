@@ -4,6 +4,8 @@
  * Seamlessly interfaces with local file cache via /api/git/conflicts in local mode.
  */
 
+import { CONFLICTS_DATABASE } from '@/lib/storage/databases'
+
 export interface MergeConflictRecord {
   hash: string
   hasConflict: boolean
@@ -17,7 +19,7 @@ export interface MergeConflictRecord {
   analyzedAt: number
 }
 
-const DB_NAME = 'yggit_conflicts_cache'
+const DB_NAME = CONFLICTS_DATABASE
 const DB_VERSION = 1
 const STORE_NAME = 'conflicts'
 

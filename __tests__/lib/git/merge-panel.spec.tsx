@@ -120,7 +120,8 @@ it('renders conflict badge when conflict is detected and calls onOpenConflictVie
     )
   })
 
-  const conflictBtn = container.querySelector<HTMLButtonElement>('button[aria-label="曾发生冲突"]')
+  const conflictBtn =
+    container.querySelector<HTMLButtonElement>('button[aria-label="git.operations.conflictBadge"]') || container.querySelector<HTMLButtonElement>('button[aria-label="曾发生冲突"]')
   expect(conflictBtn).toBeTruthy()
   await act(async () => conflictBtn?.click())
   expect(onOpenConflictView).toHaveBeenCalled()

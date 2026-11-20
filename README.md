@@ -17,7 +17,7 @@
 ## Key Features
 
 - 🌳 **Organic World Tree DAG** — Cubic Bézier branch curves, smooth branch-to-trunk gradient convergence, and trunk vs. side-branch line-width differentiation.
-- ⏱️ **GitKraken-Style Seam Dividers** — Zero-gap date grouping dividers seamlessly positioned on commit seams without stretching or inflating graph lane geometry.
+- ⏱️ **Zero-Gap Seam Dividers** — Zero-gap date grouping dividers seamlessly positioned on commit seams without stretching or inflating graph lane geometry.
 - 🌿 **Semantic Node Styling** — Circular dashed stash capsules, head ring pulse animations, and merge junction nodes.
 - 📋 **Comprehensive Context Actions** — Right-click context menus across all columns (copy branch name, commit subject, full/short hash, author, and timestamp).
 - 🧭 **Multi-Repository Workspace Switcher** — Seamlessly manage and switch between local and remote repositories with real-time status detection.

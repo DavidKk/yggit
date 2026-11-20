@@ -21,7 +21,7 @@ import type { MessageTree } from '@/lib/i18n/messages/types'
 
 const commonEn = {
   locale: { label: 'Language', switch: 'Language', auto: 'System ({name})' },
-  theme: { label: 'Appearance', switch: 'Appearance', auto: 'System', autoShort: 'System', light: 'Light', dark: 'Dark' },
+  theme: { label: 'Appearance', switch: 'Appearance', auto: 'System', autoShort: 'System', light: 'Light', lightShort: 'Light', dark: 'Dark', darkShort: 'Dark' },
   nav: {
     main: 'Nav',
     menu: 'Navigation',

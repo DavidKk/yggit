@@ -1,13 +1,14 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { AiOutlineFileSync } from 'react-icons/ai'
+import { IoCheckmark } from 'react-icons/io5'
 import { LuActivity, LuArrowLeft, LuSave, LuShieldAlert, LuTrash2, LuTriangleAlert } from 'react-icons/lu'
 
 import { ConfiguredSecretInput } from '@/components/ConfiguredSecretInput/configured-secret-input'
 import { useT } from '@/components/i18n/LocaleProvider'
-import { Badge, Button, InputSuggestion, Select, TagInput, TextInput } from '@/components/sk'
+import { Button, InputSuggestion, Select, Spinner, TagInput, TextInput } from '@/components/sk'
 import { useAgent } from '@/lib/agent/agent-context'
 import { filterAllowedModels, getModelFilterConflicts, isModelAllowed } from '@/lib/agent/model-filter'
 import type { AgentModelProfile } from '@/lib/agent/model-profiles'
@@ -40,13 +41,30 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
 
   const initialProfile: AgentModelProfile = useMemo(() => {
     if (profile) return profile
+    let baseConfig = { ...DEFAULT_AGENT_CONFIG }
+    let initialName = ''
+    if (isNew && typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search)
+      const providerParam = urlParams.get('provider') as AgentProviderType | null
+      if (providerParam && AGENT_PRESETS[providerParam]) {
+        const preset = AGENT_PRESETS[providerParam]
+        baseConfig = {
+          provider: providerParam,
+          model: preset.defaultModel,
+          baseUrl: preset.baseUrl,
+          apiKey: '',
+          stream: true,
+        }
+        initialName = preset.name
+      }
+    }
     return {
       id: crypto.randomUUID(),
-      name: '',
-      config: { ...DEFAULT_AGENT_CONFIG },
+      name: initialName,
+      config: baseConfig,
       filter: { whitelist: [], blacklist: [] },
     }
-  }, [profile])
+  }, [profile, isNew])
 
   const [draft, setDraft] = useState<AgentModelProfile>(() => ({
     ...initialProfile,
@@ -57,11 +75,32 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
     },
   }))
 
+  useEffect(() => {
+    if (profile) {
+      setDraft({
+        ...profile,
+        config: { ...profile.config },
+        filter: {
+          whitelist: [...(profile.filter?.whitelist || [])],
+          blacklist: [...(profile.filter?.blacklist || [])],
+        },
+      })
+    }
+  }, [profile])
+
   const [keyDraft, setKeyDraft] = useState('')
   const [clearKey, setClearKey] = useState(false)
   const [testing, setTesting] = useState(false)
-  const [testResult, setTestResult] = useState<{ ok: boolean; latencyMs?: number; error?: string } | null>(null)
+  const [testState, setTestState] = useState<'idle' | 'loading' | 'success' | 'failure'>('idle')
+  const [testTooltip, setTestTooltip] = useState('')
+  const resetTimerRef = useRef<number | null>(null)
   const [error, setError] = useState('')
+
+  React.useEffect(() => {
+    return () => {
+      if (resetTimerRef.current !== null) window.clearTimeout(resetTimerRef.current)
+    }
+  }, [])
 
   // Remote models fetching state
   const [fetchingModels, setFetchingModels] = useState(false)
@@ -86,16 +125,35 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
   const isModelBlocked = Boolean(config.model.trim()) && !isModelAllowed(config.model.trim(), channelFilter)
   const filterConflicts = getModelFilterConflicts(channelFilter)
 
-  function validationError() {
-    if (!draft.name.trim() || !config.model.trim() || !config.baseUrl?.trim()) return t('gitAgent.requiredFields')
+  function validateAndFocus(): string {
+    if (!draft.name.trim()) {
+      document.getElementById('agent-model-name')?.focus()
+      return t('gitAgent.requiredFields')
+    }
+    if (!config.baseUrl?.trim()) {
+      document.getElementById('agent-model-endpoint')?.focus()
+      return t('gitAgent.requiredFields')
+    }
     try {
       const url = new URL(config.baseUrl.trim())
-      if (!['http:', 'https:'].includes(url.protocol)) return t('gitAgent.invalidEndpoint')
+      if (!['http:', 'https:'].includes(url.protocol)) {
+        document.getElementById('agent-model-endpoint')?.focus()
+        return t('gitAgent.invalidEndpoint')
+      }
     } catch {
+      document.getElementById('agent-model-endpoint')?.focus()
       return t('gitAgent.invalidEndpoint')
     }
-    if (preset.requiresKey && !config.apiKey?.trim()) return t('gitAgent.keyRequired')
+    if (!config.model.trim()) {
+      document.getElementById('agent-model-id')?.focus()
+      return t('gitAgent.requiredFields')
+    }
+    if (preset.requiresKey && !config.apiKey?.trim()) {
+      document.getElementById('agent-api-key')?.focus()
+      return t('gitAgent.keyRequired')
+    }
     if (!isModelAllowed(config.model.trim(), channelFilter)) {
+      document.getElementById('agent-model-id')?.focus()
       return t('gitAgent.modelBlockedNotice')
     }
     return ''
@@ -112,15 +170,35 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
   }
 
   async function handleTest() {
-    const message = validationError()
+    const message = validateAndFocus()
     setError(message)
     if (message) return
+    if (resetTimerRef.current !== null) {
+      window.clearTimeout(resetTimerRef.current)
+      resetTimerRef.current = null
+    }
     setTesting(true)
-    setTestResult(null)
+    setTestState('loading')
+    setTestTooltip('正在测试连接，请稍候…')
     try {
-      setTestResult(await testAgentConnection(validatedConfig()))
+      const res = await testAgentConnection(validatedConfig())
+      if (res.ok) {
+        setTestState('success')
+        setTestTooltip(`连接成功${res.latencyMs ? ` (${res.latencyMs}ms)` : ''}`)
+      } else {
+        setTestState('failure')
+        setTestTooltip(res.error || '连接测试失败')
+      }
+    } catch (err) {
+      setTestState('failure')
+      setTestTooltip(err instanceof Error ? err.message : '连接测试失败')
     } finally {
       setTesting(false)
+      resetTimerRef.current = window.setTimeout(() => {
+        setTestState('idle')
+        setTestTooltip('')
+        resetTimerRef.current = null
+      }, 5000)
     }
   }
 
@@ -163,7 +241,8 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
 
   function updateConfig(patch: Partial<typeof draft.config>) {
     setDraft((previous) => ({ ...previous, config: { ...previous.config, ...patch } }))
-    setTestResult(null)
+    setTestState('idle')
+    setTestTooltip('')
     setError('')
     setModelsFetchFailed(false)
     setModelsFetchMsg('')
@@ -187,6 +266,24 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
 
   const showApiKeyField = config.provider !== 'local-sdk'
 
+  let testButtonContent: React.ReactNode = (
+    <>
+      <LuActivity aria-hidden="true" />
+      {t('gitAgent.testConnection')}
+    </>
+  )
+  let buttonTooltip = testTooltip || t('gitAgent.testConnection') || '测试连接'
+  const isButtonDisabled = testing || testState === 'loading'
+
+  if (testState === 'loading') {
+    testButtonContent = <Spinner className="size-3.5 text-accent" />
+    buttonTooltip = '正在测试连接中，请稍候…'
+  } else if (testState === 'success') {
+    testButtonContent = <IoCheckmark className="size-4 text-ok" />
+  } else if (testState === 'failure') {
+    testButtonContent = <LuTriangleAlert className="size-4 text-fail" />
+  }
+
   const content = (
     <div className="flex flex-col gap-4">
       <SettingsSectionCard
@@ -208,7 +305,7 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
           data-lpignore="true"
           onSubmit={(event) => {
             event.preventDefault()
-            const message = validationError()
+            const message = validateAndFocus()
             setError(message)
             if (message) return
             saveProfile({
@@ -386,13 +483,15 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
                     value={keyDraft}
                     onChange={(value) => {
                       setKeyDraft(value)
-                      setTestResult(null)
+                      setTestState('idle')
+                      setTestTooltip('')
                       setError('')
                     }}
                     onClear={() => {
                       setKeyDraft('')
                       setClearKey(true)
-                      setTestResult(null)
+                      setTestState('idle')
+                      setTestTooltip('')
                     }}
                   />
                 </div>
@@ -468,24 +567,23 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
             </p>
           )}
 
-          {testResult && (
-            <div role="status" className="text-xs break-words mt-2">
-              <Badge tone={testResult.ok ? 'ok' : 'fail'}>{t(testResult.ok ? 'gitAgent.testSuccess' : 'gitAgent.testFailed')}</Badge>
-              <span className="ml-2 text-ink-soft">{testResult.ok ? `${testResult.latencyMs} ms` : testResult.error}</span>
-            </div>
-          )}
-
           <div className="flex items-center justify-between gap-3 border-t border-line pt-3 mt-1">
-            <Button onClick={handleNavigateBack} disabled={testing}>
+            <Button onClick={handleNavigateBack} disabled={testing || testState === 'loading'}>
               <LuArrowLeft aria-hidden="true" />
               {t('gitAgent.backToModels')}
             </Button>
             <div className="flex items-center gap-2">
-              <Button loading={testing} onClick={handleTest}>
-                <LuActivity aria-hidden="true" />
-                {t(testing ? 'gitAgent.testing' : 'gitAgent.testConnection')}
+              <Button
+                type="button"
+                disabled={isButtonDisabled}
+                onClick={handleTest}
+                className={cn(testState !== 'idle' && 'min-w-[40px] px-2.5 justify-center')}
+                tooltip={buttonTooltip}
+                aria-label={buttonTooltip}
+              >
+                {testButtonContent}
               </Button>
-              <Button type="submit" variant="accent" disabled={testing}>
+              <Button type="submit" variant="accent" disabled={testing || testState === 'loading'}>
                 <LuSave aria-hidden="true" />
                 {t('common.save')}
               </Button>

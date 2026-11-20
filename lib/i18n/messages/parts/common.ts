@@ -2,7 +2,7 @@ import type { MessageTree } from '@/lib/i18n/messages/types'
 
 export const commonZh = {
   locale: { label: '语言', switch: '切换语言', auto: '跟随系统（{name}）' },
-  theme: { label: '外观', switch: '切换外观', auto: '跟随系统', autoShort: '系统', light: '光亮', dark: '暗黑' },
+  theme: { label: '外观', switch: '切换外观', auto: '自动（跟随系统）', autoShort: '自动', light: '浅色模式', lightShort: '浅色', dark: '深色模式', darkShort: '深色' },
   nav: {
     main: '导航',
     menu: '导航',

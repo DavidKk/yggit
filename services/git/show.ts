@@ -89,21 +89,35 @@ function parsePorcelain(text: string): GitFileChange[] {
     }
     filePath = filePath.replace(/^"|"$/g, '').replace(/\\"/g, '"')
     oldPath = oldPath.replace(/^"|"$/g, '').replace(/\\"/g, '"')
-    if (!filePath || seen.has(filePath)) continue
+    // Directory paths end with '/' (folders are not file changes)
+    if (!filePath || filePath.endsWith('/') || seen.has(filePath)) continue
     seen.add(filePath)
+    const isConflict = xy === 'UU' || xy === 'AA' || xy === 'DD' || xy === 'AU' || xy === 'UD' || xy === 'UA' || xy === 'DU'
     let status = 'M'
-    if (xy === '??' || xy === 'A ' || xy === 'AM' || xy[0] === 'A' || xy[1] === 'A') status = 'A'
+    if (isConflict) status = 'U'
+    else if (xy === '??' || xy === 'A ' || xy === 'AM' || xy[0] === 'A' || xy[1] === 'A') status = 'A'
     else if (xy[0] === 'D' || xy[1] === 'D') status = 'D'
     else if (xy[0] === 'R' || xy[1] === 'R') status = 'R'
     else if (xy[0] === 'C' || xy[1] === 'C') status = 'C'
-    files.push({ status, path: filePath, oldPath: status === 'R' || status === 'C' ? oldPath : '' })
+
+    const staged = !isConflict && xy[0] !== ' ' && xy[0] !== '?'
+    const unstaged = isConflict || xy[1] !== ' ' || xy === '??'
+
+    files.push({
+      status,
+      path: filePath,
+      oldPath: status === 'R' || status === 'C' ? oldPath : '',
+      staged,
+      unstaged,
+      conflict: isConflict,
+    })
   }
   files.sort((left, right) => left.path.localeCompare(right.path))
   return files
 }
 
 async function readWorktreeChanges(repo: string, filesOnly: boolean, filePath: string, allFiles: boolean): Promise<GitCommitChanges> {
-  const porcelain = await git(repo, ['status', '--porcelain'])
+  const porcelain = await git(repo, ['status', '--porcelain', '-uall'])
   const changed = parsePorcelain(porcelain)
   const picked = filePath ? assertFilePath(filePath) : ''
   if (picked) {

@@ -43,14 +43,8 @@ it('shows a secondary branch badge and its node connector on pointer hover', asy
     })
     const merge = host.querySelector('[data-git-commit-hash="merge"]')!
     const cell = merge.querySelector('[data-git-message-cell]')!
-    const warning = cell.querySelector('button')!
-    expect(cell.className).toContain('bg-[color-mix')
-    expect(warning.className).toContain('text-danger')
-    expect(warning.hasAttribute('aria-expanded')).toBe(false)
-    await act(async () => {
-      warning.click()
-    })
-    expect(document.body.textContent).not.toContain('查看 3 视窗对比')
+    expect(cell.className).not.toContain('bg-[color-mix')
+    expect(cell.querySelector('button')).toBeNull()
     const row = host.querySelector('[data-git-commit-hash="other"]')!
     const badge = row.querySelector('[title="feature"]')!
     const connector = () => host.querySelector('line[y1="65"]')

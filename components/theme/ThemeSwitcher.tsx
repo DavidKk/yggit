@@ -31,17 +31,24 @@ export function ThemeSwitcher({ className }: Props) {
   const TriggerIcon = preference === 'auto' ? LuMonitor : theme === 'light' ? IoSunnyOutline : IoMoonOutline
 
   const options: Array<{ value: ThemePreference; label: string; Icon: typeof LuMonitor }> = [
-    { value: 'auto', label: t('theme.auto'), Icon: LuMonitor },
-    { value: 'light', label: t('theme.light'), Icon: IoSunnyOutline },
-    { value: 'dark', label: t('theme.dark'), Icon: IoMoonOutline },
+    { value: 'auto', label: t('theme.auto') || '自动（跟随系统）', Icon: LuMonitor },
+    { value: 'light', label: t('theme.light') || '浅色模式', Icon: IoSunnyOutline },
+    { value: 'dark', label: t('theme.dark') || '深色模式', Icon: IoMoonOutline },
   ]
+
+  const triggerLabel =
+    preference === 'auto'
+      ? t('theme.autoShort') || t('theme.auto') || '自动'
+      : theme === 'light'
+        ? t('theme.lightShort') || t('theme.light') || '浅色'
+        : t('theme.darkShort') || t('theme.dark') || '深色'
 
   return (
     <span ref={anchorRef} className={cn('inline-flex', className)}>
       <Menu.Root>
         <Menu.Trigger aria-label={t('theme.switch')} className={dropdownTriggerClass}>
           <TriggerIcon size={15} aria-hidden className="shrink-0" />
-          <span className="whitespace-nowrap">{preference === 'auto' ? t('theme.autoShort') : theme === 'light' ? t('theme.light') : t('theme.dark')}</span>
+          <span className="whitespace-nowrap">{triggerLabel}</span>
         </Menu.Trigger>
         <Menu.Portal container={container}>
           <Menu.Positioner side="bottom" align="end" sideOffset={6} collisionPadding={8} positionMethod="fixed" className="z-[70]">

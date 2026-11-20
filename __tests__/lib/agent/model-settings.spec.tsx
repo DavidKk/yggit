@@ -31,6 +31,7 @@ jest.mock('@/components/sk', () => ({
     return <button type="button" {...rest} disabled={rest.disabled || loading} />
   },
   Badge: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,
+  Spinner: () => <span data-testid="spinner" />,
   Tooltip: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   Select: ({ options, value, onChange, ...rest }: { options: { value: string; label: string }[]; value: string; onChange: (value: string) => void }) => (
     <select {...rest} value={value} onChange={(event) => onChange(event.target.value)}>

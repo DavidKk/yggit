@@ -9,9 +9,12 @@ export type GitAgentMessages = {
   storageClearConfirm: string
   storageClearFailed: string
   storageEmpty: string
-  storagePrevious: string
-  storageNext: string
-  storagePreviewHint: string
+  storageDatabaseCount: string
+  storageSizeHint: string
+  storageSizeUnknown: string
+  storageDelete: string
+  storageDeleteDatabase: string
+  storageDeleteConfirm: string
   menuActionsTitle: string
   menuActionsDesc: string
   addAction: string
@@ -95,6 +98,9 @@ export type GitAgentMessages = {
   privacyAllowList: string
   privacyAllowListPlaceholder: string
   quickAnswer: string
+  minimizeToPill?: string
+  restoreQuickAnswer?: string
+  restoreQuickAnswerHint?: string
   dockRight: string
   dockBottom: string
   dockClose: string
@@ -102,6 +108,7 @@ export type GitAgentMessages = {
   spotlightTitle: string
   spotlightPrev: string
   spotlightNext: string
+  spotlightJump: string
   spotlightClear: string
   evidenceFact: string
   evidenceDerived: string
@@ -118,6 +125,13 @@ export type GitAgentMessages = {
   copyAnswer: string
   analyzing: string
   analyzingLog: string
+  processingDefault?: string
+  processingProject?: string
+  processingBranch?: string
+  processingSettings?: string
+  processingTheme?: string
+  processingConflict?: string
+  processingCode?: string
   executedTool: string
   send: string
   quickModelPopoverTitle: string

@@ -2,13 +2,19 @@
 
 import React from 'react'
 import {
+  LuArchive,
+  LuArrowDown,
+  LuArrowUp,
   LuBot,
   LuClock,
   LuExternalLink,
+  LuEye,
+  LuEyeOff,
   LuFolderGit2,
   LuFolderPlus,
   LuGitBranch,
   LuGitBranchPlus,
+  LuGitCommitHorizontal,
   LuGitMerge,
   LuGitPullRequest,
   LuHash,
@@ -18,6 +24,7 @@ import {
   LuTag,
   LuText,
   LuTrash2,
+  LuUndo,
   LuUser,
 } from 'react-icons/lu'
 
@@ -51,10 +58,23 @@ export interface BuildBranchMenuOptions {
   remoteUrl?: string
   worktree?: GitWorktree
   isReadOnly?: boolean
+  isRemote?: boolean
   hasWorktrees?: boolean
+  soloBranch?: string | null
   config: ContextMenuUserConfig
   onNotify?: (type: 'success' | 'error', message: string) => void
-  onCheckoutBranch?: (branch: string) => void
+  onCheckoutBranch?: (branch: string, isRemote?: boolean) => void
+  onCreateBranch?: (branchName: string, startPoint?: string) => void
+  onDeleteBranch?: (branchName: string) => void
+  onRenameBranch?: (oldName: string) => void
+  onMergeBranch?: (branchName: string) => void
+  onRebaseBranch?: (branchName: string) => void
+  onPushBranch?: (branchName: string) => void
+  onPullBranch?: (branchName: string) => void
+  onCherryPick?: (hash: string) => void
+  onUndoCommit?: () => void
+  onStashAction?: (action: 'apply' | 'pop' | 'drop' | 'save', index?: number) => void
+  onSoloBranch?: (branch: string | null) => void
   onAgentPrompt?: (prompt: string) => void
 }
 
@@ -73,10 +93,23 @@ export function buildBranchContextMenu({
   remoteUrl,
   worktree: _worktree,
   isReadOnly = false,
+  isRemote = false,
   hasWorktrees = false,
+  soloBranch,
   config,
   onNotify,
   onCheckoutBranch,
+  onCreateBranch,
+  onDeleteBranch,
+  onRenameBranch,
+  onMergeBranch,
+  onRebaseBranch,
+  onPushBranch,
+  onPullBranch,
+  onCherryPick,
+  onUndoCommit,
+  onStashAction,
+  onSoloBranch,
   onAgentPrompt,
 }: BuildBranchMenuOptions): FloatingMenuItem[] {
   const shortHash = commit?.short || commit?.hash?.slice(0, 7) || ''
@@ -86,15 +119,28 @@ export function buildBranchContextMenu({
     else onNotify?.('error', '复制失败')
   }
 
+  const cleanBranch = isRemote && branchName ? branchName.replace(/^[^/]+\//, '') : branchName
+
   // 1. Definition of all atomic actions
   const allActions: Record<string, FloatingMenuItem> = {
+    'solo-branch': {
+      key: 'solo-branch',
+      label: soloBranch === branchName ? '退出 SOLO' : 'SOLO 分支',
+      icon: soloBranch === branchName ? <LuEyeOff className="size-4 shrink-0 text-accent" /> : <LuEye className="size-4 shrink-0 text-accent" />,
+      checked: soloBranch === branchName,
+      onSelect: () => {
+        if (onSoloBranch) {
+          onSoloBranch(soloBranch === branchName ? null : branchName || null)
+        }
+      },
+    },
     'copy-branch': {
       key: 'copy-branch',
-      label: branchName ? `复制分支名` : '复制分支名',
+      label: cleanBranch ? `复制分支名 (${cleanBranch})` : '复制分支名',
       icon: <LuGitBranch className="size-4 shrink-0 text-accent" />,
       shortcut: '⌘C',
       onSelect: () => {
-        if (branchName) void copyVal(branchName)
+        if (cleanBranch) void copyVal(cleanBranch)
       },
     },
     'copy-hash': {
@@ -178,10 +224,10 @@ export function buildBranchContextMenu({
     },
     'checkout-branch': {
       key: 'checkout-branch',
-      label: branchName ? `切换到 ${branchName}` : '切换到此分支',
+      label: isRemote ? (branchName ? `检出为本地分支 (${branchName})` : '检出为本地分支') : branchName ? `切换到 ${branchName}` : '切换到此分支',
       icon: <LuGitPullRequest className="size-4 shrink-0 text-accent" />,
       onSelect: () => {
-        if (branchName) onCheckoutBranch?.(branchName)
+        if (branchName) onCheckoutBranch?.(branchName, isRemote)
       },
     },
     'new-branch': {
@@ -189,7 +235,11 @@ export function buildBranchContextMenu({
       label: '基于此分支新建分支…',
       icon: <LuGitBranchPlus className="size-4 shrink-0 text-ink-soft" />,
       onSelect: () => {
-        onNotify?.('success', `准备基于 ${branchName || shortHash} 创建分支`)
+        if (onCreateBranch) {
+          onCreateBranch(branchName || '', commit?.hash)
+        } else {
+          onNotify?.('success', `准备基于 ${branchName || shortHash} 创建分支`)
+        }
       },
     },
     'rename-branch': {
@@ -197,15 +247,85 @@ export function buildBranchContextMenu({
       label: '重命名分支…',
       icon: <LuPencil className="size-4 shrink-0 text-ink-soft" />,
       onSelect: () => {
-        onNotify?.('success', `重命名分支：${branchName}`)
+        if (branchName && onRenameBranch) {
+          onRenameBranch(branchName)
+        } else {
+          onNotify?.('success', `重命名分支：${branchName}`)
+        }
       },
     },
     'merge-branch': {
       key: 'merge-branch',
-      label: '合并到当前分支…',
+      label: '合并到当前分支 (Merge)',
       icon: <LuGitMerge className="size-4 shrink-0 text-ink-soft" />,
       onSelect: () => {
-        onNotify?.('success', `合并分支：${branchName}`)
+        if (branchName && onMergeBranch) {
+          onMergeBranch(branchName)
+        } else {
+          onNotify?.('success', `合并分支：${branchName}`)
+        }
+      },
+    },
+    'rebase-branch': {
+      key: 'rebase-branch',
+      label: branchName ? `变基到 ${branchName} (Rebase)` : '变基到此分支 (Rebase)',
+      icon: <LuGitCommitHorizontal className="size-4 shrink-0 text-accent" />,
+      onSelect: () => {
+        if (branchName && onRebaseBranch) {
+          onRebaseBranch(branchName)
+        } else {
+          onNotify?.('success', `变基分支：${branchName}`)
+        }
+      },
+    },
+    'push-branch': {
+      key: 'push-branch',
+      label: branchName ? `推送分支 ${branchName}` : '推送此分支 (Push)',
+      icon: <LuArrowUp className="size-4 shrink-0 text-accent" />,
+      onSelect: () => {
+        if (branchName && onPushBranch) {
+          onPushBranch(branchName)
+        }
+      },
+    },
+    'pull-branch': {
+      key: 'pull-branch',
+      label: branchName ? `从远端拉取 ${branchName}` : '拉取此分支 (Pull)',
+      icon: <LuArrowDown className="size-4 shrink-0 text-ok" />,
+      onSelect: () => {
+        if (branchName && onPullBranch) {
+          onPullBranch(branchName)
+        }
+      },
+    },
+    'stash-changes': {
+      key: 'stash-changes',
+      label: '暂存工作区修改 (Stash)',
+      icon: <LuArchive className="size-4 shrink-0 text-accent" />,
+      onSelect: () => {
+        if (onStashAction) {
+          onStashAction('save')
+        }
+      },
+    },
+    'cherry-pick': {
+      key: 'cherry-pick',
+      label: commit?.hash ? `遴选提交 ${shortHash}` : '遴选此提交 (Cherry-pick)',
+      icon: <LuGitCommitHorizontal className="size-4 shrink-0 text-ink-soft" />,
+      onSelect: () => {
+        if (commit?.hash && onCherryPick) {
+          onCherryPick(commit.hash)
+        } else {
+          onNotify?.('success', `准备遴选提交：${shortHash}`)
+        }
+      },
+    },
+    'undo-commit': {
+      key: 'undo-commit',
+      label: '撤销上一次提交 (Undo Commit)',
+      icon: <LuUndo className="size-4 shrink-0 text-warn" />,
+      onSelect: () => {
+        onUndoCommit?.()
       },
     },
     'create-tag': {
@@ -224,7 +344,11 @@ export function buildBranchContextMenu({
       needsConfirm: config.dangerConfirm,
       confirmText: '确定删除此分支？再次点击执行',
       onSelect: () => {
-        onNotify?.('success', `已删除分支：${branchName}`)
+        if (branchName && onDeleteBranch) {
+          onDeleteBranch(branchName)
+        } else {
+          onNotify?.('success', `已删除分支：${branchName}`)
+        }
       },
     },
     'new-worktree': {
@@ -259,7 +383,7 @@ export function buildBranchContextMenu({
 
   const items: FloatingMenuItem[] = []
 
-  // 2. 快捷区 (Quick Actions Area): Pinned top-level items
+  // 2. Quick Actions Area: Pinned top-level items
   for (const actionId of config.quickActions || []) {
     const action = allActions[actionId]
     if (action) {
@@ -271,7 +395,7 @@ export function buildBranchContextMenu({
     }
   }
 
-  // 3. 「复制 ›」二级子菜单
+  // 3. "Copy" submenu
   if (config.enabledGroups.copy) {
     const copyChildren: FloatingMenuItem[] = []
     if (branchName) copyChildren.push(allActions['copy-branch'])
@@ -293,18 +417,30 @@ export function buildBranchContextMenu({
     }
   }
 
-  // 4. 「分支操作 ›」二级子菜单 (动态根据仓库能力展示；只读模式隐藏本地写操作)
+  // SOLO branch view entry (when branch is specified and solo view is supported)
+  if (branchName && onSoloBranch) {
+    items.push({
+      ...allActions['solo-branch'],
+      dividerBefore: items.length > 0,
+    })
+  }
+
+  // 4. "Branch operations" submenu (dynamically filtered by repository capabilities; read-only mode hides write operations)
   const showBranchGroup = config.enabledGroups.branch && (!isReadOnly || !config.hideUnavailableCapabilities)
   if (showBranchGroup && branchName) {
     const branchChildren: FloatingMenuItem[] = [
+      allActions['solo-branch'],
       allActions['checkout-branch'],
       allActions['new-branch'],
       allActions['rename-branch'],
       allActions['merge-branch'],
+      allActions['rebase-branch'],
+      allActions['pull-branch'],
+      allActions['push-branch'],
       allActions['create-tag'],
     ]
 
-    // 危险操作位于子菜单底部
+    // Destructive operations placed at the bottom of submenu
     branchChildren.push({
       ...allActions['delete-branch'],
       dividerBefore: true,
@@ -318,7 +454,7 @@ export function buildBranchContextMenu({
     })
   }
 
-  // 5. 「Worktree ›」二级子菜单 (当仓库具备 Worktree 能力且非只读时展示)
+  // 5. "Worktree" submenu (displayed when repository supports worktrees and not read-only)
   const showWorktree = config.enabledGroups.worktree && (hasWorktrees || !config.hideUnavailableCapabilities) && !isReadOnly
   if (showWorktree) {
     items.push({
@@ -329,12 +465,12 @@ export function buildBranchContextMenu({
     })
   }
 
-  // 6. 「在远程打开」入口 (如果有远程仓库地址)
+  // 6. "Open in Remote" entry (when remote repository URL is available)
   if (config.enabledGroups.remote && remoteUrl) {
     items.push(allActions['open-remote'])
   }
 
-  // 7. 「Agent 智能能力 ›」 (从配置中读取启用的扩展动作)
+  // 7. "Agent Intelligent Capabilities" (custom actions enabled in configuration)
   if (config.enabledGroups.agent && config.agentActions?.some((a) => a.enabled)) {
     const activeAgentActions = config.agentActions.filter((a) => a.enabled)
     items.push({
@@ -351,6 +487,14 @@ export function buildBranchContextMenu({
           onAgentPrompt?.(prompt)
         },
       })),
+    })
+  }
+
+  // 8. Undo commit (when right-clicking HEAD commit with undo support)
+  if (onUndoCommit) {
+    items.push({
+      ...allActions['undo-commit'],
+      dividerBefore: true,
     })
   }
 

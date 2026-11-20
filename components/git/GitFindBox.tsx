@@ -3,6 +3,7 @@
 import React, { useEffect, useRef } from 'react'
 import { LuChevronDown, LuChevronUp, LuSearch, LuX } from 'react-icons/lu'
 
+import { useT } from '@/components/i18n/LocaleProvider'
 import { Button } from '@/components/sk'
 import { cn } from '@/lib/utils'
 
@@ -66,24 +67,40 @@ export function GitFindBox({
   onNext,
   current = 0,
   total,
-  placeholder = '搜索…',
+  placeholder,
   inputRef: externalInputRef,
   className,
-  ariaLabel = '搜索内容',
+  ariaLabel,
   size = 'auto',
   autoFocus = true,
 }: GitFindBoxProps) {
+  const t = useT()
   const localInputRef = useRef<HTMLInputElement | null>(null)
   const inputRef = externalInputRef || localInputRef
   const needle = value.trim()
 
+  const resolvedPlaceholder = placeholder ?? (t('common.search') || '搜索…')
+  const resolvedAriaLabel = ariaLabel ?? (t('common.search') || '搜索内容')
+
   useEffect(() => {
     if (autoFocus) {
-      const frame = window.requestAnimationFrame(() => {
-        inputRef.current?.focus({ preventScroll: true })
-        inputRef.current?.select()
-      })
-      return () => window.cancelAnimationFrame(frame)
+      const doFocus = () => {
+        if (inputRef.current) {
+          inputRef.current.focus({ preventScroll: true })
+          inputRef.current.select()
+        }
+      }
+      doFocus()
+      const t1 = setTimeout(doFocus, 0)
+      const t2 = setTimeout(doFocus, 50)
+      const t3 = setTimeout(doFocus, 150)
+      const frame = window.requestAnimationFrame(doFocus)
+      return () => {
+        clearTimeout(t1)
+        clearTimeout(t2)
+        clearTimeout(t3)
+        window.cancelAnimationFrame(frame)
+      }
     }
   }, [autoFocus, inputRef])
 
@@ -99,7 +116,7 @@ export function GitFindBox({
     countDisplay = <span className="text-ink-soft/50">—</span>
   } else if (hasTotal) {
     if (total === 0) {
-      countDisplay = <span className="font-semibold text-fail">0 条</span>
+      countDisplay = <span className="font-semibold text-fail">{t('git.history.findZero') || '0 条'}</span>
     } else if (total > 999) {
       // Too many results: display compact total only with K, M, B
       countDisplay = (
@@ -122,7 +139,7 @@ export function GitFindBox({
   return (
     <div
       role="search"
-      aria-label={ariaLabel}
+      aria-label={resolvedAriaLabel}
       className={cn(
         '@container flex flex-col rounded-2xl border border-line/80 bg-panel/95 p-2 shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-top-1 duration-150 select-none z-30',
         sizeClass,
@@ -135,9 +152,10 @@ export function GitFindBox({
         <input
           ref={inputRef}
           type="text"
+          autoFocus={autoFocus}
           value={value}
-          placeholder={placeholder}
-          aria-label={ariaLabel}
+          placeholder={resolvedPlaceholder}
+          aria-label={resolvedAriaLabel}
           className="min-w-0 flex-1 bg-transparent text-xs text-ink placeholder:text-ink-soft/60 outline-none font-medium"
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={(e) => {
@@ -154,15 +172,22 @@ export function GitFindBox({
             }
           }}
         />
-        <button
-          type="button"
-          aria-label="关闭搜索 (Esc)"
-          title="关闭搜索 (Esc)"
-          onClick={onClose}
-          className="size-5 shrink-0 flex items-center justify-center rounded text-ink-soft hover:text-ink hover:bg-[var(--overlay-08)] active:scale-95 transition-all cursor-pointer"
-        >
-          <LuX className="size-3.5" aria-hidden />
-        </button>
+        {value ? (
+          <button
+            type="button"
+            aria-label={t('common.clear') || 'Clear'}
+            title={t('common.clear') || 'Clear'}
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              onChange('')
+              inputRef.current?.focus({ preventScroll: true })
+            }}
+            className="size-5 shrink-0 flex items-center justify-center rounded text-ink-soft hover:text-ink hover:bg-[var(--overlay-08)] active:scale-95 transition-all cursor-pointer"
+          >
+            <LuX className="size-3.5" aria-hidden />
+          </button>
+        ) : null}
       </div>
 
       {/* Bottom tier: Results count on left, Prev & Next navigation on right */}
@@ -180,8 +205,8 @@ export function GitFindBox({
                 variant="plain"
                 size="icon"
                 className="size-7 shrink-0 rounded-lg border border-line/70 bg-panel-2/70 hover:bg-panel hover:text-ink text-ink-soft shadow-2xs flex items-center justify-center p-0 active:scale-95 transition-all disabled:opacity-35"
-                aria-label="上一个匹配 (Shift+Enter)"
-                title="上一个匹配 (Shift+Enter)"
+                aria-label={`${t('git.history.prev') || 'Previous'} (Shift+Enter)`}
+                title={`${t('git.history.prev') || 'Previous'} (Shift+Enter)`}
                 disabled={total === 0}
                 onClick={onPrev}
               >
@@ -191,12 +216,22 @@ export function GitFindBox({
                 variant="plain"
                 size="icon"
                 className="size-7 shrink-0 rounded-lg border border-line/70 bg-panel-2/70 hover:bg-panel hover:text-ink text-ink-soft shadow-2xs flex items-center justify-center p-0 active:scale-95 transition-all disabled:opacity-35"
-                aria-label="下一个匹配 (Enter)"
-                title="下一个匹配 (Enter)"
+                aria-label={`${t('git.history.next') || 'Next'} (Enter)`}
+                title={`${t('git.history.next') || 'Next'} (Enter)`}
                 disabled={total === 0}
                 onClick={onNext}
               >
                 <LuChevronDown className="size-3.5" aria-hidden />
+              </Button>
+              <Button
+                variant="plain"
+                size="icon"
+                className="size-7 shrink-0 rounded-lg border border-line/70 bg-panel-2/70 hover:bg-panel hover:text-ink text-ink-soft shadow-2xs flex items-center justify-center p-0 active:scale-95 transition-all"
+                aria-label={`${t('git.history.closeFind') || t('common.close') || 'Close'} (Esc)`}
+                title={`${t('git.history.closeFind') || t('common.close') || 'Close'} (Esc)`}
+                onClick={onClose}
+              >
+                <LuX className="size-3.5" aria-hidden />
               </Button>
             </div>
           )}

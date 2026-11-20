@@ -58,6 +58,9 @@ jest.mock('@/components/sk', () => ({
   ScrollArea: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   VirtualList: jest.requireActual('@/components/sk/VirtualList').VirtualList,
   EmptyState: ({ title }: { title: string }) => <p>{title}</p>,
+  Tooltip: ({ children }: { children: ReactNode }) => <>{children}</>,
+  Spinner: () => <span data-testid="spinner" />,
+  TextInput: (props: ComponentProps<'input'>) => <input {...props} />,
   SegmentedNav: ({ items, value, onChange }: { items: { id: string; label: string }[]; value: string; onChange: (id: string) => void }) => (
     <div>
       {items.map((item) => (
@@ -111,7 +114,12 @@ it('keeps all-files available while a working-tree panel shares the preference',
       </>
     )
   })
-  await act(async () => container.querySelectorAll<HTMLButtonElement>('[aria-label="视图与展开选项"]')[1].click())
+  await act(async () => {
+    const btn =
+      container.querySelectorAll<HTMLButtonElement>('[aria-label="git.commit.fileViewsAria"]')[1] ||
+      container.querySelectorAll<HTMLButtonElement>('[aria-label="视图与展开选项"]')[1]
+    btn.click()
+  })
   const allTab = container.querySelector<HTMLButtonElement>('[data-menu-key="view-all"]')!
   await act(async () => allTab.click())
   expect(preference()).toBe('all')
@@ -134,7 +142,7 @@ it('supports searching and filtering files with data-git-find attribute', async 
   await act(async () => root.render(panel(commit)))
   const aside = container.querySelector('aside')
   expect(aside?.getAttribute('data-git-find')).toBe('files')
-  const searchButton = container.querySelector('button[aria-label="搜索文件"]')
+  const searchButton = container.querySelector('button[aria-label="git.project.searchProjects"]') || container.querySelector('button[aria-label="搜索文件"]')
   expect(searchButton).not.toBeNull()
 })
 
@@ -160,7 +168,11 @@ describe('conflict file controls', () => {
     return <GitCommitPanel repo="edge_test" commit={selected} width={540} selectedPath="" onSelect={jest.fn()} onClose={jest.fn()} {...props} />
   }
   async function toggle() {
-    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="视图与展开选项"]')!.click())
+    await act(async () => {
+      const btn =
+        container.querySelector<HTMLButtonElement>('[aria-label="git.commit.fileViewsAria"]') || container.querySelector<HTMLButtonElement>('[aria-label="视图与展开选项"]')
+      btn?.click()
+    })
     await act(async () => container.querySelector<HTMLButtonElement>('[data-menu-key="conflicts-only"]')!.click())
   }
 

@@ -27,6 +27,7 @@ import { useT } from '@/components/i18n/LocaleProvider'
 import { Button, Spinner, Tooltip } from '@/components/sk'
 import { useAgent } from '@/lib/agent/agent-context'
 import { isModelAllowed } from '@/lib/agent/model-filter'
+import { getAgentProcessingStatus } from '@/lib/agent/status-helper'
 import { copyToClipboard } from '@/lib/clipboard'
 import { cn } from '@/lib/utils'
 
@@ -145,7 +146,10 @@ export function AgentWorkspace({ repoPath, className }: Props) {
     <aside
       role="region"
       aria-label={t('gitAgent.dockTitle')}
-      className={cn('z-20 flex flex-col border-l border-line bg-panel shrink-0 transition-all duration-200 overflow-hidden w-[440px] max-w-full h-full shadow-2xl', className)}
+      className={cn(
+        'z-20 flex flex-col border-l border-line bg-panel shrink-0 transition-all duration-200 overflow-hidden w-[440px] max-w-full h-full shadow-2xl animate-in fade-in slide-in-from-right duration-200',
+        className
+      )}
     >
       {/* Workspace Header - h-10 to match File Panel (GitCommitPanel) header height */}
       <div className="flex h-10 shrink-0 items-center justify-between border-b border-line px-2.5 bg-panel-2/70 select-none">
@@ -239,7 +243,7 @@ export function AgentWorkspace({ repoPath, className }: Props) {
             </div>
           </div>
         ) : (
-          messages.map((m) => {
+          messages.map((m, index) => {
             const isUser = m.role === 'user'
             const isTool = m.role === 'tool'
 
@@ -289,7 +293,15 @@ export function AgentWorkspace({ repoPath, className }: Props) {
                   ) : m.isStreaming ? (
                     <div className="flex items-center gap-1.5 text-ink-soft py-0.5">
                       <Spinner className="size-3 text-accent shrink-0" />
-                      <span>{t('gitAgent.analyzingLog')}</span>
+                      <span>
+                        {getAgentProcessingStatus(
+                          messages
+                            .slice(0, index)
+                            .reverse()
+                            .find((item) => item.role === 'user')?.content,
+                          t
+                        )}
+                      </span>
                     </div>
                   ) : null}
 

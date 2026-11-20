@@ -109,7 +109,15 @@ export class EdgeRepositoryReader {
           if (change.removed) deletions += change.count || 0
         }
       }
-      return { files: files.length, insertions, deletions }
+      let addedFiles = 0
+      let deletedFiles = 0
+      let modifiedFiles = 0
+      for (const file of files) {
+        if (file.status === 'A' || file.status === '?' || file.status === 'U') addedFiles++
+        else if (file.status === 'D') deletedFiles++
+        else modifiedFiles++
+      }
+      return { files: files.length, insertions, deletions, addedFiles, deletedFiles, modifiedFiles }
     } catch {
       return null
     }

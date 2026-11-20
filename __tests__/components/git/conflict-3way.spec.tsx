@@ -10,7 +10,7 @@ import type { GitCommit } from '@/lib/git/types'
 
 jest.mock('@/components/i18n/LocaleProvider', () => {
   const t = (key: string) => key
-  return { useT: () => t }
+  return { useT: () => t, useLocaleCode: () => 'zh' }
 })
 
 let root: Root
@@ -203,7 +203,6 @@ it('cycles conflict targets in both directions across all three panes', async ()
   const next = container.querySelector<HTMLButtonElement>('[aria-label="git.diff.nextConflict"]')!
   const previous = container.querySelector<HTMLButtonElement>('[aria-label="git.diff.previousConflict"]')!
   expect(next.disabled).toBe(false)
-  await act(async () => next.click())
   expect(targets()).toEqual(['1', '2', '0'])
   await act(async () => next.click())
   expect(targets()).toEqual(['30', '31', '29'])

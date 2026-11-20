@@ -22,7 +22,7 @@ export type MessageTree = {
   git: GitMessages
   play: PlayMessages
   locale: { label: string; switch: string; auto: string }
-  theme: { label: string; switch: string; auto: string; autoShort: string; light: string; dark: string }
+  theme: { label: string; switch: string; auto: string; autoShort: string; light: string; lightShort?: string; dark: string; darkShort?: string }
   nav: {
     main: string
     menu: string

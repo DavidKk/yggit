@@ -70,12 +70,11 @@ it('synchronously dismisses tooltip when right-click context menu is closed', as
   const trigger = host.querySelector('[data-git-ref-menu-trigger]') as HTMLElement
   expect(trigger).not.toBeNull()
 
-  // Hover to open overlay tooltip
+  // Hover to open overlay badge stack
   await act(async () => {
     trigger.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, relatedTarget: document.body }))
   })
-  expect(document.querySelector('[data-git-floating-menu]')).not.toBeNull()
-  expect(document.querySelector('[data-git-floating-menu]')?.classList.contains('bg-panel')).toBe(true)
+  expect(document.querySelector('[data-git-ref-badges-hover]')).not.toBeNull()
 
   // Right-click to open context menu
   await act(async () => {
@@ -89,8 +88,9 @@ it('synchronously dismisses tooltip when right-click context menu is closed', as
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
   })
 
-  // Both context menu and overlay tooltip should be synchronously dismissed
+  // Both context menu and overlay badges should be synchronously dismissed
   expect(document.querySelectorAll('[data-git-floating-menu]').length).toBe(0)
+  expect(document.querySelectorAll('[data-git-ref-badges-hover]').length).toBe(0)
 })
 
 it('dismisses open context menu and tooltip when scrolling', async () => {

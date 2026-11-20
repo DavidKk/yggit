@@ -125,15 +125,28 @@ async function readLogPage(repo: string, ref: string, skip: number): Promise<{ c
 async function readWorktree(repo: string): Promise<GitWorktree | null> {
   let porcelain = ''
   try {
-    porcelain = await git(repo, ['status', '--porcelain'])
+    porcelain = await git(repo, ['status', '--porcelain', '-uall'])
   } catch {
     return null
   }
   const files = porcelain
     .split('\n')
     .map((line) => line.trim())
-    .filter(Boolean)
+    .filter((line) => {
+      if (!line) return false
+      const pathPart = line.slice(3).trim().replace(/^"|"$/g, '')
+      return !pathPart.endsWith('/')
+    })
   if (files.length === 0) return null
+  let addedFiles = 0
+  let deletedFiles = 0
+  let modifiedFiles = 0
+  for (const line of files) {
+    const status = line.slice(0, 2)
+    if (status.includes('?') || status.includes('A')) addedFiles++
+    else if (status.includes('D')) deletedFiles++
+    else modifiedFiles++
+  }
   let insertions = 0
   let deletions = 0
   try {
@@ -147,7 +160,7 @@ async function readWorktree(repo: string): Promise<GitWorktree | null> {
   } catch {
     /* 还没有 HEAD 时只计文件数 */
   }
-  return { files: files.length, insertions, deletions }
+  return { files: files.length, insertions, deletions, addedFiles, deletedFiles, modifiedFiles }
 }
 
 export async function readGitHistory(input: { repo?: string; ref?: string; skip?: number }): Promise<{ commits: GitCommit[]; hasMore: boolean }> {

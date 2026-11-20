@@ -25,13 +25,119 @@ import type { GitCommit, GitCommitChanges, GitLogView, GitProjectCatalog, GitPro
 import { parseGitHubRepo, readRemoteBlobData, readRemoteCommitChanges, readRemoteGitLog } from '@/services/git/remote-provider'
 
 import { EdgeRepositoryReader } from './edge-repository-reader'
-import type { AddProjectPayload, AddRemoteProjectOptions, GitDeleteFolderResult, IGitDriver, ReadBlobOptions, ReadCommitDiffOptions, ReadLogOptions } from './types'
+import type {
+  AddProjectPayload,
+  AddRemoteProjectOptions,
+  GitBlameLine,
+  GitCheckoutOptions,
+  GitCommitOptions,
+  GitDeleteFolderResult,
+  GitFetchOptions,
+  GitPullOptions,
+  GitPushOptions,
+  GitStashOptions,
+  IGitDriver,
+  ReadBlobOptions,
+  ReadCommitDiffOptions,
+  ReadLogOptions,
+} from './types'
 
 export class EdgeGitDriver implements IGitDriver {
   readonly mode = 'edge' as const
   private readonly repositories = new Map<string, Promise<EdgeRepositoryReader>>()
 
+  async checkoutBranch(_repo: string, _branch: string, _options?: GitCheckoutOptions): Promise<{ ok: boolean; message: string }> {
+    throw new Error('浏览器 Edge 模式暂不支持直接切换分支，请在本地模式使用')
+  }
+
+  async createBranch(_repo: string, _branch: string, _startPoint?: string, _checkout?: boolean): Promise<{ ok: boolean; message: string }> {
+    throw new Error('浏览器 Edge 模式暂不支持创建分支，请在本地模式使用')
+  }
+
+  async deleteBranch(_repo: string, _branch: string, _force?: boolean): Promise<{ ok: boolean; message: string }> {
+    throw new Error('浏览器 Edge 模式暂不支持删除分支，请在本地模式使用')
+  }
+
+  async renameBranch(_repo: string, _oldName: string, _newName: string): Promise<{ ok: boolean; message: string }> {
+    throw new Error('浏览器 Edge 模式暂不支持重命名分支，请在本地模式使用')
+  }
+
+  async mergeBranch(_repo: string, _branch: string): Promise<{ ok: boolean; message: string; conflict?: boolean }> {
+    throw new Error('浏览器 Edge 模式暂不支持合并分支，请在本地模式使用')
+  }
+
+  async rebaseBranch(_repo: string, _branch: string, _options?: { abort?: boolean; continue?: boolean }): Promise<{ ok: boolean; message: string; conflict?: boolean }> {
+    throw new Error('浏览器 Edge 模式暂不支持变基分支，请在本地模式使用')
+  }
+
+  async cherryPick(_repo: string, _hash: string, _options?: { abort?: boolean; continue?: boolean }): Promise<{ ok: boolean; message: string; conflict?: boolean }> {
+    throw new Error('浏览器 Edge 模式暂不支持遴选提交，请在本地模式使用')
+  }
+
+  async commit(_repo: string, _message: string, _options?: boolean | GitCommitOptions): Promise<{ ok: boolean; message: string; hash?: string }> {
+    throw new Error('浏览器 Edge 模式暂不支持提交，请在本地模式使用')
+  }
+
+  async undo(_repo: string, _soft?: boolean): Promise<{ ok: boolean; message: string; undoneHash?: string }> {
+    throw new Error('浏览器 Edge 模式暂不支持撤销提交，请在本地模式使用')
+  }
+
+  async redo(_repo: string, _soft?: boolean): Promise<{ ok: boolean; message: string }> {
+    throw new Error('浏览器 Edge 模式暂不支持重做提交，请在本地模式使用')
+  }
+
+  async getLastCommit(_repo: string): Promise<{ summary: string; description: string }> {
+    return { summary: '', description: '' }
+  }
+
+  async createPatch(_repo: string, _options?: { path?: string; staged?: boolean }): Promise<{ patch: string }> {
+    return { patch: '' }
+  }
+
+  async ignorePattern(_repo: string, _pattern: string): Promise<{ ok: boolean; message: string }> {
+    throw new Error('浏览器 Edge 模式暂不支持添加忽略，请在本地模式使用')
+  }
+
+  async createFile(_repo: string, _relativePath: string): Promise<{ ok: boolean; message: string }> {
+    throw new Error('浏览器 Edge 模式暂不支持新建文件，请在本地模式使用')
+  }
+
+  async deleteFile(_repo: string, _relativePath: string): Promise<{ ok: boolean; message: string }> {
+    throw new Error('浏览器 Edge 模式暂不支持删除文件，请在本地模式使用')
+  }
+
+  async stage(_repo: string, _files?: string[], _all?: boolean): Promise<{ ok: boolean; message: string }> {
+    throw new Error('浏览器 Edge 模式暂不支持暂存，请在本地模式使用')
+  }
+
+  async unstage(_repo: string, _files?: string[], _all?: boolean): Promise<{ ok: boolean; message: string }> {
+    throw new Error('浏览器 Edge 模式暂不支持取消暂存，请在本地模式使用')
+  }
+
+  async discard(_repo: string, _files?: string[], _all?: boolean): Promise<{ ok: boolean; message: string }> {
+    throw new Error('浏览器 Edge 模式暂不支持撤销更改，请在本地模式使用')
+  }
+
+  async push(_repo: string, _options?: GitPushOptions): Promise<{ ok: boolean; message: string }> {
+    throw new Error('浏览器 Edge 模式暂不支持推送，请在本地模式使用')
+  }
+
+  async pull(_repo: string, _options?: GitPullOptions): Promise<{ ok: boolean; message: string }> {
+    throw new Error('浏览器 Edge 模式暂不支持拉取，请在本地模式使用')
+  }
+
+  async fetch(_repo: string, _options?: GitFetchOptions): Promise<{ ok: boolean; message: string }> {
+    throw new Error('浏览器 Edge 模式暂不支持抓取，请在本地模式使用')
+  }
+
+  async stash(_repo: string, _options: GitStashOptions): Promise<{ ok: boolean; message: string }> {
+    throw new Error('浏览器 Edge 模式暂不支持暂存栈，请在本地模式使用')
+  }
+
   private repository(repo: string): Promise<EdgeRepositoryReader> {
+    if (!repo || !repo.trim()) {
+      return Promise.reject(new Error('未指定项目仓库路径'))
+    }
     const hit = this.repositories.get(repo)
     if (hit) return hit
     const pending = getDirectoryHandle(repo)
@@ -53,6 +159,9 @@ export class EdgeGitDriver implements IGitDriver {
   }
 
   async readLog(options: ReadLogOptions): Promise<GitLogView> {
+    if (!options.repo || !options.repo.trim()) {
+      throw new Error('未指定项目仓库路径')
+    }
     const { branch, ref } = options
     const repo = parseGitHubRepo(options.repo) ? uniqueLocalProject((await getEdgeCatalog()).projects, options.repo)?.localPath || options.repo : options.repo
 
@@ -438,5 +547,13 @@ export class EdgeGitDriver implements IGitDriver {
     })
 
     return getEdgeCatalog()
+  }
+
+  async readBlame(_options: { repo: string; path: string; hash?: string }): Promise<Record<number, GitBlameLine>> {
+    return {}
+  }
+
+  async addWorktree(_repo: string, _path: string, _branch?: string): Promise<{ ok: boolean; message: string }> {
+    throw new Error('浏览器 Edge 模式暂不支持 Worktree，请在本地模式使用')
   }
 }

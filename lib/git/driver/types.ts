@@ -47,6 +47,45 @@ export interface AddRemoteProjectOptions {
   name?: string
 }
 
+export interface GitCheckoutOptions {
+  create?: boolean
+  startPoint?: string
+  track?: boolean
+}
+
+export interface GitCommitOptions {
+  stageAll?: boolean
+  amend?: boolean
+  noVerify?: boolean
+  pushAfter?: boolean
+}
+
+export interface GitPushOptions {
+  remote?: string
+  branch?: string
+  setUpstream?: boolean
+  force?: boolean
+}
+
+export interface GitPullOptions {
+  remote?: string
+  branch?: string
+  rebase?: boolean
+  ffOnly?: boolean
+}
+
+export interface GitFetchOptions {
+  remote?: string
+  all?: boolean
+}
+
+export interface GitStashOptions {
+  action: 'save' | 'pop' | 'apply' | 'drop'
+  message?: string
+  index?: number
+  paths?: string[]
+}
+
 export interface IGitDriver {
   readonly mode: GitDriverMode
 
@@ -69,6 +108,116 @@ export interface IGitDriver {
    * Read single file blob content at a specific commit hash
    */
   readBlob(options: ReadBlobOptions): Promise<{ content: string; binary: boolean }>
+
+  /**
+   * Switch or checkout branch
+   */
+  checkoutBranch(repo: string, branch: string, options?: GitCheckoutOptions): Promise<{ ok: boolean; message: string }>
+
+  /**
+   * Create new branch
+   */
+  createBranch(repo: string, branch: string, startPoint?: string, checkout?: boolean): Promise<{ ok: boolean; message: string }>
+
+  /**
+   * Delete local branch
+   */
+  deleteBranch(repo: string, branch: string, force?: boolean): Promise<{ ok: boolean; message: string }>
+
+  /**
+   * Rename branch
+   */
+  renameBranch(repo: string, oldName: string, newName: string): Promise<{ ok: boolean; message: string }>
+
+  /**
+   * Merge branch into current branch
+   */
+  mergeBranch(repo: string, branch: string): Promise<{ ok: boolean; message: string; conflict?: boolean }>
+
+  /**
+   * Rebase current branch onto target branch
+   */
+  rebaseBranch(repo: string, branch: string, options?: { abort?: boolean; continue?: boolean }): Promise<{ ok: boolean; message: string; conflict?: boolean }>
+
+  /**
+   * Cherry-pick commit into current branch
+   */
+  cherryPick(repo: string, hash: string, options?: { abort?: boolean; continue?: boolean }): Promise<{ ok: boolean; message: string; conflict?: boolean }>
+
+  /**
+   * Commit staged or all changes
+   */
+  commit(repo: string, message: string, options?: boolean | GitCommitOptions): Promise<{ ok: boolean; message: string; hash?: string }>
+
+  /**
+   * Undo last commit (git reset --soft HEAD~1)
+   */
+  undo(repo: string, soft?: boolean): Promise<{ ok: boolean; message: string; undoneHash?: string }>
+
+  /**
+   * Redo previously undone commit
+   */
+  redo(repo: string, soft?: boolean): Promise<{ ok: boolean; message: string }>
+
+  /**
+   * Get previous commit summary and description for amend
+   */
+  getLastCommit(repo: string): Promise<{ summary: string; description: string }>
+
+  /**
+   * Create git diff patch
+   */
+  createPatch(repo: string, options?: { path?: string; staged?: boolean }): Promise<{ patch: string }>
+
+  /**
+   * Add entry to .gitignore
+   */
+  ignorePattern(repo: string, pattern: string): Promise<{ ok: boolean; message: string }>
+
+  /**
+   * Create empty file
+   */
+  createFile(repo: string, relativePath: string): Promise<{ ok: boolean; message: string }>
+
+  /**
+   * Delete file
+   */
+  deleteFile(repo: string, relativePath: string): Promise<{ ok: boolean; message: string }>
+
+  /**
+   * Stage files
+   */
+  stage(repo: string, files?: string[], all?: boolean): Promise<{ ok: boolean; message: string }>
+
+  /**
+   * Unstage files
+   */
+  unstage(repo: string, files?: string[], all?: boolean): Promise<{ ok: boolean; message: string }>
+
+  /**
+   * Discard file changes in working directory
+   */
+  discard(repo: string, files?: string[], all?: boolean): Promise<{ ok: boolean; message: string }>
+
+  /**
+   * Push commits to remote
+   */
+  push(repo: string, options?: GitPushOptions): Promise<{ ok: boolean; message: string }>
+
+  /**
+   * Pull commits from remote
+   */
+  pull(repo: string, options?: GitPullOptions): Promise<{ ok: boolean; message: string }>
+
+  /**
+   * Fetch from remote
+   */
+  fetch(repo: string, options?: GitFetchOptions): Promise<{ ok: boolean; message: string }>
+
+  /**
+   * Stash operations
+   */
+  stash(repo: string, options: GitStashOptions): Promise<{ ok: boolean; message: string }>
 
   /**
    * Get list of registered projects
@@ -119,4 +268,23 @@ export interface IGitDriver {
    * Add a remote repository by URL
    */
   addRemoteProject(input: AddRemoteProjectOptions): Promise<GitProjectCatalog>
+
+  /**
+   * Add a new worktree
+   */
+  addWorktree?(repo: string, path: string, branch?: string): Promise<{ ok: boolean; message: string }>
+
+  /**
+   * Read blame information per line for a file
+   */
+  readBlame(options: { repo: string; path: string; hash?: string }): Promise<Record<number, GitBlameLine>>
+}
+
+export interface GitBlameLine {
+  line: number
+  hash: string
+  author: string
+  authorMail: string
+  date: string
+  summary: string
 }

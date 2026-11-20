@@ -2,7 +2,7 @@
  * 色板唯一真源。换皮 / 换主题只改本文件。
  * 控制台挂 :root，局内 overlay 挂 :host（Shadow 内）；两边 @import 同一份。
  *
- * 当前主题：世界树 · 电光蓝焦点（GitKraken-inspired contrast）
+ * 当前主题：世界树 · 电光蓝焦点
  * — 底座中性深岩灰 / 浅岩灰；`--accent` / `--wt-primary` 世界树青绿；`--focus-contrast` 电光蓝专管 UI 焦点
  * — 通过 `html[data-theme="dark"|"light"]` 切换；缺省按暗色（boot 脚本会在首屏前写入）
  */

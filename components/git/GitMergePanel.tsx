@@ -73,21 +73,21 @@ export function GitMergePanel({ commit, commits, conflict, highlighted, onHighli
       </div>
 
       {/* Extensible Statuses & Actions: pure ICON + TOOLTIP buttons with unified background & borders */}
-      <div className="flex items-center gap-1.5 shrink-0" role="toolbar" aria-label="合并状态与操作">
+      <div className="flex items-center gap-1.5 shrink-0" role="toolbar" aria-label={t('git.operations.groupBranchOps') || '合并状态与操作'}>
         {conflict?.hasConflict ? (
-          <Tooltip content="曾发生冲突" placement="top">
+          <Tooltip content={t('git.operations.conflictBadge') || '曾发生冲突'} placement="top">
             <button
               type="button"
               onClick={onOpenConflictView}
               className="flex size-7 items-center justify-center rounded-md border border-warn/40 bg-warn/15 text-warn hover:bg-warn/25 active:scale-95 transition-all cursor-pointer shadow-xs"
-              aria-label="曾发生冲突"
+              aria-label={t('git.operations.conflictBadge') || '曾发生冲突'}
             >
               <LuTriangleAlert className="size-3.5 shrink-0" aria-hidden="true" />
             </button>
           </Tooltip>
         ) : null}
 
-        <Tooltip content={highlighted ? t('git.commit.clearHighlight') || '取消高亮' : '高亮分支'} placement="top">
+        <Tooltip content={highlighted ? t('git.commit.clearHighlight') || '取消高亮' : t('git.commit.highlightLineage') || '高亮分支'} placement="top">
           <Button
             variant="plain"
             size="icon"
@@ -96,7 +96,7 @@ export function GitMergePanel({ commit, commits, conflict, highlighted, onHighli
               highlighted ? 'bg-accent/25 text-accent font-semibold border-accent/60' : 'bg-accent/15 text-accent border-accent/40 hover:bg-accent/25 active:scale-95'
             )}
             aria-pressed={highlighted}
-            aria-label={highlighted ? t('git.commit.clearHighlight') || '取消高亮' : '高亮分支'}
+            aria-label={highlighted ? t('git.commit.clearHighlight') || '取消高亮' : t('git.commit.highlightLineage') || '高亮分支'}
             onClick={() => onHighlight(!highlighted, topology.commitsIncluded)}
           >
             <LuEye className="size-3.5 text-accent shrink-0" aria-hidden />

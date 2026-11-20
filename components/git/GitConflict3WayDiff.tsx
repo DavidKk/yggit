@@ -1,15 +1,16 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { LuChevronDown, LuChevronUp, LuColumns2, LuFileCode, LuGitMerge, LuRows3, LuX } from 'react-icons/lu'
+import { LuAlignLeft, LuChevronDown, LuChevronUp, LuColumns2, LuFileCode, LuGitMerge, LuRows3, LuWrapText, LuX } from 'react-icons/lu'
 
 import { GitCodePane } from '@/components/git/GitCodePane'
 import { useT } from '@/components/i18n/LocaleProvider'
-import { Button, SegmentedNav } from '@/components/sk'
+import { Button, SegmentedNav, Tooltip } from '@/components/sk'
 import { fetchRemergeDiff, type MergeConflictRecord } from '@/lib/git/conflict-cache'
 import { conflictRegions, fileRemergePatch } from '@/lib/git/conflict-regions'
 import { analyzeMergeTopology } from '@/lib/git/topology'
 import type { GitCommit } from '@/lib/git/types'
+import { useGitUiPref } from '@/lib/git/ui-prefs'
 
 interface Props {
   repo?: string
@@ -19,7 +20,10 @@ interface Props {
   selectedPath: string
   onSelectPath: (path: string) => void
   onClose: () => void
+  onSwitchToDiff?: () => void
 }
+
+const isBoolean = (value: unknown): value is boolean => typeof value === 'boolean'
 
 const rowsFor = (content: string | null) =>
   content === null
@@ -29,8 +33,9 @@ const rowsFor = (content: string | null) =>
         .split('\n')
         .map((text, index) => ({ text, number: index + 1 }))
 
-export function GitConflict3WayDiff({ repo = '', commit, commits, conflict, selectedPath, onClose }: Props) {
+export function GitConflict3WayDiff({ repo = '', commit, commits, conflict, selectedPath, onClose, onSwitchToDiff }: Props) {
   const t = useT()
+  const [wordWrap, setWordWrap] = useGitUiPref('diff.wordWrap', false, isBoolean)
   const [viewMode, setViewMode] = useState('3way')
   const [contents, setContents] = useState<[string | null, string | null, string | null]>([null, null, null])
   const [remergeDiff, setRemergeDiff] = useState('')
@@ -45,6 +50,13 @@ export function GitConflict3WayDiff({ repo = '', commit, commits, conflict, sele
   const rows = useMemo(() => contents.map(rowsFor), [contents])
   const patchRows = useMemo(() => rowsFor(patch || null), [patch])
   const active = regions[navigation.index]
+
+  useEffect(() => {
+    if (regions.length > 0 && navigation.index === -1) {
+      setNavigation({ index: 0, sequence: 1 })
+    }
+  }, [regions, navigation.index])
+
   useEffect(() => {
     let cancelled = false
     setLoading(true)
@@ -86,23 +98,45 @@ export function GitConflict3WayDiff({ repo = '', commit, commits, conflict, sele
             {currentPath}
           </span>
         </div>
-        <SegmentedNav
-          aria-label={t('git.diff.conflictMode')}
-          size="mini"
-          value={viewMode}
-          onChange={setViewMode}
-          items={[
-            { id: '3way', label: t('git.diff.threeWay'), icon: <LuColumns2 /> },
-            { id: 'remerge', label: 'Remerge Diff', icon: <LuRows3 /> },
-          ]}
-        />
+        <div className="justify-self-center flex items-center gap-2">
+          <SegmentedNav
+            aria-label={t('git.diff.conflictMode')}
+            size="mini"
+            value={viewMode}
+            onChange={setViewMode}
+            items={[
+              { id: '3way', label: t('git.diff.threeWay'), icon: <LuColumns2 /> },
+              { id: 'remerge', label: 'Remerge Diff', icon: <LuRows3 /> },
+            ]}
+          />
+          <SegmentedNav
+            aria-label={t('git.diff.wrapMode')}
+            size="mini"
+            value={wordWrap ? 'wrap' : 'nowrap'}
+            onChange={(val) => setWordWrap(val === 'wrap')}
+            items={[
+              { id: 'nowrap', label: t('git.diff.noWrap'), icon: <LuAlignLeft /> },
+              { id: 'wrap', label: t('git.diff.wrap'), icon: <LuWrapText /> },
+            ]}
+          />
+        </div>
         <div className="flex items-center justify-end gap-1">
+          {regions.length > 0 && (
+            <span className="mr-1 text-xs text-ink-soft tabular-nums font-mono">{navigation.index >= 0 ? `${navigation.index + 1}/${regions.length}` : `${regions.length}`}</span>
+          )}
           <Button variant="plain" size="mini" disabled={loading || !regions.length} aria-label={t('git.diff.previousConflict')} onClick={() => step(-1)}>
             <LuChevronUp />
           </Button>
           <Button variant="plain" size="mini" disabled={loading || !regions.length} aria-label={t('git.diff.nextConflict')} onClick={() => step(1)}>
             <LuChevronDown />
           </Button>
+          {onSwitchToDiff && (
+            <Tooltip content={t('git.diff.diffView')}>
+              <Button variant="plain" size="mini" aria-label={t('git.diff.diffView')} onClick={onSwitchToDiff}>
+                <LuFileCode className="size-3.5 text-accent" />
+              </Button>
+            </Tooltip>
+          )}
           <Button variant="plain" size="mini" aria-label={t('common.close')} onClick={onClose}>
             <LuX />
           </Button>
@@ -118,6 +152,7 @@ export function GitConflict3WayDiff({ repo = '', commit, commits, conflict, sele
               loading={loading}
               targetLine={active?.parents[0]}
               targetSequence={navigation.sequence}
+              wordWrap={wordWrap}
             />
             <GitCodePane
               label={`${t('git.diff.parentTwo')} · ${topology?.sourceBranchHint || p2Hash.slice(0, 7)}`}
@@ -126,6 +161,7 @@ export function GitConflict3WayDiff({ repo = '', commit, commits, conflict, sele
               loading={loading}
               targetLine={active?.parents[1]}
               targetSequence={navigation.sequence}
+              wordWrap={wordWrap}
             />
           </div>
           <GitCodePane
@@ -135,10 +171,19 @@ export function GitConflict3WayDiff({ repo = '', commit, commits, conflict, sele
             loading={loading}
             targetLine={active?.result}
             targetSequence={navigation.sequence}
+            wordWrap={wordWrap}
           />
         </div>
       ) : (
-        <GitCodePane label="Remerge Diff" path={currentPath} rows={patchRows} loading={loading} targetLine={active?.patch} targetSequence={navigation.sequence} />
+        <GitCodePane
+          label="Remerge Diff"
+          path={currentPath}
+          rows={patchRows}
+          loading={loading}
+          targetLine={active?.patch}
+          targetSequence={navigation.sequence}
+          wordWrap={wordWrap}
+        />
       )}
     </section>
   )

@@ -1,5 +1,6 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
 import { LuGlobe, LuTerminal } from 'react-icons/lu'
 
 import { useT } from '@/components/i18n/LocaleProvider'
@@ -9,10 +10,13 @@ import { cn } from '@/lib/utils'
 
 export function GitModeSwitcher({ className }: { className?: string }) {
   const t = useT()
+  const router = useRouter()
   const { setMode, isEdge } = useGitDriver()
 
   const toggleMode = () => {
     setMode(isEdge ? 'local' : 'edge')
+    // Switching persistence drivers (IndexedDB/OPFS vs Node filesystem) requires selecting a repository in that mode
+    router.push('/git')
   }
 
   const tooltipText = isEdge ? t('git.driver.modeEdgeTip') : t('git.driver.modeLocalTip')

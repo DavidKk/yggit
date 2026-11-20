@@ -1,5 +1,6 @@
 import Image from 'next/image'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 
 import { PRODUCT_DISPLAY_NAME } from '@/constants/brand'
 import { cn } from '@/lib/utils'
@@ -33,6 +34,14 @@ function Wordmark({ className }: { className?: string }) {
 
 /** Shared mark and wordmark for dark application surfaces. */
 export function BrandLogo({ className, markClassName, wordmarkClassName, priority = false, href, animated = false, onClick }: Props) {
+  let pathname: string | null = null
+  try {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    pathname = usePathname()
+  } catch {
+    // Fallback if rendered outside Next navigation context
+  }
+
   const mark = <BrandMark className={markClassName} priority={priority} animated={animated} />
 
   const content = (
@@ -44,21 +53,19 @@ export function BrandLogo({ className, markClassName, wordmarkClassName, priorit
 
   const logoClassName = cn('inline-flex min-w-0 items-center gap-2', className)
 
-  if (href) {
-    return (
-      <Link
-        href={href}
-        onClick={onClick}
-        aria-label={`${PRODUCT_DISPLAY_NAME} 首页`}
-        className={cn(
-          logoClassName,
-          'rounded-[0.25rem] no-underline transition-opacity hover:opacity-85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color-mix(in_oklab,var(--accent)_50%,transparent)]'
-        )}
-      >
-        {content}
-      </Link>
-    )
-  }
+  const effectiveHref = href && href !== '/' ? href : pathname?.startsWith('/git') ? '/git' : href || '/'
 
-  return <span className={logoClassName}>{content}</span>
+  return (
+    <Link
+      href={effectiveHref}
+      onClick={onClick}
+      aria-label={`${PRODUCT_DISPLAY_NAME} 首页`}
+      className={cn(
+        logoClassName,
+        'rounded-[0.25rem] no-underline transition-opacity hover:opacity-85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color-mix(in_oklab,var(--accent)_50%,transparent)]'
+      )}
+    >
+      {content}
+    </Link>
+  )
 }

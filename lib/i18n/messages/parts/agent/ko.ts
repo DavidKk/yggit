@@ -1,0 +1,42 @@
+import type { GitAgentMessages } from '@/lib/i18n/messages/agent-types'
+
+import { gitAgentEn } from './en'
+
+export const gitAgentKo: { gitAgent: GitAgentMessages } = {
+  gitAgent: {
+    ...gitAgentEn.gitAgent,
+    barDragHint: '드래그하여 위치 이동',
+    barPlaceholder: 'Git Agent에게 질문하기 (예: 오늘 머지 확인 / 브랜치 오염 조사)...',
+    barAria: 'Git Agent 도우미',
+    settingsTitle: '설정',
+    tabModels: '모델 제공자',
+    tabPrivacy: '개인정보 및 마스킹',
+    tabGeneral: '일반 설정',
+    tabShortcuts: '단축키',
+    modelProvider: '제공자',
+    modelName: '모델명',
+    apiKey: 'API 키',
+    testConnection: '연결 테스트',
+    testing: '테스트 중...',
+    testSuccess: '연결 성공',
+    testFailed: '연결 실패',
+    latency: '지연 시간',
+    privacyNoticeTitle: '데이터 프라이버시 안내',
+    privacyNoticeBody: '무료 모델 계층을 사용 중입니다. 요청 데이터가 학습에 사용될 수 있으므로 민감한 사내 자산을 입력하지 마세요.',
+    privacyRedactTitle: '클라이언트 측 자동 마스킹',
+    privacyRedactDesc: '외부 요청 전 민감 정보 및 내부 네트워크 정보를 로컬에서 역방향 마스킹합니다.',
+    quickAnswer: '빠른 답변',
+    dockRight: '우측 고정',
+    dockBottom: '하단 고정',
+    dockClose: '접기',
+    dockTitle: 'Yggit · Agent',
+    spotlightTitle: '커밋 스포트라이트 탐색',
+    spotlightPrev: '이전 커밋',
+    spotlightNext: '다음 커밋',
+    spotlightJump: '커밋으로 이동',
+    spotlightClear: '스포트라이트 해제',
+    shortcutHint: '⌘J 또는 Ctrl+J로 호출',
+    deepDiscussion: '패널로 이동하여 토론',
+    clearHistory: '기록 지우기',
+  },
+}

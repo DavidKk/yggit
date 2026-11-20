@@ -1,0 +1,42 @@
+import type { GitAgentMessages } from '@/lib/i18n/messages/agent-types'
+
+import { gitAgentEn } from './en'
+
+export const gitAgentJa: { gitAgent: GitAgentMessages } = {
+  gitAgent: {
+    ...gitAgentEn.gitAgent,
+    barDragHint: 'ドラッグして位置を変更',
+    barPlaceholder: 'Git Agent に質問する (例: 本日のマージ確認 / ブランチ汚染調査)...',
+    barAria: 'Git Agent アシスタント',
+    settingsTitle: '設定',
+    tabModels: 'モデル接続',
+    tabPrivacy: 'プライバシーとマスキング',
+    tabGeneral: '一般設定',
+    tabShortcuts: 'ショートカット',
+    modelProvider: 'プロバイダー',
+    modelName: 'モデル名',
+    apiKey: 'API キー',
+    testConnection: '接続テスト',
+    testing: 'テスト中...',
+    testSuccess: '接続成功',
+    testFailed: '接続失敗',
+    latency: 'レイテンシ',
+    privacyNoticeTitle: 'データプライバシー通知',
+    privacyNoticeBody: '現在無料の公開モデルを利用しています。データが評価や学習に使用される可能性があるため機密情報を含めないでください。',
+    privacyRedactTitle: 'クライアント側自動マスキング',
+    privacyRedactDesc: 'リクエスト送信前に機密情報やメールアドレスをローカルで自動置換します。',
+    quickAnswer: 'クイックレスポンス',
+    dockRight: '右側にドック',
+    dockBottom: '下部にドック',
+    dockClose: '折りたたむ',
+    dockTitle: 'Yggit · Agent',
+    spotlightTitle: 'コミットスポットライト巡回',
+    spotlightPrev: '前のコミット',
+    spotlightNext: '次のコミット',
+    spotlightJump: 'コミットへ移動',
+    spotlightClear: 'スポットライト解除',
+    shortcutHint: '⌘J または Ctrl+J で起動',
+    deepDiscussion: 'ドックして詳細確認',
+    clearHistory: '履歴をクリア',
+  },
+}

@@ -37,6 +37,9 @@ export type GitWorktree = {
   files: number
   insertions: number
   deletions: number
+  addedFiles?: number
+  deletedFiles?: number
+  modifiedFiles?: number
 }
 
 export type GitRemoteBranch = {
@@ -135,6 +138,9 @@ export type GitFileChange = {
   status: string
   path: string
   oldPath: string
+  staged?: boolean
+  unstaged?: boolean
+  conflict?: boolean
 }
 
 export type GitCommitChanges = {

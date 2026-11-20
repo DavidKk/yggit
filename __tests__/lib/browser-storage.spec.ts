@@ -1,12 +1,18 @@
 /** @jest-environment jsdom */
-import { clearBrowserStorage, inspectBrowserStorage, previewStorageValue, readStoragePage, STORAGE_PAGE_SIZE } from '@/lib/storage/browser-storage'
+import { TextEncoder } from 'node:util'
+
+import { clearBrowserStorage, deleteBrowserDatabase, inspectBrowserStorage } from '@/lib/storage/browser-storage'
+import { APP_DATABASE_NAMES, CONFLICTS_DATABASE, HANDLES_DATABASE } from '@/lib/storage/databases'
 
 const originalIdb = Object.getOwnPropertyDescriptor(globalThis, 'indexedDB')
 const originalCaches = Object.getOwnPropertyDescriptor(globalThis, 'caches')
+const originalEncoder = Object.getOwnPropertyDescriptor(globalThis, 'TextEncoder')
+beforeEach(() => Object.defineProperty(globalThis, 'TextEncoder', { configurable: true, value: TextEncoder }))
 afterEach(() => {
   for (const [key, descriptor] of [
     ['indexedDB', originalIdb],
     ['caches', originalCaches],
+    ['TextEncoder', originalEncoder],
   ] as const) {
     if (descriptor) Object.defineProperty(globalThis, key, descriptor)
     else Reflect.deleteProperty(globalThis, key)
@@ -19,113 +25,141 @@ function installIdb(value: unknown) {
   Object.defineProperty(globalThis, 'indexedDB', { value, configurable: true })
 }
 
-it('paginates storage and limits previews, including binary and cyclic values', async () => {
-  for (let index = 0; index < 65; index++) localStorage.setItem(`key-${index}`, `value-${index}`)
-  const rows = await readStoragePage({ kind: 'local', name: 'localStorage' }, STORAGE_PAGE_SIZE)
-  expect(rows).toHaveLength(30)
-  expect(rows[0]).toEqual({ key: 'key-30', value: 'value-30' })
-  const cycle: { self?: unknown; bytes: Uint8Array; number: bigint } = { bytes: new Uint8Array(3), number: BigInt(2) }
+function deletionRequest(blocked = false) {
+  const request: Partial<IDBOpenDBRequest> = {}
+  queueMicrotask(() => {
+    if (blocked) request.onblocked?.call(request as IDBOpenDBRequest, new Event('blocked') as IDBVersionChangeEvent)
+    else request.onsuccess?.call(request as IDBOpenDBRequest, new Event('success'))
+  })
+  return request
+}
+
+function database(stores: Record<string, { key: unknown; value: unknown }[]>, abort = false) {
+  return {
+    close: jest.fn(),
+    objectStoreNames: Object.keys(stores),
+    transaction: () => {
+      let remaining = Object.keys(stores).length
+      const tx: Partial<IDBTransaction> = {
+        objectStore: (name: string) =>
+          ({
+            openCursor: () => {
+              const request: Partial<IDBRequest> = {}
+              let index = 0
+              const deliver = () => {
+                if (abort) {
+                  tx.onabort?.call(tx as IDBTransaction, new Event('abort'))
+                  return
+                }
+                const row = stores[name][index++]
+                Object.assign(request, { result: row ? { primaryKey: row.key, value: row.value, continue: () => queueMicrotask(deliver) } : null })
+                request.onsuccess?.call(request as IDBRequest, new Event('success'))
+                if (!row && --remaining === 0) tx.oncomplete?.call(tx as IDBTransaction, new Event('complete'))
+              }
+              queueMicrotask(deliver)
+              return request
+            },
+          }) as IDBObjectStore,
+      }
+      return tx
+    },
+  }
+}
+
+it('lists only registered databases once each and estimates payloads across stores', async () => {
+  const cycle: { self?: unknown; bytes: Uint8Array } = { bytes: new Uint8Array(3) }
   cycle.self = cycle
-  expect(previewStorageValue(cycle)).toContain('[Circular]')
-  expect(previewStorageValue(cycle)).toContain('"byteLength": 3')
-  expect(previewStorageValue('x'.repeat(20000))).toHaveLength(16000)
+  const db = database({
+    first: [{ key: 1, value: '中' }],
+    second: [
+      { key: 'b', value: new Blob(['12345']) },
+      { key: 'c', value: cycle },
+    ],
+  })
+  const open = jest.fn(() => {
+    const request: Partial<IDBOpenDBRequest> = { result: db as unknown as IDBDatabase }
+    queueMicrotask(() => request.onsuccess?.call(request as IDBOpenDBRequest, new Event('success')))
+    return request
+  })
+  installIdb({ databases: async () => [{ name: 'foreign' }, { name: 'yggit_not_registered' }, { name: HANDLES_DATABASE }], open })
+  // 8 + 3 for the first row; 1 + 5 for the second; 1 + 5 + 3 + 4 for the cyclic object.
+  expect(await inspectBrowserStorage()).toEqual([{ name: HANDLES_DATABASE, bytes: 30 }])
+  expect(open.mock.calls).toEqual([[HANDLES_DATABASE]])
+  expect(db.close).toHaveBeenCalledTimes(1)
 })
 
-it('reads one IndexedDB page with cursor advancement and closes the connection', async () => {
-  let index = 0
-  const cursorRequest: Partial<IDBRequest> = {}
-  const advance = jest.fn((offset: number) => {
-    index += offset
-    queueMicrotask(deliver)
-  })
-  const deliver = () => {
-    Object.assign(cursorRequest, {
-      result:
-        index < 100
-          ? {
-              key: index,
-              value: { index },
-              advance,
-              continue: () => {
-                index++
-                queueMicrotask(deliver)
-              },
-            }
-          : null,
-    })
-    cursorRequest.onsuccess?.call(cursorRequest as IDBRequest, new Event('success'))
-  }
-  const close = jest.fn()
-  const db = {
-    close,
-    transaction: () => ({
-      objectStore: () => ({
-        openCursor: () => {
-          queueMicrotask(deliver)
-          return cursorRequest
-        },
-      }),
-    }),
-  }
+it('reports aborted size scans without hiding the database or leaking connections', async () => {
+  const db = database({ entries: [] }, true)
   installIdb({
+    databases: async () => [{ name: CONFLICTS_DATABASE }],
     open: () => {
       const request: Partial<IDBOpenDBRequest> = { result: db as unknown as IDBDatabase }
       queueMicrotask(() => request.onsuccess?.call(request as IDBOpenDBRequest, new Event('success')))
       return request
     },
   })
-  const rows = await readStoragePage({ kind: 'idb', name: 'test', store: 'entries' }, 30)
-  expect(advance).toHaveBeenCalledWith(30)
-  expect(rows).toHaveLength(30)
-  expect(rows[0].key).toBe('30')
-  expect(rows[29].key).toBe('59')
-  expect(close).toHaveBeenCalledTimes(1)
+  expect(await inspectBrowserStorage()).toEqual([{ name: CONFLICTS_DATABASE, error: 'IndexedDB size estimation failed' }])
+  expect(db.close).toHaveBeenCalledTimes(1)
+})
+
+it('probes only registered names and aborts creation of absent databases without enumeration', async () => {
+  const abort = jest.fn()
+  const open = jest.fn(() => {
+    const request: Partial<IDBOpenDBRequest> = { transaction: { abort } as unknown as IDBTransaction }
+    queueMicrotask(() => {
+      request.onupgradeneeded?.call(request as IDBOpenDBRequest, new Event('upgradeneeded') as IDBVersionChangeEvent)
+      request.onerror?.call(request as IDBOpenDBRequest, new Event('error'))
+    })
+    return request
+  })
+  installIdb({ open })
+  expect(await inspectBrowserStorage()).toEqual([])
+  expect(open.mock.calls).toEqual(APP_DATABASE_NAMES.map((name) => [name]))
+  expect(abort).toHaveBeenCalledTimes(2)
 })
 
 it('reports a blocked database and closes a delayed successful connection', async () => {
   const request: Partial<IDBOpenDBRequest> = {}
   const close = jest.fn()
   installIdb({
-    databases: async () => [{ name: 'blocked' }],
+    databases: async () => [{ name: HANDLES_DATABASE }],
     open: () => {
       queueMicrotask(() => request.onblocked?.call(request as IDBOpenDBRequest, new Event('blocked') as IDBVersionChangeEvent))
       return request
     },
   })
-  const sources = await inspectBrowserStorage()
-  expect(sources).toContainEqual({ kind: 'idb', name: 'blocked', error: 'IndexedDB blocked' })
+  expect(await inspectBrowserStorage()).toEqual([{ name: HANDLES_DATABASE, error: 'IndexedDB blocked' }])
   Object.assign(request, { result: { close } })
   request.onsuccess?.call(request as IDBOpenDBRequest, new Event('success'))
   expect(close).toHaveBeenCalledTimes(1)
 })
 
-it('clears every discovered database, cache and web storage', async () => {
-  localStorage.setItem('test', 'value')
-  sessionStorage.setItem('test', 'value')
-  const deleteDatabase = jest.fn(() => {
-    const request: Partial<IDBOpenDBRequest> = {}
-    queueMicrotask(() => request.onsuccess?.call(request as IDBOpenDBRequest, new Event('success')))
-    return request
-  })
-  const removeCache = jest.fn(async () => true)
-  installIdb({ databases: async () => [{ name: 'one' }, { name: 'two' }], deleteDatabase })
-  Object.defineProperty(globalThis, 'caches', { configurable: true, value: { keys: async () => ['cache-one', 'cache-two'], delete: removeCache } })
-  await clearBrowserStorage()
-  expect(deleteDatabase.mock.calls).toEqual([['one'], ['two']])
-  expect(removeCache.mock.calls).toEqual([['cache-one'], ['cache-two']])
-  expect(localStorage.length + sessionStorage.length).toBe(0)
+it('deletes a single registered database and rejects foreign names', async () => {
+  const deleteDatabase = jest.fn(() => deletionRequest())
+  installIdb({ deleteDatabase })
+  await deleteBrowserDatabase(CONFLICTS_DATABASE)
+  await expect(deleteBrowserDatabase('foreign')).rejects.toThrow('Unknown application database')
+  await expect(deleteBrowserDatabase('yggit_not_registered')).rejects.toThrow('Unknown application database')
+  expect(deleteDatabase.mock.calls).toEqual([[CONFLICTS_DATABASE]])
 })
 
-it('continues cleanup and reports deletion errors instead of reporting success', async () => {
+it('clears only application databases while preserving other origin storage', async () => {
   localStorage.setItem('test', 'value')
-  installIdb({
-    databases: async () => [{ name: 'busy' }],
-    deleteDatabase: () => {
-      const request: Partial<IDBOpenDBRequest> = {}
-      queueMicrotask(() => request.onblocked?.call(request as IDBOpenDBRequest, new Event('blocked') as IDBVersionChangeEvent))
-      return request
-    },
-  })
-  await expect(clearBrowserStorage()).rejects.toThrow('IndexedDB blocked: busy')
-  expect(localStorage.length).toBe(0)
+  sessionStorage.setItem('test', 'value')
+  const deleteDatabase = jest.fn(() => deletionRequest())
+  const removeCache = jest.fn(async () => true)
+  installIdb({ databases: async () => [{ name: 'foreign' }, ...APP_DATABASE_NAMES.map((name) => ({ name }))], deleteDatabase })
+  Object.defineProperty(globalThis, 'caches', { configurable: true, value: { keys: async () => ['foreign-cache'], delete: removeCache } })
+  await clearBrowserStorage()
+  expect(deleteDatabase.mock.calls).toEqual(APP_DATABASE_NAMES.map((name) => [name]))
+  expect(removeCache).not.toHaveBeenCalled()
+  expect(localStorage.getItem('test')).toBe('value')
+  expect(sessionStorage.getItem('test')).toBe('value')
+})
+
+it('continues cleanup after blocked deletions and reports the error', async () => {
+  const deleteDatabase = jest.fn((name: string) => deletionRequest(name === HANDLES_DATABASE))
+  installIdb({ deleteDatabase })
+  await expect(clearBrowserStorage()).rejects.toThrow(`IndexedDB blocked: ${HANDLES_DATABASE}`)
+  expect(deleteDatabase.mock.calls).toEqual(APP_DATABASE_NAMES.map((name) => [name]))
 })

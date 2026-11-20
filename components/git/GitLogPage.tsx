@@ -21,6 +21,7 @@ import { useMergeConflicts } from '@/components/git/useMergeConflicts'
 import { useT } from '@/components/i18n/LocaleProvider'
 import { LocaleSwitcher } from '@/components/i18n/LocaleSwitcher'
 import { useInWorkspaceHeader, WorkspaceHeaderSlot } from '@/components/layout/WorkspaceHeaderContext'
+import { useNotification } from '@/components/notification/useNotification'
 import { Button, EmptyState, Spinner, Tooltip } from '@/components/sk'
 import { dropdownTriggerClass } from '@/components/sk/dropdownMenu'
 import { ThemeSwitcher } from '@/components/theme/ThemeSwitcher'
@@ -93,6 +94,7 @@ function highlightOf(view: GitLogView, selection: GitSelection): string {
 
 export function GitLogPage({ initial, initialCommitHash, initialFilePath, initialPersistence: _initialPersistence }: Props) {
   const t = useT()
+  const notification = useNotification()
   const failed = isError(initial)
   const [view, setView] = useState<GitLogView | null>(failed ? null : initial)
   const [error, setError] = useState(failed ? initial.error : '')
@@ -193,6 +195,19 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
     }
   }, [spotlight])
 
+  useEffect(() => {
+    if (spotlight?.codeAnnotation) {
+      const ann = spotlight.codeAnnotation
+      if (ann.commitHash && ann.commitHash !== selectedHash) {
+        setSelectedHash(ann.commitHash)
+        setFocusRequest({ hash: ann.commitHash })
+      }
+      if (ann.file && ann.file !== selectedFile) {
+        setSelectedFile(ann.file)
+      }
+    }
+  }, [spotlight?.codeAnnotation, selectedHash, selectedFile])
+
   // 3-second hover timer for branch spotlight
   const [activeHoverBranch, setActiveHoverBranch] = useState<string | null>(null)
   const hoverBranchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -265,6 +280,24 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
     return () => window.removeEventListener('yggit:driver_mode_changed', onDriverModeChanged)
   }, [refreshProjects, view?.repo])
 
+  useEffect(() => {
+    function onUiNavigate(e: Event) {
+      const customEvent = e as CustomEvent<{ target: string }>
+      const target = customEvent.detail?.target
+      if (target === 'panel_commit') {
+        setSelectedHash(GIT_WORKTREE_HASH)
+        setSelectedFile('')
+        setSelectedStatus('')
+        setLineageHashes(null)
+        setConflictViewActive(false)
+      } else if (target === 'panel_conflicts') {
+        setConflictViewActive(true)
+      }
+    }
+    window.addEventListener('yggit:ui_navigate', onUiNavigate)
+    return () => window.removeEventListener('yggit:ui_navigate', onUiNavigate)
+  }, [])
+
   const probeRemotes = useCallback(async (repo: string) => {
     if (getDriverMode() === 'edge') return
     setRemoteProbing(true)
@@ -326,7 +359,11 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
   const scope = view ? '*' : ''
   const selectedStash = view?.stashes.find((item) => item.hash === selectedHash)
   const selected =
-    selectedHash === GIT_WORKTREE_HASH ? GIT_WORKTREE_COMMIT : selectedStash ? gitStashAsCommit(selectedStash) : commits.find((commit) => commit.hash === selectedHash) || null
+    selectedHash === GIT_WORKTREE_HASH
+      ? GIT_WORKTREE_COMMIT
+      : selectedStash
+        ? gitStashAsCommit(selectedStash)
+        : commits.find((commit) => commit.hash === selectedHash || (selectedHash && selectedHash.length >= 6 && commit.hash.startsWith(selectedHash))) || null
   const selectedIsWorktree = selectedHash === GIT_WORKTREE_HASH
   const sidebarWidthRef = useRef(sidebarWidth)
   const treeWidthRef = useRef(treeWidth)
@@ -411,7 +448,7 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
     })
     const fullUrl = `${window.location.origin}${canonicalPath}`
 
-    const currentCommit = commits.find((c) => c.hash === selectedHash)
+    const currentCommit = commits.find((c) => c.hash === selectedHash || (selectedHash && selectedHash.length >= 6 && c.hash.startsWith(selectedHash)))
     if (currentCommit) {
       const card = formatIssueShareCard(
         {
@@ -430,7 +467,7 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
 
     setCopiedHeaderShare(true)
     setTimeout(() => setCopiedHeaderShare(false), 2000)
-  }, [commits, selectedFile, selectedHash, view?.repo, view?.remoteUrl])
+  }, [commits, selectedFile, selectedHash, view])
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -509,6 +546,26 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
   scopeRef.current = scope
 
   async function load(repo: string) {
+    if (!repo || !repo.trim()) {
+      setView(null)
+      setCommits([])
+      setHasMore(false)
+      setSelection({ kind: 'all' })
+      setSelectedHash('')
+      setSelectedFile('')
+      setError('')
+      setBusy(false)
+      setProgressStage('')
+      if (typeof window !== 'undefined') {
+        const url = new URL(window.location.href)
+        url.searchParams.delete('repo')
+        url.searchParams.delete('url')
+        url.searchParams.delete('hash')
+        url.searchParams.delete('file')
+        window.history.replaceState(null, '', url.pathname.includes('/git') ? '/git' : url.pathname)
+      }
+      return
+    }
     setBusy(true)
     setError('')
     setProgressStage('正在准备加载项目...')
@@ -520,12 +577,33 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
       })
       applyView(body)
     } catch (loadError) {
+      setView(null)
+      setCommits([])
+      setHasMore(false)
+      setSelection({ kind: 'all' })
+      setSelectedHash('')
+      setSelectedFile('')
       setError(loadError instanceof Error ? loadError.message : t('git.errors.readGit'))
     } finally {
       setBusy(false)
       setProgressStage('')
     }
   }
+
+  const loadRef = useRef(load)
+  loadRef.current = load
+
+  useEffect(() => {
+    function onOpenProject(e: Event) {
+      const customEvent = e as CustomEvent<{ target: string; url: string }>
+      const target = customEvent.detail?.target
+      if (target) {
+        void loadRef.current(target)
+      }
+    }
+    window.addEventListener('yggit:open_project', onOpenProject)
+    return () => window.removeEventListener('yggit:open_project', onOpenProject)
+  }, [])
 
   async function pickFolders(prompt: string, multiple = false) {
     setPicking(true)
@@ -559,6 +637,59 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
     const paths = await pickFolders(prompt, false)
     return paths[0] || ''
   }
+
+  const handleAddWorktree = useCallback(async () => {
+    if (!view?.repo) return
+    const defaultWt = `../${view.repo.split(/[/\\]/).filter(Boolean).pop()}_wt`
+    const inputPath = window.prompt('请输入新 Worktree 目录路径（支持相对当前仓库或绝对路径）：', defaultWt)
+    if (!inputPath || !inputPath.trim()) return
+    const branch = window.prompt('请输入关联的分支名称（可选，留空则默认当前分支）：') || undefined
+    setBusy(true)
+    setProgressStage('正在创建 Worktree...')
+    try {
+      const driver = getGitDriver()
+      if (driver.addWorktree) {
+        const res = await driver.addWorktree(view.repo, inputPath.trim(), branch?.trim())
+        if (res.ok) {
+          notification.success(res.message || 'Worktree 创建成功')
+          await loadRef.current(view.repo)
+        } else {
+          notification.error(res.message || '创建 Worktree 失败')
+        }
+      } else {
+        notification.error('当前模式不支持创建 Worktree')
+      }
+    } catch (err) {
+      notification.error(err instanceof Error ? err.message : '创建 Worktree 失败')
+    } finally {
+      setBusy(false)
+      setProgressStage('')
+    }
+  }, [view, notification])
+
+  const handleCheckoutBranch = useCallback(
+    async (branchName: string, isRemote = false) => {
+      if (!view?.repo) return
+      setBusy(true)
+      setProgressStage(isRemote ? '正在检出分支...' : '正在切换分支...')
+      try {
+        const driver = getGitDriver()
+        const res = await driver.checkoutBranch(view.repo, branchName, { track: isRemote })
+        if (res.ok) {
+          notification.success(res.message || (isRemote ? '检出分支成功' : '切换分支成功'))
+          await loadRef.current(view.repo)
+        } else {
+          notification.error(res.message || '操作失败')
+        }
+      } catch (err) {
+        notification.error(err instanceof Error ? err.message : '操作失败')
+      } finally {
+        setBusy(false)
+        setProgressStage('')
+      }
+    },
+    [view, notification]
+  )
 
   async function chooseFolder() {
     setError('')
@@ -720,6 +851,18 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
       const driver = getGitDriver()
       const catalog = await driver.removeProject(id)
       applyCatalog(catalog)
+      if (view?.repo === id || scope === id) {
+        setView(null)
+        setCommits([])
+        setHasMore(false)
+        setSelection({ kind: 'all' })
+        setSelectedHash('')
+        setSelectedFile('')
+        setError('')
+        if (typeof window !== 'undefined') {
+          window.history.replaceState(null, '', '/git')
+        }
+      }
       return ''
     } catch (err) {
       return err instanceof Error ? err.message : '移除项目失败'
@@ -839,19 +982,15 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
         ) : (
           <header className="flex shrink-0 items-center gap-3 border-b border-line bg-panel-2/60 px-3 py-1.5">
             <BrandLogo
-              href="/"
+              href="/git"
               className="shrink-0"
               markClassName="size-7"
               wordmarkClassName="text-[0.95rem]"
               onClick={(e) => {
                 e.preventDefault()
-                setView(null)
-                setError('')
-                setSelectedHash('')
-                setSelectedFile('')
-                if (typeof window !== 'undefined') {
-                  // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-                  window.location.href = '/'
+                void load('')
+                if (typeof window !== 'undefined' && window.location.pathname !== '/git') {
+                  window.history.pushState(null, '', '/git')
                 }
               }}
             />
@@ -934,11 +1073,15 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
         )}
 
         {error && !view ? (
-          <EmptyState title={t('git.page.repoUnreadable')} message={error} hint={t('git.page.repoUnreadableHint')}>
+          <EmptyState
+            title={error.includes('RESOURCE_UNRESOLVED') || error.includes('PERMISSION_REQUIRED') ? t('git.page.permissionRequired') : t('git.page.repoUnreadable')}
+            message={error.includes('RESOURCE_UNRESOLVED') || error.includes('PERMISSION_REQUIRED') ? t('git.page.permissionRequiredHint') : error}
+            hint={t('git.page.repoUnreadableHint')}
+          >
             <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
               <Button variant="accent" size="md" onClick={() => void chooseFolder()}>
                 <LuFolderGit2 className="size-4" aria-hidden />
-                {t('git.project.addLocal')}
+                {error.includes('RESOURCE_UNRESOLVED') || error.includes('PERMISSION_REQUIRED') ? t('git.project.reauthorizeLocal') : t('git.project.addLocal')}
               </Button>
               <Button variant="default" size="md" onClick={() => setMenuOpen(true)}>
                 {t('git.project.switcher')}
@@ -1003,6 +1146,8 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                   onProbeRemotes={() => void probeRemotes(view.repo)}
                   onSelect={select}
                   onOpenRepo={(repo) => void load(repo)}
+                  onAddWorktree={handleAddWorktree}
+                  onCheckoutBranch={handleCheckoutBranch}
                 />
                 <PanelSplitter
                   label={t('git.splitter.sidebar')}
@@ -1058,6 +1203,7 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                         setConflictViewActive(false)
                       }}
                       onOpenConflictView={handleOpenConflictView}
+                      onCheckoutBranch={handleCheckoutBranch}
                       onPage={onPage}
                     />
                   )}

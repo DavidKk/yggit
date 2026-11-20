@@ -1,7 +1,22 @@
 import { readApiErrorMessage } from '@/lib/api-error'
 import type { GitCommitChanges, GitLogView, GitProjectCatalog, GitProjectView } from '@/lib/git/types'
 
-import type { AddProjectPayload, AddRemoteProjectOptions, GitDeleteFolderResult, IGitDriver, ReadBlobOptions, ReadCommitDiffOptions, ReadLogOptions } from './types'
+import type {
+  AddProjectPayload,
+  AddRemoteProjectOptions,
+  GitBlameLine,
+  GitCheckoutOptions,
+  GitCommitOptions,
+  GitDeleteFolderResult,
+  GitFetchOptions,
+  GitPullOptions,
+  GitPushOptions,
+  GitStashOptions,
+  IGitDriver,
+  ReadBlobOptions,
+  ReadCommitDiffOptions,
+  ReadLogOptions,
+} from './types'
 
 export class LocalGitDriver implements IGitDriver {
   readonly mode = 'local' as const
@@ -68,6 +83,329 @@ export class LocalGitDriver implements IGitDriver {
     }
   }
 
+  async readBlame(options: { repo: string; path: string; hash?: string }): Promise<Record<number, GitBlameLine>> {
+    const params = new URLSearchParams()
+    if (options.repo) params.set('repo', options.repo)
+    if (options.path) params.set('path', options.path)
+    if (options.hash) params.set('hash', options.hash)
+    const res = await fetch(`/api/git/blame?${params.toString()}`)
+    if (!res.ok) return {}
+    return (await res.json().catch(() => ({}))) as Record<number, GitBlameLine>
+  }
+
+  async checkoutBranch(repo: string, branch: string, options?: GitCheckoutOptions): Promise<{ ok: boolean; message: string }> {
+    const res = await fetch('/api/git/branch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'checkout', repo, branch, ...options }),
+    })
+    const data = (await res.json()) as { ok?: boolean; message?: string; error?: string }
+    if (!res.ok || data.ok === false) {
+      throw new Error(readApiErrorMessage(data, '切换分支失败'))
+    }
+    return { ok: true, message: data.message || `已切换到分支 ${branch}` }
+  }
+
+  async createBranch(repo: string, branch: string, startPoint?: string, checkout = true): Promise<{ ok: boolean; message: string }> {
+    const res = await fetch('/api/git/branch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'create', repo, branch, startPoint, create: checkout }),
+    })
+    const data = (await res.json()) as { ok?: boolean; message?: string; error?: string }
+    if (!res.ok || data.ok === false) {
+      throw new Error(readApiErrorMessage(data, '创建分支失败'))
+    }
+    return { ok: true, message: data.message || `已创建分支 ${branch}` }
+  }
+
+  async deleteBranch(repo: string, branch: string, force = false): Promise<{ ok: boolean; message: string }> {
+    const res = await fetch('/api/git/branch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'delete', repo, branch, force }),
+    })
+    const data = (await res.json()) as { ok?: boolean; message?: string; error?: string }
+    if (!res.ok || data.ok === false) {
+      throw new Error(readApiErrorMessage(data, '删除分支失败'))
+    }
+    return { ok: true, message: data.message || `已删除分支 ${branch}` }
+  }
+
+  async renameBranch(repo: string, oldName: string, newName: string): Promise<{ ok: boolean; message: string }> {
+    const res = await fetch('/api/git/branch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'rename', repo, oldName, newName }),
+    })
+    const data = (await res.json()) as { ok?: boolean; message?: string; error?: string }
+    if (!res.ok || data.ok === false) {
+      throw new Error(readApiErrorMessage(data, '重命名分支失败'))
+    }
+    return { ok: true, message: data.message || `已重命名分支为 ${newName}` }
+  }
+
+  async mergeBranch(repo: string, branch: string): Promise<{ ok: boolean; message: string; conflict?: boolean }> {
+    const res = await fetch('/api/git/branch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'merge', repo, branch }),
+    })
+    const data = (await res.json()) as { ok?: boolean; message?: string; error?: string; conflict?: boolean }
+    if (!res.ok || data.ok === false) {
+      if (data.conflict) {
+        return { ok: false, message: data.message || '合并存在冲突', conflict: true }
+      }
+      throw new Error(readApiErrorMessage(data, '合并分支失败'))
+    }
+    return { ok: true, message: data.message || `已合并分支 ${branch}`, conflict: false }
+  }
+
+  async rebaseBranch(repo: string, branch: string, options?: { abort?: boolean; continue?: boolean }): Promise<{ ok: boolean; message: string; conflict?: boolean }> {
+    const res = await fetch('/api/git/branch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'rebase', repo, branch, abort: options?.abort, continue: options?.continue }),
+    })
+    const data = (await res.json()) as { ok?: boolean; message?: string; error?: string; conflict?: boolean }
+    if (!res.ok || data.ok === false) {
+      if (data.conflict) {
+        return { ok: false, message: data.message || '变基存在冲突', conflict: true }
+      }
+      throw new Error(readApiErrorMessage(data, '变基分支失败'))
+    }
+    return { ok: true, message: data.message || `已将当前分支变基到 ${branch}`, conflict: false }
+  }
+
+  async cherryPick(repo: string, hash: string, options?: { abort?: boolean; continue?: boolean }): Promise<{ ok: boolean; message: string; conflict?: boolean }> {
+    const res = await fetch('/api/git/branch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'cherry-pick', repo, hash, abort: options?.abort, continue: options?.continue }),
+    })
+    const data = (await res.json()) as { ok?: boolean; message?: string; error?: string; conflict?: boolean }
+    if (!res.ok || data.ok === false) {
+      if (data.conflict) {
+        return { ok: false, message: data.message || '遴选存在冲突', conflict: true }
+      }
+      throw new Error(readApiErrorMessage(data, '遴选提交失败'))
+    }
+    return { ok: true, message: data.message || `已成功遴选提交 ${hash.slice(0, 7)}`, conflict: false }
+  }
+
+  async commit(repo: string, message: string, options?: boolean | GitCommitOptions): Promise<{ ok: boolean; message: string; hash?: string }> {
+    const opts: GitCommitOptions = typeof options === 'boolean' ? { stageAll: options } : options || {}
+    const res = await fetch('/api/git/commit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'commit',
+        repo,
+        message,
+        stageAll: opts.stageAll,
+        amend: opts.amend,
+        noVerify: opts.noVerify,
+        pushAfter: opts.pushAfter,
+      }),
+    })
+    const data = (await res.json()) as { ok?: boolean; message?: string; error?: string; hash?: string }
+    if (!res.ok || data.ok === false) {
+      throw new Error(readApiErrorMessage(data, '提交失败'))
+    }
+    return { ok: true, message: data.message || '提交成功', hash: data.hash }
+  }
+
+  async undo(repo: string, soft = true): Promise<{ ok: boolean; message: string; undoneHash?: string }> {
+    const res = await fetch('/api/git/commit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'undo',
+        repo,
+        stageAll: soft,
+      }),
+    })
+    const data = (await res.json()) as { ok?: boolean; message?: string; error?: string; undoneHash?: string }
+    if (!res.ok || data.ok === false) {
+      throw new Error(readApiErrorMessage(data, '撤销提交失败'))
+    }
+    return { ok: true, message: data.message || '已撤销上一次提交', undoneHash: data.undoneHash }
+  }
+
+  async redo(repo: string, soft = true): Promise<{ ok: boolean; message: string }> {
+    const res = await fetch('/api/git/commit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'redo',
+        repo,
+        stageAll: soft,
+      }),
+    })
+    const data = (await res.json()) as { ok?: boolean; message?: string; error?: string }
+    if (!res.ok || data.ok === false) {
+      throw new Error(readApiErrorMessage(data, '重做提交失败'))
+    }
+    return { ok: true, message: data.message || '已重做提交' }
+  }
+
+  async getLastCommit(repo: string): Promise<{ summary: string; description: string }> {
+    const res = await fetch('/api/git/commit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'get-last-commit', repo }),
+    })
+    const data = (await res.json()) as { summary?: string; description?: string }
+    return { summary: data.summary || '', description: data.description || '' }
+  }
+
+  async createPatch(repo: string, options?: { path?: string; staged?: boolean }): Promise<{ patch: string }> {
+    const res = await fetch('/api/git/commit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'create-patch', repo, path: options?.path, stageAll: options?.staged }),
+    })
+    const data = (await res.json()) as { patch?: string }
+    return { patch: data.patch || '' }
+  }
+
+  async ignorePattern(repo: string, pattern: string): Promise<{ ok: boolean; message: string }> {
+    const res = await fetch('/api/git/commit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'ignore', repo, pattern }),
+    })
+    const data = (await res.json()) as { ok?: boolean; message?: string; error?: string }
+    if (!res.ok || data.ok === false) {
+      throw new Error(readApiErrorMessage(data, '忽略操作失败'))
+    }
+    return { ok: true, message: data.message || '已添加到 .gitignore' }
+  }
+
+  async createFile(repo: string, relativePath: string): Promise<{ ok: boolean; message: string }> {
+    const res = await fetch('/api/git/commit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'create-file', repo, relativePath }),
+    })
+    const data = (await res.json()) as { ok?: boolean; message?: string; error?: string }
+    if (!res.ok || data.ok === false) {
+      throw new Error(readApiErrorMessage(data, '创建文件失败'))
+    }
+    return { ok: true, message: data.message || '已创建文件' }
+  }
+
+  async deleteFile(repo: string, relativePath: string): Promise<{ ok: boolean; message: string }> {
+    const res = await fetch('/api/git/commit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'delete-file', repo, relativePath }),
+    })
+    const data = (await res.json()) as { ok?: boolean; message?: string; error?: string }
+    if (!res.ok || data.ok === false) {
+      throw new Error(readApiErrorMessage(data, '删除文件失败'))
+    }
+    return { ok: true, message: data.message || '已删除文件' }
+  }
+
+  async stage(repo: string, files?: string[], all = false): Promise<{ ok: boolean; message: string }> {
+    const res = await fetch('/api/git/commit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'stage', repo, files, all }),
+    })
+    const data = (await res.json()) as { ok?: boolean; message?: string; error?: string }
+    if (!res.ok || data.ok === false) {
+      throw new Error(readApiErrorMessage(data, '暂存文件失败'))
+    }
+    return { ok: true, message: data.message || '已暂存更改' }
+  }
+
+  async unstage(repo: string, files?: string[], all = false): Promise<{ ok: boolean; message: string }> {
+    const res = await fetch('/api/git/commit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'unstage', repo, files, all }),
+    })
+    const data = (await res.json()) as { ok?: boolean; message?: string; error?: string }
+    if (!res.ok || data.ok === false) {
+      throw new Error(readApiErrorMessage(data, '取消暂存失败'))
+    }
+    return { ok: true, message: data.message || '已取消暂存' }
+  }
+
+  async discard(repo: string, files?: string[], all = false): Promise<{ ok: boolean; message: string }> {
+    const res = await fetch('/api/git/commit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'discard', repo, files, all }),
+    })
+    const data = (await res.json()) as { ok?: boolean; message?: string; error?: string }
+    if (!res.ok || data.ok === false) {
+      throw new Error(readApiErrorMessage(data, '放弃更改失败'))
+    }
+    return { ok: true, message: data.message || '已放弃更改' }
+  }
+
+  async push(repo: string, options?: GitPushOptions): Promise<{ ok: boolean; message: string }> {
+    const res = await fetch('/api/git/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'push', repo, ...options }),
+    })
+    const data = (await res.json()) as { ok?: boolean; message?: string; error?: string }
+    if (!res.ok || data.ok === false) {
+      throw new Error(readApiErrorMessage(data, '推送失败'))
+    }
+    return { ok: true, message: data.message || '推送成功' }
+  }
+
+  async pull(repo: string, options?: GitPullOptions): Promise<{ ok: boolean; message: string }> {
+    const res = await fetch('/api/git/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'pull', repo, ...options }),
+    })
+    const data = (await res.json()) as { ok?: boolean; message?: string; error?: string }
+    if (!res.ok || data.ok === false) {
+      throw new Error(readApiErrorMessage(data, '拉取失败'))
+    }
+    return { ok: true, message: data.message || '拉取成功' }
+  }
+
+  async fetch(repo: string, options?: GitFetchOptions): Promise<{ ok: boolean; message: string }> {
+    const res = await fetch('/api/git/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'fetch', repo, ...options }),
+    })
+    const data = (await res.json()) as { ok?: boolean; message?: string; error?: string }
+    if (!res.ok || data.ok === false) {
+      throw new Error(readApiErrorMessage(data, '抓取失败'))
+    }
+    return { ok: true, message: data.message || '抓取完成' }
+  }
+
+  async stash(repo: string, options: GitStashOptions): Promise<{ ok: boolean; message: string }> {
+    const res = await fetch('/api/git/commit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'stash',
+        repo,
+        stashAction: options.action,
+        message: options.message,
+        stashIndex: options.index,
+        files: options.paths,
+      }),
+    })
+    const data = (await res.json()) as { ok?: boolean; message?: string; error?: string }
+    if (!res.ok || data.ok === false) {
+      throw new Error(readApiErrorMessage(data, '暂存操作失败'))
+    }
+    return { ok: true, message: data.message || '暂存操作成功' }
+  }
+
   async getProjects(): Promise<GitProjectCatalog> {
     const res = await fetch('/api/git/projects')
     if (!res.ok) {
@@ -106,7 +444,7 @@ export class LocalGitDriver implements IGitDriver {
     })
     const data = (await res.json()) as { ok?: boolean; message?: string; error?: string; projects?: GitProjectView[]; folders?: string[] }
     if (!res.ok || data.ok === false) {
-      throw new Error(data.message || data.error || 'Failed to create folder')
+      throw new Error(readApiErrorMessage(data, 'Failed to create folder'))
     }
     return {
       projects: data.projects || [],
@@ -122,7 +460,7 @@ export class LocalGitDriver implements IGitDriver {
     })
     const data = (await res.json()) as { ok?: boolean; message?: string; error?: string; projects?: GitProjectView[]; folders?: string[] }
     if (!res.ok || data.ok === false) {
-      throw new Error(data.message || data.error || 'Failed to rename folder')
+      throw new Error(readApiErrorMessage(data, 'Failed to rename folder'))
     }
     return {
       projects: data.projects || [],
@@ -138,7 +476,7 @@ export class LocalGitDriver implements IGitDriver {
     })
     const data = (await res.json()) as { ok?: boolean; message?: string; error?: string; projects?: GitProjectView[]; folders?: string[] }
     if (!res.ok || data.ok === false) {
-      throw new Error(data.message || data.error || 'Failed to clear folder')
+      throw new Error(readApiErrorMessage(data, 'Failed to clear folder'))
     }
     return {
       projects: data.projects || [],
@@ -154,7 +492,7 @@ export class LocalGitDriver implements IGitDriver {
     })
     const data = (await res.json()) as { ok?: boolean; message?: string; error?: string; projects?: GitProjectView[]; folders?: string[] }
     if (!res.ok || data.ok === false) {
-      throw new Error(data.message || data.error || 'Failed to set project label')
+      throw new Error(readApiErrorMessage(data, 'Failed to set project label'))
     }
     return {
       projects: data.projects || [],
@@ -177,7 +515,7 @@ export class LocalGitDriver implements IGitDriver {
       removedCount?: number
     }
     if (!res.ok || data.ok === false) {
-      throw new Error(data.message || data.error || 'Failed to delete folder')
+      throw new Error(readApiErrorMessage(data, 'Failed to delete folder'))
     }
     return {
       catalog: {
@@ -196,7 +534,7 @@ export class LocalGitDriver implements IGitDriver {
     })
     const data = (await res.json()) as { ok?: boolean; message?: string; error?: string; projects?: GitProjectView[]; folders?: string[] }
     if (!res.ok || data.ok === false) {
-      throw new Error(data.message || data.error || 'Failed to move project')
+      throw new Error(readApiErrorMessage(data, 'Failed to move project'))
     }
     return {
       projects: data.projects || [],
@@ -212,7 +550,7 @@ export class LocalGitDriver implements IGitDriver {
     })
     const data = (await res.json()) as { ok?: boolean; message?: string; error?: string; projects?: GitProjectView[]; folders?: string[] }
     if (!res.ok || data.ok === false) {
-      throw new Error(data.message || data.error || 'Failed to remove project')
+      throw new Error(readApiErrorMessage(data, 'Failed to remove project'))
     }
     return {
       projects: data.projects || [],
@@ -228,11 +566,24 @@ export class LocalGitDriver implements IGitDriver {
     })
     const data = (await res.json()) as { ok?: boolean; message?: string; error?: string; projects?: GitProjectView[]; folders?: string[] }
     if (!res.ok || data.ok === false) {
-      throw new Error(data.message || data.error || 'Failed to add remote project')
+      throw new Error(readApiErrorMessage(data, 'Failed to add remote project'))
     }
     return {
       projects: data.projects || [],
       folders: data.folders || [],
     }
+  }
+
+  async addWorktree(repo: string, path: string, branch?: string): Promise<{ ok: boolean; message: string }> {
+    const res = await fetch('/api/git/worktree', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ repo, path, branch }),
+    })
+    const data = (await res.json().catch(() => ({}))) as { ok?: boolean; message?: string }
+    if (!res.ok || data.ok === false) {
+      throw new Error(data.message || '创建 Worktree 失败')
+    }
+    return { ok: true, message: data.message || `已添加工作树 ${path}` }
   }
 }

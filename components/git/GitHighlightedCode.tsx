@@ -4,7 +4,11 @@ import { type ReactNode, useEffect, useState } from 'react'
 import type { ThemedToken } from 'shiki'
 
 import { highlightGitCode, highlightGitLines } from '@/components/git/gitHighlight'
+import { useLocaleCode } from '@/components/i18n/LocaleProvider'
 import { useThemeMode } from '@/components/theme/ThemeProvider'
+import type { GitBlameLine } from '@/lib/git/driver/types'
+import { formatCommitAgo } from '@/lib/git/format-commit-ago'
+import { splitTokenWithRanges } from '@/lib/git/intra-diff'
 import { cn } from '@/lib/utils'
 
 type Props = {
@@ -12,6 +16,7 @@ type Props = {
   path: string
   searchNeedle?: string
   activeIndex?: number
+  blameMap?: Record<number, GitBlameLine>
 }
 
 function highlightMatch(text: string, needle?: string, isActive = false): ReactNode {
@@ -53,13 +58,79 @@ function highlightMatch(text: string, needle?: string, isActive = false): ReactN
   return <>{result}</>
 }
 
-export function GitTokenSpans({ tokens, text, searchNeedle, isActiveLine }: { tokens?: ThemedToken[]; text: string; searchNeedle?: string; isActiveLine?: boolean }) {
+export function GitTokenSpans({
+  tokens,
+  text,
+  searchNeedle,
+  isActiveLine,
+  diffRanges,
+  diffKind,
+}: {
+  tokens?: ThemedToken[]
+  text: string
+  searchNeedle?: string
+  isActiveLine?: boolean
+  diffRanges?: Array<[number, number]>
+  diffKind?: 'add' | 'del'
+}) {
+  const hasTokens = Boolean(tokens && tokens.length > 0)
+  const highlightClass =
+    diffKind === 'add'
+      ? cn('bg-[color-mix(in_oklab,var(--ok)_40%,transparent)] rounded-xs font-semibold px-0.5', !hasTokens && 'text-ok')
+      : diffKind === 'del'
+        ? cn('bg-[color-mix(in_oklab,var(--fail)_40%,transparent)] rounded-xs font-semibold px-0.5', !hasTokens && 'text-fail')
+        : 'bg-accent/30 rounded-xs px-0.5'
+
   if (!tokens || tokens.length === 0) {
-    return <>{searchNeedle ? highlightMatch(text || ' ', searchNeedle, isActiveLine) : text || ' '}</>
+    if (!diffRanges || diffRanges.length === 0) {
+      return <>{searchNeedle ? highlightMatch(text || ' ', searchNeedle, isActiveLine) : text || ' '}</>
+    }
+    const parts = splitTokenWithRanges(text, 0, diffRanges)
+    return (
+      <>
+        {parts.map((part, pIdx) => {
+          const content = searchNeedle ? highlightMatch(part.text, searchNeedle, isActiveLine) : part.text
+          if (part.isHighlight) {
+            return (
+              <span key={pIdx} className={highlightClass}>
+                {content}
+              </span>
+            )
+          }
+          return <span key={pIdx}>{content}</span>
+        })}
+      </>
+    )
   }
+
+  const tokensWithOffsets: Array<{ token: ThemedToken; start: number }> = []
+  let offset = 0
+  for (const token of tokens) {
+    tokensWithOffsets.push({ token, start: offset })
+    offset += token.content.length
+  }
+
   return (
     <>
-      {tokens.map((token, index) => {
+      {tokensWithOffsets.map(({ token, start }, index) => {
+        if (diffRanges && diffRanges.length > 0) {
+          const parts = splitTokenWithRanges(token.content, start, diffRanges)
+          return (
+            <span key={index} style={token.color ? { color: token.color } : undefined}>
+              {parts.map((part, pIdx) => {
+                const content = searchNeedle ? highlightMatch(part.text, searchNeedle, isActiveLine) : part.text
+                if (part.isHighlight) {
+                  return (
+                    <span key={pIdx} className={highlightClass}>
+                      {content}
+                    </span>
+                  )
+                }
+                return <span key={pIdx}>{content}</span>
+              })}
+            </span>
+          )
+        }
         const content = searchNeedle ? highlightMatch(token.content, searchNeedle, isActiveLine) : token.content
         return (
           <span key={index} style={token.color ? { color: token.color } : undefined}>
@@ -128,21 +199,51 @@ export function useGitLineTokens(lines: string[], path: string): ThemedToken[][]
   return tokens
 }
 
-function PlainLines({ content, searchNeedle, activeIndex }: { content: string; searchNeedle?: string; activeIndex?: number }) {
+function PlainLines({
+  content,
+  searchNeedle,
+  activeIndex,
+  blameMap,
+  locale,
+}: {
+  content: string
+  searchNeedle?: string
+  activeIndex?: number
+  blameMap?: Record<number, GitBlameLine>
+  locale: ReturnType<typeof useLocaleCode>
+}) {
   const lines = content.replace(/\n$/, '').split('\n')
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
   return (
-    <div className="font-mono text-xs leading-5">
+    <div className="font-mono text-xs leading-5 pb-[calc(100vh-140px)]" onMouseLeave={() => setHoveredIndex(null)}>
       {lines.map((line, index) => {
+        const lineNum = index + 1
+        const blame = blameMap?.[lineNum]
         const isActive = activeIndex === index
+        const isHovered = hoveredIndex === index
         const isMatch = Boolean(searchNeedle && line.toLowerCase().includes(searchNeedle.toLowerCase()))
         return (
           <div
             key={index}
             data-diff-line-idx={index}
-            className={cn('flex transition-colors', isActive && 'bg-accent/25 ring-1 ring-accent', !isActive && isMatch && 'bg-accent/5')}
+            onMouseEnter={() => setHoveredIndex(index)}
+            className={cn(
+              'group/coderow relative flex min-w-full w-max items-center transition-colors',
+              isActive && 'bg-accent/25 ring-1 ring-accent',
+              !isActive && isMatch && 'bg-accent/5',
+              isHovered && !isActive && 'bg-[color-mix(in_oklab,var(--ink)_5%,transparent)]'
+            )}
           >
-            <span className="w-12 shrink-0 pr-2 text-right text-ink-soft select-none">{index + 1}</span>
+            <span className="w-12 shrink-0 pr-2 text-right text-ink-soft select-none font-mono">{lineNum}</span>
             <span className="min-w-0 flex-1 whitespace-pre text-ink">{highlightMatch(line || ' ', searchNeedle, isActive)}</span>
+            {isHovered && blame && (
+              <span
+                className="ml-auto pl-6 pr-3 text-[11px] text-ink-soft/75 select-none font-sans shrink-0 pointer-events-none truncate italic"
+                title={`${blame.author} (${blame.hash.slice(0, 7)}): ${blame.summary}`}
+              >
+                {blame.author}, {formatCommitAgo(blame.date, locale)} · {blame.summary}
+              </span>
+            )}
           </div>
         )
       })}
@@ -150,9 +251,11 @@ function PlainLines({ content, searchNeedle, activeIndex }: { content: string; s
   )
 }
 
-export function GitHighlightedCode({ content, path, searchNeedle, activeIndex }: Props) {
+export function GitHighlightedCode({ content, path, searchNeedle, activeIndex, blameMap }: Props) {
   const theme = useThemeMode()
+  const locale = useLocaleCode()
   const [tokens, setTokens] = useState<ThemedToken[][] | null>(null)
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -169,23 +272,40 @@ export function GitHighlightedCode({ content, path, searchNeedle, activeIndex }:
     }
   }, [content, path, theme])
 
-  if (!tokens) return <PlainLines content={content} searchNeedle={searchNeedle} activeIndex={activeIndex} />
+  if (!tokens) return <PlainLines content={content} searchNeedle={searchNeedle} activeIndex={activeIndex} blameMap={blameMap} locale={locale} />
 
   return (
-    <div className="font-mono text-xs leading-5">
+    <div className="font-mono text-xs leading-5 pb-[calc(100vh-140px)]" onMouseLeave={() => setHoveredIndex(null)}>
       {tokens.map((line, index) => {
+        const lineNum = index + 1
+        const blame = blameMap?.[lineNum]
         const isActive = activeIndex === index
+        const isHovered = hoveredIndex === index
         const isMatch = Boolean(searchNeedle && line.some((t) => t.content.toLowerCase().includes(searchNeedle.toLowerCase())))
         return (
           <div
             key={index}
             data-diff-line-idx={index}
-            className={cn('flex transition-colors', isActive && 'bg-accent/25 ring-1 ring-accent', !isActive && isMatch && 'bg-accent/5')}
+            onMouseEnter={() => setHoveredIndex(index)}
+            className={cn(
+              'group/coderow relative flex min-w-full w-max items-center transition-colors',
+              isActive && 'bg-accent/25 ring-1 ring-accent',
+              !isActive && isMatch && 'bg-accent/5',
+              isHovered && !isActive && 'bg-[color-mix(in_oklab,var(--ink)_5%,transparent)]'
+            )}
           >
-            <span className="w-12 shrink-0 pr-2 text-right text-ink-soft select-none">{index + 1}</span>
+            <span className="w-12 shrink-0 pr-2 text-right text-ink-soft select-none font-mono">{lineNum}</span>
             <span className="min-w-0 flex-1 whitespace-pre text-ink">
               <GitTokenSpans tokens={line} text="" searchNeedle={searchNeedle} isActiveLine={isActive} />
             </span>
+            {isHovered && blame && (
+              <span
+                className="ml-auto pl-6 pr-3 text-[11px] text-ink-soft/75 select-none font-sans shrink-0 pointer-events-none truncate italic"
+                title={`${blame.author} (${blame.hash.slice(0, 7)}): ${blame.summary}`}
+              >
+                {blame.author}, {formatCommitAgo(blame.date, locale)} · {blame.summary}
+              </span>
+            )}
           </div>
         )
       })}
@@ -195,7 +315,7 @@ export function GitHighlightedCode({ content, path, searchNeedle, activeIndex }:
 
 export function gitDiffLineClass(kind: string, highlighted: boolean): string {
   return cn(
-    'min-w-0 flex-1 overflow-hidden whitespace-pre',
+    'min-w-0 flex-1 whitespace-pre',
     kind === 'add' && 'bg-[color-mix(in_oklab,var(--ok)_16%,transparent)]',
     kind === 'del' && 'bg-[color-mix(in_oklab,var(--fail)_16%,transparent)]',
     kind === 'meta' && 'text-ink-soft',
@@ -211,17 +331,22 @@ export function GitDiffCodeText({
   tokens,
   searchNeedle,
   isActiveLine,
+  wrap,
+  diffRanges,
 }: {
   kind: string
   text: string
   tokens?: ThemedToken[]
   searchNeedle?: string
   isActiveLine?: boolean
+  wrap?: boolean
+  diffRanges?: Array<[number, number]>
 }): ReactNode {
   const highlighted = Boolean(tokens && tokens.length > 0)
+  const diffKind = kind === 'add' ? 'add' : kind === 'del' ? 'del' : undefined
   return (
-    <span className={gitDiffLineClass(kind, highlighted)}>
-      <GitTokenSpans tokens={tokens} text={text} searchNeedle={searchNeedle} isActiveLine={isActiveLine} />
+    <span className={cn(gitDiffLineClass(kind, highlighted), wrap && 'whitespace-pre-wrap break-all')}>
+      <GitTokenSpans tokens={tokens} text={text} searchNeedle={searchNeedle} isActiveLine={isActiveLine} diffRanges={diffRanges} diffKind={diffKind} />
     </span>
   )
 }

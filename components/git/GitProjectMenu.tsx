@@ -1179,8 +1179,9 @@ export function GitProjectMenu({
                                 <Button
                                   variant="plain"
                                   size="icon"
-                                  className="size-6 text-ink-soft hover:enabled:text-fail"
+                                  className="size-6 text-ink-soft hover:enabled:text-fail opacity-0 group-hover/item:opacity-100 transition-opacity"
                                   aria-label={t('git.project.removeProjectConfirm', { name: project.label || project.name })}
+                                  tooltip={t('git.project.removeProject')}
                                   disabled={busy}
                                   onClick={(event) => {
                                     event.stopPropagation()

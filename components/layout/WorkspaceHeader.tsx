@@ -23,7 +23,7 @@ export function WorkspaceHeader() {
 
   return (
     <header className="flex h-11 shrink-0 items-center gap-3 border-b border-line bg-panel-2/60 px-3 py-1.5">
-      <BrandLogo href="/" className="shrink-0" markClassName="size-7" wordmarkClassName="text-[0.95rem]" />
+      <BrandLogo href={pathname.startsWith('/git') ? '/git' : '/'} className="shrink-0" markClassName="size-7" wordmarkClassName="text-[0.95rem]" />
 
       <span className="h-4 w-px shrink-0 bg-[color-mix(in_oklab,var(--ink)_16%,transparent)]" aria-hidden="true" />
 

@@ -4,7 +4,6 @@ import { type CSSProperties, Fragment, memo, type ReactNode, type Ref, useCallba
 import { LuCopy, LuHash, LuInbox, LuText } from 'react-icons/lu'
 
 import { AnnotationBadge } from '@/components/git/agent/spotlight/AnnotationBadge'
-import { CommitStatusBadge } from '@/components/git/CommitStatusBadge'
 import { measureCellsFit } from '@/components/git/fitColumn'
 import { PanelSplitter } from '@/components/git/PanelSplitter'
 import { branchAtCommits, type FloatingAnchor, FloatingMenu, type FloatingMenuItem, refChips, RefChipsCell } from '@/components/git/RefChipsCell'
@@ -17,6 +16,7 @@ import { copyToClipboard } from '@/lib/clipboard'
 import { buildBranchContextMenu } from '@/lib/git/branch-context-menu'
 import type { MergeConflictRecord } from '@/lib/git/conflict-cache'
 import { useContextMenuConfig } from '@/lib/git/context-menu-config'
+import { getGitDriver } from '@/lib/git/driver'
 import { formatCommitDateDivider } from '@/lib/git/format-commit-ago'
 import { COL, DOT, graphScene, isHighlightedStroke, laneColor, PAD, ROW, type Stroke, xAt } from '@/lib/git/graph-scene'
 import { getBranchCommitHashes } from '@/lib/git/topology'
@@ -79,6 +79,11 @@ type Props = {
   onSelect?: (commit: GitCommit) => void
   onSelectWorktree?: () => void
   onOpenConflictView?: (hash: string, file?: string) => void
+  onCheckoutBranch?: (branch: string, isRemote?: boolean) => Promise<void> | void
+  onRefresh?: () => Promise<void> | void
+  currentBranch?: string
+  soloBranch?: string | null
+  onSoloBranch?: (branch: string | null) => void
 }
 
 function toDateKey(dateStr?: string): string {
@@ -100,7 +105,7 @@ function commitFindHit(commit: GitCommit, needle: string) {
   return hay.includes(needle)
 }
 
-function refHit(ref: string, name: string): boolean {
+function _refHit(ref: string, name: string): boolean {
   return ref === name || ref === `HEAD -> ${name}` || ref === `tag: ${name}`
 }
 
@@ -110,6 +115,65 @@ function initials(name: string): string {
   if (parts.length === 1) return [...parts[0]][0]?.toUpperCase() || '?'
   return `${[...parts[0]][0] || ''}${[...parts[1]][0] || ''}`.toUpperCase()
 }
+
+/** Memoized SVG linearGradient definitions layer to avoid DOM churn on hover / selection. */
+const GraphDefs = memo(function GraphDefs({
+  strokes,
+  commits,
+  points,
+  commitRow,
+  remoteNames,
+}: {
+  strokes: Stroke[]
+  commits: GitCommit[]
+  points: ReturnType<typeof graphScene>['points']
+  commitRow: number[]
+  remoteNames: string[]
+}) {
+  return (
+    <defs>
+      <style>{`
+        @keyframes wt-head-breathe {
+          0%, 100% {
+            box-shadow: inset 0 0 0 1.5px var(--wt-primary, #3cd2a8), 0 0 0 1px var(--panel), 0 0 3px var(--wt-primary-glow, #b8ffea);
+          }
+          50% {
+            box-shadow: inset 0 0 0 2px var(--wt-primary, #3cd2a8), 0 0 0 1px var(--panel), 0 0 4.5px var(--wt-primary-glow, #b8ffea);
+          }
+        }
+      `}</style>
+      {strokes
+        .filter((s) => s.startColor !== undefined && s.targetColor !== undefined && s.startColor !== s.targetColor)
+        .map((s) => {
+          const gradId = 'wt-grad-' + s.key.replace(/[^a-zA-Z0-9_-]/g, '_')
+          return (
+            <linearGradient key={gradId} id={gradId} gradientUnits="userSpaceOnUse" x1={s.x1 ?? 0} y1={s.y1 ?? 0} x2={s.x2 ?? 0} y2={s.y2 ?? 0}>
+              <stop offset="0%" stopColor={laneColor(s.startColor!)} />
+              <stop offset="100%" stopColor={laneColor(s.targetColor!)} />
+            </linearGradient>
+          )
+        })}
+      {commits.map((commit, index) => {
+        const chips = refChips(commit.refs, remoteNames)
+        if (chips.length === 0) return null
+        const point = points[index]
+        if (!point) return null
+        const y = commitRow[index] * ROW + ROW / 2
+        const isMerge = commit.parents.length > 1
+        const x = xAt(point.lane) - (isMerge ? MERGE_NODE_DOT : NODE_DOT) / 2
+        if (x <= 0) return null
+        const isHead = chips.some((chip) => chip.kind === 'head')
+        const color = laneColor(point.color)
+        return (
+          <linearGradient key={`lead-grad-${commit.hash}`} id={`wt-lead-${commit.hash}`} gradientUnits="userSpaceOnUse" x1={0} y1={y} x2={x} y2={y}>
+            <stop offset="0%" stopColor={color} stopOpacity={isHead ? 0.35 : 0.08} />
+            <stop offset="100%" stopColor={color} stopOpacity={isHead ? 1 : 0.65} />
+          </linearGradient>
+        )
+      })}
+    </defs>
+  )
+})
 
 /** Memoized SVG tree branch strokes layer to prevent re-renders on hover or loading state. */
 const GraphStrokes = memo(function GraphStrokes({
@@ -179,7 +243,7 @@ function GitGraphComponent({
   commits,
   worktree,
   stashes = [],
-  highlight,
+  highlight: _highlight,
   lineageHashes,
   remoteNames = [],
   worktreeBranches = [],
@@ -193,7 +257,12 @@ function GitGraphComponent({
   conflicts,
   onSelect,
   onSelectWorktree,
-  onOpenConflictView,
+  onOpenConflictView: _onOpenConflictView,
+  onCheckoutBranch,
+  onRefresh,
+  currentBranch,
+  soloBranch,
+  onSoloBranch,
 }: Props) {
   const t = useT()
   const locale = useLocaleCode()
@@ -205,6 +274,18 @@ function GitGraphComponent({
   const spotlightMap = spotlight?.targetsMap
   const [contextMenu, setContextMenu] = useState<GraphContextMenu | null>(null)
   const [hoveredHash, setHoveredHash] = useState<string | null>(null)
+  const isScrollingRef = useRef(false)
+  const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const handleListScroll = useCallback(() => {
+    isScrollingRef.current = true
+    if (scrollTimerRef.current !== null) {
+      clearTimeout(scrollTimerRef.current)
+    }
+    scrollTimerRef.current = setTimeout(() => {
+      isScrollingRef.current = false
+    }, 120)
+  }, [])
 
   const [internalHoverBranch, setInternalHoverBranch] = useState<string | null>(null)
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -236,7 +317,8 @@ function GitGraphComponent({
     }
   }, [])
 
-  const activeBranch = activeHoverBranch ?? internalHoverBranch
+  const isHoverBranchActive = Boolean(activeHoverBranch ?? internalHoverBranch)
+  const activeBranch = activeHoverBranch ?? internalHoverBranch ?? currentBranch
   const branchHashes = useMemo(() => {
     if (!activeBranch) return null
     return getBranchCommitHashes(activeBranch, commits)
@@ -266,13 +348,17 @@ function GitGraphComponent({
       remoteUrl,
       isReadOnly: false,
       hasWorktrees: worktreeBranches.length > 0 || Boolean(worktree),
+      soloBranch,
+      onSoloBranch,
       config: contextConfig,
       onNotify: (type, msg) => {
         if (type === 'success') notify.success(msg)
         else notify.error(msg)
       },
-      onCheckoutBranch: (branch) => {
-        if (agent) {
+      onCheckoutBranch: (branch, isRemote) => {
+        if (onCheckoutBranch) {
+          void onCheckoutBranch(branch, isRemote)
+        } else if (agent) {
           agent.setDockMode('dock-right')
           void agent.sendMessage(`帮我跳转到 ${branch}`)
         }
@@ -283,13 +369,27 @@ function GitGraphComponent({
           void agent.sendMessage(prompt)
         }
       },
+      onUndoCommit:
+        commit.hash === commits[0]?.hash
+          ? async () => {
+              if (!repo) return
+              try {
+                const driver = getGitDriver()
+                const res = await driver.undo(repo)
+                notify.success(res.message || t('git.operations.undoSuccess') || '已撤销上一次提交')
+                await onRefresh?.()
+              } catch (err) {
+                notify.error(err instanceof Error ? err.message : t('git.operations.undoError') || '撤销失败')
+              }
+            }
+          : undefined,
     })
   }
 
   const worktreeContextItems = (wt: GitWorktree): FloatingMenuItem[] => [
     {
       key: 'select-wt',
-      label: '查看工作区',
+      label: t('git.graph.workingTree') || '查看工作区',
       icon: <LuCopy className="size-4 shrink-0 text-accent" />,
       onSelect: () => onSelectWorktree?.(),
     },
@@ -312,21 +412,21 @@ function GitGraphComponent({
       label: t('git.graph.copyStashSubject'),
       icon: <LuText className="size-3.5 shrink-0" aria-hidden />,
       onSelect: () => void copyValue(stash.subject || stash.name),
-      group: '复制',
+      group: t('git.operations.groupCopy') || '复制',
     },
     {
       key: 'name',
       label: `${t('git.graph.copyStashName')} (${stash.name})`,
       icon: <LuCopy className="size-3.5 shrink-0" aria-hidden />,
       onSelect: () => void copyValue(stash.name),
-      group: '复制',
+      group: t('git.operations.groupCopy') || '复制',
     },
     {
       key: 'base',
       label: t('git.graph.copyStashBase'),
       icon: <LuHash className="size-3.5 shrink-0" aria-hidden />,
       onSelect: () => void copyValue(stash.base),
-      group: '复制',
+      group: t('git.operations.groupCopy') || '复制',
     },
   ]
 
@@ -432,16 +532,19 @@ function GitGraphComponent({
     if (!frame) return
 
     const handleWheel = (e: WheelEvent) => {
+      const hasHorizontalDelta = Math.abs(e.deltaX) > 0
+      const isShiftWheel = e.shiftKey && Math.abs(e.deltaY) > 0
+      const isAltWheel = e.altKey && Math.abs(e.deltaY) > 0
+
+      // Let standard vertical scroll pass through immediately without any DOM layout queries
+      if (!hasHorizontalDelta && !isShiftWheel && !isAltWheel) {
+        return
+      }
+
       const pan = graphScrollRef.current
       if (!pan) return
       const maxScroll = Math.max(0, pan.scrollWidth - pan.clientWidth)
       if (maxScroll <= 0) return
-
-      const rect = frame.getBoundingClientRect()
-      const isOverGraph = e.clientX >= rect.left + branchRef.current && e.clientX <= rect.left + branchRef.current + graphRef.current
-
-      const hasHorizontalDelta = Math.abs(e.deltaX) > 0
-      const isShiftWheel = e.shiftKey && Math.abs(e.deltaY) > 0
 
       if (hasHorizontalDelta) {
         const prev = pan.scrollLeft
@@ -450,14 +553,20 @@ function GitGraphComponent({
           e.preventDefault()
           syncGraphEdge()
         }
-      } else if (isShiftWheel || (isOverGraph && Math.abs(e.deltaY) > 0 && e.altKey)) {
-        const delta = e.deltaY
-        const prev = pan.scrollLeft
-        pan.scrollLeft = Math.max(0, Math.min(maxScroll, pan.scrollLeft + delta))
-        if (pan.scrollLeft !== prev) {
-          e.preventDefault()
-          syncGraphEdge()
-        }
+        return
+      }
+
+      // Check boundary only for Alt-wheel or Shift-wheel over the graph column
+      const rect = frame.getBoundingClientRect()
+      const isOverGraph = e.clientX >= rect.left + branchRef.current && e.clientX <= rect.left + branchRef.current + graphRef.current
+      if (!isOverGraph) return
+
+      const delta = e.deltaY
+      const prev = pan.scrollLeft
+      pan.scrollLeft = Math.max(0, Math.min(maxScroll, pan.scrollLeft + delta))
+      if (pan.scrollLeft !== prev) {
+        e.preventDefault()
+        syncGraphEdge()
       }
     }
 
@@ -607,8 +716,14 @@ function GitGraphComponent({
           />
         </div>
       </header>
-      <ScrollArea className="min-h-0 min-w-0 flex-1" indicator="both" reserveGutter={false} scrollRef={scrollRef} scrollProps={{ 'aria-label': t('git.graph.historyAria') }}>
-        <div className="relative min-w-0">
+      <ScrollArea
+        className="min-h-0 min-w-0 flex-1"
+        indicator="both"
+        reserveGutter={false}
+        scrollRef={scrollRef}
+        scrollProps={{ 'aria-label': t('git.graph.historyAria'), onScroll: handleListScroll }}
+      >
+        <div className="relative min-w-0 pb-6">
           <ol className="m-0 list-none">
             {scene.rows.map((row, rowIndex) => {
               const currDate = row.kind === 'commit' ? commits[row.index]?.date : row.kind === 'stash' ? row.stash.date : ''
@@ -618,7 +733,7 @@ function GitGraphComponent({
               const dateDivider =
                 isDateBoundary && currDate ? (
                   <div
-                    className="pointer-events-none absolute -top-px right-0 z-20 flex h-0 items-center pr-3"
+                    className="pointer-events-none absolute top-0 right-0 z-20 flex h-4 items-center pr-3"
                     style={{ left: 'calc(var(--git-branch-w) + var(--git-graph-w))' }}
                     aria-hidden
                   >
@@ -634,29 +749,16 @@ function GitGraphComponent({
                 const wipDot = scene.dots.find((dot) => dot.key === 'wip')
                 const color = wipDot?.color || laneColor(headIndex >= 0 ? (points[headIndex]?.color ?? 0) : 0)
                 const isSelected = selectedHash === GIT_WORKTREE_HASH
-                // Keep the signed node position so offscreen highlights clip to the graph viewport.
-                const wipNodeX = (wipDot?.x ?? 0) - graphEdge.scrollLeft
                 return (
                   <li key="worktree" className="group/commit git-commit-row relative z-0 h-[26px] max-h-[26px] min-w-0 shrink-0 overflow-visible hover:z-10">
-                    {/* Fixed graph and message column highlight pills */}
-                    <div
-                      className="git-graph-col-pill"
-                      data-selected={isSelected ? 'true' : 'false'}
-                      style={
-                        {
-                          '--row-tint': color,
-                          '--node-x': `${wipNodeX}px`,
-                          '--node-radius': `${(wipDot?.radius ?? 0) + (isSelected ? 1 : 0)}px`,
-                        } as React.CSSProperties
-                      }
-                    />
-                    <div className="git-message-col-pill" data-selected={isSelected ? 'true' : 'false'} style={{ '--row-tint': color } as React.CSSProperties} />
+                    {/* Fixed unified highlight pill */}
+                    <div className="git-row-pill" data-selected={isSelected ? 'true' : 'false'} style={{ '--row-tint': color } as React.CSSProperties} />
                     {dateDivider}
                     <div
                       role="row"
                       tabIndex={0}
                       aria-selected={isSelected}
-                      className="group/commit grid h-[26px] max-h-[26px] w-full min-w-0 cursor-pointer select-text items-center justify-start gap-0 rounded-none border-0 bg-transparent px-0 text-left leading-none font-normal outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent"
+                      className="group/commit grid h-[26px] max-h-[26px] w-full min-w-0 cursor-pointer select-text items-center justify-start gap-0 rounded-none border-0 bg-transparent px-0 text-left leading-none font-normal outline-none focus:outline-none focus-visible:outline-none"
                       style={{ gridTemplateColumns: columns }}
                       onClick={() => {
                         const sel = window.getSelection()
@@ -690,16 +792,22 @@ function GitGraphComponent({
                             isSelected ? 'text-ink' : isContextActive ? 'text-ink' : 'text-ink-soft'
                           )}
                           style={{ height: DOT }}
+                          title={`${t('git.graph.workingTree')} · ${t('git.graph.filesCount', { count: worktree.files })}`}
                         >
                           {t('git.graph.workingTree')}
-                          {worktree.insertions || worktree.deletions ? (
-                            <>
-                              <span className="ml-3 text-ok">+{worktree.insertions}</span>
-                              <span className="ml-2 text-fail">-{worktree.deletions}</span>
-                            </>
-                          ) : (
-                            <span className="ml-3">{t('git.graph.filesCount', { count: worktree.files })}</span>
-                          )}
+                          {(() => {
+                            const added = worktree.addedFiles !== undefined ? worktree.addedFiles : worktree.insertions
+                            const deleted = worktree.deletedFiles !== undefined ? worktree.deletedFiles : worktree.deletions
+                            if (added > 0 || deleted > 0) {
+                              return (
+                                <>
+                                  {added > 0 ? <span className="ml-3 text-ok">+{added}</span> : null}
+                                  {deleted > 0 ? <span className="ml-2 text-fail">-{deleted}</span> : null}
+                                </>
+                              )
+                            }
+                            return <span className="ml-3 text-ink-soft">{t('git.graph.filesCount', { count: worktree.files })}</span>
+                          })()}
                         </span>
                       </span>
                     </div>
@@ -711,23 +819,13 @@ function GitGraphComponent({
                 const stashPoint = scene.stashPoints.get(stash.hash)
                 const color = stashPoint ? laneColor(stashPoint.color) : 'var(--accent)'
                 const selected = selectedHash === stash.hash
-                const marked = highlight === stash.name
                 const findHit = stashFindHit(stash, findNeedle)
                 const isContextActive = contextMenu?.type === 'stash' && contextMenu.stash.hash === stash.hash
-                const rowTintClass = cn(
-                  isContextActive ? 'bg-[color-mix(in_oklab,var(--accent)_12%,transparent)]' : marked ? 'bg-[color-mix(in_oklab,var(--accent)_10%,transparent)]' : ''
-                )
-                // Pill stops at the outer ring of the stash node
-                const stashNodeX = (stashPoint ? xAt(stashPoint.lane) : 0) - graphEdge.scrollLeft
+                const rowTintClass = cn(isContextActive ? 'bg-[color-mix(in_oklab,var(--accent)_12%,transparent)]' : '')
                 return (
                   <li key={stash.name} className="group/commit git-commit-row relative z-0 h-[26px] max-h-[26px] min-w-0 shrink-0 overflow-visible hover:z-10">
-                    {/* Fixed graph and message column highlight pills */}
-                    <div
-                      className="git-graph-col-pill"
-                      data-selected={selected ? 'true' : 'false'}
-                      style={{ '--row-tint': color, '--node-x': `${stashNodeX}px`, '--node-radius': `${NODE_DOT / 2 + (selected ? 4 : 0)}px` } as React.CSSProperties}
-                    />
-                    <div className="git-message-col-pill" data-selected={selected ? 'true' : 'false'} style={{ '--row-tint': color } as React.CSSProperties} />
+                    {/* Fixed unified highlight pill */}
+                    <div className="git-row-pill" data-selected={selected ? 'true' : 'false'} style={{ '--row-tint': color } as React.CSSProperties} />
                     {dateDivider}
                     <div
                       role="row"
@@ -735,7 +833,7 @@ function GitGraphComponent({
                       aria-selected={selected}
                       data-git-commit-hash={stash.hash}
                       className={cn(
-                        'group/commit grid h-[26px] max-h-[26px] w-full min-w-0 cursor-pointer select-text items-center justify-start gap-0 rounded-none border-0 bg-transparent px-0 text-left leading-none font-normal outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent',
+                        'group/commit grid h-[26px] max-h-[26px] w-full min-w-0 cursor-pointer select-text items-center justify-start gap-0 rounded-none border-0 bg-transparent px-0 text-left leading-none font-normal outline-none focus:outline-none focus-visible:outline-none',
                         findNeedle && !findHit && 'opacity-35'
                       )}
                       style={{ gridTemplateColumns: columns }}
@@ -781,7 +879,6 @@ function GitGraphComponent({
               const index = row.index
               const commit = commits[index]
               if (!commit) return null
-              const marked = highlight ? commit.refs.some((ref) => refHit(ref, highlight)) : false
               const selected = selectedHash === commit.hash
               const findHit = commitFindHit(commit, findNeedle)
               const chips = refChips(commit.refs, remoteNames)
@@ -794,8 +891,11 @@ function GitGraphComponent({
               const spotlightTarget = spotlightMap?.get(commit.hash.toLowerCase())
               const isSpotlightHit = Boolean(spotlightTarget)
               const isSpotlightDimmed = isSpotlightActive && !isSpotlightHit
-              const isBranchHit = Boolean(isBranchActive && branchHashes?.has(commit.hash))
-              const isBranchDimmed = isBranchActive && !isBranchHit
+              const isHead = index === headIndex || commit.refs.some((r) => r === 'HEAD' || r.startsWith('HEAD -> '))
+              const isCurrentBranchHead = Boolean(
+                isHead || (currentBranch && commit.refs.some((r) => r === currentBranch || r === `HEAD -> ${currentBranch}` || r.endsWith(`/${currentBranch}`)))
+              )
+              const isBranchHit = isHoverBranchActive ? Boolean(isBranchActive && branchHashes?.has(commit.hash)) : isCurrentBranchHead
               const rowTintClass = cn(
                 isSpotlightHit && spotlightTarget?.role === 'primary'
                   ? 'bg-[color-mix(in_oklab,var(--accent)_22%,transparent)] ring-1 ring-inset ring-accent/60'
@@ -803,35 +903,25 @@ function GitGraphComponent({
                     ? 'bg-[color-mix(in_oklab,var(--accent)_14%,transparent)] ring-1 ring-inset ring-blue-500/40'
                     : isLineageHit
                       ? 'bg-[color-mix(in_oklab,var(--accent)_16%,transparent)] ring-1 ring-inset ring-accent/35'
-                      : marked
-                        ? 'bg-[color-mix(in_oklab,var(--accent)_12%,transparent)]'
-                        : ''
+                      : ''
               )
               const isHovered = isContextActive || hoveredHash === commit.hash
-              const isMerge = commit.parents.length > 1
-              const isConflictedMerge = isMerge && Boolean(conflicts?.[commit.hash]?.hasConflict)
               return (
                 <li
                   key={commit.hash}
                   className="group/commit git-commit-row relative z-0 h-[26px] max-h-[26px] min-w-0 shrink-0 overflow-visible hover:z-10"
-                  onPointerEnter={() => setHoveredHash(commit.hash)}
-                  onPointerLeave={() => setHoveredHash(null)}
+                  onPointerEnter={() => {
+                    if (isScrollingRef.current) return
+                    setHoveredHash(commit.hash)
+                  }}
+                  onPointerLeave={() => {
+                    if (isScrollingRef.current) return
+                    setHoveredHash(null)
+                  }}
                 >
-                  {/* Fixed graph and message column highlight pills */}
+                  {/* Localized message column highlight pill */}
                   <div
-                    className="git-graph-col-pill"
-                    data-selected={selected ? 'true' : 'false'}
-                    data-branch-hit={isBranchHit ? 'true' : 'false'}
-                    style={
-                      {
-                        '--row-tint': color,
-                        '--node-x': point ? `${xAt(point.lane) - graphEdge.scrollLeft}px` : '0px',
-                        '--node-radius': `${((isMerge ? MERGE_NODE_DOT : NODE_DOT) / 2 + (selected || isBranchHit ? 4 : 0)) * (isBranchHit ? 1.25 : selected ? 1.1 : 1)}px`,
-                      } as React.CSSProperties
-                    }
-                  />
-                  <div
-                    className="git-message-col-pill"
+                    className="git-row-pill"
                     data-selected={selected ? 'true' : 'false'}
                     data-branch-hit={isBranchHit ? 'true' : 'false'}
                     style={{ '--row-tint': color } as React.CSSProperties}
@@ -843,11 +933,10 @@ function GitGraphComponent({
                     aria-selected={selected}
                     data-git-commit-hash={commit.hash}
                     className={cn(
-                      'group/commit grid h-[26px] max-h-[26px] w-full min-w-0 cursor-pointer select-text items-center justify-start gap-0 rounded-none border-0 bg-transparent px-0 text-left leading-none font-normal outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent transition-opacity duration-150',
+                      'group/commit grid h-[26px] max-h-[26px] w-full min-w-0 cursor-pointer select-text items-center justify-start gap-0 rounded-none border-0 bg-transparent px-0 text-left leading-none font-normal outline-none focus:outline-none focus-visible:outline-none transition-opacity duration-150',
                       findNeedle && !findHit && 'opacity-35',
                       isLineageActive && !isLineageHit && !selected && !isHovered && 'opacity-35 hover:opacity-100',
-                      isSpotlightDimmed && !selected && !isHovered && 'opacity-35 hover:opacity-100',
-                      isBranchDimmed && !selected && 'opacity-20'
+                      isSpotlightDimmed && !selected && !isHovered && 'opacity-35 hover:opacity-100'
                     )}
                     style={{ gridTemplateColumns: columns }}
                     onClick={() => {
@@ -884,6 +973,9 @@ function GitGraphComponent({
                             onBranchHoverStart={handleBranchPointerEnter}
                             onBranchHoverEnd={handleBranchPointerLeave}
                             onSelectCommit={onSelect}
+                            onCheckoutBranch={onCheckoutBranch}
+                            soloBranch={soloBranch}
+                            onSoloBranch={onSoloBranch}
                           />
                           {spotlightTarget && <AnnotationBadge target={spotlightTarget} className="ml-1 shrink-0" />}
                           <span
@@ -937,12 +1029,8 @@ function GitGraphComponent({
                       <span className="w-0.5 shrink-0" style={{ height: DOT, background: color }} aria-hidden />
                     </span>
                     <span data-git-message-cell className={cn('flex h-[26px] min-h-0 min-w-0 items-center pl-2', rowTintClass)}>
-                      {isConflictedMerge && <CommitStatusBadge commit={commit} conflict={conflicts?.[commit.hash]} onOpenConflictView={onOpenConflictView} />}
                       <span
-                        className={cn(
-                          'flex min-w-0 flex-1 items-center truncate pr-3 text-sm leading-none font-normal select-text cursor-pointer transition-colors duration-150',
-                          isBranchActive && !isBranchHit ? 'text-ink-soft/40' : 'text-ink'
-                        )}
+                        className="flex min-w-0 flex-1 items-center truncate pr-3 text-sm leading-none font-normal select-text cursor-pointer transition-colors duration-150 text-ink"
                         style={{ height: DOT }}
                         title={commit.date ? `${commit.subject} (${commit.date})` : commit.subject}
                       >
@@ -957,54 +1045,14 @@ function GitGraphComponent({
           <div
             ref={graphScrollRef}
             data-git-graph-pan
-            className="pointer-events-none absolute top-0 left-[var(--git-branch-w)] z-[2] w-[var(--git-graph-w)] overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-            style={{ height: scene.height }}
+            className="pointer-events-none absolute top-0 left-[var(--git-branch-w)] z-[2] w-[var(--git-graph-w)] overflow-x-auto overflow-y-visible [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            style={{ height: scene.height + 24 }}
             onScroll={syncGraphEdge}
           >
-            <div className="relative" style={{ width: contentWidth, height: scene.height }}>
-              <svg className="pointer-events-none absolute inset-0 overflow-visible" width={contentWidth} height={scene.height} aria-hidden>
-                <defs>
-                  <style>{`
-                    @keyframes wt-head-breathe {
-                      0%, 100% {
-                        box-shadow: inset 0 0 0 1.5px var(--wt-primary, #3cd2a8), 0 0 0 1px var(--panel), 0 0 3px var(--wt-primary-glow, #b8ffea);
-                      }
-                      50% {
-                        box-shadow: inset 0 0 0 2px var(--wt-primary, #3cd2a8), 0 0 0 1px var(--panel), 0 0 4.5px var(--wt-primary-glow, #b8ffea);
-                      }
-                    }
-                  `}</style>
-                  {scene.strokes
-                    .filter((s) => s.startColor !== undefined && s.targetColor !== undefined && s.startColor !== s.targetColor)
-                    .map((s) => {
-                      const gradId = 'wt-grad-' + s.key.replace(/[^a-zA-Z0-9_-]/g, '_')
-                      return (
-                        <linearGradient key={gradId} id={gradId} gradientUnits="userSpaceOnUse" x1={s.x1 ?? 0} y1={s.y1 ?? 0} x2={s.x2 ?? 0} y2={s.y2 ?? 0}>
-                          <stop offset="0%" stopColor={laneColor(s.startColor!)} />
-                          <stop offset="100%" stopColor={laneColor(s.targetColor!)} />
-                        </linearGradient>
-                      )
-                    })}
-                  {commits.map((commit, index) => {
-                    const chips = refChips(commit.refs, remoteNames)
-                    if (chips.length === 0) return null
-                    const point = points[index]
-                    if (!point) return null
-                    const y = scene.commitRow[index] * ROW + ROW / 2
-                    const isMerge = commit.parents.length > 1
-                    const x = xAt(point.lane) - (isMerge ? MERGE_NODE_DOT : NODE_DOT) / 2
-                    if (x <= 0) return null
-                    const isHead = chips.some((chip) => chip.kind === 'head')
-                    const color = laneColor(point.color)
-                    return (
-                      <linearGradient key={`lead-grad-${commit.hash}`} id={`wt-lead-${commit.hash}`} gradientUnits="userSpaceOnUse" x1={0} y1={y} x2={x} y2={y}>
-                        <stop offset="0%" stopColor={color} stopOpacity={isHead ? 0.35 : 0.08} />
-                        <stop offset="100%" stopColor={color} stopOpacity={isHead ? 1 : 0.65} />
-                      </linearGradient>
-                    )
-                  })}
-                </defs>
-                <GraphStrokes strokes={scene.strokes} lineageHashes={lineageHashes} spotlightHashes={spotlightHashes} branchHashes={branchHashes} />
+            <div className="relative" style={{ width: contentWidth, height: scene.height + 24 }}>
+              <svg className="pointer-events-none absolute inset-0 overflow-visible" width={contentWidth} height={scene.height + 24} aria-hidden>
+                <GraphDefs strokes={scene.strokes} commits={commits} points={points} commitRow={scene.commitRow} remoteNames={remoteNames} />
+                <GraphStrokes strokes={scene.strokes} lineageHashes={lineageHashes} spotlightHashes={spotlightHashes} />
                 {commits.map((commit, index) => {
                   const chips = refChips(commit.refs, remoteNames)
                   const branch = branchAt.get(commit.hash) || ''
@@ -1092,11 +1140,9 @@ function GitGraphComponent({
                 const isLineageHit = lineageHashes?.has(commit.hash)
                 const isSpotlightHit = Boolean(spotlightMap?.get(commit.hash.toLowerCase()))
                 const isSpotlightDimmed = isSpotlightActive && !isSpotlightHit
-                const isBranchHit = Boolean(isBranchActive && branchHashes?.has(commit.hash))
-                const isBranchDimmed = isBranchActive && !isBranchHit
                 const isHead = index === headIndex || commit.refs.some((r) => r === 'HEAD' || r.startsWith('HEAD -> '))
                 const isTagged = commit.refs.some((r) => r.startsWith('tag: '))
-                const isDimmed = Boolean((lineageHashes && lineageHashes.size > 0 && !isLineageHit && !isHead) || isSpotlightDimmed || isBranchDimmed)
+                const isDimmed = Boolean((lineageHashes && lineageHashes.size > 0 && !isLineageHit && !isHead) || isSpotlightDimmed)
                 const isSelected = selectedHash === commit.hash
                 return (
                   <span
@@ -1109,8 +1155,7 @@ function GitGraphComponent({
                       isSelected && 'scale-110 z-10',
                       isLineageHit && 'ring-2 ring-accent ring-offset-1 ring-offset-[var(--panel)] scale-110 z-10 shadow-[0_0_8px_var(--accent)]',
                       isSpotlightHit && 'ring-2 ring-accent ring-offset-1 ring-offset-[var(--panel)] scale-125 z-20 shadow-[0_0_12px_var(--accent)]',
-                      isBranchHit && 'scale-125 z-20',
-                      isBranchDimmed ? 'opacity-20' : isDimmed ? 'opacity-25' : ''
+                      isDimmed ? 'opacity-25' : ''
                     )}
                     style={
                       isMerge
@@ -1121,11 +1166,7 @@ function GitGraphComponent({
                             height: MERGE_NODE_DOT,
                             background: 'var(--panel)',
                             border: `1.5px solid ${tint}`,
-                            boxShadow: isSelected
-                              ? `0 0 0 2px var(--panel), 0 0 0 4px ${tint}, 0 0 10px ${tint}`
-                              : isBranchHit
-                                ? `0 0 0 2px var(--panel), 0 0 0 4px ${tint}, 0 0 12px ${tint}`
-                                : `0 0 3px color-mix(in oklab, ${tint} 30%, transparent)`,
+                            boxShadow: isSelected ? `0 0 0 2px var(--panel), 0 0 0 4px ${tint}, 0 0 10px ${tint}` : `0 0 3px color-mix(in oklab, ${tint} 30%, transparent)`,
                           }
                         : {
                             left: xAt(point.lane),
@@ -1135,11 +1176,9 @@ function GitGraphComponent({
                             background: 'var(--panel)',
                             boxShadow: isSelected
                               ? `inset 0 0 0 1.5px ${tint}, 0 0 0 2px var(--panel), 0 0 0 4px ${tint}, 0 0 8px ${tint}`
-                              : isBranchHit
-                                ? `inset 0 0 0 1.5px ${tint}, 0 0 0 2px var(--panel), 0 0 0 4px ${tint}, 0 0 12px ${tint}`
-                                : isHead
-                                  ? 'inset 0 0 0 1.5px var(--wt-primary, #3cd2a8), 0 0 0 1px var(--panel), 0 0 4px var(--wt-primary-glow, #b8ffea)'
-                                  : `inset 0 0 0 1.5px ${tint}`,
+                              : isHead
+                                ? 'inset 0 0 0 1.5px var(--wt-primary, #3cd2a8), 0 0 0 1px var(--panel), 0 0 4px var(--wt-primary-glow, #b8ffea)'
+                                : `inset 0 0 0 1.5px ${tint}`,
                             animation: isHead && !isSelected ? 'wt-head-breathe 2.8s ease-in-out infinite' : undefined,
                           }
                     }

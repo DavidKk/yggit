@@ -1,7 +1,23 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { LuChevronDown, LuChevronUp, LuCodeXml, LuColumns2, LuEye, LuFileText, LuGitCompareArrows, LuListTree, LuPencil, LuRows3, LuSearch, LuX } from 'react-icons/lu'
+import {
+  LuAlignLeft,
+  LuChevronDown,
+  LuChevronUp,
+  LuCodeXml,
+  LuColumns2,
+  LuEye,
+  LuFileText,
+  LuGitCompareArrows,
+  LuGitMerge,
+  LuListTree,
+  LuPencil,
+  LuRows3,
+  LuSearch,
+  LuWrapText,
+  LuX,
+} from 'react-icons/lu'
 import { TiMinusOutline, TiPlusOutline } from 'react-icons/ti'
 import type { ThemedToken } from 'shiki'
 
@@ -11,9 +27,13 @@ import { type GitFilePane, GitFilePreview } from '@/components/git/GitFilePrevie
 import { GIT_FIND_EVENT, useGitFindPanel, useGitFindShortcutLabel } from '@/components/git/gitFind'
 import { GitFindBox } from '@/components/git/GitFindBox'
 import { GitDiffCodeText, useGitLineTokens } from '@/components/git/GitHighlightedCode'
-import { useT } from '@/components/i18n/LocaleProvider'
-import { Button, EmptyState, ScrollArea, SegmentedNav } from '@/components/sk'
+import { useGitBlame } from '@/components/git/useGitBlame'
+import { useLocaleCode, useT } from '@/components/i18n/LocaleProvider'
+import { Button, EmptyState, ScrollArea, SegmentedNav, Tooltip } from '@/components/sk'
 import { getGitDriver } from '@/lib/git/driver'
+import type { GitBlameLine } from '@/lib/git/driver/types'
+import { formatCommitAgo } from '@/lib/git/format-commit-ago'
+import { computeIntraDiff } from '@/lib/git/intra-diff'
 import type { GitCommitChanges } from '@/lib/git/types'
 import { useGitUiPref } from '@/lib/git/ui-prefs'
 import { cn } from '@/lib/utils'
@@ -28,7 +48,11 @@ type Props = {
   onNextFile?: () => void
   fileIndex?: number
   fileCount?: number
+  hasConflict?: boolean
+  onOpenConflictView?: () => void
 }
+
+const isBoolean = (value: unknown): value is boolean => typeof value === 'boolean'
 
 type Mode = 'file' | 'diff'
 type Viewport = 'group' | 'full' | 'split'
@@ -140,60 +164,196 @@ function countChanges(hunks: Hunk[]): ChangeCounts {
   return { add: add - edit, edit, del: del - edit }
 }
 
-function PlainRows({ rows, path, activeIndex, searchNeedle }: { rows: AlignedRow[]; path: string; activeIndex?: number; searchNeedle?: string }) {
-  const liveLines = useMemo(() => rows.filter((row) => row.kind !== 'del').map((row) => row.text), [rows])
-  const delLines = useMemo(() => rows.filter((row) => row.kind === 'del').map((row) => row.text), [rows])
+function PlainRows({
+  rows,
+  path,
+  activeIndex,
+  searchNeedle,
+  wordWrap,
+  blameMap,
+}: {
+  rows: AlignedRow[]
+  path: string
+  activeIndex?: number
+  searchNeedle?: string
+  wordWrap?: boolean
+  blameMap?: Record<number, GitBlameLine>
+}) {
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null)
+  const locale = useLocaleCode()
+
+  // Compute intra-line diff ranges for paired consecutive deletions and additions
+  const enrichedRows = useMemo(() => {
+    const result: Array<AlignedRow & { diffRanges?: Array<[number, number]> }> = []
+    let i = 0
+    while (i < rows.length) {
+      if (rows[i].kind === 'context') {
+        result.push(rows[i])
+        i++
+        continue
+      }
+      const dels: AlignedRow[] = []
+      const adds: AlignedRow[] = []
+      while (i < rows.length && rows[i].kind === 'del') {
+        dels.push(rows[i])
+        i++
+      }
+      while (i < rows.length && rows[i].kind === 'add') {
+        adds.push(rows[i])
+        i++
+      }
+      const pairCount = Math.min(dels.length, adds.length)
+      const delRangesMap = new Map<number, Array<[number, number]>>()
+      const addRangesMap = new Map<number, Array<[number, number]>>()
+      for (let k = 0; k < pairCount; k++) {
+        const { oldRanges, newRanges } = computeIntraDiff(dels[k].text, adds[k].text)
+        delRangesMap.set(k, oldRanges)
+        addRangesMap.set(k, newRanges)
+      }
+      dels.forEach((del, idx) => result.push({ ...del, diffRanges: delRangesMap.get(idx) }))
+      adds.forEach((add, idx) => result.push({ ...add, diffRanges: addRangesMap.get(idx) }))
+    }
+    return result
+  }, [rows])
+
+  const liveLines = useMemo(() => enrichedRows.filter((row) => row.kind !== 'del').map((row) => row.text), [enrichedRows])
+  const delLines = useMemo(() => enrichedRows.filter((row) => row.kind === 'del').map((row) => row.text), [enrichedRows])
   const liveTokens = useGitLineTokens(liveLines, path)
   const delTokens = useGitLineTokens(delLines, path)
   let liveAt = 0
   let delAt = 0
-  return rows.map((row, index) => {
-    const tokens = row.kind === 'del' ? delTokens?.[delAt++] : liveTokens?.[liveAt++]
-    const isActive = activeIndex === index
-    const isMatch = Boolean(searchNeedle && row.text.toLowerCase().includes(searchNeedle.toLowerCase()))
-    return (
-      <div
-        key={index}
-        data-diff-line-idx={index}
-        className={cn('flex min-w-0 transition-colors', isActive && 'bg-accent/25 ring-1 ring-accent', !isActive && isMatch && 'bg-accent/5')}
-      >
-        <span className="w-12 shrink-0 pr-2 text-right text-ink-soft select-none">{row.newNo ?? row.oldNo ?? ''}</span>
-        <GitDiffCodeText kind={row.kind} text={row.text} tokens={tokens} searchNeedle={searchNeedle} isActiveLine={isActive} />
-      </div>
-    )
-  })
+  return (
+    <div onMouseLeave={() => setHoveredIdx(null)}>
+      {enrichedRows.map((row, index) => {
+        const tokens = row.kind === 'del' ? delTokens?.[delAt++] : liveTokens?.[liveAt++]
+        const isActive = activeIndex === index
+        const isHovered = hoveredIdx === index
+        const isMatch = Boolean(searchNeedle && row.text.toLowerCase().includes(searchNeedle.toLowerCase()))
+        const lineNo = row.newNo ?? row.oldNo
+        const blame = lineNo ? blameMap?.[lineNo] : undefined
+        return (
+          <div
+            key={index}
+            data-diff-line-idx={index}
+            onMouseEnter={() => setHoveredIdx(index)}
+            className={cn(
+              'group/diffrow relative flex items-center transition-colors',
+              wordWrap ? 'min-w-0 w-full' : 'min-w-full w-max',
+              row.kind === 'add' && 'bg-[color-mix(in_oklab,var(--ok)_12%,transparent)]',
+              row.kind === 'del' && 'bg-[color-mix(in_oklab,var(--fail)_12%,transparent)]',
+              isActive && 'bg-accent/25 ring-1 ring-accent',
+              !isActive && isMatch && 'bg-accent/5',
+              isHovered && !isActive && (row.kind ? 'brightness-95' : 'bg-[color-mix(in_oklab,var(--ink)_5%,transparent)]')
+            )}
+          >
+            <span className="w-12 shrink-0 pr-2 text-right text-ink-soft select-none font-mono">{row.newNo ?? row.oldNo ?? ''}</span>
+            <GitDiffCodeText kind={row.kind} text={row.text} tokens={tokens} searchNeedle={searchNeedle} isActiveLine={isActive} wrap={wordWrap} diffRanges={row.diffRanges} />
+            {isHovered && blame && (
+              <span
+                className="ml-auto pl-6 pr-3 text-[11px] text-ink-soft/75 select-none font-sans shrink-0 pointer-events-none truncate italic"
+                title={`${blame.author} (${blame.hash.slice(0, 7)}): ${blame.summary}`}
+              >
+                {blame.author}, {formatCommitAgo(blame.date, locale)} · {blame.summary}
+              </span>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
 }
 
-function splitPairs(rows: AlignedRow[]): Array<{ left?: AlignedRow; right?: AlignedRow }> {
-  const pairs: Array<{ left?: AlignedRow; right?: AlignedRow }> = []
-  for (let index = 0; index < rows.length; index += 1) {
+function splitPairs(rows: AlignedRow[]): Array<{
+  left?: AlignedRow & { diffRanges?: Array<[number, number]> }
+  right?: AlignedRow & { diffRanges?: Array<[number, number]> }
+}> {
+  const pairs: Array<{
+    left?: AlignedRow & { diffRanges?: Array<[number, number]> }
+    right?: AlignedRow & { diffRanges?: Array<[number, number]> }
+  }> = []
+
+  let index = 0
+  while (index < rows.length) {
     const row = rows[index]
-    const next = rows[index + 1]
-    if (row.kind === 'del' && next?.kind === 'add') {
-      pairs.push({ left: row, right: next })
-      index += 1
+    if (row.kind === 'context') {
+      pairs.push({ left: row, right: row })
+      index++
       continue
     }
-    if (row.kind === 'del') {
-      pairs.push({ left: row })
-      continue
+
+    const dels: AlignedRow[] = []
+    const adds: AlignedRow[] = []
+    while (index < rows.length && rows[index].kind === 'del') {
+      dels.push(rows[index])
+      index++
     }
-    if (row.kind === 'add') {
-      pairs.push({ right: row })
-      continue
+    while (index < rows.length && rows[index].kind === 'add') {
+      adds.push(rows[index])
+      index++
     }
-    pairs.push({ left: row, right: row })
+
+    const maxLen = Math.max(dels.length, adds.length)
+    for (let k = 0; k < maxLen; k++) {
+      const del = dels[k]
+      const add = adds[k]
+      if (del && add) {
+        const { oldRanges, newRanges } = computeIntraDiff(del.text, add.text)
+        pairs.push({
+          left: { ...del, diffRanges: oldRanges },
+          right: { ...add, diffRanges: newRanges },
+        })
+      } else if (del) {
+        pairs.push({ left: del })
+      } else if (add) {
+        pairs.push({ right: add })
+      }
+    }
   }
+
   return pairs
 }
 
-function SplitRows({ rows, path, activeIndex, targetSequence }: { rows: AlignedRow[]; path: string; activeIndex?: number; targetSequence: number }) {
+function SplitRows({
+  rows,
+  path,
+  activeIndex,
+  targetSequence,
+  wordWrap,
+  beforeBlameMap,
+  afterBlameMap,
+}: {
+  rows: AlignedRow[]
+  path: string
+  activeIndex?: number
+  targetSequence: number
+  wordWrap?: boolean
+  beforeBlameMap?: Record<number, GitBlameLine>
+  afterBlameMap?: Record<number, GitBlameLine>
+}) {
   const t = useT()
   const pairs = useMemo(() => splitPairs(rows), [rows])
   const [scrollTop, setScrollTop] = useState(0)
   const target = activeIndex === undefined ? -1 : pairs.findIndex((pair) => pair.left === rows[activeIndex] || pair.right === rows[activeIndex])
-  const left = useMemo(() => pairs.map((pair) => ({ text: pair.left?.text ?? '', number: pair.left?.oldNo, kind: pair.left?.kind })), [pairs])
-  const right = useMemo(() => pairs.map((pair) => ({ text: pair.right?.text ?? '', number: pair.right?.newNo, kind: pair.right?.kind })), [pairs])
+  const left = useMemo(
+    () =>
+      pairs.map((pair) => ({
+        text: pair.left?.text ?? '',
+        number: pair.left?.oldNo,
+        kind: pair.left?.kind,
+        diffRanges: pair.left?.diffRanges,
+      })),
+    [pairs]
+  )
+  const right = useMemo(
+    () =>
+      pairs.map((pair) => ({
+        text: pair.right?.text ?? '',
+        number: pair.right?.newNo,
+        kind: pair.right?.kind,
+        diffRanges: pair.right?.diffRanges,
+      })),
+    [pairs]
+  )
   return (
     <div className="grid min-h-0 flex-1 grid-cols-2 divide-x divide-line">
       <GitCodePane
@@ -204,6 +364,8 @@ function SplitRows({ rows, path, activeIndex, targetSequence }: { rows: AlignedR
         onScroll={setScrollTop}
         targetLine={target < 0 ? undefined : target}
         targetSequence={targetSequence}
+        wordWrap={wordWrap}
+        blameMap={beforeBlameMap}
       />
       <GitCodePane
         label={t('git.diff.after')}
@@ -213,23 +375,77 @@ function SplitRows({ rows, path, activeIndex, targetSequence }: { rows: AlignedR
         onScroll={setScrollTop}
         targetLine={target < 0 ? undefined : target}
         targetSequence={targetSequence}
+        wordWrap={wordWrap}
+        blameMap={afterBlameMap}
       />
     </div>
   )
 }
 
-function HunkBlock({ hunk, path, lineOffset = 0, activeIndex, searchNeedle }: { hunk: Hunk; path: string; lineOffset?: number; activeIndex?: number; searchNeedle?: string }) {
-  // Highlight old/new sides separately so +/- lines do not break TextMate state.
-  const oldLines = useMemo(() => hunk.lines.filter((line) => line.kind === 'context' || line.kind === 'del').map((line) => line.text), [hunk])
-  const newLines = useMemo(() => hunk.lines.filter((line) => line.kind === 'context' || line.kind === 'add').map((line) => line.text), [hunk])
+function HunkBlock({
+  hunk,
+  path,
+  lineOffset = 0,
+  activeIndex,
+  searchNeedle,
+  wordWrap,
+  blameMap,
+}: {
+  hunk: Hunk
+  path: string
+  lineOffset?: number
+  activeIndex?: number
+  searchNeedle?: string
+  wordWrap?: boolean
+  blameMap?: Record<number, GitBlameLine>
+}) {
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null)
+  const locale = useLocaleCode()
+
+  // Compute intra-diff for paired deletions and additions in hunk
+  const enrichedLines = useMemo(() => {
+    const result: Array<(typeof hunk.lines)[number] & { diffRanges?: Array<[number, number]> }> = []
+    let i = 0
+    while (i < hunk.lines.length) {
+      if (hunk.lines[i].kind === 'context' || hunk.lines[i].kind === 'meta') {
+        result.push(hunk.lines[i])
+        i++
+        continue
+      }
+      const dels: Array<(typeof hunk.lines)[number]> = []
+      const adds: Array<(typeof hunk.lines)[number]> = []
+      while (i < hunk.lines.length && hunk.lines[i].kind === 'del') {
+        dels.push(hunk.lines[i])
+        i++
+      }
+      while (i < hunk.lines.length && hunk.lines[i].kind === 'add') {
+        adds.push(hunk.lines[i])
+        i++
+      }
+      const pairCount = Math.min(dels.length, adds.length)
+      const delRangesMap = new Map<number, Array<[number, number]>>()
+      const addRangesMap = new Map<number, Array<[number, number]>>()
+      for (let k = 0; k < pairCount; k++) {
+        const { oldRanges, newRanges } = computeIntraDiff(dels[k].text, adds[k].text)
+        delRangesMap.set(k, oldRanges)
+        addRangesMap.set(k, newRanges)
+      }
+      dels.forEach((del, idx) => result.push({ ...del, diffRanges: delRangesMap.get(idx) }))
+      adds.forEach((add, idx) => result.push({ ...add, diffRanges: addRangesMap.get(idx) }))
+    }
+    return result
+  }, [hunk])
+
+  const oldLines = useMemo(() => enrichedLines.filter((line) => line.kind === 'context' || line.kind === 'del').map((line) => line.text), [enrichedLines])
+  const newLines = useMemo(() => enrichedLines.filter((line) => line.kind === 'context' || line.kind === 'add').map((line) => line.text), [enrichedLines])
   const oldTokens = useGitLineTokens(oldLines, path)
   const newTokens = useGitLineTokens(newLines, path)
 
   const renderedLines = useMemo(() => {
     let oldAt = 0
     let newAt = 0
-    const result: Array<{ line: (typeof hunk.lines)[number]; tokens: ThemedToken[] | undefined }> = []
-    for (const line of hunk.lines) {
+    const result: Array<{ line: (typeof enrichedLines)[number]; tokens: ThemedToken[] | undefined }> = []
+    for (const line of enrichedLines) {
       let tokens: ThemedToken[] | undefined
       if (line.kind === 'del') {
         tokens = oldTokens?.[oldAt]
@@ -245,28 +461,48 @@ function HunkBlock({ hunk, path, lineOffset = 0, activeIndex, searchNeedle }: { 
       result.push({ line, tokens })
     }
     return result
-  }, [hunk, oldTokens, newTokens])
+  }, [enrichedLines, oldTokens, newTokens])
 
   return (
-    <>
+    <div onMouseLeave={() => setHoveredIdx(null)}>
       <div className="border-b border-line bg-[color-mix(in_oklab,var(--ink)_6%,transparent)] px-3 text-ink-soft">{hunk.header}</div>
       {renderedLines.map(({ line, tokens }, index) => {
         const lineIdx = lineOffset + index
         const isActive = activeIndex === lineIdx
+        const isHovered = hoveredIdx === index
         const isMatch = Boolean(searchNeedle && line.text.toLowerCase().includes(searchNeedle.toLowerCase()))
+        const lineNo = line.newNo ?? line.oldNo
+        const blame = lineNo ? blameMap?.[lineNo] : undefined
         return (
           <div
             key={`${hunk.header}:${index}`}
             data-diff-line-idx={lineIdx}
-            className={cn('flex min-w-0 transition-colors', isActive && 'bg-accent/25 ring-1 ring-accent', !isActive && isMatch && 'bg-accent/5')}
+            onMouseEnter={() => setHoveredIdx(index)}
+            className={cn(
+              'group/diffrow relative flex items-center transition-colors',
+              wordWrap ? 'min-w-0 w-full' : 'min-w-full w-max',
+              line.kind === 'add' && 'bg-[color-mix(in_oklab,var(--ok)_12%,transparent)]',
+              line.kind === 'del' && 'bg-[color-mix(in_oklab,var(--fail)_12%,transparent)]',
+              isActive && 'bg-accent/25 ring-1 ring-accent',
+              !isActive && isMatch && 'bg-accent/5',
+              isHovered && !isActive && (line.kind ? 'brightness-95' : 'bg-[color-mix(in_oklab,var(--ink)_5%,transparent)]')
+            )}
           >
-            <span className="w-10 shrink-0 pr-2 text-right text-ink-soft select-none">{line.oldNo ?? ''}</span>
-            <span className="w-10 shrink-0 border-r border-line pr-2 text-right text-ink-soft select-none">{line.newNo ?? ''}</span>
-            <GitDiffCodeText kind={line.kind} text={line.text} tokens={tokens} searchNeedle={searchNeedle} isActiveLine={isActive} />
+            <span className="w-10 shrink-0 pr-2 text-right text-ink-soft select-none font-mono">{line.oldNo ?? ''}</span>
+            <span className="w-10 shrink-0 border-r border-line pr-2 text-right text-ink-soft select-none font-mono">{line.newNo ?? ''}</span>
+            <GitDiffCodeText kind={line.kind} text={line.text} tokens={tokens} searchNeedle={searchNeedle} isActiveLine={isActive} wrap={wordWrap} diffRanges={line.diffRanges} />
+            {isHovered && blame && (
+              <span
+                className="ml-auto pl-6 pr-3 text-[11px] text-ink-soft/75 select-none font-sans shrink-0 pointer-events-none truncate italic"
+                title={`${blame.author} (${blame.hash.slice(0, 7)}): ${blame.summary}`}
+              >
+                {blame.author}, {formatCommitAgo(blame.date, locale)} · {blame.summary}
+              </span>
+            )}
           </div>
         )
       })}
-    </>
+    </div>
   )
 }
 
@@ -303,8 +539,12 @@ function fileStatus(status: string, t: TFn): { label: string; className: string;
   return { label: status === 'R' ? t('git.status.rename') : t('git.status.modify'), className: 'text-warn', Icon: LuPencil }
 }
 
-export function GitFileDiff({ repo, hash, path, status = 'M', onClose, onPrevFile, onNextFile }: Props) {
+export function GitFileDiff({ repo, hash, path, status = 'M', onClose, onPrevFile, onNextFile, hasConflict, onOpenConflictView }: Props) {
   const t = useT()
+  const parentHash = hash === 'WORKTREE' ? 'HEAD' : `${hash}~1`
+  const beforeBlameMap = useGitBlame(repo, path, parentHash)
+  const afterBlameMap = useGitBlame(repo, path, hash)
+  const [wordWrap, setWordWrap] = useGitUiPref('diff.wordWrap', false, isBoolean)
   const kind = gitFileKind(path)
   const previewable = kind === 'image' || kind === 'svg' || kind === 'markdown'
   const [mode, setMode] = useGitUiPref('diff.mode', (previewable ? 'file' : 'diff') as Mode, isMode)
@@ -593,6 +833,23 @@ export function GitFileDiff({ repo, hash, path, status = 'M', onClose, onPrevFil
           {mode === 'diff' && showDiffViewports ? (
             <SegmentedNav aria-label={t('git.diff.viewport')} size="mini" value={viewport} onChange={setViewport} items={viewportItems} />
           ) : null}
+          <SegmentedNav
+            aria-label={t('git.diff.wrapMode')}
+            size="mini"
+            value={wordWrap ? 'wrap' : 'nowrap'}
+            onChange={(val) => setWordWrap(val === 'wrap')}
+            items={[
+              { id: 'nowrap', label: t('git.diff.noWrap'), icon: <LuAlignLeft /> },
+              { id: 'wrap', label: t('git.diff.wrap'), icon: <LuWrapText /> },
+            ]}
+          />
+          {hasConflict && onOpenConflictView ? (
+            <Tooltip content={t('git.diff.conflictComparison')}>
+              <Button variant="plain" size="mini" onClick={onOpenConflictView} aria-label={t('git.diff.conflictComparison')}>
+                <LuGitMerge className="size-3.5 text-warn" />
+              </Button>
+            </Tooltip>
+          ) : null}
         </div>
         <div className="flex items-center justify-end gap-1.5">
           {/* File navigation stays compact; change navigation remains available through keyboard shortcuts. */}
@@ -644,8 +901,8 @@ export function GitFileDiff({ repo, hash, path, status = 'M', onClose, onPrevFil
             onNext={() => stepMatch(1)}
             current={matchIndex}
             total={matches.length}
-            placeholder="搜索代码或差异内容…"
-            ariaLabel="搜索代码或差异内容"
+            placeholder={t('git.diff.searchPlaceholder') || '搜索代码或差异内容…'}
+            ariaLabel={t('git.diff.searchContent') || '搜索代码或差异内容'}
           />
         </div>
       ) : null}
@@ -700,16 +957,38 @@ export function GitFileDiff({ repo, hash, path, status = 'M', onClose, onPrevFil
       ) : (viewport === 'full' || viewport === 'split') && aligned.length === 0 ? (
         <EmptyState density="compact" className="px-3 py-8" title={t('git.diff.noChanges')} message={t('git.diff.noTextDiff')} />
       ) : viewport === 'split' ? (
-        <SplitRows rows={aligned} path={path} activeIndex={activeChangeLineIndex} targetSequence={changeNavigation.sequence} />
+        <SplitRows
+          rows={aligned}
+          path={path}
+          activeIndex={activeChangeLineIndex}
+          targetSequence={changeNavigation.sequence}
+          wordWrap={wordWrap}
+          beforeBlameMap={beforeBlameMap}
+          afterBlameMap={afterBlameMap}
+        />
       ) : (
-        <ScrollArea className="min-h-0 flex-1" indicator="both" reserveGutter={false}>
-          <div id="git-diff-view" ref={diffContainerRef} role="tabpanel" aria-label={t('git.diff.diffView')} className="min-w-0 font-mono text-xs leading-5">
+        <ScrollArea className="min-h-0 flex-1" indicator={wordWrap ? 'vertical' : 'both'} reserveGutter={false}>
+          <div
+            id="git-diff-view"
+            ref={diffContainerRef}
+            role="tabpanel"
+            aria-label={t('git.diff.diffView')}
+            className={cn('font-mono text-xs leading-5 pb-[calc(100vh-140px)]', wordWrap ? 'min-w-0 w-full' : 'min-w-full w-max')}
+          >
             {viewport === 'full' ? (
-              <PlainRows rows={aligned} path={path} activeIndex={activeLineIndex} searchNeedle={needle} />
+              <PlainRows rows={aligned} path={path} activeIndex={activeLineIndex} searchNeedle={needle} wordWrap={wordWrap} blameMap={afterBlameMap} />
             ) : (
               hunks.map((hunk, hunkIndex) => (
                 <div key={`${hunk.header}:${hunkIndex}`} className={hunkIndex > 0 ? 'border-t border-line' : undefined}>
-                  <HunkBlock hunk={hunk} path={path} lineOffset={hunkOffsets[hunkIndex]} activeIndex={activeLineIndex} searchNeedle={needle} />
+                  <HunkBlock
+                    hunk={hunk}
+                    path={path}
+                    lineOffset={hunkOffsets[hunkIndex]}
+                    activeIndex={activeLineIndex}
+                    searchNeedle={needle}
+                    wordWrap={wordWrap}
+                    blameMap={afterBlameMap}
+                  />
                 </div>
               ))
             )}

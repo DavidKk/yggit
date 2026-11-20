@@ -4,7 +4,9 @@ import React, { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 
 import { getPillDistance, GitAgentBar, SNAP_DISTANCE } from '@/components/git/agent/GitAgentBar'
-import { AgentProvider } from '@/lib/agent/agent-context'
+import { AgentContext, type AgentContextValue, AgentProvider, DEFAULT_REDACTION_OPTIONS } from '@/lib/agent/agent-context'
+import { DEFAULT_MODEL_FILTER } from '@/lib/agent/model-filter'
+import { DEFAULT_MODEL_PROFILE } from '@/lib/agent/model-profiles'
 
 // @ts-expect-error global flag for react act
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
@@ -449,5 +451,183 @@ describe('GitAgentBar', () => {
     expect(form.style.left).toBe('50px')
     expect(form.style.top).toBe('100px')
     expect(form.className).toContain('w-[132px]')
+  })
+
+  it('compresses Quick Answer Card downward into bottom pill on minimize and can restore recent response', () => {
+    const mockContext: AgentContextValue = {
+      config: {
+        provider: 'ollama',
+        model: 'qwen2.5:7b',
+        baseUrl: 'http://localhost:11434',
+        apiKey: '',
+        stream: true,
+      },
+      profiles: [DEFAULT_MODEL_PROFILE],
+      activeProfileId: 'default',
+      saveProfile: jest.fn(),
+      deleteProfile: jest.fn(),
+      selectProfile: jest.fn(),
+      redactionOptions: DEFAULT_REDACTION_OPTIONS,
+      setRedactionOptions: jest.fn(),
+      dockMode: 'collapsed',
+      setDockMode: jest.fn(),
+      messages: [
+        { id: '1', role: 'user', content: '查看最近提交' },
+        { id: '2', role: 'assistant', content: '主分支最近一次提交内容: feat:b' },
+      ],
+      isProcessing: false,
+      sendMessage: jest.fn(),
+      clearMessages: jest.fn(),
+      activeResultSummary: null,
+      activeRepo: '',
+      setActiveRepo: jest.fn(),
+      modelFilter: DEFAULT_MODEL_FILTER,
+      setModelFilter: jest.fn(),
+    }
+
+    act(() => {
+      root.render(
+        <AgentContext.Provider value={mockContext}>
+          <GitAgentBar />
+        </AgentContext.Provider>
+      )
+    })
+
+    act(() => {
+      jest.advanceTimersByTime(1000)
+    })
+
+    // Initially in collapsed mini pill state with notification indicator
+    const miniForm = host.querySelector('form')!
+    expect(miniForm).not.toBeNull()
+    expect(host.querySelector('.bg-accent.animate-pulse')).not.toBeNull()
+
+    // Clicking mini pill restores the Quick Answer Card directly
+    act(() => {
+      miniForm.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+
+    const card = host.querySelector('[role="dialog"]') as HTMLElement
+    expect(card).not.toBeNull()
+    expect(host.textContent).toContain('gitAgent.quickAnswer')
+    expect(host.textContent).toContain('主分支最近一次提交内容: feat:b')
+
+    // Find the minimize button (LuMinus) in the header controls
+    const buttons = card.querySelectorAll('button')
+    const minimizeBtn = Array.from(buttons).find((b) => b.getAttribute('aria-label') === 'gitAgent.minimizeToPill' || b.getAttribute('aria-label') === '收起为药丸')
+    expect(minimizeBtn).not.toBeUndefined()
+
+    // Click minimize: triggers downward compression into bottom pill
+    act(() => {
+      minimizeBtn?.click()
+    })
+
+    // Immediately in collapsing state: collapses downward towards bottom bar
+    expect(card.className).toContain('max-h-0')
+    expect(card.className).toContain('opacity-0')
+    expect(card.className).toContain('w-[min(90vw,500px)]')
+
+    // Advance 300ms for compression to complete
+    act(() => {
+      jest.advanceTimersByTime(300)
+    })
+
+    // Card is merged into the expanded bottom bar, with the restore button available
+    const expandedForm = host.querySelector('form')!
+    expect(expandedForm).not.toBeNull()
+    expect(expandedForm.className).toContain('w-[min(90vw,500px)]')
+
+    const restoreBtn = Array.from(expandedForm.querySelectorAll('button')).find(
+      (b) => b.getAttribute('aria-label') === 'gitAgent.restoreQuickAnswer' || b.getAttribute('aria-label') === '还原最近回答'
+    )
+    expect(restoreBtn).not.toBeUndefined()
+
+    // Clicking restore button re-expands the Quick Answer Card
+    act(() => {
+      restoreBtn?.click()
+    })
+
+    const restoredCard = host.querySelector('[role="dialog"]') as HTMLElement
+    expect(restoredCard).not.toBeNull()
+    expect(host.textContent).toContain('主分支最近一次提交内容: feat:b')
+  })
+
+  it('docks to sidebar when clicking dock button in Quick Card without being intercepted by click outside', () => {
+    const setDockModeMock = jest.fn()
+    const mockContext: AgentContextValue = {
+      config: {
+        provider: 'ollama',
+        model: 'qwen2.5:7b',
+        baseUrl: 'http://localhost:11434',
+        apiKey: '',
+        stream: true,
+      },
+      profiles: [DEFAULT_MODEL_PROFILE],
+      activeProfileId: 'default',
+      saveProfile: jest.fn(),
+      deleteProfile: jest.fn(),
+      selectProfile: jest.fn(),
+      redactionOptions: DEFAULT_REDACTION_OPTIONS,
+      setRedactionOptions: jest.fn(),
+      dockMode: 'collapsed',
+      setDockMode: setDockModeMock,
+      messages: [
+        { id: '1', role: 'user', content: '查看最近提交' },
+        { id: '2', role: 'assistant', content: '主分支最近一次提交内容: feat:b' },
+      ],
+      isProcessing: false,
+      sendMessage: jest.fn(),
+      clearMessages: jest.fn(),
+      activeResultSummary: null,
+      activeRepo: '',
+      setActiveRepo: jest.fn(),
+      modelFilter: DEFAULT_MODEL_FILTER,
+      setModelFilter: jest.fn(),
+    }
+
+    act(() => {
+      root.render(
+        <AgentContext.Provider value={mockContext}>
+          <GitAgentBar />
+        </AgentContext.Provider>
+      )
+    })
+
+    act(() => {
+      jest.advanceTimersByTime(1000)
+    })
+
+    // Click mini pill to open Quick Card
+    const miniForm = host.querySelector('form')!
+    act(() => {
+      miniForm.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+
+    const card = host.querySelector('[role="dialog"]') as HTMLElement
+    expect(card).not.toBeNull()
+
+    // Find the dock right button
+    const buttons = card.querySelectorAll('button')
+    const dockBtn = Array.from(buttons).find(
+      (b) => b.getAttribute('aria-label') === 'gitAgent.deepDiscussion' || b.getAttribute('aria-label') === '停靠侧栏深入讨论' || b.getAttribute('aria-label') === '停靠深入讨论'
+    )
+    expect(dockBtn).not.toBeUndefined()
+
+    // Dispatch pointerdown first (which tests that click outside does not misfire)
+    act(() => {
+      const PointerEventClass = typeof PointerEvent !== 'undefined' ? PointerEvent : MouseEvent
+      dockBtn?.dispatchEvent(new PointerEventClass('pointerdown', { bubbles: true }))
+    })
+
+    // Ensure card did not enter collapsing state
+    expect(card.className).not.toContain('max-h-0')
+
+    // Dispatch click on dockBtn
+    act(() => {
+      dockBtn?.click()
+    })
+
+    // Verify setDockMode was called with 'dock-right'
+    expect(setDockModeMock).toHaveBeenCalledWith('dock-right')
   })
 })

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { LuSearch } from 'react-icons/lu'
 
@@ -82,12 +82,26 @@ export function GitSearchDropdown({ value, onChange, placeholder, label, descrip
     return () => scope.removeEventListener(GIT_FIND_EVENT, onFind)
   }, [])
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     if (!open) return
-    const focus = () => inputRef.current?.focus({ preventScroll: true })
-    focus()
-    const frame = window.requestAnimationFrame(focus)
-    return () => window.cancelAnimationFrame(frame)
+    const doFocus = () => {
+      const el = inputRef.current
+      if (el && document.activeElement !== el) {
+        el.focus({ preventScroll: true })
+        el.select()
+      }
+    }
+    doFocus()
+    const t1 = setTimeout(doFocus, 0)
+    const t2 = setTimeout(doFocus, 50)
+    const t3 = setTimeout(doFocus, 150)
+    const frame = window.requestAnimationFrame(doFocus)
+    return () => {
+      clearTimeout(t1)
+      clearTimeout(t2)
+      clearTimeout(t3)
+      window.cancelAnimationFrame(frame)
+    }
   }, [open])
 
   useEffect(() => {

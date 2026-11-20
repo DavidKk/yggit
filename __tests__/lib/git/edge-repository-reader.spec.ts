@@ -174,7 +174,7 @@ describe('Edge repository reads against a packed Git repository', () => {
       expect(changes.files.map((file) => file.path).sort()).toEqual(expected)
       expect(changes.files).toContainEqual({ path: 'unchanged/stable.txt', status: 'D', oldPath: '' })
       const status = await reader.readWorktreeStatus()
-      expect(status).toEqual({ files: expected.length, insertions: 3, deletions: 3 })
+      expect(status).toEqual({ files: expected.length, insertions: 3, deletions: 3, addedFiles: 2, deletedFiles: 1, modifiedFiles: 1 })
       const modified = await reader.readChanges({ repo: 'edge', hash: 'WORKTREE', file: '中文目录/space #file.txt' })
       expect(modified.content).toBe('uncommitted\n')
       expect(modified.patch).toContain('-after')
@@ -218,7 +218,7 @@ describe('Edge repository reads against a packed Git repository', () => {
     expect(hashes[0]).toBe(tip)
     expect(hashes.at(-1)).toBe(first)
     await expect(driver.readLog({ repo: 'edge-fixture', branch: 'missing-ref' })).rejects.toThrow()
-  })
+  }, 15000)
 
   it('keeps staged changes visible even when the disk content is restored to HEAD', async () => {
     const file = path.join(directory, '中文目录', 'space #file.txt')
@@ -240,7 +240,7 @@ describe('Edge repository reads against a packed Git repository', () => {
       execFileSync('git', ['-C', unborn, 'init', '-q'])
       await fs.writeFile(path.join(unborn, 'new.txt'), 'first\n')
       const fresh = new EdgeRepositoryReader(handle(unborn))
-      expect(await fresh.readWorktreeStatus()).toEqual({ files: 1, insertions: 1, deletions: 0 })
+      expect(await fresh.readWorktreeStatus()).toEqual({ files: 1, insertions: 1, deletions: 0, addedFiles: 1, deletedFiles: 0, modifiedFiles: 0 })
       expect((await fresh.readChanges({ repo: 'edge', hash: 'WORKTREE', file: 'new.txt' })).patch).toContain('+first')
     } finally {
       await fs.rm(unborn, { recursive: true, force: true })

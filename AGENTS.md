@@ -4,6 +4,7 @@
 - All comments must be written in English.
 - User-facing text must support i18n (`lib/i18n/`).
 - Documentation index is located at `docs/README.md`.
+- All UI icons must strictly use `react-icons` (e.g. `react-icons/lu`, `react-icons/io5`). Never use raw Unicode emojis for UI iconography.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

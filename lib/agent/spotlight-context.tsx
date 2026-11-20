@@ -4,6 +4,18 @@ import React, { createContext, useCallback, useContext, useMemo, useState } from
 
 import type { SpotlightTarget } from '@/services/git/agent-impact'
 
+export interface AgentCodeAnnotation {
+  file: string
+  startLine: number
+  endLine?: number
+  side?: 'old' | 'new' | 'both'
+  commitHash?: string
+  title?: string
+  message: string
+  severity?: 'info' | 'warn' | 'error' | 'agent'
+  author?: string
+}
+
 export interface SpotlightContextValue {
   active: boolean
   targets: SpotlightTarget[]
@@ -11,21 +23,26 @@ export interface SpotlightContextValue {
   currentIndex: number
   currentTarget: SpotlightTarget | null
   focusedHash: string | null
+  codeAnnotation: AgentCodeAnnotation | null
   setSpotlightTargets: (targets: SpotlightTarget[]) => void
   clearSpotlight: () => void
   nextTarget: () => void
   prevTarget: () => void
   focusTarget: (hash: string) => void
   setFocusedHash: (hash: string | null) => void
+  setCodeAnnotation: (annotation: AgentCodeAnnotation | null) => void
+  clearCodeAnnotation: () => void
   registerNavigateHandler: (handler: (hash: string) => void) => () => void
 }
 
-const SpotlightContext = createContext<SpotlightContextValue | null>(null)
+export const SpotlightContext = createContext<SpotlightContextValue | null>(null)
 
 export function SpotlightProvider({ children, onNavigateCommit }: { children: React.ReactNode; onNavigateCommit?: (hash: string) => void }) {
   const [targets, setTargets] = useState<SpotlightTarget[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [focusedHash, setFocusedHash] = useState<string | null>(null)
+  const [codeAnnotation, setCodeAnnotation] = useState<AgentCodeAnnotation | null>(null)
+  const clearCodeAnnotation = useCallback(() => setCodeAnnotation(null), [])
 
   const navigateCallbackRef = React.useRef<((hash: string) => void) | undefined>(onNavigateCommit)
   React.useEffect(() => {
@@ -94,6 +111,8 @@ export function SpotlightProvider({ children, onNavigateCommit }: { children: Re
         setCurrentIndex(idx)
         setFocusedHash(targets[idx].hash)
         notifyNavigate(targets[idx].hash)
+      } else {
+        notifyNavigate(hash)
       }
     },
     [targets, notifyNavigate]
@@ -125,15 +144,33 @@ export function SpotlightProvider({ children, onNavigateCommit }: { children: Re
       currentIndex,
       currentTarget,
       focusedHash,
+      codeAnnotation,
       setSpotlightTargets,
       clearSpotlight,
       nextTarget,
       prevTarget,
       focusTarget,
       setFocusedHash,
+      setCodeAnnotation,
+      clearCodeAnnotation,
       registerNavigateHandler,
     }),
-    [active, targets, targetsMap, currentIndex, currentTarget, focusedHash, setSpotlightTargets, clearSpotlight, nextTarget, prevTarget, focusTarget, registerNavigateHandler]
+    [
+      active,
+      targets,
+      targetsMap,
+      currentIndex,
+      currentTarget,
+      focusedHash,
+      codeAnnotation,
+      setSpotlightTargets,
+      clearSpotlight,
+      nextTarget,
+      prevTarget,
+      focusTarget,
+      registerNavigateHandler,
+      clearCodeAnnotation,
+    ]
   )
 
   return <SpotlightContext.Provider value={value}>{children}</SpotlightContext.Provider>

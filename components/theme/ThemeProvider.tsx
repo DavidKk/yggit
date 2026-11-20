@@ -2,7 +2,17 @@
 
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 
-import { applyDocumentTheme, detectSystemTheme, readStoredTheme, themeForPreference, type ThemeMode, type ThemePreference, writeResolvedTheme, writeStoredTheme } from '@/lib/theme'
+import {
+  applyDocumentTheme,
+  detectSystemTheme,
+  isThemePreference,
+  readStoredTheme,
+  themeForPreference,
+  type ThemeMode,
+  type ThemePreference,
+  writeResolvedTheme,
+  writeStoredTheme,
+} from '@/lib/theme'
 
 type ThemeContextValue = {
   theme: ThemeMode
@@ -54,6 +64,17 @@ export function ThemeProvider({ children, initialTheme = 'dark', initialPreferen
     setPreference(next)
     writeStoredTheme(next)
   }, [])
+
+  useEffect(() => {
+    function onThemeChange(e: Event) {
+      const customEvent = e as CustomEvent<ThemePreference>
+      if (customEvent.detail && isThemePreference(customEvent.detail)) {
+        setTheme(customEvent.detail)
+      }
+    }
+    window.addEventListener('yggit:set_theme', onThemeChange)
+    return () => window.removeEventListener('yggit:set_theme', onThemeChange)
+  }, [setTheme])
 
   const value = useMemo(() => ({ theme, preference, ready, setTheme }), [theme, preference, ready, setTheme])
 

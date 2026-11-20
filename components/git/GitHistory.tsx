@@ -33,8 +33,13 @@ type Props = {
   onBranchHoverEnd?: () => void
   onSelect?: (commit: GitCommit) => void
   onSelectWorktree?: () => void
+  onCheckoutBranch?: (branch: string, isRemote?: boolean) => void
   onOpenConflictView?: (hash: string, file?: string) => void
   onPage: (scope: string, commits: GitCommit[], hasMore: boolean) => void
+  onRefresh?: () => Promise<void> | void
+  currentBranch?: string
+  soloBranch?: string | null
+  onSoloBranch?: (branch: string | null) => void
 }
 
 function commitMatches(commit: GitCommit, needle: string) {
@@ -83,12 +88,19 @@ export function GitHistory({
   onBranchHoverEnd,
   onSelect,
   onSelectWorktree,
+  onCheckoutBranch,
   onOpenConflictView,
   onPage,
+  onRefresh,
+  currentBranch,
+  soloBranch,
+  onSoloBranch,
 }: Props) {
   const t = useT()
   const internalRootRef = useRef<HTMLDivElement>(null)
   const rootRef = (scrollRef as React.RefObject<HTMLDivElement>) || internalRootRef
+  const rootRefHolder = useRef(rootRef)
+  rootRefHolder.current = rootRef
   const panelRef = useRef<HTMLDivElement>(null)
   const findInputRef = useRef<HTMLInputElement>(null)
   const sentinelRef = useRef<HTMLDivElement>(null)
@@ -96,6 +108,7 @@ export function GitHistory({
   const focusedRequestRef = useRef<Props['focusRequest']>(null)
   const stateRef = useRef({ repo, scope, commits, hasMore })
   const [loading, setLoading] = useState(false)
+  const [atBottom, setAtBottom] = useState(false)
   const [query, setQuery] = useState('')
   const [findOpen, setFindOpen] = useState(false)
   const holdExplore = useGitUiDebugHoldExploreLoading()
@@ -116,13 +129,17 @@ export function GitHistory({
           matches.findIndex((commit) => commit.hash === selectedHash)
         )
       : -1
-  const showExplore = loading || holdExplore
+  const showExplore = (loading && atBottom) || holdExplore
 
   const loadMore = useCallback(() => {
     const current = stateRef.current
     if (lockRef.current || !current.hasMore || !current.repo || !current.scope) return
     lockRef.current = true
     setLoading(true)
+    const root = rootRefHolder.current.current
+    if (root && root.scrollHeight - root.scrollTop - root.clientHeight <= 120) {
+      setAtBottom(true)
+    }
     const driver = getGitDriver()
     driver
       .readLog({
@@ -141,6 +158,7 @@ export function GitHistory({
       .finally(() => {
         lockRef.current = false
         setLoading(false)
+        setAtBottom(false)
       })
   }, [onPage])
 
@@ -182,11 +200,25 @@ export function GitHistory({
       (entries) => {
         if (entries.some((entry) => entry.isIntersecting)) loadMore()
       },
-      { root, rootMargin: '120px' }
+      { root, rootMargin: '800px' }
     )
     observer.observe(sentinel)
-    return () => observer.disconnect()
-  }, [hasMore, loadMore, commits.length, rootRef])
+
+    // Fallback passive scroll listener for rapid trackpad/mousewheel flings
+    const onScroll = () => {
+      if (lockRef.current || !hasMore) return
+      const remaining = root.scrollHeight - root.scrollTop - root.clientHeight
+      if (remaining < 800) {
+        loadMore()
+      }
+    }
+    root.addEventListener('scroll', onScroll, { passive: true })
+
+    return () => {
+      observer.disconnect()
+      root.removeEventListener('scroll', onScroll)
+    }
+  }, [hasMore, loadMore, rootRef])
 
   useEffect(() => {
     const panel = panelRef.current
@@ -261,7 +293,7 @@ export function GitHistory({
             onNext={() => stepMatch(1)}
             current={matchPos}
             total={matches.length}
-            placeholder="搜索提交、作者或 Hash…"
+            placeholder={t('git.history.findCommit') || '搜索提交、作者或 Hash…'}
             ariaLabel={t('git.history.findCommit')}
           />
         </div>
@@ -286,7 +318,12 @@ export function GitHistory({
         footer={hasMore ? <div ref={sentinelRef} className="h-px" aria-hidden /> : null}
         onSelect={onSelect}
         onSelectWorktree={onSelectWorktree}
+        onCheckoutBranch={onCheckoutBranch}
         onOpenConflictView={onOpenConflictView}
+        onRefresh={onRefresh}
+        currentBranch={currentBranch}
+        soloBranch={soloBranch}
+        onSoloBranch={onSoloBranch}
       />
       {showExplore ? <GitExploreStrip className="pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-panel/95 py-0.5" /> : null}
     </div>

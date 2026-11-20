@@ -8,6 +8,7 @@ import { renderMarkdownWithHighlight } from '@/components/git/gitHighlight'
 import { GitHighlightedCode } from '@/components/git/GitHighlightedCode'
 import { markdownBody } from '@/components/git/markdown'
 import { installTableResizers } from '@/components/git/markdownTableResizer'
+import { useGitBlame } from '@/components/git/useGitBlame'
 import { useT } from '@/components/i18n/LocaleProvider'
 import { EmptyState, ScrollArea } from '@/components/sk'
 import { useThemeMode } from '@/components/theme/ThemeProvider'
@@ -115,7 +116,7 @@ function MarkdownPreview({ content }: { content: string }) {
   }, [html])
 
   return (
-    <div className="mx-auto w-full max-w-[1100px] px-8 py-7 font-sans">
+    <div className="mx-auto w-full max-w-[1100px] px-8 py-7 pb-[calc(100vh-140px)] font-sans">
       <article ref={containerRef} className={cn(markdownBody)} dangerouslySetInnerHTML={{ __html: html }} />
     </div>
   )
@@ -123,6 +124,7 @@ function MarkdownPreview({ content }: { content: string }) {
 
 export function GitFilePreview({ kind, repo, hash, path, content, missing, binary, truncated, pane = 'preview', searchNeedle, activeLineIndex }: Props) {
   const t = useT()
+  const blameMap = useGitBlame(repo, path, hash)
   if (missing) {
     return <EmptyState density="compact" className="px-3 py-8" title={t('git.preview.fileGone')} message={t('git.preview.fileGoneMsg')} />
   }
@@ -146,7 +148,7 @@ export function GitFilePreview({ kind, repo, hash, path, content, missing, binar
             <MarkdownPreview content={source} />
           )
         ) : (
-          <GitHighlightedCode content={source} path={path} searchNeedle={searchNeedle} activeIndex={activeLineIndex} />
+          <GitHighlightedCode content={source} path={path} searchNeedle={searchNeedle} activeIndex={activeLineIndex} blameMap={blameMap} />
         )}
         {truncated && pane === 'code' ? <p className="m-0 px-3 py-2 font-sans text-xs text-ink-soft">{t('git.preview.truncated')}</p> : null}
       </ScrollArea>
@@ -159,7 +161,7 @@ export function GitFilePreview({ kind, repo, hash, path, content, missing, binar
 
   return (
     <ScrollArea className="min-h-0 flex-1" indicator="both" reserveGutter={false}>
-      <GitHighlightedCode content={content || ''} path={path} searchNeedle={searchNeedle} activeIndex={activeLineIndex} />
+      <GitHighlightedCode content={content || ''} path={path} searchNeedle={searchNeedle} activeIndex={activeLineIndex} blameMap={blameMap} />
       {truncated ? <p className="m-0 px-3 py-2 font-sans text-xs text-ink-soft">{t('git.preview.truncated')}</p> : null}
     </ScrollArea>
   )

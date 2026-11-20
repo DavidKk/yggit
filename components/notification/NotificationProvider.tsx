@@ -155,3 +155,7 @@ export function useNotificationContext(): NotificationContextValue {
   }
   return context
 }
+
+export function useOptionalNotificationContext(): NotificationContextValue | null {
+  return useContext(NotificationContext)
+}

@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { LuBot, LuPanelRight, LuSend, LuSparkles, LuX } from 'react-icons/lu'
+import { LuBot, LuSend, LuSparkles } from 'react-icons/lu'
 
 import { useT } from '@/components/i18n/LocaleProvider'
 import { Spinner, Tooltip } from '@/components/sk'
@@ -10,7 +10,8 @@ import { isModelAllowed } from '@/lib/agent/model-filter'
 import { cn } from '@/lib/utils'
 
 import { AgentQuickModelPopover } from './AgentQuickModelPopover'
-import { FormattedMessage } from './AgentWorkspace'
+import { GitAgentBarGhosts } from './GitAgentBarGhosts'
+import { GitAgentQuickCard } from './GitAgentQuickCard'
 
 interface Props {
   repoPath?: string
@@ -39,6 +40,19 @@ export function GitAgentBar({ repoPath, className }: Props) {
   const [displayText, setDisplayText] = useState('')
   const [contentVisible, setContentVisible] = useState(false)
   const [quickCardOpen, setQuickCardOpen] = useState(false)
+  const [isCollapsingCard, setIsCollapsingCard] = useState(false)
+  const collapseCardTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Get the latest assistant and user messages
+  const lastAssistantMessage = messages
+    .slice()
+    .reverse()
+    .find((m) => m.role === 'assistant')
+
+  const lastUserMessage = messages
+    .slice()
+    .reverse()
+    .find((m) => m.role === 'user')
 
   // Drag state for collapsed mini pill (anchored to the Robot Icon handle)
   const [position, setPosition] = useState<{ x: number; y: number } | null>(null)
@@ -191,7 +205,7 @@ export function GitAgentBar({ repoPath, className }: Props) {
   }, [clearTimers, clearTypewriter, position, expanded, isClosing, isSnapping])
 
   const closeBar = useCallback(() => {
-    if (!expanded || isClosing) return
+    if (isClosing) return
     clearTimers()
     clearTypewriter()
 
@@ -220,18 +234,49 @@ export function GitAgentBar({ repoPath, className }: Props) {
         startTypewriter()
       }, 300)
     }
-  }, [expanded, isClosing, clearTimers, clearTypewriter, startTypewriter, position])
+  }, [isClosing, clearTimers, clearTypewriter, startTypewriter, position])
+
+  // Downward compression animation from Quick Answer Card into bottom pill
+  const handleCollapseCard = useCallback(
+    (mode: 'pill' | 'close') => {
+      if (isCollapsingCard) return
+      setIsCollapsingCard(true)
+
+      collapseCardTimerRef.current = setTimeout(() => {
+        setIsCollapsingCard(false)
+        setQuickCardOpen(false)
+        if (mode === 'close') {
+          closeBar()
+        } else {
+          setExpanded(true)
+          setContentVisible(true)
+        }
+      }, 280)
+    },
+    [isCollapsingCard, closeBar]
+  )
+
+  useEffect(() => {
+    return () => {
+      if (collapseCardTimerRef.current) {
+        clearTimeout(collapseCardTimerRef.current)
+      }
+    }
+  }, [])
 
   const toggleBar = useCallback(() => {
     if (quickCardOpen) {
-      setQuickCardOpen(false)
-      closeBar()
+      handleCollapseCard('close')
     } else if (expanded) {
       closeBar()
     } else {
-      openBar()
+      if (lastAssistantMessage) {
+        setQuickCardOpen(true)
+      } else {
+        openBar()
+      }
     }
-  }, [quickCardOpen, expanded, closeBar, openBar])
+  }, [quickCardOpen, expanded, handleCollapseCard, closeBar, openBar, lastAssistantMessage])
 
   useEffect(() => {
     return () => {
@@ -264,25 +309,26 @@ export function GitAgentBar({ repoPath, className }: Props) {
     function handleClickOutside(event: PointerEvent) {
       const target = event.target as Node
       const element = target as Element
-      if (isClosing) return
+      if (isClosing || isCollapsingCard) return
       if (element?.closest?.('[data-agent-popover], [data-base-ui-positioner], [data-base-ui-popup], [data-listbox-panel]')) {
         return
       }
-      const isInsideForm = formRef.current?.contains(target)
-      const isInsideCard = containerRef.current?.contains(target)
+      const isInsideForm = Boolean(formRef.current?.contains(target))
+      const isInsideCard = Boolean(containerRef.current?.contains(target))
 
       if (!isInsideForm && !isInsideCard) {
         if (!input.trim() && !isProcessing) {
           if (quickCardOpen) {
-            setQuickCardOpen(false)
+            handleCollapseCard('close')
+          } else {
+            closeBar()
           }
-          closeBar()
         }
       }
     }
     document.addEventListener('pointerdown', handleClickOutside)
     return () => document.removeEventListener('pointerdown', handleClickOutside)
-  }, [expanded, quickCardOpen, input, isProcessing, closeBar, isClosing])
+  }, [expanded, quickCardOpen, input, isProcessing, closeBar, isClosing, isCollapsingCard, handleCollapseCard])
 
   // Auto-open quick card when processing starts if not docked
   useEffect(() => {
@@ -402,125 +448,8 @@ export function GitAgentBar({ repoPath, className }: Props) {
 
   if (dockMode !== 'collapsed') return null
 
-  // Get the latest assistant response for the in-place answer card
-  const lastAssistantMessage = messages
-    .slice()
-    .reverse()
-    .find((m) => m.role === 'assistant')
-
-  const hasCard = quickCardOpen && Boolean(lastAssistantMessage)
-
-  if (hasCard) {
-    return (
-      <div
-        ref={containerRef}
-        role="dialog"
-        aria-label={t('gitAgent.quickAnswer')}
-        onKeyDown={(event) => {
-          if (event.key === 'Escape') {
-            event.preventDefault()
-            setQuickCardOpen(false)
-            closeBar()
-          }
-        }}
-        className={cn(
-          'fixed bottom-5 left-1/2 -translate-x-1/2 z-40 flex w-[min(92vw,560px)] flex-col overflow-hidden rounded-2xl border border-line bg-panel/95 shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-200 select-none',
-          className
-        )}
-      >
-        {/* Header */}
-        <div className="flex h-10 shrink-0 items-center justify-between border-b border-line/60 px-3.5 bg-panel-2/50 select-none">
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-accent">
-            <LuSparkles className="size-3.5 text-accent" />
-            <span>{t('gitAgent.quickAnswer')}</span>
-            {isProcessing && <Spinner className="size-3 ml-1" />}
-          </div>
-
-          {/* Unified Header Control Pill */}
-          <div className="flex items-center rounded-lg border border-line bg-panel-2/70 p-0.5 shadow-2xs">
-            <Tooltip content={t('gitAgent.deepDiscussion')} placement="top">
-              <button
-                type="button"
-                onClick={() => {
-                  setQuickCardOpen(false)
-                  setDockMode('dock-right')
-                }}
-                className="flex size-6 items-center justify-center rounded text-ink-soft hover:bg-panel hover:text-accent active:scale-95 transition-all cursor-pointer"
-                aria-label={t('gitAgent.deepDiscussion')}
-              >
-                <LuPanelRight className="size-3.5 text-accent" />
-              </button>
-            </Tooltip>
-            <span className="h-3 w-px bg-line/80 my-auto mx-0.5" aria-hidden="true" />
-            <Tooltip content={t('common.close') || '关闭'} placement="top">
-              <button
-                type="button"
-                onClick={() => {
-                  setQuickCardOpen(false)
-                  closeBar()
-                }}
-                className="flex size-6 items-center justify-center rounded text-ink-soft hover:bg-panel hover:text-ink active:scale-95 transition-all cursor-pointer"
-                aria-label={t('common.close') || '关闭'}
-              >
-                <LuX className="size-3.5" />
-              </button>
-            </Tooltip>
-          </div>
-        </div>
-
-        {/* Content Body */}
-        <div className="max-h-60 overflow-y-auto px-4 py-3 text-xs leading-relaxed text-ink select-text">
-          {lastAssistantMessage?.content ? (
-            <FormattedMessage content={lastAssistantMessage.content} />
-          ) : isProcessing ? (
-            <div className="flex items-center gap-1.5 text-ink-soft py-1">
-              <Spinner className="size-3 text-accent shrink-0" />
-              <span>{t('gitAgent.analyzingLog')}</span>
-            </div>
-          ) : null}
-        </div>
-
-        {/* Integrated Bottom Input Row */}
-        <form onSubmit={handleSubmit} className="flex h-11 shrink-0 items-center gap-2 border-t border-line/60 px-3 bg-panel-2/30">
-          <div className="flex size-6 shrink-0 items-center justify-center text-accent">{isProcessing ? <Spinner className="size-3.5" /> : <LuBot className="size-4" />}</div>
-
-          <input
-            ref={inputRef}
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder={t('gitAgent.barPlaceholder')}
-            className="min-w-0 flex-1 bg-transparent px-1 text-xs text-ink placeholder:text-ink-soft/60 focus:outline-none"
-          />
-
-          {/* Quick Model & Platform Popover */}
-          <AgentQuickModelPopover />
-
-          {/* Send Button */}
-          <Tooltip content={isModelBlocked ? t('gitAgent.modelBlockedNotice') : t('gitAgent.send')} placement="top">
-            <span className="inline-flex">
-              <button
-                type="submit"
-                disabled={!input.trim() || isProcessing || isModelBlocked}
-                className={cn(
-                  'flex size-7 shrink-0 items-center justify-center rounded-full transition-all',
-                  input.trim() && !isProcessing && !isModelBlocked
-                    ? 'bg-accent text-accent-ink shadow-xs hover:brightness-110 active:scale-95 cursor-pointer'
-                    : 'bg-[var(--overlay-06)] text-ink-soft/40 cursor-not-allowed opacity-50'
-                )}
-                aria-label={t('gitAgent.send')}
-              >
-                {isProcessing ? <Spinner className="size-3 text-accent" /> : <LuSend className="size-3.5" />}
-              </button>
-            </span>
-          </Tooltip>
-        </form>
-      </div>
-    )
-  }
-
   const positionStyle: React.CSSProperties =
-    !expanded && !isClosing && position
+    !expanded && !quickCardOpen && !isClosing && position
       ? {
           left: `${position.x}px`,
           top: `${position.y}px`,
@@ -552,195 +481,21 @@ export function GitAgentBar({ repoPath, className }: Props) {
 
   return (
     <>
-      <style>{`
-        @keyframes pill-vanish {
-          0% {
-            width: 132px;
-            left: var(--ghost-x);
-            transform: scale(1);
-            opacity: 1;
-          }
-          40% {
-            width: 49px;
-            left: calc(var(--ghost-x) + 41.5px);
-            transform: scale(1);
-            opacity: 1;
-          }
-          55% {
-            width: 40px;
-            left: calc(var(--ghost-x) + 46px);
-            transform: scale(0.85);
-            opacity: 1;
-          }
-          85% {
-            width: 40px;
-            left: calc(var(--ghost-x) + 46px);
-            transform: scale(0.2);
-            opacity: 0.8;
-          }
-          100% {
-            width: 40px;
-            left: calc(var(--ghost-x) + 46px);
-            transform: scale(0);
-            opacity: 0;
-          }
-        }
+      <GitAgentBarGhosts vanishGhost={vanishGhost} reappearGhost={reappearGhost} />
 
-        @keyframes icon-scale-vanish {
-          0% {
-            transform: scale(1);
-            opacity: 1;
-          }
-          40% {
-            transform: scale(1);
-            opacity: 1;
-          }
-          55% {
-            transform: scale(0.85);
-            opacity: 1;
-          }
-          85% {
-            transform: scale(0.2);
-            opacity: 0.8;
-          }
-          100% {
-            transform: scale(0);
-            opacity: 0;
-          }
-        }
-
-        @keyframes pill-reappear {
-          0% {
-            width: 40px;
-            left: calc(var(--ghost-x) + 46px);
-            transform: scale(0);
-            opacity: 0;
-          }
-          45% {
-            width: 40px;
-            left: calc(var(--ghost-x) + 46px);
-            transform: scale(1);
-            opacity: 1;
-          }
-          100% {
-            width: 132px;
-            left: var(--ghost-x);
-            transform: scale(1);
-            opacity: 1;
-          }
-        }
-
-        @keyframes icon-scale-reappear {
-          0% {
-            transform: scale(0);
-            opacity: 0;
-          }
-          45% {
-            transform: scale(1);
-            opacity: 1;
-          }
-          100% {
-            transform: scale(1);
-            opacity: 1;
-          }
-        }
-
-        @keyframes bottom-bar-expand {
-          0% {
-            width: 40px;
-            transform: translateX(-50%) scale(0.7);
-            opacity: 0.6;
-          }
-          30% {
-            width: 40px;
-            transform: translateX(-50%) scale(1);
-            opacity: 1;
-          }
-          100% {
-            width: min(90vw, 500px);
-            transform: translateX(-50%) scale(1);
-            opacity: 1;
-          }
-        }
-
-        @keyframes bottom-bar-vanish {
-          0% {
-            width: min(90vw, 500px);
-            transform: translateX(-50%) scale(1);
-            opacity: 1;
-          }
-          40% {
-            width: 86px;
-            transform: translateX(-50%) scale(1);
-            opacity: 1;
-          }
-          55% {
-            width: 40px;
-            transform: translateX(-50%) scale(0.85);
-            opacity: 1;
-          }
-          85% {
-            width: 40px;
-            transform: translateX(-50%) scale(0.2);
-            opacity: 0.8;
-          }
-          100% {
-            width: 40px;
-            transform: translateX(-50%) scale(0);
-            opacity: 0;
-          }
-        }
-      `}</style>
-
-      {/* Vanishing Pill at Remote Position (shrinks symmetrically to circle, with robot icon visibly scaling down to 0) */}
-      {vanishGhost && (
-        <div
-          style={
-            {
-              '--ghost-x': `${vanishGhost.x}px`,
-              top: `${vanishGhost.y}px`,
-              transformOrigin: 'center center',
-              animation: 'pill-vanish 400ms cubic-bezier(0.4, 0, 0.2, 1) forwards',
-            } as React.CSSProperties
-          }
-          className="fixed z-40 flex h-10 items-center overflow-hidden rounded-full border border-accent bg-panel/90 shadow-md pointer-events-none pl-[5px]"
-        >
-          <div
-            style={{
-              transformOrigin: 'center center',
-              animation: 'icon-scale-vanish 400ms cubic-bezier(0.4, 0, 0.2, 1) forwards',
-            }}
-            className="flex size-7 shrink-0 items-center justify-center rounded-full text-accent"
-          >
-            <LuBot className="size-4" />
-          </div>
-        </div>
-      )}
-
-      {/* Reappearing Pill at Remote Position (scales in as circle with icon, then expands symmetrically to 132px mini capsule) */}
-      {reappearGhost && (
-        <div
-          style={
-            {
-              '--ghost-x': `${reappearGhost.x}px`,
-              top: `${reappearGhost.y}px`,
-              transformOrigin: 'center center',
-              animation: 'pill-reappear 400ms cubic-bezier(0.4, 0, 0.2, 1) forwards',
-            } as React.CSSProperties
-          }
-          className="fixed z-40 flex h-10 items-center overflow-hidden rounded-full border border-accent bg-panel/90 shadow-md pointer-events-none pl-[5px]"
-        >
-          <div
-            style={{
-              transformOrigin: 'center center',
-              animation: 'icon-scale-reappear 400ms cubic-bezier(0.4, 0, 0.2, 1) forwards',
-            }}
-            className="flex size-7 shrink-0 items-center justify-center rounded-full text-accent"
-          >
-            <LuBot className="size-4" />
-          </div>
-        </div>
-      )}
+      <GitAgentQuickCard
+        ref={containerRef}
+        isOpen={quickCardOpen}
+        isCollapsing={isCollapsingCard}
+        isProcessing={isProcessing}
+        lastAssistantMessage={lastAssistantMessage}
+        lastUserMessage={lastUserMessage}
+        onCollapseCard={handleCollapseCard}
+        onDockRight={() => {
+          setQuickCardOpen(false)
+          setDockMode('dock-right')
+        }}
+      />
 
       <form
         ref={formRef}
@@ -749,14 +504,24 @@ export function GitAgentBar({ repoPath, className }: Props) {
         onClick={() => {
           if (wasDraggingRef.current) return
           if (!expanded) {
-            openBar()
+            if (lastAssistantMessage) {
+              setExpanded(true)
+              setContentVisible(true)
+              setQuickCardOpen(true)
+            } else {
+              openBar()
+            }
           }
         }}
         onKeyDown={(event) => {
           if (event.key === 'Escape') {
-            if (!expanded) return
+            if (!expanded && !quickCardOpen) return
             event.preventDefault()
-            closeBar()
+            if (quickCardOpen) {
+              handleCollapseCard('close')
+            } else {
+              closeBar()
+            }
           }
         }}
         aria-label={t('gitAgent.barAria')}
@@ -767,7 +532,7 @@ export function GitAgentBar({ repoPath, className }: Props) {
             : isSnapping
               ? 'transition-[left,top,width,background-color,border-color,box-shadow,opacity] duration-350 ease-[cubic-bezier(0.25,1,0.5,1)] motion-reduce:transition-none'
               : 'transition-[width,background-color,border-color,box-shadow,opacity] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none',
-          expanded || isClosing
+          expanded || quickCardOpen || isClosing
             ? 'w-[min(90vw,500px)] px-[5px] opacity-100 focus-within:ring-2 focus-within:ring-accent/25'
             : 'w-[132px] pl-[5px] pr-2 cursor-pointer opacity-75 hover:opacity-100 hover:shadow-accent/20 hover:bg-panel active:scale-[0.99]',
           className
@@ -779,7 +544,7 @@ export function GitAgentBar({ repoPath, className }: Props) {
           tabIndex={expanded || isClosing ? 0 : -1}
           aria-expanded={expanded && !isClosing}
           aria-label={expanded ? t('common.close') || '收起' : t('gitAgent.barAria')}
-          title={expanded ? t('common.close') : t('gitAgent.barDragHint')}
+          title={expanded ? t('common.close') : lastAssistantMessage ? t('gitAgent.restoreQuickAnswerHint') || '点击展开 Agent 快速答复' : t('gitAgent.barDragHint')}
           onPointerDown={handleIconPointerDown}
           onPointerMove={handleIconPointerMove}
           onPointerUp={handleIconPointerUp}
@@ -792,10 +557,20 @@ export function GitAgentBar({ repoPath, className }: Props) {
           onClick={(e) => {
             e.stopPropagation()
             if (isClosing || isSnapping) return
-            if (expanded) {
-              closeBar()
+            if (expanded || quickCardOpen) {
+              if (quickCardOpen) {
+                handleCollapseCard('close')
+              } else {
+                closeBar()
+              }
             } else if (!wasDraggingRef.current) {
-              openBar()
+              if (lastAssistantMessage) {
+                setExpanded(true)
+                setContentVisible(true)
+                setQuickCardOpen(true)
+              } else {
+                openBar()
+              }
             }
           }}
           style={{
@@ -809,7 +584,7 @@ export function GitAgentBar({ repoPath, className }: Props) {
               : {}),
           }}
           className={cn(
-            'flex size-7 shrink-0 items-center justify-center rounded-full text-accent outline-none',
+            'relative flex size-7 shrink-0 items-center justify-center rounded-full text-accent outline-none',
             expanded || isClosing
               ? 'hover:bg-accent/15 cursor-pointer'
               : isDragging
@@ -817,7 +592,16 @@ export function GitAgentBar({ repoPath, className }: Props) {
                 : 'cursor-grab hover:bg-accent/15 touch-none'
           )}
         >
-          {isProcessing ? <Spinner className="size-3.5" /> : <LuBot className="size-4" />}
+          {isProcessing ? (
+            <Spinner className="size-3.5" />
+          ) : (
+            <>
+              <LuBot className="size-4" />
+              {!expanded && Boolean(lastAssistantMessage) && (
+                <span className="absolute top-0.5 right-0.5 size-2 rounded-full bg-accent ring-2 ring-panel animate-pulse pointer-events-none" />
+              )}
+            </>
+          )}
         </button>
 
         {/* Collapsed Label with Typewriter effect: fades in as icon glides independently */}
@@ -852,6 +636,33 @@ export function GitAgentBar({ repoPath, className }: Props) {
             className="min-w-0 flex-1 bg-transparent px-1 text-xs text-ink placeholder:text-ink-soft/60 focus:outline-none"
             tabIndex={contentVisible ? 0 : -1}
           />
+
+          {/* Restore Recent Answer Button */}
+          {Boolean(lastAssistantMessage) && (
+            <Tooltip content={t('gitAgent.restoreQuickAnswer') || '还原最近回答'} placement="top">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (quickCardOpen) {
+                    handleCollapseCard('pill')
+                  } else {
+                    setExpanded(true)
+                    setContentVisible(true)
+                    setQuickCardOpen(true)
+                  }
+                }}
+                className={cn(
+                  'flex size-7 shrink-0 items-center justify-center rounded-full text-accent hover:bg-accent/15 active:scale-95 transition-all cursor-pointer',
+                  quickCardOpen && 'bg-accent/15'
+                )}
+                aria-label={t('gitAgent.restoreQuickAnswer') || '还原最近回答'}
+                tabIndex={contentVisible ? 0 : -1}
+              >
+                <LuSparkles className="size-3.5 text-accent animate-pulse" />
+              </button>
+            </Tooltip>
+          )}
 
           {/* Quick Model & Platform Popover */}
           <AgentQuickModelPopover tabIndex={contentVisible ? 0 : -1} />

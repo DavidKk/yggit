@@ -21,7 +21,9 @@ describe('branch context menu & config', () => {
   describe('context-menu-config persistence', () => {
     it('returns default configuration when storage is empty', () => {
       const config = loadContextMenuConfig()
-      expect(config.quickActions).toContain('copy-branch')
+      expect(config.quickActions).toContain('checkout-branch')
+      expect(config.quickActions).toContain('merge-branch')
+      expect(config.quickActions).toContain('rebase-branch')
       expect(config.enabledGroups.copy).toBe(true)
       expect(config.enabledGroups.branch).toBe(true)
       expect(config.dangerConfirm).toBe(true)
@@ -54,8 +56,8 @@ describe('branch context menu & config', () => {
         config: DEFAULT_CONTEXT_MENU_CONFIG,
       })
 
-      // Pinned quick action ('copy-branch') + '复制' + '分支操作' + 'Worktree' + '在远程打开' + 'Agent'
-      expect(items.length).toBeLessThanOrEqual(6)
+      // Pinned quick actions (checkout, merge, rebase, new) + Copy + Branch Operations + Worktree + Open in Remote
+      expect(items.length).toBeLessThanOrEqual(10)
 
       const copyGroup = items.find((i) => i.key === 'menu-copy-group')
       expect(copyGroup).toBeDefined()
@@ -152,6 +154,45 @@ describe('branch context menu & config', () => {
       customAction?.onSelect?.()
       expect(onAgentPrompt).toHaveBeenCalledWith(expect.stringContaining('feat/ai-test'))
       expect(onAgentPrompt).toHaveBeenCalledWith(expect.stringContaining('3beed2f'))
+    })
+
+    it('handles SOLO branch entry and toggles correctly', () => {
+      const onSoloBranch = jest.fn()
+      // Inactive solo mode
+      const items = buildBranchContextMenu({
+        branchName: 'feature/solo-test',
+        commit: mockCommit,
+        repo: 'owner/repo',
+        config: DEFAULT_CONTEXT_MENU_CONFIG,
+        soloBranch: null,
+        onSoloBranch,
+      })
+
+      const soloItem = items.find((i) => i.key === 'solo-branch')
+      expect(soloItem).toBeDefined()
+      expect(soloItem?.label).toBe('SOLO 分支')
+      expect(soloItem?.checked).toBe(false)
+
+      soloItem?.onSelect?.()
+      expect(onSoloBranch).toHaveBeenCalledWith('feature/solo-test')
+
+      // Active solo mode on same branch
+      const activeItems = buildBranchContextMenu({
+        branchName: 'feature/solo-test',
+        commit: mockCommit,
+        repo: 'owner/repo',
+        config: DEFAULT_CONTEXT_MENU_CONFIG,
+        soloBranch: 'feature/solo-test',
+        onSoloBranch,
+      })
+
+      const activeSoloItem = activeItems.find((i) => i.key === 'solo-branch')
+      expect(activeSoloItem).toBeDefined()
+      expect(activeSoloItem?.label).toBe('退出 SOLO')
+      expect(activeSoloItem?.checked).toBe(true)
+
+      activeSoloItem?.onSelect?.()
+      expect(onSoloBranch).toHaveBeenCalledWith(null)
     })
   })
 })

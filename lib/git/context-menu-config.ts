@@ -29,10 +29,11 @@ export interface ContextMenuUserConfig {
   agentActions: AgentCustomMenuAction[]
 }
 
-export const CONTEXT_MENU_STORAGE_KEY = 'yggit.context-menu.config.v1'
+export const CONTEXT_MENU_STORAGE_KEY = 'yggit.context-menu.config.v2'
+const OLD_CONTEXT_MENU_STORAGE_KEY = 'yggit.context-menu.config.v1'
 
 export const DEFAULT_CONTEXT_MENU_CONFIG: ContextMenuUserConfig = {
-  quickActions: ['copy-branch'],
+  quickActions: ['checkout-branch', 'merge-branch', 'rebase-branch', 'new-branch'],
   enabledGroups: {
     copy: true,
     branch: true,
@@ -61,12 +62,30 @@ export const DEFAULT_CONTEXT_MENU_CONFIG: ContextMenuUserConfig = {
 export function loadContextMenuConfig(): ContextMenuUserConfig {
   if (typeof window === 'undefined') return DEFAULT_CONTEXT_MENU_CONFIG
   try {
-    const raw = localStorage.getItem(CONTEXT_MENU_STORAGE_KEY)
+    let raw = localStorage.getItem(CONTEXT_MENU_STORAGE_KEY)
+    if (!raw) {
+      // Migrate from v1 if present
+      const oldRaw = localStorage.getItem(OLD_CONTEXT_MENU_STORAGE_KEY)
+      if (oldRaw) {
+        try {
+          const oldParsed = JSON.parse(oldRaw)
+          // If old quickActions was just the default 'copy-branch', upgrade to new defaults
+          if (Array.isArray(oldParsed.quickActions) && oldParsed.quickActions.length === 1 && oldParsed.quickActions[0] === 'copy-branch') {
+            oldParsed.quickActions = DEFAULT_CONTEXT_MENU_CONFIG.quickActions
+          }
+          raw = JSON.stringify(oldParsed)
+          localStorage.setItem(CONTEXT_MENU_STORAGE_KEY, raw)
+        } catch {
+          // ignore parse error
+        }
+      }
+    }
     if (!raw) return DEFAULT_CONTEXT_MENU_CONFIG
     const parsed = JSON.parse(raw)
     return {
       ...DEFAULT_CONTEXT_MENU_CONFIG,
       ...parsed,
+      quickActions: Array.isArray(parsed.quickActions) ? parsed.quickActions : DEFAULT_CONTEXT_MENU_CONFIG.quickActions,
       enabledGroups: {
         ...DEFAULT_CONTEXT_MENU_CONFIG.enabledGroups,
         ...(parsed.enabledGroups || {}),
