@@ -1,5 +1,5 @@
 /** @jest-environment jsdom */
-import { buildBranchContextMenu } from '@/lib/git/branch-context-menu'
+import { buildBranchContextMenu, stripRemotePrefix } from '@/lib/git/branch-context-menu'
 import { DEFAULT_CONTEXT_MENU_CONFIG, loadContextMenuConfig, saveContextMenuConfig } from '@/lib/git/context-menu-config'
 import type { GitCommit } from '@/lib/git/types'
 
@@ -193,6 +193,61 @@ describe('branch context menu & config', () => {
 
       activeSoloItem?.onSelect?.()
       expect(onSoloBranch).toHaveBeenCalledWith(null)
+    })
+
+    describe('branch name copying & remote prefix handling', () => {
+      it('correctly strips remote prefix while preserving multi-part category branches', () => {
+        expect(stripRemotePrefix('origin/hotfix/section-renderer-v1.261121.2')).toBe('hotfix/section-renderer-v1.261121.2')
+        expect(stripRemotePrefix('upstream/feature/JZY-3104/subscription-qrpc')).toBe('feature/JZY-3104/subscription-qrpc')
+        expect(stripRemotePrefix('hotfix/section-renderer-v1.261121.2')).toBe('hotfix/section-renderer-v1.261121.2')
+        expect(stripRemotePrefix('my-remote/hotfix/issue', ['my-remote'])).toBe('hotfix/issue')
+        expect(stripRemotePrefix('origin/main')).toBe('main')
+      })
+
+      it('does NOT strip category prefixes for local branches', () => {
+        const items = buildBranchContextMenu({
+          branchName: 'hotfix/section-renderer-v1.261121.2',
+          commit: mockCommit,
+          isRemote: false,
+          config: DEFAULT_CONTEXT_MENU_CONFIG,
+        })
+        const copyGroup = items.find((i) => i.key === 'menu-copy-group')
+        const copyBranch = copyGroup?.children?.find((c) => c.key === 'copy-branch')
+        expect(copyBranch).toBeDefined()
+        expect(copyBranch?.label).toContain('hotfix/section-renderer-v1.261121.2')
+      })
+
+      it('preserves category prefixes when remote branch label is already stripped of remote', () => {
+        const items = buildBranchContextMenu({
+          branchName: 'hotfix/section-renderer-v1.261121.2',
+          rawBranchName: 'origin/hotfix/section-renderer-v1.261121.2',
+          commit: mockCommit,
+          isRemote: true,
+          remoteNames: ['origin'],
+          config: DEFAULT_CONTEXT_MENU_CONFIG,
+        })
+        const copyGroup = items.find((i) => i.key === 'menu-copy-group')
+        const copyBranch = copyGroup?.children?.find((c) => c.key === 'copy-branch')
+        expect(copyBranch).toBeDefined()
+        expect(copyBranch?.label).toContain('hotfix/section-renderer-v1.261121.2')
+
+        const copyFullBranch = copyGroup?.children?.find((c) => c.key === 'copy-full-branch')
+        expect(copyFullBranch).toBeDefined()
+        expect(copyFullBranch?.label).toContain('origin/hotfix/section-renderer-v1.261121.2')
+      })
+
+      it('strips origin remote name if full remote ref was passed to branchName', () => {
+        const items = buildBranchContextMenu({
+          branchName: 'origin/feature/user-dashboard',
+          commit: mockCommit,
+          isRemote: true,
+          config: DEFAULT_CONTEXT_MENU_CONFIG,
+        })
+        const copyGroup = items.find((i) => i.key === 'menu-copy-group')
+        const copyBranch = copyGroup?.children?.find((c) => c.key === 'copy-branch')
+        expect(copyBranch).toBeDefined()
+        expect(copyBranch?.label).toContain('feature/user-dashboard')
+      })
     })
   })
 })

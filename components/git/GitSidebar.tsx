@@ -41,6 +41,7 @@ import { useT } from '@/components/i18n/LocaleProvider'
 import { useNotification } from '@/components/notification/useNotification'
 import { Badge, Button, EmptyState, Modal, Tooltip, VirtualList } from '@/components/sk'
 import { copyToClipboard } from '@/lib/clipboard'
+import { stripRemotePrefix } from '@/lib/git/branch-context-menu'
 import { getGitDriver, useGitDriver } from '@/lib/git/driver'
 import type { GitLogView, GitRemoteProbe, GitSelection } from '@/lib/git/types'
 import { isBoolean, isRecordBoolean, repoPrefKey, useGitUiPref, useGitUiReady } from '@/lib/git/ui-prefs'
@@ -552,7 +553,8 @@ export function GitSidebar({
       })
     }
 
-    const copyBranchName = kind === 'remote' ? item.path || item.name.replace(/^[^/]+\//, '') : item.name
+    const remoteNames = view.remotes.map((r) => r.remote)
+    const copyBranchName = kind === 'remote' ? stripRemotePrefix(item.path || item.name, remoteNames) : item.name
 
     const copyItems: FloatingMenuItem[] = [
       {

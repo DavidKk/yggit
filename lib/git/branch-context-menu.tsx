@@ -54,6 +54,8 @@ export type FloatingMenuItem = {
 
 export interface BuildBranchMenuOptions {
   branchName?: string
+  rawBranchName?: string
+  remoteNames?: string[]
   commit?: GitCommit
   repo?: string
   remoteUrl?: string
@@ -81,6 +83,29 @@ export interface BuildBranchMenuOptions {
 }
 
 /**
+ * Strips only the remote prefix (e.g. "origin/" or "upstream/") from a branch reference,
+ * preserving category prefixes like "hotfix/", "feature/", or "release/".
+ */
+export function stripRemotePrefix(branch?: string, remoteNames?: string[]): string {
+  if (!branch) return ''
+  if (remoteNames && remoteNames.length > 0) {
+    for (const remote of remoteNames) {
+      if (!remote) continue
+      if (branch.startsWith(`${remote}/`)) {
+        return branch.slice(remote.length + 1)
+      }
+    }
+  }
+  const commonRemotes = ['origin', 'upstream']
+  for (const remote of commonRemotes) {
+    if (branch.startsWith(`${remote}/`)) {
+      return branch.slice(remote.length + 1)
+    }
+  }
+  return branch
+}
+
+/**
  * Builds structured branch / commit context menu adhering to user design specifications:
  * - 4-5 concise main entries: 「复制 ›」「分支操作 ›」「Worktree ›」「在远程打开」
  * - Pinned quick actions area at the top
@@ -90,6 +115,8 @@ export interface BuildBranchMenuOptions {
  */
 export function buildBranchContextMenu({
   branchName,
+  rawBranchName,
+  remoteNames,
   commit,
   repo,
   remoteUrl,
@@ -123,7 +150,8 @@ export function buildBranchContextMenu({
     else onNotify?.('error', tr('git.operations.copyFailed', '复制失败'))
   }
 
-  const cleanBranch = isRemote && branchName ? branchName.replace(/^[^/]+\//, '') : branchName
+  const cleanBranch = isRemote && branchName ? stripRemotePrefix(branchName, remoteNames) : branchName
+  const fullBranch = rawBranchName || (isRemote && branchName ? branchName : '')
 
   // 1. Definition of all atomic actions
   const allActions: Record<string, FloatingMenuItem> = {
@@ -144,7 +172,15 @@ export function buildBranchContextMenu({
       icon: <LuGitBranch className="size-4 shrink-0 text-accent" />,
       shortcut: '⌘C',
       onSelect: () => {
-        if (cleanBranch) void copyVal(cleanBranch)
+        if (cleanBranch || branchName) void copyVal(cleanBranch || branchName || '')
+      },
+    },
+    'copy-full-branch': {
+      key: 'copy-full-branch',
+      label: fullBranch ? tr('git.operations.copyFullPathAction', `复制完整路径 (${fullBranch})`, { path: fullBranch }) : tr('git.operations.copyFullPath', '复制完整路径'),
+      icon: <LuCopy className="size-4 shrink-0 text-ink-soft" />,
+      onSelect: () => {
+        if (fullBranch) void copyVal(fullBranch)
       },
     },
     'copy-hash': {
@@ -458,7 +494,8 @@ export function buildBranchContextMenu({
   // 5. "Copy" submenu
   if (config.enabledGroups.copy) {
     const copyChildren: FloatingMenuItem[] = []
-    if (branchName) copyChildren.push(allActions['copy-branch'])
+    if (cleanBranch || branchName) copyChildren.push(allActions['copy-branch'])
+    if (fullBranch && cleanBranch && fullBranch !== cleanBranch) copyChildren.push(allActions['copy-full-branch'])
     if (commit?.hash) copyChildren.push(allActions['copy-hash'])
     if (commit?.subject) copyChildren.push(allActions['copy-subject'])
     if (commit?.author) copyChildren.push(allActions['copy-author'])

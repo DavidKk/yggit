@@ -367,6 +367,7 @@ function GitGraphComponent({
       commit,
       repo,
       remoteUrl,
+      remoteNames,
       isReadOnly: false,
       hasWorktrees: worktreeBranches.length > 0 || Boolean(worktree),
       soloBranch,
@@ -1049,6 +1050,7 @@ function GitGraphComponent({
                             commit={commit}
                             checkedOut={checkedOut}
                             color={color}
+                            remoteNames={remoteNames}
                             onBranchHoverStart={handleBranchPointerEnter}
                             onBranchHoverEnd={handleBranchPointerLeave}
                             onSelectCommit={onSelect}

@@ -53,6 +53,7 @@ export function RefChipsCell({
   checkedOut,
   color,
   dimmed = false,
+  remoteNames = [],
   onBranchHoverStart,
   onBranchHoverEnd,
   onSelectCommit,
@@ -70,6 +71,7 @@ export function RefChipsCell({
   checkedOut: Set<string>
   color: string
   dimmed?: boolean
+  remoteNames?: string[]
   onBranchHoverStart?: (name: string) => void
   onBranchHoverEnd?: () => void
   onSelectCommit?: (commit: GitCommit) => void
@@ -174,8 +176,10 @@ export function RefChipsCell({
     const isRemote = chip.kind === 'remote'
     return buildBranchContextMenu({
       branchName: chip.label,
+      rawBranchName: chip.name,
       commit,
       isRemote,
+      remoteNames,
       soloBranch,
       onSoloBranch,
       config: contextConfig,
