@@ -74,7 +74,7 @@ export function ModelChannelSection({ inline = false, onAdd, onEdit }: ModelChan
         title={t('gitAgent.modelList')}
         description={t('gitAgent.modelListDesc')}
         titleAction={
-          <Button variant="accent" gradient onClick={handleAdd}>
+          <Button variant="accent" onClick={handleAdd}>
             <LuPlus aria-hidden="true" />
             {t('gitAgent.addModel')}
           </Button>

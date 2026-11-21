@@ -11,6 +11,7 @@ import { useInWorkspaceHeader, WorkspaceHeaderSlot } from '@/components/layout/W
 import { ThemeSwitcher } from '@/components/theme/ThemeSwitcher'
 
 import { AgentMenuActionEditor } from './AgentMenuActionEditor'
+import { ContextMenuPreviewToolbar } from './ContextMenuPreviewToolbar'
 import { GeneralSettingsSection } from './GeneralSettingsSection'
 import { McpServerEditor } from './McpServerEditor'
 import { McpSettingsSection } from './McpSettingsSection'
@@ -201,9 +202,16 @@ export function AgentSettingsPageContent({ section = 'models', menuActionId, ski
                   <GeneralSettingsSection />
                 </div>
               )}
-              {activeSection === 'menus' && (
-                <div className="max-w-4xl">{menuActionId ? <AgentMenuActionEditor key={menuActionId} actionId={menuActionId} /> : <MenuSettingsSection />}</div>
-              )}
+              {activeSection === 'menus' &&
+                (menuActionId ? (
+                  <div className="max-w-4xl">
+                    <AgentMenuActionEditor key={menuActionId} actionId={menuActionId} />
+                  </div>
+                ) : (
+                  <SettingsColumns tools={<ContextMenuPreviewToolbar />}>
+                    <MenuSettingsSection />
+                  </SettingsColumns>
+                ))}
             </div>
           </div>
         </main>

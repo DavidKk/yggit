@@ -8,11 +8,8 @@ import {
   LuArrowDownToLine,
   LuArrowUpFromLine,
   LuBot,
-  LuChevronRight,
   LuClipboardList,
   LuExternalLink,
-  LuEye,
-  LuEyeOff,
   LuFolderGit2,
   LuGitBranch,
   LuGitBranchPlus,
@@ -44,7 +41,7 @@ import { SettingsSectionCard } from './SettingsSectionCard'
 
 export type ActionCategory = 'all' | 'branch' | 'sync' | 'workspace' | 'copy'
 
-interface QuickActionDef {
+export interface QuickActionDef {
   id: string
   label: string
   category: 'branch' | 'sync' | 'workspace' | 'copy'
@@ -56,7 +53,7 @@ interface QuickActionDef {
   icon: React.ComponentType<{ className?: string }>
 }
 
-const AVAILABLE_QUICK_ACTIONS: QuickActionDef[] = [
+export const AVAILABLE_QUICK_ACTIONS: QuickActionDef[] = [
   // 1. Common branch operations (default recommended)
   {
     id: 'checkout-branch',
@@ -304,7 +301,6 @@ export function MenuSettingsSection() {
   const notify = useNotification()
   const router = useRouter()
   const [activeCategory, setActiveCategory] = useState<ActionCategory>('all')
-  const [showPreview, setShowPreview] = useState(false)
 
   const currentQuickActions = useMemo(() => config.quickActions || [], [config.quickActions])
 
@@ -376,18 +372,6 @@ export function MenuSettingsSection() {
         title="快捷区（一级主菜单置顶直达）"
         description="选择在右键主菜单中置顶直达的高频能力。按您的操作偏好自由组合切分支、Merge、Rebase、推送/拉取等核心工具。"
         descriptionTooltip="勾选的操作将直接展示在右键菜单顶部，无需展开二级子菜单，点击即执行。"
-        titleAction={
-          <div className="flex items-center gap-1.5">
-            <Button variant="plain" onClick={() => setShowPreview((v) => !v)} className="gap-1 text-xs text-ink-soft hover:enabled:text-ink">
-              {showPreview ? <LuEyeOff className="size-3.5" /> : <LuEye className="size-3.5" />}
-              <span>{showPreview ? '收起预览' : '效果预览'}</span>
-            </Button>
-            <Button variant="plain" onClick={handleResetDefaults} className="gap-1 text-xs text-ink-soft hover:enabled:text-ink" tooltip="恢复为官方推荐默认配置">
-              <LuRotateCcw className="size-3.5" />
-              <span>恢复默认</span>
-            </Button>
-          </div>
-        }
       >
         <div className="flex flex-col gap-3">
           {/* 预设切换栏 */}
@@ -422,92 +406,6 @@ export function MenuSettingsSection() {
               })}
             </div>
           </div>
-
-          {/* 实时预览 (Live Preview) */}
-          {showPreview && (
-            <div className="rounded-lg border border-accent/40 bg-panel-2/60 p-3 shadow-inner">
-              <div className="mb-2 flex items-center justify-between">
-                <span className="text-xs font-semibold text-accent flex items-center gap-1.5">
-                  <LuEye className="size-3.5" />
-                  <span>右键菜单实时效果预览 (模拟: feature/example 分支)</span>
-                </span>
-                <span className="text-[10px] text-ink-soft font-mono">预览模式</span>
-              </div>
-              <div className="mx-auto max-w-xs rounded-lg border border-line bg-panel p-1.5 shadow-xl">
-                {/* 模拟快捷区 */}
-                {currentQuickActions.length > 0 ? (
-                  <div className="flex flex-col gap-0.5">
-                    {currentQuickActions.map((actionId) => {
-                      const def = AVAILABLE_QUICK_ACTIONS.find((a) => a.id === actionId)
-                      if (!def) return null
-                      const Icon = def.icon
-                      return (
-                        <div key={actionId} className="flex items-center justify-between gap-2 rounded px-2 py-1 text-xs text-ink hover:bg-accent/10">
-                          <span className="flex items-center gap-2 truncate font-medium">
-                            <Icon className="size-3.5 text-accent shrink-0" />
-                            <span className="truncate">{def.label.split(' (')[0]}</span>
-                          </span>
-                          {def.shortcut && <span className="text-[10px] font-mono text-ink-soft">{def.shortcut}</span>}
-                        </div>
-                      )
-                    })}
-                  </div>
-                ) : (
-                  <div className="px-2 py-1.5 text-center text-xs text-ink-soft italic">(暂无置顶快捷操作)</div>
-                )}
-
-                <div className="my-1 h-px bg-line/60" />
-
-                {/* 模拟二级子菜单 */}
-                <div className="flex flex-col gap-0.5 text-xs text-ink-soft">
-                  {config.enabledGroups.copy && (
-                    <div className="flex items-center justify-between rounded px-2 py-1 hover:bg-panel-2">
-                      <span className="flex items-center gap-2">
-                        <LuShare2 className="size-3.5 text-ink-soft" />
-                        <span>复制</span>
-                      </span>
-                      <LuChevronRight className="size-3" />
-                    </div>
-                  )}
-                  {config.enabledGroups.branch && (
-                    <div className="flex items-center justify-between rounded px-2 py-1 hover:bg-panel-2">
-                      <span className="flex items-center gap-2">
-                        <LuGitBranch className="size-3.5 text-ink-soft" />
-                        <span>分支操作</span>
-                      </span>
-                      <LuChevronRight className="size-3" />
-                    </div>
-                  )}
-                  {config.enabledGroups.worktree && (
-                    <div className="flex items-center justify-between rounded px-2 py-1 hover:bg-panel-2">
-                      <span className="flex items-center gap-2">
-                        <LuFolderGit2 className="size-3.5 text-ink-soft" />
-                        <span>Worktree</span>
-                      </span>
-                      <LuChevronRight className="size-3" />
-                    </div>
-                  )}
-                  {config.enabledGroups.remote && (
-                    <div className="flex items-center justify-between rounded px-2 py-1 hover:bg-panel-2">
-                      <span className="flex items-center gap-2">
-                        <LuExternalLink className="size-3.5 text-ink-soft" />
-                        <span>在远程仓库打开</span>
-                      </span>
-                    </div>
-                  )}
-                  {config.enabledGroups.agent && (
-                    <div className="flex items-center justify-between rounded px-2 py-1 hover:bg-panel-2 text-accent font-medium">
-                      <span className="flex items-center gap-2">
-                        <LuBot className="size-3.5" />
-                        <span>Agent 智能诊断</span>
-                      </span>
-                      <LuChevronRight className="size-3" />
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* Category filter tabs */}
           <div className="flex items-center gap-1 overflow-x-auto border-b border-line/60 pb-1.5 pt-0.5">
@@ -581,6 +479,14 @@ export function MenuSettingsSection() {
                 </div>
               )
             })}
+          </div>
+
+          <div className="flex items-center justify-between pt-3 border-t border-line/60">
+            <span className="text-[11px] text-ink-soft">若工具配置混乱，可随时恢复为官方推荐配置</span>
+            <Button variant="default" onClick={handleResetDefaults}>
+              <LuRotateCcw className="size-3.5 mr-1 text-ink-soft" />
+              <span>恢复默认配置</span>
+            </Button>
           </div>
         </div>
       </SettingsSectionCard>
@@ -670,7 +576,7 @@ export function MenuSettingsSection() {
         title={t('gitAgent.menuActionsTitle')}
         description={t('gitAgent.menuActionsDesc')}
         titleAction={
-          <Button variant="default" onClick={() => router.push('/settings/menus/new')}>
+          <Button variant="accent" onClick={() => router.push('/settings/menus/new')}>
             <LuPlus className="size-3.5 mr-1" aria-hidden="true" />
             <span>{t('gitAgent.addAction')}</span>
           </Button>
