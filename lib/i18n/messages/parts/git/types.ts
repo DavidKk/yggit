@@ -539,5 +539,32 @@ export type GitMessages = {
     compareWorkdir?: string
     pinBranch?: string
     hideBranch?: string
+    fileHistory?: string
+    fileBlame?: string
+    copyFilePath?: string
+    restoreFileFromCommit?: string
+    restoreFileSuccess?: string
+    restoreFileFail?: string
+    fastForwardTagTo?: string
+    mergeBranchIntoTag?: string
+    rebaseBranchOntoTag?: string
+    checkoutTagCommit?: string
+    explainTagChanges?: string
+    createBranchHere?: string
+    cherryPickCommitAction?: string
+    resetBranchToCommit?: string
+    resetSoftDesc?: string
+    resetMixedDesc?: string
+    resetHardDesc?: string
+    revertCommitAction?: string
+    deleteTagLocally?: string
+    deleteTagFromOrigin?: string
+    copyTagName?: string
+    copyTagRemoteLink?: string
+    hideTag?: string
+    unhideTag?: string
+    soloTag?: string
+    unsoloTag?: string
+    annotateTag?: string
   }
 }

@@ -1131,7 +1131,6 @@ export function GitCommitPanel({ repo, commit, width, title, conflictFiles, conf
 
   // File Context Menu (Matching Image 2)
   const handleFileContextMenu = (e: React.MouseEvent, filePath: string, name: string, status: string) => {
-    const absPath = repo ? `${repo.replace(/\/+$/, '')}/${filePath}` : filePath
     const targetFile = isWorktree ? changedFiles.find((f) => f.path === filePath) : null
     const ext = name.includes('.') ? name.split('.').pop() : ''
 
@@ -1197,35 +1196,26 @@ export function GitCommitPanel({ repo, commit, width, title, conflictFiles, conf
       items.push(
         {
           key: 'file-history',
-          label: 'File History',
+          label: t('git.operations.fileHistory') || 'File History',
           icon: <LuHistory className="size-3.5 text-accent" />,
           onSelect: () => onSelect(filePath, status || 'M'),
         },
         {
           key: 'file-blame',
-          label: 'File Blame',
+          label: t('git.operations.fileBlame') || 'File Blame',
           icon: <LuPencil className="size-3.5 text-ink-soft" />,
           onSelect: () => onSelect(filePath, status || 'M'),
         },
         {
-          key: 'open-external-diff',
-          label: 'Open in external diff tool',
-          icon: <LuFileCode className="size-3.5 text-accent" />,
-          dividerBefore: true,
-          onSelect: () => {
-            window.open(`vscode://file/${absPath}`)
-          },
-        },
-        {
           key: 'copy-relative',
-          label: 'Copy file path',
+          label: t('git.operations.copyFilePath') || 'Copy file path',
           icon: <LuCopy className="size-3.5 text-ink-soft" />,
           dividerBefore: true,
           onSelect: () => void navigator.clipboard?.writeText(filePath),
         },
         {
           key: 'restore-file',
-          label: 'Restore file from this commit',
+          label: t('git.operations.restoreFileFromCommit') || 'Restore file from this commit',
           icon: <LuUndo2 className="size-3.5 text-warn" />,
           dividerBefore: true,
           onSelect: async () => {
@@ -1233,11 +1223,14 @@ export function GitCommitPanel({ repo, commit, width, title, conflictFiles, conf
             try {
               const driver = getGitDriver()
               await driver.restoreFile?.(repo, commit.hash, filePath)
-              notify.success(`已从提交 ${commit.short || commit.hash.slice(0, 7)} 恢复文件 ${filePath}`)
+              notify.success(
+                t('git.operations.restoreFileSuccess', { hash: commit.short || commit.hash.slice(0, 7), path: filePath }) ||
+                  `已从提交 ${commit.short || commit.hash.slice(0, 7)} 恢复文件 ${filePath}`
+              )
               await reloadDiff()
               await onRefresh?.()
             } catch (err) {
-              notify.error(err instanceof Error ? err.message : '恢复文件失败')
+              notify.error(err instanceof Error ? err.message : t('git.operations.restoreFileFail') || '恢复文件失败')
             }
           },
         }
@@ -1342,7 +1335,7 @@ export function GitCommitPanel({ repo, commit, width, title, conflictFiles, conf
       items.push(
         {
           key: 'open-folder',
-          label: 'Open folder',
+          label: t('git.operations.openFolder') || 'Open folder',
           icon: <LuFolderOpen className="size-3.5 text-accent" />,
           onSelect: async () => {
             try {
@@ -1358,7 +1351,7 @@ export function GitCommitPanel({ repo, commit, width, title, conflictFiles, conf
         },
         {
           key: 'create-file-in-folder',
-          label: 'Create a file in this folder',
+          label: t('git.operations.createFileInFolder') || 'Create a file in this folder',
           icon: <LuFilePlus className="size-3.5 text-ok" />,
           onSelect: () => {
             setNewFileDialog({ folderPath, fileName: '' })

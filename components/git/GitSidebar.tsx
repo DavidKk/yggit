@@ -735,7 +735,7 @@ export function GitSidebar({
     const items: FloatingMenuItem[] = [
       {
         key: 'fast-forward-tag',
-        label: `Fast-forward ${tag.name} to ${currentBranch}`,
+        label: t('git.operations.fastForwardTagTo', { tag: tag.name, branch: currentBranch }) || `Fast-forward ${tag.name} to ${currentBranch}`,
         icon: <LuGitMerge className="size-3.5 shrink-0 text-accent" />,
         onSelect: async () => {
           try {
@@ -750,7 +750,7 @@ export function GitSidebar({
       },
       {
         key: 'merge-into-tag',
-        label: `Merge ${currentBranch} into ${tag.name}`,
+        label: t('git.operations.mergeBranchIntoTag', { branch: currentBranch, tag: tag.name }) || `Merge ${currentBranch} into ${tag.name}`,
         icon: <LuGitMerge className="size-3.5 shrink-0 text-ink-soft" />,
         onSelect: async () => {
           try {
@@ -765,7 +765,7 @@ export function GitSidebar({
       },
       {
         key: 'rebase-onto-tag',
-        label: `Rebase ${currentBranch} onto ${tag.name}`,
+        label: t('git.operations.rebaseBranchOntoTag', { branch: currentBranch, tag: tag.name }) || `Rebase ${currentBranch} onto ${tag.name}`,
         icon: <LuGitCommitHorizontal className="size-3.5 shrink-0 text-accent" />,
         onSelect: async () => {
           try {
@@ -780,13 +780,13 @@ export function GitSidebar({
       },
       {
         key: 'checkout-tag',
-        label: `Checkout the commit at ${tag.name}`,
+        label: t('git.operations.checkoutTagCommit', { tag: tag.name }) || `Checkout the commit at ${tag.name}`,
         icon: <LuCornerDownRight className="size-3.5 shrink-0 text-accent" />,
         onSelect: () => void onCheckoutBranch?.(tag.tip),
       },
       {
         key: 'agent-diagnosis',
-        label: 'Explain Branch Changes (Preview)',
+        label: t('git.operations.explainTagChanges') || 'Explain Branch Changes (Preview)',
         icon: <LuBot className="size-3.5 shrink-0 text-accent" />,
         dividerBefore: true,
         onSelect: () => {
@@ -795,14 +795,14 @@ export function GitSidebar({
       },
       {
         key: 'create-branch-here',
-        label: 'Create branch here',
+        label: t('git.operations.createBranchHere') || 'Create branch here',
         icon: <LuGitBranch className="size-3.5 shrink-0 text-accent" />,
         dividerBefore: true,
         onSelect: () => void onCreateBranch?.(tag.tip),
       },
       {
         key: 'cherry-pick-commit',
-        label: 'Cherry pick commit',
+        label: t('git.operations.cherryPickCommitAction') || 'Cherry pick commit',
         icon: <LuGitCommitHorizontal className="size-3.5 shrink-0 text-ink-soft" />,
         onSelect: async () => {
           try {
@@ -817,12 +817,12 @@ export function GitSidebar({
       },
       {
         key: 'reset-to-commit',
-        label: `Reset ${currentBranch} to this commit`,
+        label: t('git.operations.resetBranchToCommit', { branch: currentBranch }) || `Reset ${currentBranch} to this commit`,
         icon: <LuUndo2 className="size-3.5 shrink-0 text-warn" />,
         children: [
           {
             key: 'reset-soft',
-            label: 'Soft (保留工作区与暂存区)',
+            label: t('git.operations.resetSoftDesc') || 'Soft (保留工作区与暂存区)',
             icon: <LuUndo2 className="size-3.5 shrink-0" />,
             onSelect: async () => {
               try {
@@ -839,7 +839,7 @@ export function GitSidebar({
           },
           {
             key: 'reset-mixed',
-            label: 'Mixed (保留工作区，清空暂存区)',
+            label: t('git.operations.resetMixedDesc') || 'Mixed (保留工作区，清空暂存区)',
             icon: <LuUndo2 className="size-3.5 shrink-0" />,
             onSelect: async () => {
               try {
@@ -856,7 +856,7 @@ export function GitSidebar({
           },
           {
             key: 'reset-hard',
-            label: 'Hard (丢弃所有未提交修改)',
+            label: t('git.operations.resetHardDesc') || 'Hard (丢弃所有未提交修改)',
             icon: <LuTrash2 className="size-3.5 shrink-0 text-fail" />,
             danger: true,
             onSelect: async () => {
@@ -876,7 +876,7 @@ export function GitSidebar({
       },
       {
         key: 'revert-commit',
-        label: 'Revert commit',
+        label: t('git.operations.revertCommitAction') || 'Revert commit',
         icon: <LuHistory className="size-3.5 shrink-0 text-ink-soft" />,
         onSelect: async () => {
           try {
@@ -893,7 +893,7 @@ export function GitSidebar({
       },
       {
         key: 'delete-tag-local',
-        label: `Delete ${tag.name} locally`,
+        label: t('git.operations.deleteTagLocally', { tag: tag.name }) || `Delete ${tag.name} locally`,
         icon: <LuTrash2 className="size-3.5 shrink-0 text-fail" />,
         danger: true,
         dividerBefore: true,
@@ -910,7 +910,7 @@ export function GitSidebar({
       },
       {
         key: 'delete-tag-origin',
-        label: `Delete ${tag.name} from origin`,
+        label: t('git.operations.deleteTagFromOrigin', { tag: tag.name }) || `Delete ${tag.name} from origin`,
         icon: <LuTrash2 className="size-3.5 shrink-0 text-fail" />,
         danger: true,
         onSelect: async () => {
@@ -926,14 +926,14 @@ export function GitSidebar({
       },
       {
         key: 'copy-tag-name',
-        label: 'Copy tag name',
+        label: t('git.operations.copyTagName') || 'Copy tag name',
         icon: <LuTag className="size-3.5 shrink-0 text-accent" />,
         dividerBefore: true,
         onSelect: () => void copyValue(tag.name),
       },
       {
         key: 'copy-remote-link',
-        label: 'Copy link to this tag on remote: origin',
+        label: t('git.operations.copyTagRemoteLink', { remote: 'origin' }) || 'Copy link to this tag on remote: origin',
         icon: <LuLink className="size-3.5 shrink-0 text-ink-soft" />,
         onSelect: async () => {
           try {
@@ -948,20 +948,20 @@ export function GitSidebar({
       },
       {
         key: 'hide-tag',
-        label: 'Hide',
+        label: hiddenTags.includes(tag.name) ? t('git.operations.unhideTag') || '取消隐藏' : t('git.operations.hideTag') || 'Hide',
         icon: <LuEyeOff className="size-3.5 shrink-0 text-ink-soft" />,
         dividerBefore: true,
         onSelect: () => setHiddenTags((prev) => (prev.includes(tag.name) ? prev.filter((t) => t !== tag.name) : [...prev, tag.name])),
       },
       {
         key: 'solo-tag',
-        label: soloBranch === tag.name ? '取消只看此标签' : 'Solo',
+        label: soloBranch === tag.name ? t('git.operations.unsoloTag') || '取消只看' : t('git.operations.soloTag') || 'Solo',
         icon: <LuFilter className="size-3.5 shrink-0 text-accent" />,
         onSelect: () => onSoloBranch?.(soloBranch === tag.name ? null : tag.name),
       },
       {
         key: 'annotate-tag',
-        label: `Annotate ${tag.name}`,
+        label: t('git.operations.annotateTag', { tag: tag.name }) || `Annotate ${tag.name}`,
         icon: <LuPencil className="size-3.5 shrink-0 text-accent" />,
         dividerBefore: true,
         onSelect: async () => {
