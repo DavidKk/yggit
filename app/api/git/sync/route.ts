@@ -15,6 +15,7 @@ export const POST = defineApiRoute('post:/api/git/sync', async ({ request }) => 
     all?: unknown
     rebase?: unknown
     ffOnly?: unknown
+    prune?: unknown
   } | null
 
   const repo = String(body?.repo || '').trim()
@@ -42,9 +43,11 @@ export const POST = defineApiRoute('post:/api/git/sync', async ({ request }) => 
     }
 
     if (action === 'fetch') {
+      const remote = typeof body?.remote === 'string' && body.remote.trim() ? body.remote.trim() : undefined
       return await gitFetch(repo, {
-        remote: typeof body?.remote === 'string' ? body.remote : undefined,
-        all: body?.all !== false,
+        remote,
+        all: remote ? Boolean(body?.all) : body?.all !== false,
+        prune: body?.prune !== false,
       })
     }
 

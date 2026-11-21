@@ -423,9 +423,12 @@ export async function gitPull(repoInput: string, options?: { remote?: string; br
   return { ok: true, message: cleanGitMessage(stdout || stderr, '拉取成功') }
 }
 
-export async function gitFetch(repoInput: string, options?: { remote?: string; all?: boolean }): Promise<{ ok: boolean; message: string }> {
+export async function gitFetch(repoInput: string, options?: { remote?: string; all?: boolean; prune?: boolean }): Promise<{ ok: boolean; message: string }> {
   const repo = await resolveGitRepo(repoInput)
   const args = ['fetch']
+  if (options?.prune !== false) {
+    args.push('--prune')
+  }
   if (options?.all) {
     args.push('--all')
   } else if (options?.remote) {

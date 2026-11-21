@@ -6,6 +6,7 @@ import { LuCheck, LuChevronsUpDown, LuFolderGit2, LuSettings, LuShare2 } from 'r
 
 import { BrandLogo } from '@/components/BrandLogo'
 import { measurePanelFit } from '@/components/git/fitColumn'
+import { CreateBranchModal, RenameBranchModal } from '@/components/git/GitBranchModal'
 import { GitCommitPanel } from '@/components/git/GitCommitPanel'
 import { GitConflict3WayDiff } from '@/components/git/GitConflict3WayDiff'
 import { GitDebug } from '@/components/git/GitDebug'
@@ -146,6 +147,8 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
   const [remoteCheck, setRemoteCheck] = useState<GitRemoteCheck | null>(null)
   const [remoteProbing, setRemoteProbing] = useState(false)
   const [copiedHeaderShare, setCopiedHeaderShare] = useState(false)
+  const [renameModal, setRenameModal] = useState<{ open: boolean; oldName: string }>({ open: false, oldName: '' })
+  const [createBranchModal, setCreateBranchModal] = useState<{ open: boolean; startPoint?: string; currentBranch?: string }>({ open: false })
   const worldRef = useRef<HTMLDivElement>(null)
   const frameRef = useRef<HTMLDivElement>(null)
   const anchorRef = useRef<HTMLButtonElement>(null)
@@ -311,11 +314,12 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
     return () => window.removeEventListener('yggit:ui_navigate', onUiNavigate)
   }, [])
 
-  const probeRemotes = useCallback(async (repo: string) => {
+  const probeRemotes = useCallback(async (repo: string, force = false) => {
     if (getDriverMode() === 'edge') return
     setRemoteProbing(true)
     try {
       const params = new URLSearchParams({ repo })
+      if (force) params.set('refresh', '1')
       const response = await fetch(`/api/git/remote-check?${params.toString()}`)
       const body = (await response.json()) as GitRemoteCheck & { ok?: boolean }
       if (!response.ok || body.ok === false) return
@@ -333,15 +337,20 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
       return
     }
     const repo = view.repo
-    void probeRemotes(repo)
+    // Defer initial probe by 2.5s to prevent blocking initial commit diff and file rendering
+    const initialTimer = window.setTimeout(() => {
+      void probeRemotes(repo)
+    }, 2500)
+
     const timer = window.setInterval(() => {
       if (document.visibilityState === 'visible') void probeRemotes(repo)
-    }, 60_000)
+    }, 120_000)
     const onVisible = () => {
       if (document.visibilityState === 'visible') void probeRemotes(repo)
     }
     document.addEventListener('visibilitychange', onVisible)
     return () => {
+      window.clearTimeout(initialTimer)
       window.clearInterval(timer)
       document.removeEventListener('visibilitychange', onVisible)
     }
@@ -929,7 +938,7 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
       setProgressStage(`正在拉取分支 ${branchName}...`)
       try {
         const driver = getGitDriver()
-        const res = await driver.pull(view.repo, { branch: branchName })
+        const res = await driver.pull(view.repo, { branch: branchName, ffOnly: true })
         if (res.ok) {
           notification.success(res.message || '拉取成功')
           await loadRef.current(view.repo)
@@ -972,11 +981,14 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
     [view, notification]
   )
 
-  const handleRenameBranch = useCallback(
-    async (oldName: string) => {
+  const handleRenameBranch = useCallback((oldName: string) => {
+    if (!oldName) return
+    setRenameModal({ open: true, oldName })
+  }, [])
+
+  const executeRenameBranch = useCallback(
+    async (oldName: string, newName: string) => {
       if (!view?.repo) return
-      const newName = window.prompt(`请输入分支 "${oldName}" 的新名称：`, oldName)
-      if (!newName || !newName.trim() || newName.trim() === oldName) return
       setBusy(true)
       setProgressStage(`正在重命名分支...`)
       try {
@@ -999,16 +1011,21 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
   )
 
   const handleCreateBranch = useCallback(
-    async (branchNameOrStart?: string, startPoint?: string) => {
+    (branchNameOrStart?: string, startPoint?: string) => {
+      const start = startPoint || (branchNameOrStart && !branchNameOrStart.includes(' ') ? branchNameOrStart : undefined)
+      setCreateBranchModal({ open: true, startPoint: start, currentBranch: view?.branch })
+    },
+    [view?.branch]
+  )
+
+  const executeCreateBranch = useCallback(
+    async (name: string, startPoint?: string, checkout = true) => {
       if (!view?.repo) return
-      const name = window.prompt('请输入新分支名称：')
-      if (!name || !name.trim()) return
       setBusy(true)
       setProgressStage(`正在创建分支 ${name.trim()}...`)
       try {
         const driver = getGitDriver()
-        const start = startPoint || (branchNameOrStart && !branchNameOrStart.includes(' ') ? branchNameOrStart : undefined)
-        const res = await driver.createBranch(view.repo, name.trim(), start)
+        const res = await driver.createBranch(view.repo, name.trim(), startPoint, checkout)
         if (res.ok) {
           notification.success(res.message || `已创建分支 ${name.trim()}`)
           await loadRef.current(view.repo)
@@ -1495,7 +1512,7 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                   width={sidebarWidth}
                   remoteUpdates={remoteCheck?.updates || []}
                   remoteProbing={remoteProbing}
-                  onProbeRemotes={() => void probeRemotes(view.repo)}
+                  onProbeRemotes={() => void probeRemotes(view.repo, true)}
                   onSelect={select}
                   onOpenRepo={(repo) => void load(repo)}
                   onAddWorktree={handleAddWorktree}
@@ -1666,6 +1683,22 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
             </div>
           </div>
         ) : null}
+
+        <RenameBranchModal
+          open={renameModal.open}
+          oldName={renameModal.oldName}
+          busy={busy}
+          onClose={() => setRenameModal({ open: false, oldName: '' })}
+          onSubmit={executeRenameBranch}
+        />
+        <CreateBranchModal
+          open={createBranchModal.open}
+          startPoint={createBranchModal.startPoint}
+          currentBranch={createBranchModal.currentBranch}
+          busy={busy}
+          onClose={() => setCreateBranchModal({ open: false })}
+          onSubmit={executeCreateBranch}
+        />
       </div>
     </div>
   )

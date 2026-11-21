@@ -60,7 +60,7 @@ export function GitToolbar({ repo, currentBranch, hasStashes = false, disabled =
     try {
       const driver = getGitDriver()
       if (op === 'fetch-all') {
-        const res = await driver.fetch(repo, { all: true })
+        const res = await driver.fetch(repo, { all: true, prune: true })
         notify.success(res.message || t('git.operations.fetchSuccess') || '抓取完成 (Fetch All)')
       } else if (op === 'pull-ff-only') {
         const res = await driver.pull(repo, { ffOnly: true })

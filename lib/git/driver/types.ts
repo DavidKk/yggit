@@ -78,6 +78,7 @@ export interface GitPullOptions {
 export interface GitFetchOptions {
   remote?: string
   all?: boolean
+  prune?: boolean
 }
 
 export interface GitStashOptions {

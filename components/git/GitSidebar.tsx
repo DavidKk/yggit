@@ -890,9 +890,42 @@ export function GitSidebar({
     const expanded = openRemotes[group.source] ?? remoteDefault
     const items: FloatingMenuItem[] = [
       {
+        key: 'fetch-remote',
+        label: (t('git.operations.fetchRemoteAction') || '抓取此远程 (git fetch --prune {remote})').replace('{remote}', group.source),
+        icon: <LuRefreshCw className="size-3.5 shrink-0 text-accent" />,
+        onSelect: async () => {
+          try {
+            notify.info((t('git.operations.fetchingRemote') || '正在抓取 {remote}...').replace('{remote}', group.source))
+            const driver = getGitDriver()
+            const res = await driver.fetch(view.repo, { remote: group.source, prune: true })
+            notify.success(res.message || (t('git.operations.fetchRemoteSuccess') || '已完成抓取 {remote}').replace('{remote}', group.source))
+            await onRefresh?.()
+          } catch (err) {
+            notify.error(err instanceof Error ? err.message : '抓取失败')
+          }
+        },
+      },
+      {
+        key: 'pull-remote-ff',
+        label: (t('git.operations.pullRemoteFfAction') || '快进拉取此远程 (git pull --ff-only {remote})').replace('{remote}', group.source),
+        icon: <LuArrowDownToLine className="size-3.5 shrink-0 text-ok" />,
+        onSelect: async () => {
+          try {
+            notify.info((t('git.operations.pullingRemote') || '正在拉取 {remote}...').replace('{remote}', group.source))
+            const driver = getGitDriver()
+            const res = await driver.pull(view.repo, { remote: group.source, ffOnly: true })
+            notify.success(res.message || t('git.operations.pullSuccess') || '拉取成功 (Fast-forward only)')
+            await onRefresh?.()
+          } catch (err) {
+            notify.error(err instanceof Error ? err.message : '拉取失败')
+          }
+        },
+      },
+      {
         key: 'copy-remote-name',
         label: (t('git.operations.copyRemoteSourceName') || '复制远程源名称 ({source})').replace('{source}', group.source),
         icon: <LuCloud className="size-3.5 shrink-0 text-accent" />,
+        dividerBefore: true,
         onSelect: () => void copyValue(group.source),
       },
     ]

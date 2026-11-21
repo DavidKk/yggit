@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { useT } from '@/components/i18n/LocaleProvider'
 import { Button, Modal, TextInput } from '@/components/sk'
@@ -19,6 +19,14 @@ export function CreateBranchModal({ open, startPoint, currentBranch, busy = fals
   const [branchName, setBranchName] = useState('')
   const [checkout, setCheckout] = useState(true)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (open) {
+      setBranchName('')
+      setError('')
+      setCheckout(true)
+    }
+  }, [open])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -98,6 +106,13 @@ export function RenameBranchModal({ open, oldName, busy = false, onClose, onSubm
   const t = useT()
   const [newName, setNewName] = useState(oldName)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (open) {
+      setNewName(oldName)
+      setError('')
+    }
+  }, [open, oldName])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
