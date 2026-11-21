@@ -281,6 +281,7 @@ function TreeRows({
   onUnstage,
   onDiscard,
   isSearching = false,
+  recursive = true,
 }: {
   nodes: TreeNode[]
   depth: number
@@ -300,6 +301,7 @@ function TreeRows({
   onUnstage?: (path: string) => void
   onDiscard?: (path: string) => void
   isSearching?: boolean
+  recursive?: boolean
 }) {
   const t = useT()
   return nodes.map((node) => {
@@ -330,7 +332,7 @@ function TreeRows({
             </span>
             <CountMarks counts={counts?.get(node.path) ?? tally(node, conflictCounts)} />
           </Button>
-          {expanded && node.children.length > 0 && (
+          {recursive && expanded && node.children.length > 0 && (
             <TreeRows
               nodes={node.children}
               depth={depth + 1}
@@ -350,6 +352,7 @@ function TreeRows({
               onUnstage={onUnstage}
               onDiscard={onDiscard}
               isSearching={isSearching}
+              recursive={recursive}
             />
           )}
         </div>
@@ -677,6 +680,8 @@ export function GitCommitPanel({ repo, commit, width, title, conflictFiles, conf
   const [openPaths, setOpenPaths] = useState<Set<string>>(() => new Set())
   const expandDefaultRef = useRef(expandDefault)
   expandDefaultRef.current = expandDefault
+  const selectedPathRef = useRef(selectedPath)
+  selectedPathRef.current = selectedPath
   const prevCommitHashRef = useRef(commit.hash)
 
   const handleToggleLayout = (nextMode: WorktreeLayout) => {
@@ -720,8 +725,8 @@ export function GitCommitPanel({ repo, commit, width, title, conflictFiles, conf
           } else if (expandDefaultRef.current) {
             for (const p of allFolderPaths) next.add(p)
           }
-          if (selectedPath) {
-            for (const anc of getAncestorPaths(selectedPath)) next.add(anc)
+          if (selectedPathRef.current) {
+            for (const anc of getAncestorPaths(selectedPathRef.current)) next.add(anc)
           }
           return next
         })
@@ -732,7 +737,7 @@ export function GitCommitPanel({ repo, commit, width, title, conflictFiles, conf
     return () => {
       cancelled = true
     }
-  }, [repo, commit.hash, t, onFilesLoaded, selectedPath])
+  }, [repo, commit.hash, t, onFilesLoaded])
 
   useEffect(() => {
     if (view !== 'all' || allFiles || !changes) return
@@ -757,8 +762,8 @@ export function GitCommitPanel({ repo, commit, width, title, conflictFiles, conf
           } else if (expandDefaultRef.current) {
             for (const p of allFolderPaths) next.add(p)
           }
-          if (selectedPath) {
-            for (const anc of getAncestorPaths(selectedPath)) next.add(anc)
+          if (selectedPathRef.current) {
+            for (const anc of getAncestorPaths(selectedPathRef.current)) next.add(anc)
           }
           return next
         })
@@ -769,7 +774,7 @@ export function GitCommitPanel({ repo, commit, width, title, conflictFiles, conf
     return () => {
       cancelled = true
     }
-  }, [view, allFiles, changes, repo, commit.hash, t, selectedPath])
+  }, [view, allFiles, changes, repo, commit.hash, t])
 
   // Auto-expand ancestors whenever selectedPath changes
   useEffect(() => {
@@ -1780,6 +1785,7 @@ export function GitCommitPanel({ repo, commit, width, title, conflictFiles, conf
                 onUnstage={handleUnstage}
                 onDiscard={handleDiscard}
                 isSearching={isSearching}
+                recursive={false}
               />
             )
           }}

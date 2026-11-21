@@ -1093,7 +1093,12 @@ function GitGraphComponent({
                               'max-w-full min-w-0 cursor-pointer items-center justify-start truncate rounded-sm px-2 text-[12px] leading-none font-medium select-text',
                               isHovered ? 'inline-flex opacity-[0.85]' : 'hidden opacity-[0.45] group-hover/commit:inline-flex'
                             )}
-                            style={{ height: BADGE_H, color, background: `color-mix(in oklab, ${color} 18%, transparent)` }}
+                            style={{
+                              height: BADGE_H,
+                              color,
+                              background: `color-mix(in oklab, ${color} 16%, var(--panel))`,
+                              border: `1px solid color-mix(in oklab, ${color} 30%, transparent)`,
+                            }}
                             title={branch}
                             onClick={(e) => {
                               e.stopPropagation()

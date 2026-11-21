@@ -37,7 +37,8 @@ function RefChipView({ chip, checkedOut, color, dimmed = false, full = false }: 
       style={{
         height: BADGE_H,
         color: tint,
-        background: `color-mix(in oklab, ${tint} 18%, var(--bg, #fff))`,
+        background: `color-mix(in oklab, ${tint} 16%, var(--panel))`,
+        border: `1px solid color-mix(in oklab, ${tint} 30%, transparent)`,
       }}
     >
       <span className={full ? 'whitespace-nowrap' : 'truncate'}>{chip.label}</span>
@@ -267,7 +268,12 @@ export function RefChipsCell({
           {extra > 0 ? (
             <span
               className="inline-flex shrink-0 items-center self-center rounded-sm px-1.5 text-[12px] leading-none font-medium tabular-nums"
-              style={{ height: BADGE_H, color, background: `color-mix(in oklab, ${color} 18%, transparent)` }}
+              style={{
+                height: BADGE_H,
+                color,
+                background: `color-mix(in oklab, ${color} 16%, var(--panel))`,
+                border: `1px solid color-mix(in oklab, ${color} 30%, transparent)`,
+              }}
               aria-label={t('git.graph.extraRefs', { count: extra })}
             >
               +{extra}
