@@ -1,5 +1,6 @@
 import { buildSkillsSystemPrompt, matchSkillsForPrompt } from '@/lib/skills/matcher'
 import { parseSkillMarkdown } from '@/lib/skills/parser'
+import { checkAndUpdateGitHubSkill, discoverSkillsFromGitHub } from '@/lib/skills/providers/github-provider'
 import type { SkillDescriptor } from '@/lib/skills/types'
 
 describe('Agent Skills Parser & Matcher', () => {
@@ -81,5 +82,78 @@ Focus on memory allocations and database indexes.
     const promptText = buildSkillsSystemPrompt(matchedForCr)
     expect(promptText).toContain('[Active Agent Skills]')
     expect(promptText).toContain('Review carefully.')
+  })
+
+  describe('GitHub Provider discovery & update', () => {
+    const originalFetch = globalThis.fetch
+
+    afterEach(() => {
+      globalThis.fetch = originalFetch
+    })
+
+    it('discovers multiple skills from GitHub tree API', async () => {
+      globalThis.fetch = jest.fn().mockImplementation((url: string) => {
+        if (url.includes('/git/trees/')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              tree: [
+                { path: 'agent-skills/go/code-review/SKILL.md', type: 'blob' },
+                { path: 'agent-skills/frontend/react-review/SKILL.md', type: 'blob' },
+                { path: 'README.md', type: 'blob' },
+              ],
+            }),
+          } as Response)
+        }
+        if (url.includes('code-review')) {
+          return Promise.resolve({
+            ok: true,
+            text: async () => '---\nname: Go Review\ndescription: Go review skill\n---\n# Guidelines',
+          } as Response)
+        }
+        return Promise.resolve({
+          ok: true,
+          text: async () => '---\nname: React Review\ndescription: React review skill\n---\n# Guidelines',
+        } as Response)
+      })
+
+      const skills = await discoverSkillsFromGitHub({
+        repo: 'owner/agent-skills',
+        directory: 'agent-skills',
+      })
+
+      expect(skills).toHaveLength(2)
+      expect(skills[0].name).toBe('Go Review')
+      expect(skills[1].name).toBe('React Review')
+    })
+
+    it('checks and updates GitHub skill when content changes', async () => {
+      globalThis.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        text: async () => '---\nname: Go Review v2\ndescription: Updated description\n---\n# New Guidelines',
+      } as Response)
+
+      const existingSkill: SkillDescriptor = {
+        id: 'gh_owner_repo_skill',
+        name: 'Go Review',
+        description: 'Old description',
+        source: {
+          type: 'github',
+          uri: 'https://github.com/owner/repo',
+          branch: 'main',
+          directory: 'skills/go',
+        },
+        content: '---\nname: Go Review\ndescription: Old description\n---\n# Guidelines',
+        enabled: true,
+        trusted: true,
+        createdAt: 0,
+        updatedAt: 0,
+      }
+
+      const updateCheck = await checkAndUpdateGitHubSkill(existingSkill)
+      expect(updateCheck.hasUpdate).toBe(true)
+      expect(updateCheck.updatedSkill?.name).toBe('Go Review v2')
+      expect(updateCheck.updatedSkill?.description).toBe('Updated description')
+    })
   })
 })

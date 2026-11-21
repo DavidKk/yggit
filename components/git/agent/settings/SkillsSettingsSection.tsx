@@ -1,12 +1,12 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
-import { LuBookOpen, LuCircleAlert, LuCircleCheck, LuEye, LuGithub, LuPlus, LuSparkles, LuTrash2 } from 'react-icons/lu'
+import React, { useEffect, useRef, useState } from 'react'
+import { LuBookOpen, LuCircleAlert, LuCircleCheck, LuEye, LuFolderOpen, LuGithub, LuPlus, LuRefreshCw, LuSparkles, LuTrash2 } from 'react-icons/lu'
 
 import { useNotification } from '@/components/notification/useNotification'
 import { Badge, Button, Modal } from '@/components/sk'
 import { parseSkillMarkdown } from '@/lib/skills/parser'
-import { fetchSkillFromGitHub } from '@/lib/skills/providers/github-provider'
+import { checkAndUpdateGitHubSkill, discoverSkillsFromGitHub } from '@/lib/skills/providers/github-provider'
 import { deleteSkill, listSkills, saveSkill, subscribeSkills, toggleSkill } from '@/lib/skills/storage'
 import type { SkillDescriptor } from '@/lib/skills/types'
 import { cn } from '@/lib/utils'
@@ -17,6 +17,8 @@ export function SkillsSettingsSection() {
   const notify = useNotification()
   const [skills, setSkills] = useState<SkillDescriptor[]>([])
   const [loading, setLoading] = useState(true)
+  const [updatingId, setUpdatingId] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   // Modals state
   const [localModalOpen, setLocalModalOpen] = useState(false)
@@ -59,6 +61,40 @@ export function SkillsSettingsSection() {
     notify.success('Skill 已移除')
   }
 
+  const handleCheckUpdate = async (skill: SkillDescriptor) => {
+    setUpdatingId(skill.id)
+    try {
+      const res = await checkAndUpdateGitHubSkill(skill)
+      if (res.hasUpdate && res.updatedSkill) {
+        await saveSkill(res.updatedSkill)
+        notify.success(`已更新 Skill [${skill.name}] 至最新版本！`)
+      } else {
+        notify.info(`Skill [${skill.name}] 已经是最新版本`)
+      }
+    } catch (err) {
+      notify.error(err instanceof Error ? err.message : '检查更新失败')
+    } finally {
+      setUpdatingId(null)
+    }
+  }
+
+  const handleLocalFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    try {
+      const text = await file.text()
+      const parsed = parseSkillMarkdown(text)
+      setLocalSkillContent(text)
+      if (!localSkillName.trim()) setLocalSkillName(parsed.name)
+      if (!localSkillDesc.trim()) setLocalSkillDesc(parsed.description)
+      notify.success(`已载入文件: ${file.name}`)
+    } catch {
+      notify.error('读取本地文件失败')
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
   const handleCreateLocalSkill = async () => {
     if (!localSkillContent.trim()) {
       notify.error('Skill 内容不能为空')
@@ -98,14 +134,20 @@ export function SkillsSettingsSection() {
     }
     setGhFetching(true)
     try {
-      const skill = await fetchSkillFromGitHub({
+      const discovered = await discoverSkillsFromGitHub({
         repo: ghRepo.trim(),
         branch: ghBranch.trim() || 'main',
         directory: ghDirectory.trim(),
         token: ghToken.trim() || undefined,
       })
-      await saveSkill(skill)
-      notify.success(`成功导入 GitHub Skill: ${skill.name}`)
+      for (const skill of discovered) {
+        await saveSkill(skill)
+      }
+      if (discovered.length > 1) {
+        notify.success(`成功发现并导入 ${discovered.length} 个 Skill!`)
+      } else {
+        notify.success(`成功导入 GitHub Skill: ${discovered[0].name}`)
+      }
       setGithubModalOpen(false)
       setGhRepo('')
       setGhDirectory('')
@@ -185,6 +227,11 @@ export function SkillsSettingsSection() {
                 </div>
 
                 <div className="flex items-center gap-1.5 shrink-0">
+                  {s.source.type === 'github' && (
+                    <Button variant="ghost" size="mini" disabled={updatingId === s.id} onClick={() => void handleCheckUpdate(s)} title="检查并同步 GitHub 最新版本">
+                      <LuRefreshCw className={cn('size-3.5 text-accent', updatingId === s.id && 'animate-spin')} />
+                    </Button>
+                  )}
                   <Button variant="ghost" size="mini" onClick={() => setViewSkill(s)} title="查看详情与说明">
                     <LuEye className="size-3.5" />
                   </Button>
@@ -246,6 +293,14 @@ export function SkillsSettingsSection() {
           }
         >
           <div className="flex flex-col gap-3 py-1">
+            <div className="flex items-center justify-between p-2 rounded bg-paper-2 border border-line">
+              <span className="text-[11px] text-ink-soft">快速载入本地 SKILL.md 文件:</span>
+              <input ref={fileInputRef} type="file" accept=".md,text/markdown" onChange={(e) => void handleLocalFileSelect(e)} className="hidden" />
+              <Button variant="default" size="mini" onClick={() => fileInputRef.current?.click()}>
+                <LuFolderOpen className="size-3 mr-1" />
+                <span>选择文件</span>
+              </Button>
+            </div>
             <div className="flex flex-col gap-1">
               <label className="text-xs font-semibold text-ink">Skill 名称 (可选，留空从文档解析)</label>
               <input

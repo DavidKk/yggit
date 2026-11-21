@@ -80,3 +80,99 @@ export async function fetchSkillFromGitHub(options: GitHubSkillFetchOptions): Pr
     updatedAt: Date.now(),
   }
 }
+
+/**
+ * Discovers all SKILL.md files in a repository or directory using GitHub Git Tree API.
+ * Falls back to single file fetch if the Tree API is restricted.
+ */
+export async function discoverSkillsFromGitHub(options: GitHubSkillFetchOptions): Promise<SkillDescriptor[]> {
+  const { owner, repo } = normalizeGitHubRepo(options.repo)
+  const branch = options.branch || 'main'
+  const prefixDir = options.directory ? options.directory.replace(/^\/+|\/+$/g, '') : ''
+
+  const headers: Record<string, string> = {
+    Accept: 'application/vnd.github.v3+json',
+  }
+  if (options.token) {
+    headers.Authorization = `Bearer ${options.token}`
+  }
+
+  const treeUrl = `https://api.github.com/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`
+
+  try {
+    const treeRes = await fetch(treeUrl, { headers })
+    if (treeRes.ok) {
+      const data = (await treeRes.json()) as { tree?: Array<{ path: string; type: string }> }
+      if (Array.isArray(data.tree)) {
+        const skillPaths = data.tree
+          .filter((item) => {
+            if (item.type !== 'blob') return false
+            const isSkillMd = item.path.endsWith('/SKILL.md') || item.path === 'SKILL.md' || item.path.endsWith('/skill.md') || item.path === 'skill.md'
+            if (!isSkillMd) return false
+            if (prefixDir) {
+              return item.path === `${prefixDir}/SKILL.md` || item.path.startsWith(`${prefixDir}/`)
+            }
+            return true
+          })
+          .map((item) => item.path)
+
+        if (skillPaths.length > 0) {
+          const results: SkillDescriptor[] = []
+          for (const path of skillPaths) {
+            const dir = path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : ''
+            try {
+              const skill = await fetchSkillFromGitHub({
+                repo: options.repo,
+                branch,
+                directory: dir,
+                token: options.token,
+              })
+              results.push(skill)
+            } catch {
+              // Ignore single file fetch error in batch discovery
+            }
+          }
+          if (results.length > 0) {
+            return results
+          }
+        }
+      }
+    }
+  } catch {
+    // Fallback to single fetch
+  }
+
+  // Fallback: fetch single skill
+  const single = await fetchSkillFromGitHub(options)
+  return [single]
+}
+
+/**
+ * Checks for updates on a GitHub skill by refetching and comparing content.
+ */
+export async function checkAndUpdateGitHubSkill(skill: SkillDescriptor, token?: string): Promise<{ hasUpdate: boolean; updatedSkill?: SkillDescriptor }> {
+  if (skill.source.type !== 'github') return { hasUpdate: false }
+
+  const repo = skill.source.uri.replace(/^https?:\/\/github\.com\//, '')
+  const latest = await fetchSkillFromGitHub({
+    repo,
+    branch: skill.source.branch,
+    directory: skill.source.directory,
+    token,
+  })
+
+  if (latest.content.trim() !== skill.content.trim()) {
+    return {
+      hasUpdate: true,
+      updatedSkill: {
+        ...skill,
+        name: latest.name,
+        description: latest.description,
+        content: latest.content,
+        updatedAt: Date.now(),
+      },
+    }
+  }
+
+  return { hasUpdate: false }
+}
