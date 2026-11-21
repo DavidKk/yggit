@@ -24,6 +24,9 @@ Welcome to the Yggit documentation repository. Yggit is a high-performance, orga
 - [Agent Application Control & Security Architecture](technical/agent-app-control-and-security.md) - Standardized bounded tools for application control, project switching, UI navigation, and elimination of arbitrary system-level execution.
 - [Agent Skills, WebMCP, Task Tracing & Service Diagnostics PRD](prd/agent-skills-mcp-and-observability.md) - Product requirements for custom Skill engine (Agent Skills standard), HTTP MCP & WebMCP tool expansion, agent task execution tracing, and service diagnostics.
 - [Agent Skills, WebMCP, Task Tracing & Service Diagnostics Architecture](technical/agent-skills-mcp-and-observability.md) - Technical architecture for custom Skill engine (Agent Skills standard), WebMCP / HTTP MCP client, execution task traces, and service diagnostics.
+- [Yggit Workdesk Virtual Teammate PRD](prd/yggit-workdesk-virtual-teammate.md) - Product requirements for the local-first Git virtual teammate, 4-category adaptive board, aggregated work cards, and deep Git evidence linking.
+- [Yggit Workdesk UX Specification](ux/yggit-workdesk-ux.md) - Interaction and visual design specifications for the 4-column adaptive board, compact task cards, split-pane evidence viewer, and bottom Agent pill integration.
+- [Yggit Workdesk Technical Architecture](technical/yggit-workdesk-architecture.md) - Technical specification for the dual-mode deterministic detection pipeline, 4-tier domain models, fingerprint deduplication, and Portable Check sharing protocol.
 
 - [Theme Persistence & Hydration](technical/theme-hydration.md) - Cookie preference, system theme resolution, and consistent SSR/client initialization.
 
