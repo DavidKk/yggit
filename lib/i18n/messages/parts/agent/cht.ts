@@ -27,7 +27,7 @@ export const gitAgentCht: { gitAgent: GitAgentMessages } = {
     backToModels: '返回清單',
     tabModels: '模型接入',
     tabSkills: '技能庫 (Skills)',
-    tabMcp: 'MCP & WebMCP',
+    tabMcp: 'MCP 工具',
     tabTasks: '任務追蹤 (Tasks)',
     tabLogs: '診斷日誌 (Logs)',
     tabPrivacy: '隱私與脫敏',

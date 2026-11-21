@@ -72,7 +72,7 @@ export const gitAgentEn: { gitAgent: GitAgentMessages } = {
     backToModels: 'Back to list',
     tabModels: 'Model Provider',
     tabSkills: 'Skills',
-    tabMcp: 'MCP & WebMCP',
+    tabMcp: 'MCP Tools',
     tabTasks: 'Tasks',
     tabLogs: 'Logs',
     tabPrivacy: 'Privacy & Redaction',

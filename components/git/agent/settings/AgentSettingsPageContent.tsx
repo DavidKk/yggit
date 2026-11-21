@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from 'next/navigation'
 import React from 'react'
-import { LuArrowLeft, LuCpu, LuListTodo, LuMousePointerClick, LuNetwork, LuScrollText, LuShieldCheck, LuSlidersHorizontal, LuSparkles } from 'react-icons/lu'
+import { LuArrowLeft, LuCpu, LuMousePointerClick, LuNetwork, LuShieldCheck, LuSlidersHorizontal, LuSparkles } from 'react-icons/lu'
 
 import { BrandLogo } from '@/components/BrandLogo'
 import { useT } from '@/components/i18n/LocaleProvider'
@@ -12,7 +12,6 @@ import { ThemeSwitcher } from '@/components/theme/ThemeSwitcher'
 
 import { AgentMenuActionEditor } from './AgentMenuActionEditor'
 import { GeneralSettingsSection } from './GeneralSettingsSection'
-import { LogsSettingsSection } from './LogsSettingsSection'
 import { McpServerEditor } from './McpServerEditor'
 import { McpSettingsSection } from './McpSettingsSection'
 import { MenuSettingsSection } from './MenuSettingsSection'
@@ -23,7 +22,6 @@ import { SettingsColumns } from './SettingsColumns'
 import { type SettingsSectionKey, SettingsSideNav } from './SettingsSideNav'
 import { SkillEditor } from './SkillEditor'
 import { SkillsSettingsSection } from './SkillsSettingsSection'
-import { TasksSettingsSection } from './TasksSettingsSection'
 
 /**
  * Git Agent configuration page layout adhering to ticket-janitor / Calm Ops UI/UX standards.
@@ -51,7 +49,7 @@ export function AgentSettingsPageContent({ section = 'models', menuActionId, ski
 
   // Canonical path redirection: if accessed with legacy ?tab= query parameter, redirect to path route
   React.useEffect(() => {
-    if (tabParam && ['models', 'skills', 'mcp', 'tasks', 'logs', 'privacy', 'general', 'menus'].includes(tabParam)) {
+    if (tabParam && ['models', 'skills', 'mcp', 'privacy', 'general', 'menus'].includes(tabParam)) {
       router.replace(`/settings/${tabParam}`)
     }
   }, [tabParam, router])
@@ -101,19 +99,9 @@ export function AgentSettingsPageContent({ section = 'models', menuActionId, ski
       icon: <LuSparkles className="size-4 text-accent" aria-hidden="true" />,
     },
     mcp: {
-      title: 'MCP & WebMCP 工具管理',
-      desc: '管理外部 HTTP MCP Server 及浏览器原生 WebMCP 客户端工具。',
+      title: 'MCP 工具管理',
+      desc: '配置与管理外部 HTTP MCP Server 工具服务。',
       icon: <LuNetwork className="size-4 text-accent" aria-hidden="true" />,
-    },
-    tasks: {
-      title: 'Agent 任务执行链路 (Tasks)',
-      desc: '追溯 Agent 接受用户请求、选择技能、执行工具与多轮推理的步骤明细。',
-      icon: <LuListTodo className="size-4 text-accent" aria-hidden="true" />,
-    },
-    logs: {
-      title: '服务运行与诊断日志 (Logs)',
-      desc: '收集 Agent 运行时、MCP、Skill 及 Git 驱动日志，支持一键生成 Issue 报告。',
-      icon: <LuScrollText className="size-4 text-accent" aria-hidden="true" />,
     },
     privacy: {
       title: t('gitAgent.tabPrivacy'),
@@ -203,16 +191,6 @@ export function AgentSettingsPageContent({ section = 'models', menuActionId, ski
               {activeSection === 'models' && <ModelChannelSection />}
               {activeSection === 'skills' && <div className="max-w-4xl">{skillId ? <SkillEditor skillId={skillId} /> : <SkillsSettingsSection />}</div>}
               {activeSection === 'mcp' && <div className="max-w-4xl">{mcpServerId ? <McpServerEditor serverId={mcpServerId} /> : <McpSettingsSection />}</div>}
-              {activeSection === 'tasks' && (
-                <div className="max-w-4xl">
-                  <TasksSettingsSection />
-                </div>
-              )}
-              {activeSection === 'logs' && (
-                <div className="max-w-4xl">
-                  <LogsSettingsSection />
-                </div>
-              )}
               {activeSection === 'privacy' && (
                 <SettingsColumns tools={<RuleDebugger />}>
                   <PrivacyRedactSection />

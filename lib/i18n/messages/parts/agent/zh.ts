@@ -72,7 +72,7 @@ export const gitAgentZh: { gitAgent: GitAgentMessages } = {
     backToModels: '返回列表',
     tabModels: '模型接入',
     tabSkills: '技能库 (Skills)',
-    tabMcp: 'MCP & WebMCP',
+    tabMcp: 'MCP 工具',
     tabTasks: '任务追踪 (Tasks)',
     tabLogs: '诊断日志 (Logs)',
     tabPrivacy: '隐私与脱敏',
