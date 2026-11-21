@@ -11,8 +11,8 @@ import { cn } from '@/lib/utils'
 /** default：浅底+描边；ghost：透明底+描边；plain：无底无描边；彩色变体：大按钮深色渐变配白字，小按钮淡底+彩色描边 */
 export type ButtonVariant = 'default' | 'accent' | 'ok' | 'warn' | 'fail' | 'ghost' | 'plain' | 'outline-accent' | 'outline-ok' | 'outline-warn' | 'outline-fail'
 
-/** md：32px 标准按钮；lg：44px 大按钮（卡片主操作/CTA）；gate：入口大按钮；icon：32px 图标按钮；mini：24px 图标按钮；xs：20px 文字按钮 */
-export type ButtonSize = 'md' | 'lg' | 'icon' | 'mini' | 'xs' | 'gate'
+/** md：36px 标准按钮；sm：28px 紧凑/次级按钮（卡片标题等）；lg：44px 大按钮（卡片主操作/CTA）；gate：入口大按钮；icon：32px 图标按钮；mini：24px 图标按钮；xs：20px 文字按钮 */
+export type ButtonSize = 'md' | 'sm' | 'lg' | 'icon' | 'mini' | 'xs' | 'gate'
 
 export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: ButtonVariant
@@ -130,6 +130,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
         size === 'icon' && 'h-8 w-8 shrink-0 px-0 rounded-md',
         size === 'mini' && 'h-6 w-6 shrink-0 px-0',
         size === 'xs' && 'h-5 gap-1 px-1.5 text-[11px] font-normal shadow-none',
+        size === 'sm' && 'h-7 gap-1.5 px-2.5 text-xs font-medium',
         size === 'lg' && 'h-11 min-h-11 shrink-0 px-4 text-sm font-semibold rounded-[0.25rem] gap-2',
         isGate &&
           cn(
@@ -151,7 +152,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
             {children}
           </span>
           <span className="absolute inset-0 flex items-center justify-center">
-            <Spinner size={iconOnly || size === 'xs' ? 'sm' : 'md'} />
+            <Spinner size={iconOnly || size === 'xs' || size === 'sm' ? 'sm' : 'md'} />
           </span>
         </span>
       ) : (

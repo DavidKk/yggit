@@ -49,7 +49,7 @@ export function SkillsSettingsSection() {
         }
         description="管理 Agent 专业知识、工作流程规范与外部指导准则。遵循 Agent Skills 开放标准 (SKILL.md)。点击技能项查看与配置详情。"
         titleAction={
-          <Button variant="accent" onClick={() => router.push('/settings/skills/new')}>
+          <Button variant="accent" size="sm" onClick={() => router.push('/settings/skills/new')}>
             <LuPlus className="size-3.5 mr-1" />
             <span>新增 Skill</span>
           </Button>

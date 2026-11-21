@@ -50,7 +50,7 @@ export function McpSettingsSection() {
         description="连接外部 HTTP MCP Server 工具与数据源。"
         descriptionTooltip="遵循 Model Context Protocol 开放规范，支持 Streamable HTTP 协议与 Bearer Token 鉴权。"
         titleAction={
-          <Button variant="accent" onClick={() => router.push('/settings/mcp/new')}>
+          <Button variant="accent" size="sm" onClick={() => router.push('/settings/mcp/new')}>
             <LuPlus className="size-3.5 mr-1" />
             <span>添加 HTTP MCP Server</span>
           </Button>

@@ -291,7 +291,7 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
         description={isNew ? '配置新模型渠道、接口地址与黑白名单。' : '修改渠道接口地址、默认模型与黑白名单。'}
         titleAction={
           !isNew && profiles.length > 1 ? (
-            <Button variant="outline-fail" onClick={handleDelete} title="删除该模型配置">
+            <Button variant="outline-fail" size="sm" onClick={handleDelete} title="删除该模型配置">
               <LuTrash2 aria-hidden="true" />
               删除
             </Button>

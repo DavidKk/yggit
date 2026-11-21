@@ -483,7 +483,7 @@ export function MenuSettingsSection() {
 
           <div className="flex items-center justify-between pt-3 border-t border-line/60">
             <span className="text-[11px] text-ink-soft">若工具配置混乱，可随时恢复为官方推荐配置</span>
-            <Button variant="default" onClick={handleResetDefaults}>
+            <Button variant="default" size="sm" onClick={handleResetDefaults}>
               <LuRotateCcw className="size-3.5 mr-1 text-ink-soft" />
               <span>恢复默认配置</span>
             </Button>
@@ -576,7 +576,7 @@ export function MenuSettingsSection() {
         title={t('gitAgent.menuActionsTitle')}
         description={t('gitAgent.menuActionsDesc')}
         titleAction={
-          <Button variant="accent" onClick={() => router.push('/settings/menus/new')}>
+          <Button variant="accent" size="sm" onClick={() => router.push('/settings/menus/new')}>
             <LuPlus className="size-3.5 mr-1" aria-hidden="true" />
             <span>{t('gitAgent.addAction')}</span>
           </Button>

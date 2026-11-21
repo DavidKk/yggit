@@ -248,7 +248,7 @@ export function SkillEditor({ skillId }: SkillEditorProps) {
           }
           description="遵循 Agent Skills 开放标准 (SKILL.md)。可导入本地文件或直接关联 GitHub 仓库中的 Skill 规范。"
           titleAction={
-            <Button variant="plain" onClick={handleBack}>
+            <Button variant="plain" size="sm" onClick={handleBack}>
               返回列表
             </Button>
           }
@@ -429,7 +429,7 @@ export function SkillEditor({ skillId }: SkillEditorProps) {
               tooltip={skill?.enabled ? '停用此技能' : '启用此技能'}
               aria-label={`启用或停用 ${skill?.name}`}
             />
-            <Button variant="plain" onClick={handleBack}>
+            <Button variant="plain" size="sm" onClick={handleBack}>
               返回列表
             </Button>
           </div>
@@ -460,7 +460,7 @@ export function SkillEditor({ skillId }: SkillEditorProps) {
         description={isBuiltin ? '内置技能指令只读，由系统版本维护。' : '您可以根据团队需求修改工作流指令与规范。'}
         titleAction={
           !isBuiltin ? (
-            <Button variant="accent" onClick={() => void handleSaveContentEdit()}>
+            <Button variant="accent" size="sm" onClick={() => void handleSaveContentEdit()}>
               <LuCheck className="size-3.5 mr-1" />
               <span>保存修改</span>
             </Button>

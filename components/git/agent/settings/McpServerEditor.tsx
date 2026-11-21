@@ -219,7 +219,7 @@ export function McpServerEditor({ serverId }: McpServerEditorProps) {
           }
           description="遵循官方 Model Context Protocol 协议规范。支持 Streamable HTTP 协议传输与 Bearer Token 鉴权。"
           titleAction={
-            <Button variant="plain" onClick={handleBack}>
+            <Button variant="plain" size="sm" onClick={handleBack}>
               返回列表
             </Button>
           }
@@ -319,7 +319,7 @@ export function McpServerEditor({ serverId }: McpServerEditorProps) {
               tooltip={server?.enabled ? '停用此 Server' : '启用此 Server'}
               aria-label={`启用或停用 ${server?.name}`}
             />
-            <Button variant="plain" onClick={handleBack}>
+            <Button variant="plain" size="sm" onClick={handleBack}>
               返回列表
             </Button>
           </div>

@@ -71,11 +71,11 @@ export function StorageSettingsSection() {
       description={t('gitAgent.storageDesc')}
       titleAction={
         <div className="flex gap-2">
-          <Button disabled={busy} onClick={() => void refresh()} aria-label={t('gitAgent.storageRefresh')}>
+          <Button size="sm" disabled={busy} onClick={() => void refresh()} aria-label={t('gitAgent.storageRefresh')}>
             <LuRefreshCw aria-hidden />
             {t('gitAgent.storageRefresh')}
           </Button>
-          <Button variant="fail" disabled={busy || sources.length === 0} onClick={() => void remove()}>
+          <Button variant="fail" size="sm" disabled={busy || sources.length === 0} onClick={() => void remove()}>
             <LuTrash2 aria-hidden />
             {t('gitAgent.storageClear')}
           </Button>
