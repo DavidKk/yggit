@@ -52,6 +52,8 @@ type Props = {
   conflictFileCounts?: Record<string, number | null>
   selectedPath: string
   onSelect: (path: string, status: string) => void
+  onOpenFileHistory?: (path: string) => void
+  onOpenFileBlame?: (path: string) => void
   onFilesLoaded?: (files: GitFileChange[]) => void
   onClose: () => void
   onRefresh?: () => Promise<void> | void
@@ -610,7 +612,21 @@ function PathRows({
   ))
 }
 
-export function GitCommitPanel({ repo, commit, width, title, conflictFiles, conflictFileCounts, selectedPath, onSelect, onFilesLoaded, onClose, onRefresh }: Props) {
+export function GitCommitPanel({
+  repo,
+  commit,
+  width,
+  title,
+  conflictFiles,
+  conflictFileCounts,
+  selectedPath,
+  onSelect,
+  onOpenFileHistory,
+  onOpenFileBlame,
+  onFilesLoaded,
+  onClose,
+  onRefresh,
+}: Props) {
   const t = useT()
   const notify = useNotification()
   const optionalConfirm = useOptionalConfirm()
@@ -1198,13 +1214,13 @@ export function GitCommitPanel({ repo, commit, width, title, conflictFiles, conf
           key: 'file-history',
           label: t('git.operations.fileHistory') || 'File History',
           icon: <LuHistory className="size-3.5 text-accent" />,
-          onSelect: () => onSelect(filePath, status || 'M'),
+          onSelect: () => (onOpenFileHistory ? onOpenFileHistory(filePath) : onSelect(filePath, status || 'M')),
         },
         {
           key: 'file-blame',
           label: t('git.operations.fileBlame') || 'File Blame',
           icon: <LuPencil className="size-3.5 text-ink-soft" />,
-          onSelect: () => onSelect(filePath, status || 'M'),
+          onSelect: () => (onOpenFileBlame ? onOpenFileBlame(filePath) : onSelect(filePath, status || 'M')),
         },
         {
           key: 'copy-relative',

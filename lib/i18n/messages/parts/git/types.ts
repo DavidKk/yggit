@@ -160,6 +160,14 @@ export type GitMessages = {
     prevChange: string
     nextChange: string
     prevConflict: string
+    locateInGraph?: string
+    searchHistoryPlaceholder?: string
+    noHistoryFound?: string
+    loadingHistory?: string
+    loadingBlame?: string
+    fileHistoryTitle?: string
+    fileBlameTitle?: string
+    commitsCount?: string
   }
   commit: {
     conflictsOnly: string

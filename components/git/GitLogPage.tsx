@@ -116,6 +116,7 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
   const [selectedHash, setSelectedHash] = useState(initialCommitHash || '')
   const [selectedFile, setSelectedFile] = useState(() => initialFilePath || (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('file') || '' : ''))
   const [selectedStatus, setSelectedStatus] = useState('')
+  const [fileDetailTab, setFileDetailTab] = useState<'diff' | 'history' | 'blame'>('diff')
   const [commitFiles, setCommitFiles] = useState<GitFileChange[]>([])
 
   const currentFileIndex = useMemo(() => {
@@ -1391,10 +1392,20 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                   (conflicts[selected.hash]?.conflictFiles?.includes(selectedFile) || conflicts[selected.hash]?.unresolvedConflictFiles?.includes(selectedFile))
                 )}
                 onOpenConflictView={() => handleOpenConflictView(selected.hash, selectedFile)}
+                initialTab={fileDetailTab}
+                onTabChange={setFileDetailTab}
+                onLocateCommit={(commitHash) => {
+                  setSelectedHash(commitHash)
+                  setFocusRequest({ hash: commitHash })
+                  setSelectedFile('')
+                  setSelectedStatus('')
+                  setConflictViewActive(false)
+                }}
                 onClose={() => {
                   setConflictViewActive(false)
                   setSelectedFile('')
                   setSelectedStatus('')
+                  setFileDetailTab('diff')
                 }}
               />
             ) : (
@@ -1547,11 +1558,21 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                   onSelect={(path, status) => {
                     setSelectedFile(path)
                     setSelectedStatus(status)
+                    setFileDetailTab('diff')
+                  }}
+                  onOpenFileHistory={(path) => {
+                    setSelectedFile(path)
+                    setFileDetailTab('history')
+                  }}
+                  onOpenFileBlame={(path) => {
+                    setSelectedFile(path)
+                    setFileDetailTab('blame')
                   }}
                   onClose={() => {
                     setSelectedHash('')
                     setSelectedFile('')
                     setSelectedStatus('')
+                    setFileDetailTab('diff')
                     setLineageHashes(null)
                     setConflictViewActive(false)
                   }}

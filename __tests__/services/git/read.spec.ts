@@ -4,7 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 
 import { GIT_LOG_PAGE_SIZE } from '@/lib/git/identity'
-import { readGitHistory, readGitLog } from '@/services/git/read'
+import { readFileHistory, readGitHistory, readGitLog } from '@/services/git/read'
 
 jest.mock('@/services/git/projects', () => ({
   originUrl: jest.fn(async () => ''),
@@ -119,5 +119,14 @@ describe('git stash history', () => {
     expect(windowResult.commits.some((c) => c.hash === targetHash)).toBe(true)
     expect(windowResult.hasPrev).toBe(true)
     expect(windowResult.hasMore).toBe(true)
+  })
+
+  it('reads file commit history across revisions', async () => {
+    const history = await readFileHistory({
+      repo,
+      path: 'tracked.txt',
+    })
+    expect(history.commits.length).toBeGreaterThanOrEqual(1)
+    expect(history.commits[0].author).toBe('Test Author')
   })
 })

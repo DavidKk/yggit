@@ -123,6 +123,23 @@ export async function readLogPage(repo: string, ref: string, skip: number, take:
   }
 }
 
+export async function readFileHistory(options: { repo?: string; path: string; ref?: string; limit?: number }): Promise<{ commits: GitCommit[] }> {
+  const repo = await resolveGitRepo(options.repo)
+  const targetRef = options.ref && options.ref !== 'WORKTREE' ? options.ref : 'HEAD'
+  const limit = options.limit && options.limit > 0 ? Math.min(options.limit, 500) : 100
+  try {
+    const text = await git(repo, ['log', '--follow', '--date-order', '-n', String(limit), '--date=iso-strict', `--pretty=format:${LOG_FORMAT}`, targetRef, '--', options.path])
+    const commits = parseGitLog(text)
+    return { commits }
+  } catch (error) {
+    const message = gitFailure(error)
+    if (message.includes('does not have any commits') || /bad revision|unknown revision|ambiguous argument/i.test(message)) {
+      return { commits: [] }
+    }
+    throw new Error(message)
+  }
+}
+
 async function readWorktree(repo: string): Promise<GitWorktree | null> {
   let porcelain = ''
   try {

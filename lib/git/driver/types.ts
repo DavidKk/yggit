@@ -1,4 +1,4 @@
-import type { GitCommitChanges, GitLogView, GitProjectCatalog, GitProjectView, GitRemoteSource } from '@/lib/git/types'
+import type { GitCommit, GitCommitChanges, GitLogView, GitProjectCatalog, GitProjectView, GitRemoteSource } from '@/lib/git/types'
 
 export type GitDriverMode = 'edge' | 'local'
 
@@ -330,6 +330,11 @@ export interface IGitDriver {
    * Read blame information per line for a file
    */
   readBlame(options: { repo: string; path: string; hash?: string }): Promise<Record<number, GitBlameLine>>
+
+  /**
+   * Read commit history for a specific file across renames
+   */
+  readFileHistory?(options: { repo: string; path: string; ref?: string; limit?: number }): Promise<{ commits: GitCommit[] }>
 }
 
 export interface GitBlameLine {

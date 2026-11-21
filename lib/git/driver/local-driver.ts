@@ -1,5 +1,5 @@
 import { readApiErrorMessage } from '@/lib/api-error'
-import { GIT_WORKTREE_HASH, type GitCommitChanges, type GitLogView, type GitProjectCatalog, type GitProjectView, type GitRemoteSource } from '@/lib/git/types'
+import { GIT_WORKTREE_HASH, type GitCommit, type GitCommitChanges, type GitLogView, type GitProjectCatalog, type GitProjectView, type GitRemoteSource } from '@/lib/git/types'
 
 import type {
   AddProjectPayload,
@@ -138,6 +138,18 @@ export class LocalGitDriver implements IGitDriver {
 
     if (cacheKey) inFlightRequests.set(cacheKey, fetchPromise)
     return fetchPromise
+  }
+
+  async readFileHistory(options: { repo: string; path: string; ref?: string; limit?: number }): Promise<{ commits: GitCommit[] }> {
+    const params = new URLSearchParams()
+    if (options.repo) params.set('repo', options.repo)
+    if (options.path) params.set('path', options.path)
+    if (options.ref) params.set('ref', options.ref)
+    if (options.limit) params.set('limit', String(options.limit))
+
+    const res = await fetch(`/api/git/file-history?${params.toString()}`)
+    if (!res.ok) return { commits: [] }
+    return (await res.json().catch(() => ({ commits: [] }))) as { commits: GitCommit[] }
   }
 
   async checkoutBranch(repo: string, branch: string, options?: GitCheckoutOptions): Promise<{ ok: boolean; message: string }> {

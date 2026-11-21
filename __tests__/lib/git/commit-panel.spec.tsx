@@ -232,4 +232,44 @@ describe('conflict file controls', () => {
 
     expect(container.textContent).toContain('file.txt')
   })
+
+  it('triggers onOpenFileHistory and onOpenFileBlame from file context menu', async () => {
+    const onOpenFileHistory = jest.fn()
+    const onOpenFileBlame = jest.fn()
+    await act(async () => {
+      root.render(
+        <GitCommitPanel
+          repo="edge_test"
+          commit={commit}
+          width={408}
+          selectedPath=""
+          onSelect={jest.fn()}
+          onOpenFileHistory={onOpenFileHistory}
+          onOpenFileBlame={onOpenFileBlame}
+          onClose={jest.fn()}
+        />
+      )
+    })
+    const fileRow = container.querySelector('[aria-label="git.status.modify a.txt"]')
+    expect(fileRow).not.toBeNull()
+    await act(async () => {
+      fileRow?.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 10, clientY: 10 }))
+    })
+    const historyBtn = container.querySelector('[data-menu-key="file-history"]') as HTMLButtonElement
+    expect(historyBtn).not.toBeNull()
+    await act(async () => {
+      historyBtn.click()
+    })
+    expect(onOpenFileHistory).toHaveBeenCalledWith('theme/a.txt')
+
+    await act(async () => {
+      fileRow?.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 10, clientY: 10 }))
+    })
+    const blameBtn = container.querySelector('[data-menu-key="file-blame"]') as HTMLButtonElement
+    expect(blameBtn).not.toBeNull()
+    await act(async () => {
+      blameBtn.click()
+    })
+    expect(onOpenFileBlame).toHaveBeenCalledWith('theme/a.txt')
+  })
 })
