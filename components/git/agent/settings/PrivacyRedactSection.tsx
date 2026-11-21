@@ -48,6 +48,7 @@ export function PrivacyRedactSection() {
           <SwitchToggle
             checked={redactionOptions.enabled}
             onCheckedChange={(checked) => setRedactionOptions((prev) => ({ ...prev, enabled: checked }))}
+            size="sm"
             aria-label={t('gitAgent.privacyRedactTitle')}
           />
         }
@@ -73,7 +74,12 @@ export function PrivacyRedactSection() {
               <span className="text-xs font-medium text-ink">{t('gitAgent.privacySecrets')}</span>
               <p className="text-[11px] text-ink-soft">匹配 AWS/GitHub/GitLab Token、私钥与数据库连接串等</p>
             </div>
-            <SwitchToggle checked={redactionOptions.categories.secrets} onCheckedChange={() => handleToggleCategory('secrets')} aria-label={t('gitAgent.privacySecrets')} />
+            <SwitchToggle
+              checked={redactionOptions.categories.secrets}
+              onCheckedChange={() => handleToggleCategory('secrets')}
+              size="sm"
+              aria-label={t('gitAgent.privacySecrets')}
+            />
           </div>
 
           {/* PII */}
@@ -82,7 +88,7 @@ export function PrivacyRedactSection() {
               <span className="text-xs font-medium text-ink">{t('gitAgent.privacyPii')}</span>
               <p className="text-[11px] text-ink-soft">掩盖 Commit 作者邮箱、电话号码与用户个人识别符</p>
             </div>
-            <SwitchToggle checked={redactionOptions.categories.pii} onCheckedChange={() => handleToggleCategory('pii')} aria-label={t('gitAgent.privacyPii')} />
+            <SwitchToggle checked={redactionOptions.categories.pii} onCheckedChange={() => handleToggleCategory('pii')} size="sm" aria-label={t('gitAgent.privacyPii')} />
           </div>
 
           {/* Network */}
@@ -91,7 +97,12 @@ export function PrivacyRedactSection() {
               <span className="text-xs font-medium text-ink">{t('gitAgent.privacyNetwork')}</span>
               <p className="text-[11px] text-ink-soft">掩盖内网 RFC1918 私有 IP、内部集群域名等拓扑资产</p>
             </div>
-            <SwitchToggle checked={redactionOptions.categories.network} onCheckedChange={() => handleToggleCategory('network')} aria-label={t('gitAgent.privacyNetwork')} />
+            <SwitchToggle
+              checked={redactionOptions.categories.network}
+              onCheckedChange={() => handleToggleCategory('network')}
+              size="sm"
+              aria-label={t('gitAgent.privacyNetwork')}
+            />
           </div>
         </div>
       </SettingsSectionCard>

@@ -115,7 +115,7 @@ it('probes only registered names and aborts creation of absent databases without
   installIdb({ open })
   expect(await inspectBrowserStorage()).toEqual([])
   expect(open.mock.calls).toEqual(APP_DATABASE_NAMES.map((name) => [name]))
-  expect(abort).toHaveBeenCalledTimes(2)
+  expect(abort).toHaveBeenCalledTimes(APP_DATABASE_NAMES.length)
 })
 
 it('reports a blocked database and closes a delayed successful connection', async () => {

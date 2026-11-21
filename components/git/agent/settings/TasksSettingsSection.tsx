@@ -72,10 +72,10 @@ export function TasksSettingsSection() {
                 </button>
               ))}
             </div>
-            <Button variant="ghost" size="mini" onClick={() => void reload()} title="刷新">
+            <Button variant="ghost" size="icon" onClick={() => void reload()} title="刷新">
               <LuRefreshCw className={cn('size-3.5', loading && 'animate-spin')} />
             </Button>
-            <Button variant="ghost" size="mini" onClick={() => void handleClear()} title="清空任务记录">
+            <Button variant="ghost" size="icon" onClick={() => void handleClear()} title="清空任务记录">
               <LuTrash2 className="size-3.5 text-fail" />
             </Button>
           </div>
@@ -134,9 +134,7 @@ export function TasksSettingsSection() {
 
                   <div className="flex items-center gap-2 shrink-0">
                     <span className="text-[10px] text-ink-soft/70">{new Date(task.createdAt).toLocaleTimeString()}</span>
-                    <Button variant="ghost" size="mini">
-                      {isExpanded ? '收起' : '查看执行步骤'}
-                    </Button>
+                    <Button variant="ghost">{isExpanded ? '收起' : '查看执行步骤'}</Button>
                   </div>
                 </div>
 

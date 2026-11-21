@@ -101,7 +101,7 @@ export function GeneralSettingsSection() {
               <p className="text-xs text-ink-soft leading-relaxed mt-0.5">鼠标悬停分支标签时，自动变暗其他节点，突出当前分支。</p>
             </div>
             <div className="md:col-span-7 min-w-0 max-w-[460px] md:ml-auto w-full flex items-center justify-end">
-              <SwitchToggle checked={branchSpotlightEnabled} onCheckedChange={setBranchSpotlightEnabled} aria-label="分支悬浮高亮" />
+              <SwitchToggle checked={branchSpotlightEnabled} onCheckedChange={setBranchSpotlightEnabled} size="sm" aria-label="分支悬浮高亮" />
             </div>
           </div>
 

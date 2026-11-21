@@ -87,18 +87,18 @@ export function LogsSettingsSection() {
         description="记录 Agent 运行时、MCP 工具调用、Skill 加载与 Git 驱动事件。支持一键导出标准化报告以便提交 Issue 排查。"
         titleAction={
           <div className="flex items-center gap-2">
-            <Button variant="accent" size="mini" onClick={() => void handleCopyIssue()}>
+            <Button variant="accent" onClick={() => void handleCopyIssue()}>
               {copiedIssue ? <LuCheck className="size-3.5 mr-1 text-white" /> : <LuCopy className="size-3.5 mr-1" />}
               <span>一键复制 Issue 报告</span>
             </Button>
-            <Button variant="default" size="mini" onClick={handleExportJson}>
+            <Button variant="default" onClick={handleExportJson}>
               <LuDownload className="size-3.5 mr-1" />
               <span>导出 JSON</span>
             </Button>
-            <Button variant="ghost" size="mini" onClick={() => void reload()} title="刷新日志">
+            <Button variant="ghost" size="icon" onClick={() => void reload()} title="刷新日志">
               <LuRefreshCw className={cn('size-3.5', loading && 'animate-spin')} />
             </Button>
-            <Button variant="ghost" size="mini" onClick={() => void handleClear()} title="清空日志">
+            <Button variant="ghost" size="icon" onClick={() => void handleClear()} title="清空日志">
               <LuTrash2 className="size-3.5 text-fail" />
             </Button>
           </div>

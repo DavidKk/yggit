@@ -87,9 +87,15 @@ export function ModelChannelSection({ inline = false, onAdd, onEdit }: ModelChan
 
             return (
               <li key={profile.id} className="flex flex-wrap items-center gap-3 py-3 first:pt-0 last:pb-0">
-                <button type="button" className="min-w-0 flex-1 text-left hover:text-accent cursor-pointer group" onClick={() => handleEdit(profile)}>
+                <button
+                  type="button"
+                  aria-label={t('gitAgent.editModel')}
+                  className="min-w-0 flex-1 text-left hover:text-accent cursor-pointer group"
+                  onClick={() => handleEdit(profile)}
+                >
                   <div className="flex items-center gap-2">
                     <span className="block text-sm font-medium break-words group-hover:text-accent transition-colors">{profile.name || profile.config.model}</span>
+                    <LuPencil className="size-3 text-ink-soft/40 group-hover:text-accent transition-colors shrink-0" aria-hidden="true" />
                     {hasBlacklist && <span className="rounded bg-danger/10 px-1.5 py-0.5 text-[10px] font-medium text-danger">黑名单: {profile.filter?.blacklist?.length}</span>}
                     {hasWhitelist && <span className="rounded bg-accent/10 px-1.5 py-0.5 text-[10px] font-medium text-accent">白名单: {profile.filter?.whitelist?.length}</span>}
                   </div>
@@ -109,10 +115,6 @@ export function ModelChannelSection({ inline = false, onAdd, onEdit }: ModelChan
                 )}
 
                 {AGENT_PRESETS[profile.config.provider]?.requiresKey && !profile.config.apiKey && <Badge tone="warn">{t('gitAgent.keyRequired')}</Badge>}
-
-                <Button size="icon" variant="plain" aria-label={t('gitAgent.editModel')} onClick={() => handleEdit(profile)} title="编辑此模型接入项目">
-                  <LuPencil aria-hidden="true" />
-                </Button>
               </li>
             )
           })}

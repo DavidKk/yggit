@@ -378,11 +378,11 @@ export function MenuSettingsSection() {
         descriptionTooltip="勾选的操作将直接展示在右键菜单顶部，无需展开二级子菜单，点击即执行。"
         titleAction={
           <div className="flex items-center gap-1.5">
-            <Button variant="plain" size="xs" onClick={() => setShowPreview((v) => !v)} className="gap-1 text-xs text-ink-soft hover:enabled:text-ink">
+            <Button variant="plain" onClick={() => setShowPreview((v) => !v)} className="gap-1 text-xs text-ink-soft hover:enabled:text-ink">
               {showPreview ? <LuEyeOff className="size-3.5" /> : <LuEye className="size-3.5" />}
               <span>{showPreview ? '收起预览' : '效果预览'}</span>
             </Button>
-            <Button variant="plain" size="xs" onClick={handleResetDefaults} className="gap-1 text-xs text-ink-soft hover:enabled:text-ink" tooltip="恢复为官方推荐默认配置">
+            <Button variant="plain" onClick={handleResetDefaults} className="gap-1 text-xs text-ink-soft hover:enabled:text-ink" tooltip="恢复为官方推荐默认配置">
               <LuRotateCcw className="size-3.5" />
               <span>恢复默认</span>
             </Button>
@@ -670,9 +670,9 @@ export function MenuSettingsSection() {
         title={t('gitAgent.menuActionsTitle')}
         description={t('gitAgent.menuActionsDesc')}
         titleAction={
-          <Button variant="accent" onClick={() => router.push('/settings/menus/new')}>
-            <LuPlus className="size-3.5" aria-hidden="true" />
-            {t('gitAgent.addAction')}
+          <Button variant="default" onClick={() => router.push('/settings/menus/new')}>
+            <LuPlus className="size-3.5 mr-1" aria-hidden="true" />
+            <span>{t('gitAgent.addAction')}</span>
           </Button>
         }
       >

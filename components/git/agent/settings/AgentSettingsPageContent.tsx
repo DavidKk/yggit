@@ -13,6 +13,7 @@ import { ThemeSwitcher } from '@/components/theme/ThemeSwitcher'
 import { AgentMenuActionEditor } from './AgentMenuActionEditor'
 import { GeneralSettingsSection } from './GeneralSettingsSection'
 import { LogsSettingsSection } from './LogsSettingsSection'
+import { McpServerEditor } from './McpServerEditor'
 import { McpSettingsSection } from './McpSettingsSection'
 import { MenuSettingsSection } from './MenuSettingsSection'
 import { ModelChannelSection } from './ModelChannelSection'
@@ -20,6 +21,7 @@ import { PrivacyRedactSection } from './PrivacyRedactSection'
 import { RuleDebugger } from './RuleDebugger'
 import { SettingsColumns } from './SettingsColumns'
 import { type SettingsSectionKey, SettingsSideNav } from './SettingsSideNav'
+import { SkillEditor } from './SkillEditor'
 import { SkillsSettingsSection } from './SkillsSettingsSection'
 import { TasksSettingsSection } from './TasksSettingsSection'
 
@@ -34,10 +36,12 @@ import { TasksSettingsSection } from './TasksSettingsSection'
  */
 interface AgentSettingsPageContentProps {
   menuActionId?: string
+  skillId?: string
+  mcpServerId?: string
   section?: SettingsSectionKey
 }
 
-export function AgentSettingsPageContent({ section = 'models', menuActionId }: AgentSettingsPageContentProps = {}) {
+export function AgentSettingsPageContent({ section = 'models', menuActionId, skillId, mcpServerId }: AgentSettingsPageContentProps = {}) {
   const t = useT()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -53,6 +57,18 @@ export function AgentSettingsPageContent({ section = 'models', menuActionId }: A
   }, [tabParam, router])
 
   const handleBack = () => {
+    if (skillId) {
+      router.push('/settings/skills')
+      return
+    }
+    if (mcpServerId) {
+      router.push('/settings/mcp')
+      return
+    }
+    if (menuActionId) {
+      router.push('/settings/menus')
+      return
+    }
     if (typeof window !== 'undefined') {
       if (window.history.length > 1) {
         window.history.back()
@@ -120,6 +136,20 @@ export function AgentSettingsPageContent({ section = 'models', menuActionId }: A
 
   const currentMeta = sectionMeta[activeSection]
 
+  let displayTitle = currentMeta.title
+  let displayDesc = currentMeta.desc
+
+  if (activeSection === 'skills' && skillId) {
+    displayTitle = skillId === 'new' ? '新增技能' : '技能详情与配置'
+    displayDesc = skillId === 'new' ? '导入本地 SKILL.md 或关联 GitHub 仓库中的 Skill 规范。' : '查看与管理技能的规范指令、来源信息与运行状态。'
+  } else if (activeSection === 'mcp' && mcpServerId) {
+    displayTitle = mcpServerId === 'new' ? '添加 HTTP MCP Server' : 'MCP Server 配置与工具'
+    displayDesc = mcpServerId === 'new' ? '连接外部遵循 Model Context Protocol 的 HTTP 工具服务。' : '查看 MCP Server 连接状态并管理工具权限。'
+  } else if (activeSection === 'menus' && menuActionId) {
+    displayTitle = menuActionId === 'new' ? '新增 Agent 菜单动作' : '编辑 Agent 菜单动作'
+    displayDesc = menuActionId === 'new' ? '配置自定义右键快捷 Agent 提示词。' : '修改右键菜单动作名称、描述与提示词。'
+  }
+
   return (
     <div className="flex h-full w-full min-h-0 flex-1 flex-col overflow-hidden bg-paper text-ink select-text">
       {inWorkspace ? (
@@ -161,8 +191,8 @@ export function AgentSettingsPageContent({ section = 'models', menuActionId }: A
                 <span className="sr-only">返回</span>
               </button>
               <div className="min-w-0 flex-1">
-                <h1 className="text-xs font-bold text-ink">{currentMeta.title}</h1>
-                <p className="mt-0.5 text-xs text-ink-soft leading-relaxed">{currentMeta.desc}</p>
+                <h1 className="text-xs font-bold text-ink">{displayTitle}</h1>
+                <p className="mt-0.5 text-xs text-ink-soft leading-relaxed">{displayDesc}</p>
               </div>
             </div>
           </div>
@@ -171,16 +201,8 @@ export function AgentSettingsPageContent({ section = 'models', menuActionId }: A
           <div className="@container/settings flex-1 min-h-0 overflow-y-auto p-3 pb-24">
             <div className="grid w-full gap-3">
               {activeSection === 'models' && <ModelChannelSection />}
-              {activeSection === 'skills' && (
-                <div className="max-w-4xl">
-                  <SkillsSettingsSection />
-                </div>
-              )}
-              {activeSection === 'mcp' && (
-                <div className="max-w-4xl">
-                  <McpSettingsSection />
-                </div>
-              )}
+              {activeSection === 'skills' && <div className="max-w-4xl">{skillId ? <SkillEditor skillId={skillId} /> : <SkillsSettingsSection />}</div>}
+              {activeSection === 'mcp' && <div className="max-w-4xl">{mcpServerId ? <McpServerEditor serverId={mcpServerId} /> : <McpSettingsSection />}</div>}
               {activeSection === 'tasks' && (
                 <div className="max-w-4xl">
                   <TasksSettingsSection />
