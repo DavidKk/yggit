@@ -2,7 +2,7 @@
  * Type definitions for ephemeral agent interaction, providers, and settings.
  */
 
-export type AgentProviderType = 'openai' | 'claude' | 'gemini' | 'deepseek' | 'ollama' | 'local-sdk' | 'magpie' | 'byop' | 'vercel-free'
+export type AgentProviderType = 'chatgpt' | 'openai' | 'claude' | 'gemini' | 'deepseek' | 'ollama' | 'local-sdk' | 'magpie' | 'byop' | 'vercel-free'
 
 export interface EphemeralAgentConfig {
   provider: AgentProviderType
@@ -28,6 +28,24 @@ export interface ModelPresetDefinition {
 }
 
 export const AGENT_PRESETS: Record<AgentProviderType, ModelPresetDefinition> = {
+  chatgpt: {
+    name: 'ChatGPT (OpenAPI)',
+    provider: 'chatgpt',
+    baseUrl: 'https://api.openai.com/v1',
+    defaultModel: 'chatgpt-4o-latest',
+    models: [
+      { id: 'chatgpt-4o-latest', name: 'ChatGPT-4o-latest (ChatGPT 最新动态版本)' },
+      { id: 'gpt-4o', name: 'GPT-4o (全能旗舰)' },
+      { id: 'gpt-4o-mini', name: 'GPT-4o mini (轻量极速)' },
+      { id: 'o3-mini', name: 'o3-mini (深度推理与代码优化)' },
+      { id: 'o1', name: 'o1 (复杂多步推理)' },
+      { id: 'o1-mini', name: 'o1-mini (快速推理)' },
+      { id: 'gpt-4-turbo', name: 'GPT-4 Turbo' },
+    ],
+    requiresKey: true,
+    noZdrNotice: false,
+    description: 'ChatGPT / OpenAI 官方标准 OpenAPI 接口。',
+  },
   openai: {
     name: 'OpenAI (OpenAPI)',
     provider: 'openai',
@@ -36,6 +54,7 @@ export const AGENT_PRESETS: Record<AgentProviderType, ModelPresetDefinition> = {
     models: [
       { id: 'gpt-4o-mini', name: 'GPT-4o mini (轻量极速)' },
       { id: 'gpt-4o', name: 'GPT-4o (全能旗舰)' },
+      { id: 'chatgpt-4o-latest', name: 'ChatGPT-4o-latest (最新动态对齐版本)' },
       { id: 'o3-mini', name: 'o3-mini (深度推理与代码优化)' },
       { id: 'o1', name: 'o1 (复杂多步推理)' },
       { id: 'o1-mini', name: 'o1-mini (快速推理)' },

@@ -514,8 +514,9 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
             userLower.includes('配置模型') ||
             contentLower.includes('settings_models_new')
           ) {
-            const isChatGpt = userLower.includes('chatgpt') || userLower.includes('openai') || contentLower.includes('chatgpt') || contentLower.includes('openai')
-            fallbackRoute = isChatGpt ? '/settings/models/new?provider=openai' : '/settings/models/new'
+            const isChatGpt = userLower.includes('chatgpt') || contentLower.includes('chatgpt')
+            const isOpenAi = userLower.includes('openai') || contentLower.includes('openai')
+            fallbackRoute = isChatGpt ? '/settings/models/new?provider=chatgpt' : isOpenAi ? '/settings/models/new?provider=openai' : '/settings/models/new'
           } else if (contentLower.includes('settings_models') || userLower.includes('模型设置') || userLower.includes('模型列表')) {
             fallbackRoute = '/settings/models'
           } else if (contentLower.includes('settings_privacy') || userLower.includes('隐私设置') || userLower.includes('脱敏设置')) {
