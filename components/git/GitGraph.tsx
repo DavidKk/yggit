@@ -178,8 +178,8 @@ const GraphDefs = memo(function GraphDefs({
         const color = laneColor(point.color)
         return (
           <linearGradient key={`lead-grad-${commit.hash}`} id={`wt-lead-${commit.hash}`} gradientUnits="userSpaceOnUse" x1={0} y1={y} x2={x} y2={y}>
-            <stop offset="0%" stopColor={color} stopOpacity={isHead ? 0.35 : 0.15} />
-            <stop offset="100%" stopColor={color} stopOpacity={isHead ? 1 : 0.75} />
+            <stop offset="0%" stopColor={color} stopOpacity={isHead ? 0.35 : 0.1} />
+            <stop offset="100%" stopColor={color} stopOpacity={isHead ? 1 : 0.65} />
           </linearGradient>
         )
       })}
@@ -1072,10 +1072,17 @@ function GitGraphComponent({
                           />
                           {spotlightTarget && <AnnotationBadge target={spotlightTarget} className="ml-1 shrink-0" />}
                           <span
-                            className="h-0.5 min-w-2 flex-1"
+                            className={cn('min-w-2 flex-1', isHead || chips.some((chip) => chip.kind === 'head' || checkedOut.has(chip.name)) ? 'h-0.5' : 'h-px')}
                             style={{
-                              background: `linear-gradient(to right, ${color}, color-mix(in oklab, ${color} 20%, transparent))`,
-                              opacity: chips.some((chip) => chip.kind === 'head') ? 1 : 0.35,
+                              background:
+                                isHead || chips.some((chip) => chip.kind === 'head' || checkedOut.has(chip.name))
+                                  ? `linear-gradient(to right, ${color}, color-mix(in oklab, ${color} 20%, transparent))`
+                                  : undefined,
+                              backgroundImage:
+                                isHead || chips.some((chip) => chip.kind === 'head' || checkedOut.has(chip.name))
+                                  ? undefined
+                                  : `repeating-linear-gradient(to right, ${color} 0, ${color} 2px, transparent 2px, transparent 5px)`,
+                              opacity: isHead || chips.some((chip) => chip.kind === 'head' || checkedOut.has(chip.name)) ? 1 : 0.4,
                             }}
                           />
                         </>
@@ -1178,7 +1185,8 @@ function GitGraphComponent({
                       y2={y}
                       stroke={chips.length > 0 ? `url(#wt-lead-${commit.hash})` : color}
                       strokeWidth={isHead ? 2 : 1}
-                      strokeOpacity={chips.length > 0 ? (isHead ? 1 : 0.45) : isHead ? 0.85 : 0.3}
+                      strokeDasharray={isHead ? undefined : '2 3'}
+                      strokeOpacity={chips.length > 0 ? (isHead ? 1 : 0.4) : isHead ? 0.85 : 0.25}
                       strokeLinecap="round"
                     />
                   )
