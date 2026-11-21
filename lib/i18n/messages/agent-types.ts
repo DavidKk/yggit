@@ -71,6 +71,11 @@ export type GitAgentMessages = {
   clearKey: string
   backToModels: string
   tabModels: string
+  tabSkills?: string
+  tabMcp?: string
+  tabTasks?: string
+  tabTokens?: string
+  tabLogs?: string
   tabPrivacy: string
   tabGeneral: string
   tabShortcuts: string

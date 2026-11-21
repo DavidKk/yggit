@@ -2,4 +2,10 @@
 export const APP_DATABASE_PREFIX = 'yggit_'
 export const HANDLES_DATABASE = `${APP_DATABASE_PREFIX}handles_store`
 export const CONFLICTS_DATABASE = `${APP_DATABASE_PREFIX}conflicts_cache`
-export const APP_DATABASE_NAMES: readonly string[] = [HANDLES_DATABASE, CONFLICTS_DATABASE]
+export const SKILLS_DATABASE = `${APP_DATABASE_PREFIX}skills_store`
+export const MCP_DATABASE = `${APP_DATABASE_PREFIX}mcp_store`
+export const METRICS_DATABASE = `${APP_DATABASE_PREFIX}metrics_store`
+export const LOGS_DATABASE = `${APP_DATABASE_PREFIX}logs_store`
+export const TASKS_DATABASE = `${APP_DATABASE_PREFIX}tasks_store`
+
+export const APP_DATABASE_NAMES: readonly string[] = [HANDLES_DATABASE, CONFLICTS_DATABASE, SKILLS_DATABASE, MCP_DATABASE, METRICS_DATABASE, LOGS_DATABASE, TASKS_DATABASE]

@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from 'next/navigation'
 import React from 'react'
-import { LuArrowLeft, LuCpu, LuMousePointerClick, LuShieldCheck, LuSlidersHorizontal } from 'react-icons/lu'
+import { LuArrowLeft, LuChartColumn, LuCpu, LuListTodo, LuMousePointerClick, LuNetwork, LuScrollText, LuShieldCheck, LuSlidersHorizontal, LuSparkles } from 'react-icons/lu'
 
 import { BrandLogo } from '@/components/BrandLogo'
 import { useT } from '@/components/i18n/LocaleProvider'
@@ -12,12 +12,17 @@ import { ThemeSwitcher } from '@/components/theme/ThemeSwitcher'
 
 import { AgentMenuActionEditor } from './AgentMenuActionEditor'
 import { GeneralSettingsSection } from './GeneralSettingsSection'
+import { LogsSettingsSection } from './LogsSettingsSection'
+import { McpSettingsSection } from './McpSettingsSection'
 import { MenuSettingsSection } from './MenuSettingsSection'
 import { ModelChannelSection } from './ModelChannelSection'
 import { PrivacyRedactSection } from './PrivacyRedactSection'
 import { RuleDebugger } from './RuleDebugger'
 import { SettingsColumns } from './SettingsColumns'
 import { type SettingsSectionKey, SettingsSideNav } from './SettingsSideNav'
+import { SkillsSettingsSection } from './SkillsSettingsSection'
+import { TasksSettingsSection } from './TasksSettingsSection'
+import { TokenMetricsSection } from './TokenMetricsSection'
 
 /**
  * Git Agent configuration page layout adhering to ticket-janitor / Calm Ops UI/UX standards.
@@ -43,7 +48,7 @@ export function AgentSettingsPageContent({ section = 'models', menuActionId }: A
 
   // Canonical path redirection: if accessed with legacy ?tab= query parameter, redirect to path route
   React.useEffect(() => {
-    if (tabParam && ['models', 'privacy', 'general', 'menus'].includes(tabParam)) {
+    if (tabParam && ['models', 'skills', 'mcp', 'tasks', 'tokens', 'logs', 'privacy', 'general', 'menus'].includes(tabParam)) {
       router.replace(`/settings/${tabParam}`)
     }
   }, [tabParam, router])
@@ -74,6 +79,31 @@ export function AgentSettingsPageContent({ section = 'models', menuActionId }: A
       title: t('gitAgent.tabModels'),
       desc: t('gitAgent.modelListDesc'),
       icon: <LuCpu className="size-4 text-accent" aria-hidden="true" />,
+    },
+    skills: {
+      title: 'Agent 技能库 (Skills)',
+      desc: '导入与管理外部专业工作流规范与知识准则 (SKILL.md)。',
+      icon: <LuSparkles className="size-4 text-accent" aria-hidden="true" />,
+    },
+    mcp: {
+      title: 'MCP & WebMCP 工具管理',
+      desc: '管理外部 HTTP MCP Server 及浏览器原生 WebMCP 客户端工具。',
+      icon: <LuNetwork className="size-4 text-accent" aria-hidden="true" />,
+    },
+    tasks: {
+      title: 'Agent 任务执行链路 (Tasks)',
+      desc: '追溯 Agent 接受用户请求、选择技能、执行工具与多轮推理的步骤明细。',
+      icon: <LuListTodo className="size-4 text-accent" aria-hidden="true" />,
+    },
+    tokens: {
+      title: 'Token 消耗统计与分析 (Metrics)',
+      desc: '统计 Agent 各模型 Prompt 输入、Completion 输出、缓存命中率及延迟。',
+      icon: <LuChartColumn className="size-4 text-accent" aria-hidden="true" />,
+    },
+    logs: {
+      title: '服务运行与诊断日志 (Logs)',
+      desc: '收集 Agent 运行时、MCP、Skill 及 Git 驱动日志，支持一键生成 Issue 报告。',
+      icon: <LuScrollText className="size-4 text-accent" aria-hidden="true" />,
     },
     privacy: {
       title: t('gitAgent.tabPrivacy'),
@@ -147,6 +177,11 @@ export function AgentSettingsPageContent({ section = 'models', menuActionId }: A
           <div className="@container/settings flex-1 min-h-0 overflow-y-auto p-3 pb-24">
             <div className="grid w-full gap-3">
               {activeSection === 'models' && <ModelChannelSection />}
+              {activeSection === 'skills' && <SkillsSettingsSection />}
+              {activeSection === 'mcp' && <McpSettingsSection />}
+              {activeSection === 'tasks' && <TasksSettingsSection />}
+              {activeSection === 'tokens' && <TokenMetricsSection />}
+              {activeSection === 'logs' && <LogsSettingsSection />}
               {activeSection === 'privacy' && (
                 <SettingsColumns tools={<RuleDebugger />}>
                   <PrivacyRedactSection />

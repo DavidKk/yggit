@@ -3,6 +3,10 @@
 import { useRouter } from 'next/navigation'
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 
+import { logError, logInfo } from '@/lib/logger'
+import { listMcpServers } from '@/lib/mcp/storage'
+import { buildSkillsSystemPrompt, matchSkillsForPrompt } from '@/lib/skills/matcher'
+import { listSkills } from '@/lib/skills/storage'
 import { type ThemePreference, writeStoredTheme } from '@/lib/theme'
 
 import { DEFAULT_MODEL_FILTER, isModelAllowed, type ModelFilterOptions } from './model-filter'
@@ -12,7 +16,8 @@ import { createRedactionSession } from './redact/engine'
 import { RedactionEngine } from './redact/engine'
 import type { RedactionOptions, RedactionSession } from './redact/types'
 import { useOptionalSpotlight } from './spotlight-context'
-import { AGENT_GIT_TOOLS, executeAgentTool } from './tools'
+import { addStepToTask, completeTask, createTask, failTask } from './tasks/storage'
+import { AGENT_GIT_TOOLS, buildMcpToolDefinitions, executeAgentTool } from './tools'
 import type { AgentChatMessage, AgentDockMode, EphemeralAgentConfig } from './types'
 
 export interface AgentContextValue {
@@ -253,20 +258,85 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
 
       const engine = redactionOptions.enabled ? new RedactionEngine(redactionOptions, redactionSessionRef.current) : undefined
 
+      let activeTaskId: string | undefined
+      try {
+        const task = await createTask({
+          title: trimmed.slice(0, 50),
+          prompt: trimmed,
+          model: config.model,
+          repo,
+        })
+        activeTaskId = task.id
+        logInfo('agent', `Started agent task: ${trimmed.slice(0, 50)}`)
+      } catch {
+        // Fallback
+      }
+
+      // 0. Match Custom Skills and discover enabled MCP tools
+      let skillsPrompt = ''
+      try {
+        const skills = await listSkills()
+        const matched = matchSkillsForPrompt(trimmed, skills)
+        if (matched.length > 0) {
+          skillsPrompt = buildSkillsSystemPrompt(matched)
+          if (activeTaskId) {
+            await addStepToTask(activeTaskId, {
+              type: 'skill_match',
+              title: `Matched Skills: ${matched.map((s) => s.name).join(', ')}`,
+              detail: matched.map((s) => s.description).join('; '),
+            })
+          }
+          logInfo('skill', `Matched ${matched.length} skills for prompt: ${matched.map((s) => s.name).join(', ')}`)
+        }
+      } catch {
+        // Fallback
+      }
+
+      let combinedTools = AGENT_GIT_TOOLS
+      try {
+        const mcpServers = await listMcpServers()
+        const mcpTools = buildMcpToolDefinitions(mcpServers)
+        if (mcpTools.length > 0) {
+          combinedTools = [...AGENT_GIT_TOOLS, ...mcpTools]
+        }
+      } catch {
+        // Fallback
+      }
+
+      const buildSystemHistory = (history: AgentChatMessage[]) => {
+        const base = withSystemPrompt(history)
+        if (skillsPrompt) {
+          const sys = base[0]
+          return [{ ...sys, content: sys.content + skillsPrompt }, ...base.slice(1)]
+        }
+        return base
+      }
+
       try {
         let accumulatedDelta = ''
 
         // 1. Send first turn to LLM
         const res = await sendAgentCompletion({
           config,
-          messages: withSystemPrompt(updatedHistory),
-          tools: AGENT_GIT_TOOLS,
+          messages: buildSystemHistory(updatedHistory),
+          tools: combinedTools,
           redactionEngine: engine,
+          purpose: 'chat',
+          taskId: activeTaskId,
           onDelta: (chunk) => {
             accumulatedDelta += chunk
             setMessages((prev) => prev.map((m) => (m.id === assistantMsgId ? { ...m, content: accumulatedDelta } : m)))
           },
         })
+
+        if (activeTaskId) {
+          await addStepToTask(activeTaskId, {
+            type: 'llm_turn',
+            title: 'Agent Turn 1 Completed',
+            detail: res.content ? res.content.slice(0, 160) : 'Tool execution required',
+            tokenUsage: res.usage,
+          })
+        }
 
         // 2. If the LLM returned tool calls, execute them
         if (res.toolCalls && res.toolCalls.length > 0) {
@@ -295,6 +365,16 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
             }
 
             const toolExec = await executeAgentTool(tc.function.name, parsedArgs, repo)
+
+            if (activeTaskId) {
+              await addStepToTask(activeTaskId, {
+                type: 'tool_call',
+                title: `Execute Tool: ${tc.function.name}`,
+                input: parsedArgs,
+                output: toolExec.result,
+                status: toolExec.ok ? 'success' : 'error',
+              })
+            }
 
             // If tool yielded spotlight targets, update the graph spotlight!
             if (toolExec.spotlightTargets && spotlightCtx) {
@@ -392,18 +472,33 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
           let secondTurnDelta = ''
           const finalRes = await sendAgentCompletion({
             config,
-            messages: withSystemPrompt(turnTwoMessages),
+            messages: buildSystemHistory(turnTwoMessages),
             redactionEngine: engine,
+            purpose: 'chat',
+            taskId: activeTaskId,
             onDelta: (chunk) => {
               secondTurnDelta += chunk
               setMessages((prev) => prev.map((m) => (m.id === secondTurnAssistantId ? { ...m, content: secondTurnDelta } : m)))
             },
           })
 
+          if (activeTaskId) {
+            await addStepToTask(activeTaskId, {
+              type: 'llm_turn',
+              title: 'Agent Response Synthesized',
+              detail: finalRes.content.slice(0, 160),
+              tokenUsage: finalRes.usage,
+            })
+            await completeTask(activeTaskId, { tokenUsage: finalRes.usage })
+          }
+
           setMessages((prev) => prev.map((m) => (m.id === secondTurnAssistantId ? { ...m, content: finalRes.content, isStreaming: false } : m)))
           setActiveResultSummary(finalRes.content.slice(0, 120))
         } else {
           // No tools called, finalize message
+          if (activeTaskId) {
+            await completeTask(activeTaskId, { tokenUsage: res.usage })
+          }
           setMessages((prev) => prev.map((m) => (m.id === assistantMsgId ? { ...m, content: res.content, isStreaming: false } : m)))
           setActiveResultSummary(res.content.slice(0, 120))
 
@@ -438,6 +533,10 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
         }
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : 'Agent invocation failed'
+        if (activeTaskId) {
+          await failTask(activeTaskId, errorMsg)
+        }
+        logError('agent', `Agent task failed: ${errorMsg}`)
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantMsgId

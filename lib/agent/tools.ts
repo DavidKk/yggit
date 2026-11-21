@@ -1,6 +1,9 @@
 import { getGitDriver } from '@/lib/git/driver'
 import { projectOpenTarget } from '@/lib/git/project-access'
 import type { GitProjectView } from '@/lib/git/types'
+import { callMcpTool } from '@/lib/mcp/client'
+import { listMcpServers } from '@/lib/mcp/storage'
+import type { McpServerConfig } from '@/lib/mcp/types'
 import type { SpotlightTarget } from '@/services/git/agent-impact'
 
 import type { AgentCodeAnnotation } from './spotlight-context'
@@ -350,9 +353,51 @@ async function getCatalogProjects(): Promise<GitProjectView[]> {
 }
 
 /**
+ * Converts enabled tools from connected MCP servers into AgentToolDefinition format.
+ */
+export function buildMcpToolDefinitions(servers: McpServerConfig[]): AgentToolDefinition[] {
+  const definitions: AgentToolDefinition[] = []
+  for (const s of servers) {
+    if (!s.enabled || !s.tools) continue
+    for (const t of s.tools) {
+      if (!t.enabled) continue
+      definitions.push({
+        type: 'function',
+        function: {
+          name: `mcp__${s.id}__${t.name}`,
+          description: `[MCP: ${s.name}] ${t.description || t.name}`,
+          parameters: (t.inputSchema as { type: 'object'; properties: Record<string, unknown>; required?: string[] }) || {
+            type: 'object',
+            properties: {},
+          },
+        },
+      })
+    }
+  }
+  return definitions
+}
+
+/**
  * Executes a tool called by the LLM.
  */
 export async function executeAgentTool(toolName: string, args: Record<string, unknown>, repo?: string): Promise<ToolExecutionResponse> {
+  // If the tool is an external MCP tool:
+  if (toolName.startsWith('mcp__')) {
+    const parts = toolName.split('__')
+    const serverId = parts[1]
+    const actualToolName = parts.slice(2).join('__')
+    try {
+      const servers = await listMcpServers()
+      const server = servers.find((s) => s.id === serverId)
+      if (!server) {
+        return { ok: false, result: `MCP server "${serverId}" not found or disabled.` }
+      }
+      const res = await callMcpTool(server, actualToolName, args)
+      return { ok: res.ok, result: res.ok ? res.result : res.error }
+    } catch (err) {
+      return { ok: false, result: err instanceof Error ? err.message : String(err) }
+    }
+  }
   // If the tool is client-side UI navigation:
   if (toolName === 'navigate_ui') {
     const target = String(args.target || 'settings_models')
