@@ -1,11 +1,13 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { LuRefreshCw, LuTrash2 } from 'react-icons/lu'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { LuCheck, LuCopy, LuFolderOpen, LuHardDrive, LuRefreshCw, LuTrash2 } from 'react-icons/lu'
 
 import { useConfirm } from '@/components/confirm/ConfirmProvider'
 import { useT } from '@/components/i18n/LocaleProvider'
-import { Button, Tooltip } from '@/components/sk'
+import { useNotification } from '@/components/notification/useNotification'
+import { Badge, Button, Tooltip } from '@/components/sk'
+import { getDriverMode } from '@/lib/git/driver'
 import { clearBrowserStorage, deleteBrowserDatabase, inspectBrowserStorage, type StorageSource } from '@/lib/storage/browser-storage'
 
 import { SettingsSectionCard } from './SettingsSectionCard'
@@ -17,26 +19,71 @@ function formatBytes(bytes: number): string {
   return `${(bytes / 1024 ** 3).toFixed(1)} GB`
 }
 
+export interface StorageCategoryItem {
+  name: string
+  label: string
+  desc: string
+  path: string
+  bytes: number
+  clearable: boolean
+}
+
+export interface LocalStorageInfo {
+  isLocal: boolean
+  dataPath: string
+  totalBytes: number
+  items: StorageCategoryItem[]
+}
+
 export function StorageSettingsSection() {
   const t = useT()
+  const notify = useNotification()
   const confirm = useConfirm()
+
+  const [localInfo, setLocalInfo] = useState<LocalStorageInfo | null>(null)
   const [sources, setSources] = useState<StorageSource[]>([])
   const [busy, setBusy] = useState(false)
+  const [copied, setCopied] = useState(false)
   const [error, setError] = useState('')
   const generation = useRef(0)
+
+  const isEdge = getDriverMode() === 'edge'
+
   const refresh = useCallback(async () => {
     const current = ++generation.current
     setBusy(true)
     setError('')
+
+    // Try fetching local filesystem storage info first when not explicitly in edge mode
+    if (!isEdge) {
+      try {
+        const res = await fetch('/api/storage')
+        if (res.ok) {
+          const data = (await res.json()) as LocalStorageInfo
+          if (current === generation.current && data?.isLocal) {
+            setLocalInfo(data)
+            setBusy(false)
+            return
+          }
+        }
+      } catch {
+        // Fall back to browser storage inspection below
+      }
+    }
+
     try {
       const result = await inspectBrowserStorage()
-      if (current === generation.current) setSources(result)
+      if (current === generation.current) {
+        setLocalInfo(null)
+        setSources(result)
+      }
     } catch (err) {
       if (current === generation.current) setError(String(err))
     } finally {
       if (current === generation.current) setBusy(false)
     }
-  }, [])
+  }, [isEdge])
+
   useEffect(() => {
     const counter = generation
     void refresh()
@@ -45,7 +92,93 @@ export function StorageSettingsSection() {
     }
   }, [refresh])
 
-  const remove = (name?: string) =>
+  const handleCopyPath = async () => {
+    if (!localInfo?.dataPath) return
+    try {
+      await navigator.clipboard.writeText(localInfo.dataPath)
+      setCopied(true)
+      notify.success('存储目录路径已复制到剪贴板')
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      notify.error('复制失败，请手动选取复制')
+    }
+  }
+
+  const handleReveal = async () => {
+    if (!localInfo?.dataPath) return
+    try {
+      const res = await fetch('/api/reveal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: localInfo.dataPath, reveal: false }),
+      })
+      if (!res.ok) {
+        notify.error('打开本地目录失败')
+      }
+    } catch {
+      notify.error('打开本地目录失败')
+    }
+  }
+
+  const handleClearCache = () => {
+    confirm({
+      title: '清理本地临时缓存',
+      description: '将安全清理 Git 冲突分析与预检三方合并等临时缓存文件，不影响项目索引与授权凭据。',
+      confirmLabel: '清理缓存',
+      confirmVariant: 'fail',
+      onConfirm: async () => {
+        setBusy(true)
+        try {
+          const res = await fetch('/api/storage', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'clearCache' }),
+          })
+          if (res.ok) {
+            notify.success('本地缓存已成功清理')
+            await refresh()
+          } else {
+            notify.error('清理缓存失败')
+          }
+        } catch (err) {
+          notify.error(`清理缓存失败: ${String(err)}`)
+        } finally {
+          setBusy(false)
+        }
+      },
+    })
+  }
+
+  const handleClearItem = (name: string, label: string) => {
+    confirm({
+      title: `清理 ${label}`,
+      description: `确定清理 ${label} (${name}) 中的缓存数据？`,
+      confirmLabel: '清理',
+      confirmVariant: 'fail',
+      onConfirm: async () => {
+        setBusy(true)
+        try {
+          const res = await fetch('/api/storage', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'clearItem', name }),
+          })
+          if (res.ok) {
+            notify.success(`已清理 ${label}`)
+            await refresh()
+          } else {
+            notify.error('清理失败')
+          }
+        } catch (err) {
+          notify.error(`清理失败: ${String(err)}`)
+        } finally {
+          setBusy(false)
+        }
+      },
+    })
+  }
+
+  const removeBrowserDatabase = (name?: string) =>
     confirm({
       title: t(name ? 'gitAgent.storageDelete' : 'gitAgent.storageClear'),
       description: name ? t('gitAgent.storageDeleteConfirm', { name }) : t('gitAgent.storageClearConfirm'),
@@ -65,6 +198,87 @@ export function StorageSettingsSection() {
       },
     })
 
+  // 1. Local Filesystem Storage Mode View
+  if (localInfo) {
+    return (
+      <SettingsSectionCard
+        title="本地数据存储"
+        description="管理客户端在本地磁盘中的存储目录、项目索引与运行时分析缓存。"
+        titleAction={
+          <div className="flex items-center gap-2">
+            <Button size="sm" disabled={busy} onClick={() => void refresh()}>
+              <LuRefreshCw className={busy ? 'animate-spin' : ''} aria-hidden="true" />
+              <span>刷新</span>
+            </Button>
+            <Button variant="fail" size="sm" disabled={busy || localInfo.totalBytes === 0} onClick={handleClearCache}>
+              <LuTrash2 aria-hidden="true" />
+              <span>清理缓存</span>
+            </Button>
+          </div>
+        }
+      >
+        <div className="flex flex-col gap-3">
+          {/* Storage Directory Path Box */}
+          <div className="flex flex-col gap-2 rounded-lg border border-line bg-panel-2/40 p-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <LuHardDrive className="size-4 text-accent" />
+                <span className="text-xs font-semibold text-ink">本地存储目录</span>
+              </div>
+              <Badge tone="accent" size="mini">
+                总占用: {formatBytes(localInfo.totalBytes)}
+              </Badge>
+            </div>
+            <div className="flex items-center justify-between gap-2 rounded border border-line bg-panel px-2.5 py-1.5">
+              <span className="font-mono text-xs text-ink truncate select-all">{localInfo.dataPath}</span>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <Button variant="plain" size="sm" onClick={() => void handleCopyPath()} tooltip="复制完整目录路径">
+                  {copied ? <LuCheck className="size-3.5 text-ok" /> : <LuCopy className="size-3.5" />}
+                  <span>{copied ? '已复制' : '复制'}</span>
+                </Button>
+                <Button variant="default" size="sm" onClick={() => void handleReveal()} tooltip="在访达 / 文件资源管理器中打开此目录">
+                  <LuFolderOpen className="size-3.5 mr-1 text-ink-soft" />
+                  <span>打开目录</span>
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Directory Breakdown List */}
+          <ul className="divide-y divide-line/60 rounded-lg border border-line bg-panel">
+            {localInfo.items.map((item) => (
+              <li key={item.name} className="flex items-center justify-between gap-3 p-3 text-xs">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-ink">{item.label}</span>
+                    <span className="font-mono text-[11px] text-ink-soft">({item.name})</span>
+                  </div>
+                  <p className="text-[11px] text-ink-soft mt-0.5 leading-relaxed">{item.desc}</p>
+                </div>
+                <div className="flex items-center gap-2.5 shrink-0">
+                  <span className="font-mono text-xs tabular-nums text-ink">{formatBytes(item.bytes)}</span>
+                  {item.clearable && (
+                    <Button
+                      variant="plain"
+                      size="mini"
+                      disabled={busy || item.bytes === 0}
+                      tooltip="清理该缓存"
+                      aria-label={`清理 ${item.label}`}
+                      onClick={() => handleClearItem(item.name, item.label)}
+                    >
+                      <LuTrash2 className="size-3.5 text-ink-soft hover:text-danger" />
+                    </Button>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </SettingsSectionCard>
+    )
+  }
+
+  // 2. Edge / Browser Sandbox Fallback Mode View (IndexedDB)
   return (
     <SettingsSectionCard
       title={t('gitAgent.storageTitle')}
@@ -75,7 +289,7 @@ export function StorageSettingsSection() {
             <LuRefreshCw aria-hidden />
             {t('gitAgent.storageRefresh')}
           </Button>
-          <Button variant="fail" size="sm" disabled={busy || sources.length === 0} onClick={() => void remove()}>
+          <Button variant="fail" size="sm" disabled={busy || sources.length === 0} onClick={() => void removeBrowserDatabase()}>
             <LuTrash2 aria-hidden />
             {t('gitAgent.storageClear')}
           </Button>
@@ -104,7 +318,7 @@ export function StorageSettingsSection() {
                 disabled={busy}
                 aria-label={t('gitAgent.storageDeleteDatabase', { name: source.name })}
                 tooltip={t('gitAgent.storageDelete')}
-                onClick={() => void remove(source.name)}
+                onClick={() => void removeBrowserDatabase(source.name)}
               >
                 <LuTrash2 aria-hidden />
               </Button>

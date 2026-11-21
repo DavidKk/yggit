@@ -208,6 +208,11 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
       setModelsFetchMsg('请先填写接入地址')
       return
     }
+    if (AGENT_PRESETS[config.provider]?.requiresKey && !config.apiKey) {
+      setModelsFetchFailed(true)
+      setModelsFetchMsg('OpenAI 接口需先在下方填写 API 密钥，才能拉取在线模型')
+      return
+    }
     setFetchingModels(true)
     setModelsFetchMsg('')
     setModelsFetchFailed(false)

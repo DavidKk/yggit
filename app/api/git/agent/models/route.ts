@@ -133,6 +133,8 @@ export const POST = defineApiRoute('post:/api/git/agent/models', async ({ reques
     }
 
     let models: ModelItem[] = []
+    let lastError: string | null = null
+    let lastStatus: number | null = null
 
     // Attempt 1: primary models catalog endpoint
     try {
@@ -144,9 +146,30 @@ export const POST = defineApiRoute('post:/api/git/agent/models', async ({ reques
       if (response.ok) {
         const json = await response.json().catch(() => null)
         models = extractModelsFromResponse(json)
+      } else {
+        lastStatus = response.status
+        if (response.status === 401) {
+          lastError = 'API Key 未填写或无效 (HTTP 401 Unauthorized)'
+        } else if (response.status === 403) {
+          lastError = '端点拒绝访问或缺少权限 (HTTP 403 Forbidden)'
+        } else if (response.status === 404) {
+          lastError = '端点未提供 /models 模型目录 (HTTP 404)'
+        } else if (response.status === 429) {
+          lastError = '请求频次受限或账户额度不足 (HTTP 429)'
+        } else {
+          lastError = `服务端返回异常状态 (HTTP ${response.status})`
+        }
       }
-    } catch {
-      // Fallback below
+    } catch (err) {
+      if (err instanceof Error) {
+        if (err.name === 'TimeoutError' || err.message.includes('timeout')) {
+          lastError = '连接超时，无法访问上游服务 (请检查网络或代理)'
+        } else if (err.message.includes('fetch failed') || err.message.includes('ECONNREFUSED')) {
+          lastError = '网络连接失败，无法连接到端点 (请检查地址或网络代理)'
+        } else {
+          lastError = err.message
+        }
+      }
     }
 
     // Attempt 1.5: If primary returned 401/403 or failed when auth headers were attached,
@@ -223,6 +246,8 @@ export const POST = defineApiRoute('post:/api/git/agent/models', async ({ reques
     return apiOk({
       models,
       total: models.length,
+      status: lastStatus,
+      message: models.length === 0 ? lastError || '未能从服务端读取到模型列表，使用预设清单' : undefined,
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to retrieve models'
