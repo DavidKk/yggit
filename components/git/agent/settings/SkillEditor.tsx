@@ -229,7 +229,7 @@ export function SkillEditor({ skillId }: SkillEditorProps) {
         <div className="text-xs font-semibold text-ink">未找到该技能</div>
         <p className="text-[11px] text-ink-soft max-w-sm mt-1">此技能可能已被移除或 ID 不存在。</p>
         <Button variant="default" onClick={handleBack} className="mt-3">
-          返回技能库
+          返回
         </Button>
       </div>
     )
@@ -249,7 +249,7 @@ export function SkillEditor({ skillId }: SkillEditorProps) {
           description="遵循 Agent Skills 开放标准 (SKILL.md)。可导入本地文件或直接关联 GitHub 仓库中的 Skill 规范。"
           titleAction={
             <Button variant="plain" size="sm" onClick={handleBack}>
-              返回列表
+              返回
             </Button>
           }
         >
@@ -333,7 +333,7 @@ export function SkillEditor({ skillId }: SkillEditorProps) {
                 </Button>
                 <Button variant="accent" onClick={() => void handleSaveLocalSkill()}>
                   <LuPlus className="size-3.5 mr-1" />
-                  <span>保存并启用技能</span>
+                  <span>保存</span>
                 </Button>
               </div>
             </div>
@@ -393,7 +393,7 @@ export function SkillEditor({ skillId }: SkillEditorProps) {
                 </Button>
                 <Button variant="accent" loading={ghFetching} onClick={() => void handleImportGitHubSkill()}>
                   <LuCheck className="size-3.5 mr-1" />
-                  <span>拉取并导入</span>
+                  <span>导入</span>
                 </Button>
               </div>
             </div>
@@ -430,7 +430,7 @@ export function SkillEditor({ skillId }: SkillEditorProps) {
               aria-label={`启用或停用 ${skill?.name}`}
             />
             <Button variant="plain" size="sm" onClick={handleBack}>
-              返回列表
+              返回
             </Button>
           </div>
         }
@@ -447,7 +447,7 @@ export function SkillEditor({ skillId }: SkillEditorProps) {
             <div className="pt-2 flex items-center gap-2 border-t border-line/60">
               <Button variant="default" disabled={isUpdating} loading={isUpdating} onClick={() => void handleCheckUpdate()} title="检查并同步 GitHub 最新版本">
                 <LuRefreshCw className={cn('size-3.5 mr-1', isUpdating && 'animate-spin')} />
-                <span>检查并同步 GitHub 最新版本</span>
+                <span>检查更新</span>
               </Button>
             </div>
           )}
@@ -462,7 +462,7 @@ export function SkillEditor({ skillId }: SkillEditorProps) {
           !isBuiltin ? (
             <Button variant="accent" size="sm" onClick={() => void handleSaveContentEdit()}>
               <LuCheck className="size-3.5 mr-1" />
-              <span>保存修改</span>
+              <span>保存</span>
             </Button>
           ) : undefined
         }
@@ -488,7 +488,7 @@ export function SkillEditor({ skillId }: SkillEditorProps) {
             <span className="text-xs text-ink-soft">移除此技能定义及本地缓存</span>
             <Button variant="outline-fail" onClick={handleDelete}>
               <LuTrash2 className="size-3.5 mr-1" />
-              <span>移除技能</span>
+              <span>删除</span>
             </Button>
           </div>
         </SettingsSectionCard>

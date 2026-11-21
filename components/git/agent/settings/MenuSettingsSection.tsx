@@ -485,7 +485,7 @@ export function MenuSettingsSection() {
             <span className="text-[11px] text-ink-soft">若工具配置混乱，可随时恢复为官方推荐配置</span>
             <Button variant="default" size="sm" onClick={handleResetDefaults}>
               <LuRotateCcw className="size-3.5 mr-1 text-ink-soft" />
-              <span>恢复默认配置</span>
+              <span>重置</span>
             </Button>
           </div>
         </div>

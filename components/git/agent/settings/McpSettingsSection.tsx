@@ -52,7 +52,7 @@ export function McpSettingsSection() {
         titleAction={
           <Button variant="accent" size="sm" onClick={() => router.push('/settings/mcp/new')}>
             <LuPlus className="size-3.5 mr-1" />
-            <span>添加 HTTP MCP Server</span>
+            <span>添加</span>
           </Button>
         }
       >

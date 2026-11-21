@@ -51,7 +51,7 @@ export function SkillsSettingsSection() {
         titleAction={
           <Button variant="accent" size="sm" onClick={() => router.push('/settings/skills/new')}>
             <LuPlus className="size-3.5 mr-1" />
-            <span>新增 Skill</span>
+            <span>添加</span>
           </Button>
         }
       >

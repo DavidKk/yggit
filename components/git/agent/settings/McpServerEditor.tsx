@@ -200,7 +200,7 @@ export function McpServerEditor({ serverId }: McpServerEditorProps) {
         <div className="text-xs font-semibold text-ink">未找到该 MCP Server</div>
         <p className="text-[11px] text-ink-soft max-w-sm mt-1">此 Server 可能已被移除或 ID 不存在。</p>
         <Button variant="default" onClick={handleBack} className="mt-3">
-          返回 MCP 列表
+          返回
         </Button>
       </div>
     )
@@ -220,7 +220,7 @@ export function McpServerEditor({ serverId }: McpServerEditorProps) {
           description="遵循官方 Model Context Protocol 协议规范。支持 Streamable HTTP 协议传输与 Bearer Token 鉴权。"
           titleAction={
             <Button variant="plain" size="sm" onClick={handleBack}>
-              返回列表
+              返回
             </Button>
           }
         >
@@ -280,7 +280,7 @@ export function McpServerEditor({ serverId }: McpServerEditorProps) {
               </Button>
               <Button variant="accent" loading={testing} onClick={() => void handleCreateServer()}>
                 <LuPlus className="size-3.5 mr-1" />
-                <span>测试并添加</span>
+                <span>添加</span>
               </Button>
             </div>
           </div>
@@ -320,7 +320,7 @@ export function McpServerEditor({ serverId }: McpServerEditorProps) {
               aria-label={`启用或停用 ${server?.name}`}
             />
             <Button variant="plain" size="sm" onClick={handleBack}>
-              返回列表
+              返回
             </Button>
           </div>
         }
@@ -338,7 +338,7 @@ export function McpServerEditor({ serverId }: McpServerEditorProps) {
           <div className="pt-2 flex items-center gap-2 border-t border-line/60">
             <Button variant="default" loading={testing} onClick={() => void handleTestExisting()} title="测试连接并刷新工具列表">
               <LuRefreshCw className={cn('size-3.5 mr-1', testing && 'animate-spin')} />
-              <span>测试连接并刷新工具</span>
+              <span>测试连接</span>
             </Button>
           </div>
         </div>
@@ -398,7 +398,7 @@ export function McpServerEditor({ serverId }: McpServerEditorProps) {
           <span className="text-xs text-ink-soft">移除此 HTTP MCP Server 配置</span>
           <Button variant="outline-fail" onClick={handleDelete}>
             <LuTrash2 className="size-3.5 mr-1" />
-            <span>移除 Server</span>
+            <span>删除</span>
           </Button>
         </div>
       </SettingsSectionCard>
