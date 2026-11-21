@@ -1,5 +1,5 @@
 import { readApiErrorMessage } from '@/lib/api-error'
-import type { GitCommitChanges, GitLogView, GitProjectCatalog, GitProjectView } from '@/lib/git/types'
+import { GIT_WORKTREE_HASH, type GitCommitChanges, type GitLogView, type GitProjectCatalog, type GitProjectView } from '@/lib/git/types'
 
 import type {
   AddProjectPayload,
@@ -17,6 +17,10 @@ import type {
   ReadCommitDiffOptions,
   ReadLogOptions,
 } from './types'
+
+const inFlightRequests = new Map<string, Promise<unknown>>()
+const commitDiffClientCache = new Map<string, GitCommitChanges>()
+const MAX_CLIENT_CACHE = 200
 
 export class LocalGitDriver implements IGitDriver {
   readonly mode = 'local' as const
@@ -49,6 +53,17 @@ export class LocalGitDriver implements IGitDriver {
   }
 
   async readCommitDiff(options: ReadCommitDiffOptions): Promise<GitCommitChanges> {
+    const isImmutable = Boolean(options.hash && options.hash !== GIT_WORKTREE_HASH)
+    const cacheKey = isImmutable ? `commit:${options.repo || ''}:${options.hash}:${options.tree ? '1' : '0'}:${options.file || ''}:${options.all ? '1' : '0'}` : null
+
+    if (cacheKey && commitDiffClientCache.has(cacheKey)) {
+      return commitDiffClientCache.get(cacheKey)!
+    }
+
+    if (cacheKey && inFlightRequests.has(cacheKey)) {
+      return inFlightRequests.get(cacheKey) as Promise<GitCommitChanges>
+    }
+
     const params = new URLSearchParams()
     if (options.repo) params.set('repo', options.repo)
     if (options.hash) params.set('hash', options.hash)
@@ -56,12 +71,27 @@ export class LocalGitDriver implements IGitDriver {
     if (options.file) params.set('path', options.file)
     if (options.all) params.set('all', '1')
 
-    const res = await fetch(`/api/git/commit?${params.toString()}`)
-    if (!res.ok) {
-      const body: unknown = await res.json().catch(() => null)
-      throw new Error(readApiErrorMessage(body, `Failed to read commit diff (${res.status})`))
-    }
-    return (await res.json()) as GitCommitChanges
+    const fetchPromise = (async () => {
+      const res = await fetch(`/api/git/commit?${params.toString()}`)
+      if (!res.ok) {
+        const body: unknown = await res.json().catch(() => null)
+        throw new Error(readApiErrorMessage(body, `Failed to read commit diff (${res.status})`))
+      }
+      const data = (await res.json()) as GitCommitChanges
+      if (cacheKey) {
+        if (commitDiffClientCache.size >= MAX_CLIENT_CACHE) {
+          const firstKey = commitDiffClientCache.keys().next().value
+          if (firstKey) commitDiffClientCache.delete(firstKey)
+        }
+        commitDiffClientCache.set(cacheKey, data)
+      }
+      return data
+    })().finally(() => {
+      if (cacheKey) inFlightRequests.delete(cacheKey)
+    })
+
+    if (cacheKey) inFlightRequests.set(cacheKey, fetchPromise)
+    return fetchPromise
   }
 
   async readBlob(options: ReadBlobOptions): Promise<{ content: string; binary: boolean }> {
@@ -86,13 +116,28 @@ export class LocalGitDriver implements IGitDriver {
   }
 
   async readBlame(options: { repo: string; path: string; hash?: string }): Promise<Record<number, GitBlameLine>> {
+    const isImmutable = Boolean(options.hash && options.hash !== GIT_WORKTREE_HASH)
+    const cacheKey = isImmutable ? `blame:${options.repo}:${options.hash}:${options.path}` : null
+
+    if (cacheKey && inFlightRequests.has(cacheKey)) {
+      return inFlightRequests.get(cacheKey) as Promise<Record<number, GitBlameLine>>
+    }
+
     const params = new URLSearchParams()
     if (options.repo) params.set('repo', options.repo)
     if (options.path) params.set('path', options.path)
     if (options.hash) params.set('hash', options.hash)
-    const res = await fetch(`/api/git/blame?${params.toString()}`)
-    if (!res.ok) return {}
-    return (await res.json().catch(() => ({}))) as Record<number, GitBlameLine>
+
+    const fetchPromise = (async () => {
+      const res = await fetch(`/api/git/blame?${params.toString()}`)
+      if (!res.ok) return {}
+      return (await res.json().catch(() => ({}))) as Record<number, GitBlameLine>
+    })().finally(() => {
+      if (cacheKey) inFlightRequests.delete(cacheKey)
+    })
+
+    if (cacheKey) inFlightRequests.set(cacheKey, fetchPromise)
+    return fetchPromise
   }
 
   async checkoutBranch(repo: string, branch: string, options?: GitCheckoutOptions): Promise<{ ok: boolean; message: string }> {
@@ -409,16 +454,28 @@ export class LocalGitDriver implements IGitDriver {
   }
 
   async getProjects(): Promise<GitProjectCatalog> {
-    const res = await fetch('/api/git/projects')
-    if (!res.ok) {
-      const text = await res.text()
-      throw new Error(text || `Failed to fetch projects (${res.status})`)
+    const key = 'projects:catalog'
+    if (inFlightRequests.has(key)) {
+      return inFlightRequests.get(key) as Promise<GitProjectCatalog>
     }
-    const data = (await res.json()) as { ok?: boolean; projects?: GitProjectView[]; folders?: string[] }
-    return {
-      projects: data.projects || [],
-      folders: data.folders || [],
-    }
+
+    const fetchPromise = (async () => {
+      const res = await fetch('/api/git/projects')
+      if (!res.ok) {
+        const text = await res.text()
+        throw new Error(text || `Failed to fetch projects (${res.status})`)
+      }
+      const data = (await res.json()) as { ok?: boolean; projects?: GitProjectView[]; folders?: string[] }
+      return {
+        projects: data.projects || [],
+        folders: data.folders || [],
+      }
+    })().finally(() => {
+      inFlightRequests.delete(key)
+    })
+
+    inFlightRequests.set(key, fetchPromise)
+    return fetchPromise
   }
 
   async addProject(payload: AddProjectPayload): Promise<GitProjectView> {

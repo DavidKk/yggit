@@ -223,7 +223,7 @@ function PlainRows({
   let liveAt = 0
   let delAt = 0
   return (
-    <div onMouseLeave={() => setHoveredIdx(null)}>
+    <div onMouseLeave={() => setHoveredIdx(null)} className={wordWrap ? 'min-w-0 w-full' : 'min-w-full w-max'}>
       {enrichedRows.map((row, index) => {
         const tokens = row.kind === 'del' ? delTokens?.[delAt++] : liveTokens?.[liveAt++]
         const isActive = activeIndex === index
@@ -241,16 +241,19 @@ function PlainRows({
               wordWrap ? 'min-w-0 w-full' : 'min-w-full w-max',
               row.kind === 'add' && 'bg-[color-mix(in_oklab,var(--ok)_12%,transparent)]',
               row.kind === 'del' && 'bg-[color-mix(in_oklab,var(--fail)_12%,transparent)]',
-              isActive && 'bg-accent/25 ring-1 ring-accent',
+              isActive && 'bg-accent/25 ring-1 ring-inset ring-accent',
               !isActive && isMatch && 'bg-accent/5',
               isHovered && !isActive && (row.kind ? 'brightness-95' : 'bg-[color-mix(in_oklab,var(--ink)_5%,transparent)]')
             )}
           >
             <span className="w-12 shrink-0 pr-2 text-right text-ink-soft select-none font-mono">{row.newNo ?? row.oldNo ?? ''}</span>
             <GitDiffCodeText kind={row.kind} text={row.text} tokens={tokens} searchNeedle={searchNeedle} isActiveLine={isActive} wrap={wordWrap} diffRanges={row.diffRanges} />
-            {isHovered && blame && (
+            {blame && (
               <span
-                className="ml-auto pl-6 pr-3 text-[11px] text-ink-soft/75 select-none font-sans shrink-0 pointer-events-none truncate italic"
+                className={cn(
+                  'pl-6 pr-3 text-[11px] text-ink-soft/75 select-none font-sans shrink-0 pointer-events-none truncate italic transition-opacity duration-150',
+                  isHovered ? 'opacity-100' : 'opacity-0 group-hover/diffrow:opacity-100'
+                )}
                 title={`${blame.author} (${blame.hash.slice(0, 7)}): ${blame.summary}`}
               >
                 {blame.author}, {formatCommitAgo(blame.date, locale)} · {blame.summary}
@@ -464,7 +467,7 @@ function HunkBlock({
   }, [enrichedLines, oldTokens, newTokens])
 
   return (
-    <div onMouseLeave={() => setHoveredIdx(null)}>
+    <div onMouseLeave={() => setHoveredIdx(null)} className={wordWrap ? 'min-w-0 w-full' : 'min-w-full w-max'}>
       <div className="border-b border-line bg-[color-mix(in_oklab,var(--ink)_6%,transparent)] px-3 text-ink-soft">{hunk.header}</div>
       {renderedLines.map(({ line, tokens }, index) => {
         const lineIdx = lineOffset + index
@@ -483,7 +486,7 @@ function HunkBlock({
               wordWrap ? 'min-w-0 w-full' : 'min-w-full w-max',
               line.kind === 'add' && 'bg-[color-mix(in_oklab,var(--ok)_12%,transparent)]',
               line.kind === 'del' && 'bg-[color-mix(in_oklab,var(--fail)_12%,transparent)]',
-              isActive && 'bg-accent/25 ring-1 ring-accent',
+              isActive && 'bg-accent/25 ring-1 ring-inset ring-accent',
               !isActive && isMatch && 'bg-accent/5',
               isHovered && !isActive && (line.kind ? 'brightness-95' : 'bg-[color-mix(in_oklab,var(--ink)_5%,transparent)]')
             )}
@@ -491,9 +494,12 @@ function HunkBlock({
             <span className="w-10 shrink-0 pr-2 text-right text-ink-soft select-none font-mono">{line.oldNo ?? ''}</span>
             <span className="w-10 shrink-0 border-r border-line pr-2 text-right text-ink-soft select-none font-mono">{line.newNo ?? ''}</span>
             <GitDiffCodeText kind={line.kind} text={line.text} tokens={tokens} searchNeedle={searchNeedle} isActiveLine={isActive} wrap={wordWrap} diffRanges={line.diffRanges} />
-            {isHovered && blame && (
+            {blame && (
               <span
-                className="ml-auto pl-6 pr-3 text-[11px] text-ink-soft/75 select-none font-sans shrink-0 pointer-events-none truncate italic"
+                className={cn(
+                  'pl-6 pr-3 text-[11px] text-ink-soft/75 select-none font-sans shrink-0 pointer-events-none truncate italic transition-opacity duration-150',
+                  isHovered ? 'opacity-100' : 'opacity-0 group-hover/diffrow:opacity-100'
+                )}
                 title={`${blame.author} (${blame.hash.slice(0, 7)}): ${blame.summary}`}
               >
                 {blame.author}, {formatCommitAgo(blame.date, locale)} · {blame.summary}

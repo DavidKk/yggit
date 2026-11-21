@@ -62,15 +62,18 @@ export function GitToolbar({ repo, currentBranch, hasStashes = false, disabled =
       if (op === 'fetch-all') {
         const res = await driver.fetch(repo, { all: true, prune: true })
         notify.success(res.message || t('git.operations.fetchSuccess') || '抓取完成 (Fetch All)')
-      } else if (op === 'pull-ff-only') {
-        const res = await driver.pull(repo, { ffOnly: true })
-        notify.success(res.message || t('git.operations.pullSuccess') || '拉取成功 (Fast-forward only)')
-      } else if (op === 'pull-rebase') {
-        const res = await driver.pull(repo, { rebase: true })
-        notify.success(res.message || t('git.operations.pullSuccess') || '拉取成功 (Rebase)')
       } else {
-        const res = await driver.pull(repo)
-        notify.success(res.message || t('git.operations.pullSuccess') || '拉取成功 (Pull)')
+        await driver.fetch(repo, { all: true, prune: true }).catch(() => {})
+        if (op === 'pull-ff-only') {
+          const res = await driver.pull(repo, { ffOnly: true })
+          notify.success(res.message || t('git.operations.pullSuccess') || '拉取成功 (Fast-forward only)')
+        } else if (op === 'pull-rebase') {
+          const res = await driver.pull(repo, { rebase: true })
+          notify.success(res.message || t('git.operations.pullSuccess') || '拉取成功 (Rebase)')
+        } else {
+          const res = await driver.pull(repo)
+          notify.success(res.message || t('git.operations.pullSuccess') || '拉取成功 (Pull)')
+        }
       }
       await onRefresh()
     } catch (error) {

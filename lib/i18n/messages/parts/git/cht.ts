@@ -330,6 +330,7 @@ export const gitCht: GitMessages = {
     pullSuccess: '已拉取最新更改',
     fetchSuccess: '已抓取遠端更新',
     fetchRemoteAction: '抓取此遠端 (git fetch --prune {remote})',
+    pullRemoteAction: '拉取此遠端 ({remote})',
     fetchingRemote: '正在抓取 {remote}...',
     fetchRemoteSuccess: '已完成抓取 {remote}',
     pullRemoteFfAction: '快進拉取此遠端 (git pull --ff-only {remote})',

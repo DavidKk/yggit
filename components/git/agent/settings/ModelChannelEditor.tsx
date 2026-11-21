@@ -113,14 +113,14 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
   const channelFilter = useMemo(() => draft.filter || { whitelist: [], blacklist: [] }, [draft.filter])
 
   const availableModels = useMemo(() => {
-    // When remote models are successfully fetched from the upstream endpoint,
-    // exclusively display the actual models returned by the server, rather than hardcoded presets.
-    const baseList = remoteModels.length > 0 ? [...remoteModels] : [...(preset.models || [])]
+    // Exclusively display remote models returned by the server or user-entered model.
+    // Hardcoded preset models list is removed per UX requirement ("将预置模型清单的列表去掉，先填 APP KEY 再选模型").
+    const baseList: Array<{ id: string; name: string }> = remoteModels.length > 0 ? [...remoteModels] : []
     if (config.model && !baseList.some((item) => item.id === config.model)) {
       baseList.unshift({ id: config.model, name: config.model })
     }
     return filterAllowedModels(baseList, channelFilter)
-  }, [config.model, preset.models, remoteModels, channelFilter])
+  }, [config.model, remoteModels, channelFilter])
 
   const isModelBlocked = Boolean(config.model.trim()) && !isModelAllowed(config.model.trim(), channelFilter)
   const filterConflicts = getModelFilterConflicts(channelFilter)
@@ -210,7 +210,7 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
     }
     if (preset.requiresKey && !config.apiKey) {
       setModelsFetchFailed(true)
-      setModelsFetchMsg(`${preset.name} 需先在下方填写 API 密钥，才能拉取在线模型`)
+      setModelsFetchMsg(`${preset.name} 需先在上方填写 API 密钥，才能拉取在线模型`)
       return
     }
     setFetchingModels(true)
@@ -412,13 +412,44 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
               </div>
             </div>
 
-            {/* Row 5: Default Model with InputSuggestion, Fetch Action, and zero-displacement attached error */}
+            {/* Row 5: API Key (Placed before Model Selection) */}
+            {showApiKeyField && (
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 items-center">
+                <div className="md:col-span-5 min-w-0">
+                  <label htmlFor="agent-api-key" className="text-xs font-semibold text-ink">
+                    {t('gitAgent.apiKey')}
+                  </label>
+                  <p className="text-xs text-ink-soft leading-relaxed mt-0.5">仅在客户端内存暂存，刷新即清空。</p>
+                </div>
+                <div className="md:col-span-7 min-w-0 max-w-[460px] md:ml-auto w-full">
+                  <ConfiguredSecretInput
+                    key={config.provider}
+                    configured={Boolean(draft.config.apiKey) && !clearKey}
+                    value={keyDraft}
+                    onChange={(value) => {
+                      setKeyDraft(value)
+                      setTestState('idle')
+                      setTestTooltip('')
+                      setError('')
+                    }}
+                    onClear={() => {
+                      setKeyDraft('')
+                      setClearKey(true)
+                      setTestState('idle')
+                      setTestTooltip('')
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Row 6: Default Model with InputSuggestion, Fetch Action, and zero-displacement attached error */}
             <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 items-center">
               <div className="md:col-span-5 min-w-0">
                 <label htmlFor="agent-model-id" className="text-xs font-semibold text-ink">
                   {t('gitAgent.defaultModel') || '默认模型'}
                 </label>
-                <p className="text-xs text-ink-soft leading-relaxed mt-0.5">预设规格或输入自定义模型代码。</p>
+                <p className="text-xs text-ink-soft leading-relaxed mt-0.5">从远程拉取可用清单或直接输入模型代码。</p>
               </div>
               <div className="md:col-span-7 min-w-0 max-w-[460px] md:ml-auto w-full flex flex-col gap-1">
                 {/* Form element with integrated zero-displacement bottom error */}
@@ -434,7 +465,7 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
                       setModelsFetchMsg('')
                     }}
                     options={availableModels.map((m) => ({ value: m.id, label: m.name }))}
-                    placeholder="选择或输入模型 ID（如 gpt-4o）"
+                    placeholder={preset.requiresKey && !config.apiKey ? '请先填写上方 API Key，再拉取或输入模型 ID' : '点击右侧按钮拉取，或直接输入模型 ID'}
                     action={{
                       icon: <AiOutlineFileSync className={cn('size-3.5', fetchingModels && 'animate-spin')} />,
                       title: '从远程接口动态拉取模型列表',
@@ -471,37 +502,6 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
                 )}
               </div>
             </div>
-
-            {/* Row 6: API Key */}
-            {showApiKeyField && (
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 items-center">
-                <div className="md:col-span-5 min-w-0">
-                  <label htmlFor="agent-api-key" className="text-xs font-semibold text-ink">
-                    {t('gitAgent.apiKey')}
-                  </label>
-                  <p className="text-xs text-ink-soft leading-relaxed mt-0.5">仅在客户端内存暂存，刷新即清空。</p>
-                </div>
-                <div className="md:col-span-7 min-w-0 max-w-[460px] md:ml-auto w-full">
-                  <ConfiguredSecretInput
-                    key={config.provider}
-                    configured={Boolean(draft.config.apiKey) && !clearKey}
-                    value={keyDraft}
-                    onChange={(value) => {
-                      setKeyDraft(value)
-                      setTestState('idle')
-                      setTestTooltip('')
-                      setError('')
-                    }}
-                    onClear={() => {
-                      setKeyDraft('')
-                      setClearKey(true)
-                      setTestState('idle')
-                      setTestTooltip('')
-                    }}
-                  />
-                </div>
-              </div>
-            )}
           </fieldset>
 
           {/* Model Whitelist & Blacklist Follows Model Channel */}

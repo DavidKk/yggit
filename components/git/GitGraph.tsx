@@ -964,8 +964,7 @@ function GitGraphComponent({
               const isMerge = commit.parents.length > 1
               const isConflictedMerge = isMerge && Boolean(conflicts?.[commit.hash]?.hasConflict)
               const nodeRadius = isMerge ? (selected ? 8.5 : 4) : selected ? 12.5 : isHead ? 10 : 8
-              const minNodeX = (isMerge ? MERGE_NODE_DOT : NODE_DOT) / 2 + 8
-              const nodeX = Math.max(minNodeX + (graphEdge.scrollLeft || 0), xAt(point?.lane ?? 0))
+              const nodeX = xAt(point?.lane ?? 0)
               return (
                 <li
                   key={commit.hash}
@@ -1139,11 +1138,11 @@ function GitGraphComponent({
             ref={graphScrollRef}
             data-git-graph-pan
             className="pointer-events-none absolute top-0 left-[var(--git-branch-w)] z-[2] w-[var(--git-graph-w)] overflow-x-auto overflow-y-visible [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-            style={{ height: scene.height + 24 }}
+            style={{ height: scene.height }}
             onScroll={syncGraphEdge}
           >
-            <div className="relative" style={{ width: contentWidth, height: scene.height + 24 }}>
-              <svg className="pointer-events-none absolute inset-0 overflow-visible" width={contentWidth} height={scene.height + 24} aria-hidden>
+            <div className="relative" style={{ width: contentWidth, height: scene.height }}>
+              <svg className="pointer-events-none absolute inset-0 overflow-visible" width={contentWidth} height={scene.height} aria-hidden>
                 <GraphDefs strokes={scene.strokes} />
                 <GraphStrokes strokes={scene.strokes} lineageHashes={lineageHashes} spotlightHashes={spotlightHashes} />
                 {commits.map((commit, index) => {
@@ -1159,10 +1158,8 @@ function GitGraphComponent({
                   const isCommitCurrent = isCommitCurrentBranch(commit, chips, checkedOut, headIndex, index, currentBranch)
                   const color = laneColor(point.color)
                   const nodeRadius = (isMerge ? MERGE_NODE_DOT : NODE_DOT) / 2
-                  const minNodeX = nodeRadius + 8
-                  const scrollLeft = graphEdge.scrollLeft || 0
-                  const nodeX = Math.max(minNodeX + scrollLeft, xAt(point.lane))
-                  const x1 = scrollLeft
+                  const nodeX = xAt(point.lane)
+                  const x1 = 0
                   const x2 = nodeX - nodeRadius
                   if (x2 <= x1) return null
                   return (
@@ -1203,7 +1200,7 @@ function GitGraphComponent({
                 if (!stash) return null
                 const tint = mark.color || 'var(--accent)'
                 const isSelected = selectedHash === stash.hash
-                const markX = Math.max(NODE_DOT / 2 + 8 + (graphEdge.scrollLeft || 0), mark.x)
+                const markX = mark.x
                 return (
                   <span
                     key={mark.key}
@@ -1246,9 +1243,7 @@ function GitGraphComponent({
                 const isSelected = selectedHash === commit.hash
                 const chips = refChips(commit.refs, remoteNames)
                 const branch = branchAt.get(commit.hash) || ''
-                const nodeRadius = (isMerge ? MERGE_NODE_DOT : NODE_DOT) / 2
-                const minNodeX = nodeRadius + 8
-                const nodeX = Math.max(minNodeX + (graphEdge.scrollLeft || 0), xAt(point.lane))
+                const nodeX = xAt(point.lane)
                 return (
                   <span
                     key={commit.hash}

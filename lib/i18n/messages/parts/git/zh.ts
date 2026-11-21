@@ -342,6 +342,7 @@ export const gitZh: GitMessages = {
     pullSuccess: '拉取成功',
     fetchSuccess: '抓取完成',
     fetchRemoteAction: '抓取此远程 (git fetch --prune {remote})',
+    pullRemoteAction: '拉取此远程 ({remote})',
     fetchingRemote: '正在抓取 {remote}...',
     fetchRemoteSuccess: '已完成抓取 {remote}',
     pullRemoteFfAction: '快进拉取此远程 (git pull --ff-only {remote})',

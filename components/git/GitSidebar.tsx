@@ -27,7 +27,6 @@ import {
   LuInbox,
   LuPencil,
   LuPlus,
-  LuRefreshCw,
   LuTag,
   LuText,
   LuTrash2,
@@ -213,8 +212,6 @@ export function GitSidebar({
   selection,
   width,
   remoteUpdates = [],
-  remoteProbing = false,
-  onProbeRemotes,
   onSelect,
   onOpenRepo,
   onCheckoutBranch,
@@ -890,31 +887,16 @@ export function GitSidebar({
     const expanded = openRemotes[group.source] ?? remoteDefault
     const items: FloatingMenuItem[] = [
       {
-        key: 'fetch-remote',
-        label: (t('git.operations.fetchRemoteAction') || '抓取此远程 (git fetch --prune {remote})').replace('{remote}', group.source),
-        icon: <LuRefreshCw className="size-3.5 shrink-0 text-accent" />,
-        onSelect: async () => {
-          try {
-            notify.info((t('git.operations.fetchingRemote') || '正在抓取 {remote}...').replace('{remote}', group.source))
-            const driver = getGitDriver()
-            const res = await driver.fetch(view.repo, { remote: group.source, prune: true })
-            notify.success(res.message || (t('git.operations.fetchRemoteSuccess') || '已完成抓取 {remote}').replace('{remote}', group.source))
-            await onRefresh?.()
-          } catch (err) {
-            notify.error(err instanceof Error ? err.message : '抓取失败')
-          }
-        },
-      },
-      {
-        key: 'pull-remote-ff',
-        label: (t('git.operations.pullRemoteFfAction') || '快进拉取此远程 (git pull --ff-only {remote})').replace('{remote}', group.source),
-        icon: <LuArrowDownToLine className="size-3.5 shrink-0 text-ok" />,
+        key: 'pull-remote',
+        label: (t('git.operations.pullRemoteAction') || '拉取此远程 ({remote})').replace('{remote}', group.source),
+        icon: <LuArrowDownToLine className="size-3.5 shrink-0 text-accent" />,
         onSelect: async () => {
           try {
             notify.info((t('git.operations.pullingRemote') || '正在拉取 {remote}...').replace('{remote}', group.source))
             const driver = getGitDriver()
+            await driver.fetch(view.repo, { remote: group.source, prune: true })
             const res = await driver.pull(view.repo, { remote: group.source, ffOnly: true })
-            notify.success(res.message || t('git.operations.pullSuccess') || '拉取成功 (Fast-forward only)')
+            notify.success(res.message || t('git.operations.pullSuccess') || '拉取成功')
             await onRefresh?.()
           } catch (err) {
             notify.error(err instanceof Error ? err.message : '拉取失败')
@@ -963,7 +945,6 @@ export function GitSidebar({
       rows: SidebarRow[]
       notice?: number
       expand?: { allOpen: boolean; disabled: boolean; onToggle: () => void }
-      probe?: boolean
       searchPlaceholder: string
     }> => [
       {
@@ -1005,7 +986,6 @@ export function GitSidebar({
         icon: LuCloud,
         searchPlaceholder: t('git.sidebar.search.remote'),
         notice: remoteUpdates.length,
-        probe: true,
         expand: {
           allOpen: remoteAllOpen,
           disabled: remoteTrees.length === 0 && remoteFolderIds.length === 0,
@@ -1196,8 +1176,6 @@ export function GitSidebar({
       filteredTags,
       filteredWorktrees,
       filteredSubmodules,
-      remoteProbing,
-      onProbeRemotes,
     ]
   )
 
@@ -1277,19 +1255,6 @@ export function GitSidebar({
                       : 'pointer-events-none opacity-0 group-hover/sec:pointer-events-auto group-hover/sec:opacity-100 focus-within:pointer-events-auto focus-within:opacity-100'
                   )}
                 >
-                  {section.probe && onProbeRemotes ? (
-                    <Button
-                      variant="plain"
-                      size="icon"
-                      className="size-6 shrink-0 text-ink-soft hover:enabled:bg-[var(--overlay-08)]"
-                      aria-label={t('git.sidebar.probeRemote')}
-                      tooltip={t('git.sidebar.probeRemoteTooltip')}
-                      loading={remoteProbing}
-                      onClick={onProbeRemotes}
-                    >
-                      <LuRefreshCw className="size-3.5" aria-hidden />
-                    </Button>
-                  ) : null}
                   {section.expand && !section.expand.disabled ? (
                     <Button
                       variant="plain"

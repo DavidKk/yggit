@@ -235,10 +235,13 @@ function PlainLines({
             )}
           >
             <span className="w-12 shrink-0 pr-2 text-right text-ink-soft select-none font-mono">{lineNum}</span>
-            <span className="min-w-0 flex-1 whitespace-pre text-ink">{highlightMatch(line || ' ', searchNeedle, isActive)}</span>
-            {isHovered && blame && (
+            <span className="shrink-0 whitespace-pre text-ink">{highlightMatch(line || ' ', searchNeedle, isActive)}</span>
+            {blame && (
               <span
-                className="ml-auto pl-6 pr-3 text-[11px] text-ink-soft/75 select-none font-sans shrink-0 pointer-events-none truncate italic"
+                className={cn(
+                  'ml-auto pl-6 pr-3 text-[11px] text-ink-soft/75 select-none font-sans shrink-0 pointer-events-none truncate italic transition-opacity duration-150',
+                  isHovered ? 'opacity-100' : 'opacity-0 group-hover/coderow:opacity-100'
+                )}
                 title={`${blame.author} (${blame.hash.slice(0, 7)}): ${blame.summary}`}
               >
                 {blame.author}, {formatCommitAgo(blame.date, locale)} · {blame.summary}
@@ -295,12 +298,15 @@ export function GitHighlightedCode({ content, path, searchNeedle, activeIndex, b
             )}
           >
             <span className="w-12 shrink-0 pr-2 text-right text-ink-soft select-none font-mono">{lineNum}</span>
-            <span className="min-w-0 flex-1 whitespace-pre text-ink">
+            <span className="shrink-0 whitespace-pre text-ink">
               <GitTokenSpans tokens={line} text="" searchNeedle={searchNeedle} isActiveLine={isActive} />
             </span>
-            {isHovered && blame && (
+            {blame && (
               <span
-                className="ml-auto pl-6 pr-3 text-[11px] text-ink-soft/75 select-none font-sans shrink-0 pointer-events-none truncate italic"
+                className={cn(
+                  'ml-auto pl-6 pr-3 text-[11px] text-ink-soft/75 select-none font-sans shrink-0 pointer-events-none truncate italic transition-opacity duration-150',
+                  isHovered ? 'opacity-100' : 'opacity-0 group-hover/coderow:opacity-100'
+                )}
                 title={`${blame.author} (${blame.hash.slice(0, 7)}): ${blame.summary}`}
               >
                 {blame.author}, {formatCommitAgo(blame.date, locale)} · {blame.summary}
@@ -313,9 +319,9 @@ export function GitHighlightedCode({ content, path, searchNeedle, activeIndex, b
   )
 }
 
-export function gitDiffLineClass(kind: string, highlighted: boolean): string {
+export function gitDiffLineClass(kind: string, highlighted: boolean, wrap = false): string {
   return cn(
-    'min-w-0 flex-1 whitespace-pre',
+    wrap ? 'min-w-0 flex-1 whitespace-pre-wrap break-all' : 'shrink-0 whitespace-pre',
     kind === 'add' && 'bg-[color-mix(in_oklab,var(--ok)_16%,transparent)]',
     kind === 'del' && 'bg-[color-mix(in_oklab,var(--fail)_16%,transparent)]',
     kind === 'meta' && 'text-ink-soft',
@@ -331,7 +337,7 @@ export function GitDiffCodeText({
   tokens,
   searchNeedle,
   isActiveLine,
-  wrap,
+  wrap = false,
   diffRanges,
 }: {
   kind: string
@@ -345,7 +351,7 @@ export function GitDiffCodeText({
   const highlighted = Boolean(tokens && tokens.length > 0)
   const diffKind = kind === 'add' ? 'add' : kind === 'del' ? 'del' : undefined
   return (
-    <span className={cn(gitDiffLineClass(kind, highlighted), wrap && 'whitespace-pre-wrap break-all')}>
+    <span className={gitDiffLineClass(kind, highlighted, wrap)}>
       <GitTokenSpans tokens={tokens} text={text} searchNeedle={searchNeedle} isActiveLine={isActiveLine} diffRanges={diffRanges} diffKind={diffKind} />
     </span>
   )

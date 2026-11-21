@@ -322,6 +322,7 @@ export type GitMessages = {
     pullSuccess: string
     fetchSuccess: string
     fetchRemoteAction?: string
+    pullRemoteAction?: string
     fetchingRemote?: string
     fetchRemoteSuccess?: string
     pullRemoteFfAction?: string

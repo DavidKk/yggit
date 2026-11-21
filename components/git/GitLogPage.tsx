@@ -144,8 +144,7 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
   const lineageSet = useMemo(() => (lineageHashes && lineageHashes.length > 0 ? new Set(lineageHashes) : null), [lineageHashes])
   const [sidebarWidth, setSidebarWidth] = useGitUiPref('layout.sidebarWidth', 256, isPositiveNumber)
   const [treeWidth, setTreeWidth] = useGitUiPref('layout.treeWidth', 320, isPositiveNumber)
-  const [remoteCheck, setRemoteCheck] = useState<GitRemoteCheck | null>(null)
-  const [remoteProbing, setRemoteProbing] = useState(false)
+  const [remoteCheck] = useState<GitRemoteCheck | null>(null)
   const [copiedHeaderShare, setCopiedHeaderShare] = useState(false)
   const [renameModal, setRenameModal] = useState<{ open: boolean; oldName: string }>({ open: false, oldName: '' })
   const [createBranchModal, setCreateBranchModal] = useState<{ open: boolean; startPoint?: string; currentBranch?: string }>({ open: false })
@@ -313,48 +312,6 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
     window.addEventListener('yggit:ui_navigate', onUiNavigate)
     return () => window.removeEventListener('yggit:ui_navigate', onUiNavigate)
   }, [])
-
-  const probeRemotes = useCallback(async (repo: string, force = false) => {
-    if (getDriverMode() === 'edge') return
-    setRemoteProbing(true)
-    try {
-      const params = new URLSearchParams({ repo })
-      if (force) params.set('refresh', '1')
-      const response = await fetch(`/api/git/remote-check?${params.toString()}`)
-      const body = (await response.json()) as GitRemoteCheck & { ok?: boolean }
-      if (!response.ok || body.ok === false) return
-      setRemoteCheck(body)
-    } catch {
-      /* keep last successful probe */
-    } finally {
-      setRemoteProbing(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!view?.repo) {
-      setRemoteCheck(null)
-      return
-    }
-    const repo = view.repo
-    // Defer initial probe by 2.5s to prevent blocking initial commit diff and file rendering
-    const initialTimer = window.setTimeout(() => {
-      void probeRemotes(repo)
-    }, 2500)
-
-    const timer = window.setInterval(() => {
-      if (document.visibilityState === 'visible') void probeRemotes(repo)
-    }, 120_000)
-    const onVisible = () => {
-      if (document.visibilityState === 'visible') void probeRemotes(repo)
-    }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => {
-      window.clearTimeout(initialTimer)
-      window.clearInterval(timer)
-      document.removeEventListener('visibilitychange', onVisible)
-    }
-  }, [probeRemotes, view?.repo])
 
   const viewRef = useRef(view)
   viewRef.current = view
@@ -938,6 +895,7 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
       setProgressStage(`正在拉取分支 ${branchName}...`)
       try {
         const driver = getGitDriver()
+        await driver.fetch(view.repo, { prune: true }).catch(() => {})
         const res = await driver.pull(view.repo, { branch: branchName, ffOnly: true })
         if (res.ok) {
           notification.success(res.message || '拉取成功')
@@ -1511,8 +1469,6 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                   selection={selection}
                   width={sidebarWidth}
                   remoteUpdates={remoteCheck?.updates || []}
-                  remoteProbing={remoteProbing}
-                  onProbeRemotes={() => void probeRemotes(view.repo, true)}
                   onSelect={select}
                   onOpenRepo={(repo) => void load(repo)}
                   onAddWorktree={handleAddWorktree}

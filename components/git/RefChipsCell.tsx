@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { LuCloud, LuDiamond, LuMonitor, LuTag } from 'react-icons/lu'
+import { LuCloud, LuGitBranch, LuMonitor, LuTag } from 'react-icons/lu'
 
 import { useT } from '@/components/i18n/LocaleProvider'
 import { useNotification } from '@/components/notification/useNotification'
@@ -24,7 +24,7 @@ const BADGE_H = DOT
 type RefChip = { name: string; label: string; kind: 'head' | 'local' | 'remote' | 'tag' }
 
 function RefChipView({ chip, checkedOut, color, dimmed = false, full = false }: { chip: RefChip; checkedOut: Set<string>; color?: string; dimmed?: boolean; full?: boolean }) {
-  const Icon = chip.kind === 'tag' ? LuTag : chip.kind === 'remote' ? LuCloud : checkedOut.has(chip.name) ? LuMonitor : LuDiamond
+  const Icon = chip.kind === 'tag' ? LuTag : chip.kind === 'remote' ? LuCloud : checkedOut.has(chip.name) ? LuMonitor : LuGitBranch
   const tint = color || 'var(--accent)'
   return (
     <span

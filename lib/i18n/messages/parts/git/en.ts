@@ -342,6 +342,7 @@ export const gitEn: GitMessages = {
     pullSuccess: 'Pulled successfully',
     fetchSuccess: 'Fetch completed',
     fetchRemoteAction: 'Fetch Remote (git fetch --prune {remote})',
+    pullRemoteAction: 'Pull remote ({remote})',
     fetchingRemote: 'Fetching {remote}...',
     fetchRemoteSuccess: 'Fetched {remote}',
     pullRemoteFfAction: 'Pull Fast-forward (git pull --ff-only {remote})',

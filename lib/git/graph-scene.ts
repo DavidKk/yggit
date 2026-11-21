@@ -123,14 +123,17 @@ export function graphScene(commits: GitCommit[], worktree: GitWorktree | null, s
     rails = new Map()
     let parentIndex = 0
     const point = rowPoints[index]
+    const isLastRow = index === rows.length - 1
     const yTop = index * ROW
     const yMid = yTop + ROW / 2
-    const yBot = yTop + ROW
+    const yBot = isLastRow ? yMid : yTop + ROW
     const hash = nodes[index].hash
     point.links.forEach((link, linkIndex) => {
+      if (isLastRow && link.from === point.lane) return
       const x1 = xAt(link.from)
       const x2 = xAt(link.to)
       const startY = link.from === point.lane ? yMid : yTop
+      if (startY >= yBot) return
       const mid = (yMid + yBot) / 2
       const isCurve = link.from !== link.to
       const startColor = link.from === point.lane ? point.color : link.color

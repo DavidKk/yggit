@@ -116,13 +116,16 @@ export function GitCodePane({
     observer?.observe(el)
     return () => observer?.disconnect()
   }, [])
+  const hasBlame = Boolean(blameMap && Object.keys(blameMap).length > 0)
   const maxLineLength = useMemo(() => {
     let max = 0
     for (let i = 0; i < rows.length; i++) {
-      if (rows[i].text.length > max) max = rows[i].text.length
+      const lineNum = rows[i].number
+      const lineLen = rows[i].text.length + (hasBlame && lineNum !== undefined && blameMap?.[lineNum] ? 45 : 0)
+      if (lineLen > max) max = lineLen
     }
     return max
-  }, [rows])
+  }, [rows, hasBlame, blameMap])
 
   useEffect(() => {
     setQuery('')
@@ -235,7 +238,7 @@ export function GitCodePane({
         ) : !rows.length ? (
           <p className="p-3 text-xs text-ink-soft">{t('git.diff.missingVersion')}</p>
         ) : wordWrap ? (
-          <div className="min-w-0 w-full py-1" style={{ paddingBottom: rows.length > 0 ? Math.max(0, height - 20) : 0 }} onMouseLeave={() => setHoveredLineIndex(null)}>
+          <div className="min-w-0 w-full" style={{ paddingBottom: rows.length > 0 ? Math.max(0, height - 20) : 0 }} onMouseLeave={() => setHoveredLineIndex(null)}>
             {rows.map((row, index) => {
               const active = Boolean(showFind && needle && matches[match] === index)
               const isHovered = hoveredLineIndex === index
@@ -249,7 +252,7 @@ export function GitCodePane({
                   data-code-line={index}
                   onMouseEnter={() => setHoveredLineIndex(index)}
                   className={cn(
-                    'group/coderow relative flex min-w-0 transition-colors leading-5 items-start',
+                    'group/coderow relative flex w-full min-w-full transition-colors leading-5 items-start',
                     row.kind === 'add' && 'bg-[color-mix(in_oklab,var(--ok)_12%,transparent)]',
                     row.kind === 'del' && 'bg-[color-mix(in_oklab,var(--fail)_12%,transparent)]',
                     active && 'bg-accent/20 ring-1 ring-inset ring-accent',
@@ -288,9 +291,12 @@ export function GitCodePane({
                       </button>
                     </span>
                   )}
-                  {isHovered && blame && !isAgentLine && (
+                  {blame && !isAgentLine && (
                     <span
-                      className="ml-auto pl-6 pr-3 text-[11px] text-ink-soft/75 select-none font-sans shrink-0 pointer-events-none truncate italic self-start leading-5"
+                      className={cn(
+                        'ml-auto pl-6 pr-3 text-[11px] text-ink-soft/75 select-none font-sans shrink-0 pointer-events-none truncate italic self-start leading-5 transition-opacity duration-150',
+                        isHovered ? 'opacity-100' : 'opacity-0 group-hover/coderow:opacity-100'
+                      )}
                       title={`${blame.author} (${blame.hash.slice(0, 7)}): ${blame.summary}`}
                     >
                       {blame.author}, {formatCommitAgo(blame.date, locale)} · {blame.summary}
@@ -301,8 +307,21 @@ export function GitCodePane({
             })}
           </div>
         ) : (
-          <div style={{ minWidth: maxLineLength > 0 ? `calc(${maxLineLength + 6}ch + 1.5rem)` : '100%', width: 'max-content' }} onMouseLeave={() => setHoveredLineIndex(null)}>
-            <div style={{ paddingTop: start * 20, paddingBottom: Math.max(0, (rows.length - end) * 20) + (rows.length > 0 ? Math.max(0, height - 20) : 0) }}>
+          <div
+            className="w-full min-w-full"
+            style={{
+              minWidth: '100%',
+              width: maxLineLength > 0 ? `max(100%, calc(${maxLineLength + 6}ch + 1.5rem))` : '100%',
+            }}
+            onMouseLeave={() => setHoveredLineIndex(null)}
+          >
+            <div
+              className="w-full min-w-full"
+              style={{
+                paddingTop: start * 20,
+                paddingBottom: Math.max(0, (rows.length - end) * 20) + (rows.length > 0 ? Math.max(0, height - 20) : 0),
+              }}
+            >
               {rows.slice(start, end).map((row, offset) => {
                 const index = start + offset
                 const active = Boolean(showFind && needle && matches[match] === index)
@@ -317,7 +336,7 @@ export function GitCodePane({
                     data-code-line={index}
                     onMouseEnter={() => setHoveredLineIndex(index)}
                     className={cn(
-                      'group/coderow relative flex h-5 w-max min-w-full whitespace-pre transition-colors leading-5 items-center',
+                      'group/coderow relative flex h-5 w-full min-w-full whitespace-pre transition-colors leading-5 items-center',
                       row.kind === 'add' && 'bg-[color-mix(in_oklab,var(--ok)_12%,transparent)]',
                       row.kind === 'del' && 'bg-[color-mix(in_oklab,var(--fail)_12%,transparent)]',
                       active && 'bg-accent/20 ring-1 ring-accent ring-inset',
@@ -356,9 +375,12 @@ export function GitCodePane({
                         </button>
                       </span>
                     )}
-                    {isHovered && blame && !isAgentLine && (
+                    {blame && !isAgentLine && (
                       <span
-                        className="ml-auto pl-6 pr-3 text-[11px] text-ink-soft/75 select-none font-sans shrink-0 pointer-events-none truncate italic"
+                        className={cn(
+                          'ml-auto pl-6 pr-3 text-[11px] text-ink-soft/75 select-none font-sans shrink-0 pointer-events-none truncate italic transition-opacity duration-150',
+                          isHovered ? 'opacity-100' : 'opacity-0 group-hover/coderow:opacity-100'
+                        )}
                         title={`${blame.author} (${blame.hash.slice(0, 7)}): ${blame.summary}`}
                       >
                         {blame.author}, {formatCommitAgo(blame.date, locale)} · {blame.summary}
