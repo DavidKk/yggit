@@ -169,6 +169,10 @@ async function readWorktreeChanges(repo: string, filesOnly: boolean, filePath: s
   return { hash: GIT_WORKTREE_HASH, files: changed, patch: '', truncated: false }
 }
 
+const commitChangesCache = new Map<string, GitCommitChanges>()
+const inFlightCommitChanges = new Map<string, Promise<GitCommitChanges>>()
+const MAX_SERVER_CACHE_SIZE = 300
+
 export async function readCommitChanges(repoInput: string | undefined, hash: string, filesOnly = false, filePath = '', allFiles = false): Promise<GitCommitChanges> {
   const revision = hash.trim()
   const repo = await resolveGitRepo(repoInput)
@@ -181,58 +185,84 @@ export async function readCommitChanges(repoInput: string | undefined, hash: str
   }
   if (!HASH.test(revision)) throw new Error('无效的提交')
   const picked = filePath ? assertFilePath(filePath) : ''
+
+  const cacheKey = `${repo}:${revision}:${filesOnly ? 1 : 0}:${picked}:${allFiles ? 1 : 0}`
+  const cached = commitChangesCache.get(cacheKey)
+  if (cached) return cached
+
+  const inFlight = inFlightCommitChanges.get(cacheKey)
+  if (inFlight) return inFlight
+
   const statusArgs = ['diff-tree', '--root', '--diff-merges=first-parent', '--no-commit-id', '--name-status', '-r', '--find-renames', revision]
-  try {
-    if (picked) {
-      const [patchText, blob] = await Promise.all([
-        git(repo, ['show', '--format=', '--unified=3', '--diff-merges=first-parent', revision, '--', picked]),
-        gitBuffer(repo, ['show', `${revision}:${picked}`]).then(
-          (buffer) => ({ buffer, missing: false as const }),
-          () => ({ buffer: Buffer.alloc(0), missing: true as const })
-        ),
-      ])
-      const truncated = patchText.length > PATCH_LIMIT
-      const forceBinary = IMAGE_EXT.test(picked)
-      const binary = blob.missing ? false : forceBinary || looksBinary(blob.buffer)
-      const text = binary || blob.missing ? '' : blob.buffer.toString('utf8')
-      const contentTruncated = !blob.missing && !binary && text.length > PATCH_LIMIT
-      return {
-        hash: revision,
-        files: [],
-        patch: truncated ? patchText.slice(0, PATCH_LIMIT) : patchText,
-        truncated,
-        content: blob.missing || binary ? undefined : contentTruncated ? text.slice(0, PATCH_LIMIT) : text,
-        contentMissing: blob.missing,
-        contentBinary: binary,
-        contentTruncated,
+  const task = (async () => {
+    try {
+      let result: GitCommitChanges
+      if (picked) {
+        const [patchText, blob] = await Promise.all([
+          git(repo, ['show', '--format=', '--unified=3', '--diff-merges=first-parent', revision, '--', picked]),
+          gitBuffer(repo, ['show', `${revision}:${picked}`]).then(
+            (buffer) => ({ buffer, missing: false as const }),
+            () => ({ buffer: Buffer.alloc(0), missing: true as const })
+          ),
+        ])
+        const truncated = patchText.length > PATCH_LIMIT
+        const forceBinary = IMAGE_EXT.test(picked)
+        const binary = blob.missing ? false : forceBinary || looksBinary(blob.buffer)
+        const text = binary || blob.missing ? '' : blob.buffer.toString('utf8')
+        const contentTruncated = !blob.missing && !binary && text.length > PATCH_LIMIT
+        result = {
+          hash: revision,
+          files: [],
+          patch: truncated ? patchText.slice(0, PATCH_LIMIT) : patchText,
+          truncated,
+          content: blob.missing || binary ? undefined : contentTruncated ? text.slice(0, PATCH_LIMIT) : text,
+          contentMissing: blob.missing,
+          contentBinary: binary,
+          contentTruncated,
+        }
+      } else if (filesOnly) {
+        const statusText = await git(repo, statusArgs)
+        const changed = parseNameStatus(statusText)
+        if (!allFiles) {
+          result = { hash: revision, files: changed, patch: '', truncated: false }
+        } else {
+          const treeText = await git(repo, ['ls-tree', '-r', '--name-only', revision])
+          const byPath = new Map(changed.map((file) => [file.path, file]))
+          const files: GitFileChange[] = treeText
+            .split('\n')
+            .map((path) => path.trim())
+            .filter(Boolean)
+            .map((path) => byPath.get(path) || { status: '', path, oldPath: '' })
+          for (const file of changed) {
+            if (file.status === 'D' && !files.some((item) => item.path === file.path)) files.push(file)
+          }
+          files.sort((left, right) => left.path.localeCompare(right.path))
+          result = { hash: revision, files, patch: '', truncated: false }
+        }
+      } else {
+        const [statusText, patchText] = await Promise.all([git(repo, statusArgs), git(repo, ['show', '--format=', '--unified=3', '--diff-merges=first-parent', revision])])
+        const truncated = patchText.length > PATCH_LIMIT
+        result = {
+          hash: revision,
+          files: parseNameStatus(statusText),
+          patch: truncated ? patchText.slice(0, PATCH_LIMIT) : patchText,
+          truncated,
+        }
       }
-    }
-    if (filesOnly) {
-      const statusText = await git(repo, statusArgs)
-      const changed = parseNameStatus(statusText)
-      if (!allFiles) return { hash: revision, files: changed, patch: '', truncated: false }
-      const treeText = await git(repo, ['ls-tree', '-r', '--name-only', revision])
-      const byPath = new Map(changed.map((file) => [file.path, file]))
-      const files: GitFileChange[] = treeText
-        .split('\n')
-        .map((path) => path.trim())
-        .filter(Boolean)
-        .map((path) => byPath.get(path) || { status: '', path, oldPath: '' })
-      for (const file of changed) {
-        if (file.status === 'D' && !files.some((item) => item.path === file.path)) files.push(file)
+
+      if (commitChangesCache.size >= MAX_SERVER_CACHE_SIZE) {
+        const firstKey = commitChangesCache.keys().next().value
+        if (firstKey) commitChangesCache.delete(firstKey)
       }
-      files.sort((left, right) => left.path.localeCompare(right.path))
-      return { hash: revision, files, patch: '', truncated: false }
+      commitChangesCache.set(cacheKey, result)
+      return result
+    } catch (error) {
+      throw new Error(gitFailure(error))
     }
-    const [statusText, patchText] = await Promise.all([git(repo, statusArgs), git(repo, ['show', '--format=', '--unified=3', '--diff-merges=first-parent', revision])])
-    const truncated = patchText.length > PATCH_LIMIT
-    return {
-      hash: revision,
-      files: parseNameStatus(statusText),
-      patch: truncated ? patchText.slice(0, PATCH_LIMIT) : patchText,
-      truncated,
-    }
-  } catch (error) {
-    throw new Error(gitFailure(error))
-  }
+  })().finally(() => {
+    inFlightCommitChanges.delete(cacheKey)
+  })
+
+  inFlightCommitChanges.set(cacheKey, task)
+  return task
 }

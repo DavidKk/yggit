@@ -29,6 +29,7 @@ import { useAgent } from '@/lib/agent/agent-context'
 import { isModelAllowed } from '@/lib/agent/model-filter'
 import { getAgentProcessingStatus } from '@/lib/agent/status-helper'
 import { copyToClipboard } from '@/lib/clipboard'
+import { saveLastGitUrl } from '@/lib/git/last-git-url'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -188,6 +189,11 @@ export function AgentWorkspace({ repoPath, className }: Props) {
           <Tooltip content={t('gitAgent.settingsTitle')} placement="bottom">
             <Link
               href="/settings/models"
+              onClick={() => {
+                if (typeof window !== 'undefined' && window.location.pathname.startsWith('/git')) {
+                  saveLastGitUrl(window.location.pathname + window.location.search)
+                }
+              }}
               className="flex size-6 items-center justify-center rounded text-ink-soft hover:bg-[var(--overlay-06)] hover:text-ink active:scale-95 transition-all cursor-pointer"
               aria-label={t('gitAgent.settingsTitle')}
             >

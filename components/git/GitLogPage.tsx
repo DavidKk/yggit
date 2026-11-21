@@ -33,6 +33,7 @@ import { readApiErrorMessage } from '@/lib/api-error'
 import { getDriverMode, getGitDriver } from '@/lib/git/driver'
 import type { AddRemoteProjectOptions } from '@/lib/git/driver/types'
 import { isFileSystemAccessSupported } from '@/lib/git/indexeddb-handles'
+import { saveLastGitUrl } from '@/lib/git/last-git-url'
 import { gitSelectionHash } from '@/lib/git/scope'
 import { addTemporaryRepo, parseRemoteUrl } from '@/lib/git/temporary-store'
 import {
@@ -609,6 +610,7 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
       remoteUrl: view.remoteUrl,
       file: selectedFile || undefined,
     })
+    saveLastGitUrl(canonicalUrl)
     const current = window.location.pathname + window.location.search
     if (current !== canonicalUrl) {
       window.history.replaceState(window.history.state, '', canonicalUrl)
@@ -1387,7 +1389,16 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
               <ThemeSwitcher compact />
               <LocaleSwitcher compact />
               <Tooltip content={t('gitAgent.settingsTitle')} placement="bottom">
-                <Link href="/settings/models" className={cn(dropdownTriggerClass, 'px-2')} aria-label={t('gitAgent.settingsTitle')}>
+                <Link
+                  href="/settings/models"
+                  onClick={() => {
+                    if (typeof window !== 'undefined') {
+                      saveLastGitUrl(window.location.pathname + window.location.search)
+                    }
+                  }}
+                  className={cn(dropdownTriggerClass, 'px-2')}
+                  aria-label={t('gitAgent.settingsTitle')}
+                >
                   <LuSettings className="size-4 shrink-0" aria-hidden="true" />
                   <span className="sr-only sm:not-sr-only">{t('gitAgent.settingsTitle')}</span>
                 </Link>

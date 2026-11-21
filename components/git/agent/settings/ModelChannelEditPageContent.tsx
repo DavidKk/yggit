@@ -31,7 +31,7 @@ export function ModelChannelEditPageContent({ profileId, isNew = false }: Props)
   const desc = isNew ? '配置新模型渠道与黑白名单。' : `编辑渠道接口与黑白名单。`
 
   const handleBack = () => {
-    router.push('/settings/models')
+    router.replace('/settings/models')
   }
 
   return (

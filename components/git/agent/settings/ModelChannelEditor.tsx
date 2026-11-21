@@ -258,7 +258,9 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
       onBack()
       return
     }
-    if (router?.push) {
+    if (router?.replace) {
+      router.replace('/settings/models')
+    } else if (router?.push) {
       router.push('/settings/models')
     }
   }

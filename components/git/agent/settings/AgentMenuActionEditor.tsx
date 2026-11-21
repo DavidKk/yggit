@@ -20,7 +20,7 @@ export function AgentMenuActionEditor({ actionId }: { actionId: string }) {
   const isNew = actionId === 'new'
   const [draft, setDraft] = useState<{ label: string; description: string; prompt: string } | null>(null)
   const value = draft ?? { label: action?.label ?? '', description: action?.description ?? '', prompt: action?.prompt ?? '' }
-  const back = () => router.push('/settings/menus')
+  const back = () => router.replace('/settings/menus')
 
   return (
     <SettingsSectionCard title={t(isNew ? 'gitAgent.newAction' : 'gitAgent.editAction')} description={t('gitAgent.menuActionsDesc')}>

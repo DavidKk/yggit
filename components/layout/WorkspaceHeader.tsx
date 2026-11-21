@@ -13,6 +13,7 @@ import { useWorkspaceHeader } from '@/components/layout/WorkspaceHeaderContext'
 import { Tooltip } from '@/components/sk'
 import { dropdownTriggerClass } from '@/components/sk/dropdownMenu'
 import { ThemeSwitcher } from '@/components/theme/ThemeSwitcher'
+import { getLastGitUrl, saveLastGitUrl } from '@/lib/git/last-git-url'
 import { cn } from '@/lib/utils'
 
 export function WorkspaceHeader() {
@@ -21,9 +22,17 @@ export function WorkspaceHeader() {
   const ctx = useWorkspaceHeader()
   const isSettings = pathname.startsWith('/settings')
 
+  React.useEffect(() => {
+    if (typeof window !== 'undefined' && pathname.startsWith('/git')) {
+      saveLastGitUrl(window.location.pathname + window.location.search)
+    }
+  }, [pathname])
+
+  const homeHref = pathname.startsWith('/git') ? '/git' : isSettings ? getLastGitUrl() : '/'
+
   return (
     <header className="flex h-11 shrink-0 items-center gap-3 border-b border-line bg-panel-2/60 px-3 py-1.5">
-      <BrandLogo href={pathname.startsWith('/git') ? '/git' : '/'} className="shrink-0" markClassName="size-7" wordmarkClassName="text-[0.95rem]" />
+      <BrandLogo href={homeHref} className="shrink-0" markClassName="size-7" wordmarkClassName="text-[0.95rem]" />
 
       <span className="h-4 w-px shrink-0 bg-[color-mix(in_oklab,var(--ink)_16%,transparent)]" aria-hidden="true" />
 
@@ -45,6 +54,11 @@ export function WorkspaceHeader() {
         <Tooltip content={t('gitAgent.settingsTitle')} placement="bottom">
           <Link
             href="/settings/models"
+            onClick={() => {
+              if (pathname.startsWith('/git')) {
+                saveLastGitUrl(window.location.pathname + window.location.search)
+              }
+            }}
             className={cn(dropdownTriggerClass, 'px-2', isSettings && 'bg-[color-mix(in_oklab,var(--ink)_9%,transparent)] font-semibold text-accent')}
             aria-label={t('gitAgent.settingsTitle')}
           >

@@ -55,7 +55,7 @@ export function McpServerEditor({ serverId }: McpServerEditorProps) {
   }, [serverId, isNew])
 
   const handleBack = () => {
-    router.push('/settings/mcp')
+    router.replace('/settings/mcp')
   }
 
   // Create new server
@@ -104,7 +104,7 @@ export function McpServerEditor({ serverId }: McpServerEditorProps) {
     } finally {
       await saveMcpServer(newServer)
       setTesting(false)
-      router.push('/settings/mcp')
+      router.replace('/settings/mcp')
     }
   }
 
@@ -179,7 +179,7 @@ export function McpServerEditor({ serverId }: McpServerEditorProps) {
       onConfirm: async () => {
         await deleteMcpServer(server.id)
         notify.success('已移除 MCP Server')
-        router.push('/settings/mcp')
+        router.replace('/settings/mcp')
       },
     })
   }

@@ -66,6 +66,7 @@ export function SettingsSideNav({ activeSection, onSelectSection }: Props) {
             <Tooltip key={item.id} content={item.label} placement="right">
               <Link
                 href={item.href}
+                replace
                 aria-label={item.label}
                 aria-current={isActive ? 'page' : undefined}
                 onClick={() => onSelectSection?.(item.id)}

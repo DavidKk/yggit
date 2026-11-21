@@ -41,8 +41,17 @@ function parseLsRemoteHeads(raw: string, remote: string): Map<string, string> {
   return map
 }
 
+interface RemoteCheckCacheEntry {
+  timestamp: number
+  data: GitRemoteCheck
+}
+
+const remoteCheckCache = new Map<string, RemoteCheckCacheEntry>()
+const inFlightProbes = new Map<string, Promise<GitRemoteCheck>>()
+const PROBE_TTL_MS = 3 * 60 * 1000 // 3 minutes TTL
+
 /** Compare remote tips via `git ls-remote` against local `refs/remotes/*` — no fetch. */
-export async function checkGitRemotes(repoInput?: string): Promise<GitRemoteCheck> {
+export async function checkGitRemotes(repoInput?: string, forceRefresh = false): Promise<GitRemoteCheck> {
   const trimmed = (repoInput || '').trim()
   if (/^https?:\/\//i.test(trimmed) || /^git@/i.test(trimmed)) {
     return {
@@ -53,55 +62,78 @@ export async function checkGitRemotes(repoInput?: string): Promise<GitRemoteChec
     }
   }
   const repo = await resolveGitRepo(repoInput)
-  let remoteNames: string[] = []
-  try {
-    remoteNames = (await git(repo, ['remote'], 8000))
-      .split('\n')
-      .map((item) => item.trim())
-      .filter(Boolean)
-  } catch (error) {
-    throw new Error(gitFailure(error))
+  const cacheKey = repo
+
+  if (!forceRefresh) {
+    const cached = remoteCheckCache.get(cacheKey)
+    if (cached && Date.now() - cached.timestamp < PROBE_TTL_MS) {
+      return cached.data
+    }
+    const inFlight = inFlightProbes.get(cacheKey)
+    if (inFlight) {
+      return inFlight
+    }
   }
 
-  let localText = ''
-  try {
-    localText = await git(repo, ['for-each-ref', 'refs/remotes', '--format=%(refname:short)%00%(objectname)'], 8000)
-  } catch {
-    localText = ''
-  }
-  const local = new Map(parseGitRemotes(localText).map((item) => [item.name, item.tip]))
+  const probePromise = (async () => {
+    let remoteNames: string[] = []
+    try {
+      remoteNames = (await git(repo, ['remote'], 8000))
+        .split('\n')
+        .map((item) => item.trim())
+        .filter(Boolean)
+    } catch (error) {
+      throw new Error(gitFailure(error))
+    }
 
-  const updates: GitRemoteProbe[] = []
-  const errors: Array<{ remote: string; message: string }> = []
+    let localText = ''
+    try {
+      localText = await git(repo, ['for-each-ref', 'refs/remotes', '--format=%(refname:short)%00%(objectname)'], 8000)
+    } catch {
+      localText = ''
+    }
+    const local = new Map(parseGitRemotes(localText).map((item) => [item.name, item.tip]))
 
-  await Promise.all(
-    remoteNames.map(async (remote) => {
-      try {
-        const raw = await git(repo, ['ls-remote', '--heads', remote], 25000)
-        const remoteTips = parseLsRemoteHeads(raw, remote)
-        for (const [name, remoteTip] of remoteTips) {
-          const slash = name.indexOf('/')
-          const branch = slash >= 0 ? name.slice(slash + 1) : name
-          const localTip = local.get(name) || ''
-          if (!localTip) {
-            updates.push({ remote, branch, name, localTip: '', remoteTip, status: 'new' })
-            continue
+    const updates: GitRemoteProbe[] = []
+    const errors: Array<{ remote: string; message: string }> = []
+
+    await Promise.all(
+      remoteNames.map(async (remote) => {
+        try {
+          const raw = await git(repo, ['ls-remote', '--heads', remote], 25000)
+          const remoteTips = parseLsRemoteHeads(raw, remote)
+          for (const [name, remoteTip] of remoteTips) {
+            const slash = name.indexOf('/')
+            const branch = slash >= 0 ? name.slice(slash + 1) : name
+            const localTip = local.get(name) || ''
+            if (!localTip) {
+              updates.push({ remote, branch, name, localTip: '', remoteTip, status: 'new' })
+              continue
+            }
+            if (localTip !== remoteTip) {
+              updates.push({ remote, branch, name, localTip, remoteTip, status: 'ahead' })
+            }
           }
-          if (localTip !== remoteTip) {
-            updates.push({ remote, branch, name, localTip, remoteTip, status: 'ahead' })
-          }
+        } catch (error) {
+          errors.push({ remote, message: gitFailure(error) })
         }
-      } catch (error) {
-        errors.push({ remote, message: gitFailure(error) })
-      }
-    })
-  )
+      })
+    )
 
-  updates.sort((left, right) => left.name.localeCompare(right.name))
-  return {
-    checkedAt: new Date().toISOString(),
-    remotes: remoteNames,
-    updates,
-    errors,
-  }
+    updates.sort((left, right) => left.name.localeCompare(right.name))
+    const result: GitRemoteCheck = {
+      checkedAt: new Date().toISOString(),
+      remotes: remoteNames,
+      updates,
+      errors,
+    }
+
+    remoteCheckCache.set(cacheKey, { timestamp: Date.now(), data: result })
+    return result
+  })().finally(() => {
+    inFlightProbes.delete(cacheKey)
+  })
+
+  inFlightProbes.set(cacheKey, probePromise)
+  return probePromise
 }

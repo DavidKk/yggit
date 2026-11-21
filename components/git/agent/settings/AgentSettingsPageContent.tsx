@@ -9,6 +9,7 @@ import { useT } from '@/components/i18n/LocaleProvider'
 import { LocaleSwitcher } from '@/components/i18n/LocaleSwitcher'
 import { useInWorkspaceHeader, WorkspaceHeaderSlot } from '@/components/layout/WorkspaceHeaderContext'
 import { ThemeSwitcher } from '@/components/theme/ThemeSwitcher'
+import { getLastGitUrl } from '@/lib/git/last-git-url'
 
 import { AgentMenuActionEditor } from './AgentMenuActionEditor'
 import { ContextMenuPreviewToolbar } from './ContextMenuPreviewToolbar'
@@ -57,28 +58,25 @@ export function AgentSettingsPageContent({ section = 'models', menuActionId, ski
 
   const handleBack = () => {
     if (skillId) {
-      router.push('/settings/skills')
+      router.replace('/settings/skills')
       return
     }
     if (mcpServerId) {
-      router.push('/settings/mcp')
+      router.replace('/settings/mcp')
       return
     }
     if (menuActionId) {
-      router.push('/settings/menus')
+      router.replace('/settings/menus')
       return
     }
-    if (typeof window !== 'undefined') {
-      if (window.history.length > 1) {
-        window.history.back()
-        return
-      }
-      if (document.referrer && document.referrer.startsWith(window.location.origin)) {
-        window.location.href = document.referrer
-        return
-      }
-      router.push('/git')
+    const returnTo = searchParams.get('returnTo') || searchParams.get('from')
+    if (returnTo && returnTo.startsWith('/git')) {
+      router.push(returnTo)
+      return
     }
+    // Directly exit settings and return to the active Git session
+    const target = getLastGitUrl()
+    router.push(target)
   }
 
   const sectionMeta: Record<
@@ -174,10 +172,10 @@ export function AgentSettingsPageContent({ section = 'models', menuActionId, ski
                 type="button"
                 onClick={handleBack}
                 className="flex size-8 shrink-0 items-center justify-center rounded-md border border-line bg-panel text-ink-soft hover:bg-[color-mix(in_oklab,var(--ink)_6%,transparent)] hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent active:scale-95 transition-all cursor-pointer"
-                title="返回"
+                title={skillId || mcpServerId || menuActionId ? t('gitAgent.backToModels') || '返回' : t('gitAgent.backToGraph') || '返回图谱'}
               >
                 <LuArrowLeft className="size-4" aria-hidden="true" />
-                <span className="sr-only">返回</span>
+                <span className="sr-only">{skillId || mcpServerId || menuActionId ? t('gitAgent.backToModels') || '返回' : t('gitAgent.backToGraph') || '返回图谱'}</span>
               </button>
               <div className="min-w-0 flex-1">
                 <h1 className="text-xs font-bold text-ink">{displayTitle}</h1>

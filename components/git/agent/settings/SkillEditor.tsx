@@ -68,7 +68,7 @@ export function SkillEditor({ skillId }: SkillEditorProps) {
   }, [skillId, isNew])
 
   const handleBack = () => {
-    router.push('/settings/skills')
+    router.replace('/settings/skills')
   }
 
   // Handle local file selection
@@ -116,7 +116,7 @@ export function SkillEditor({ skillId }: SkillEditorProps) {
 
     await saveSkill(newSkill)
     notify.success(`已添加技能 "${finalName}"`)
-    router.push('/settings/skills')
+    router.replace('/settings/skills')
   }
 
   // Import GitHub skill
@@ -144,7 +144,7 @@ export function SkillEditor({ skillId }: SkillEditorProps) {
         await saveSkill(s)
       }
       notify.success(`成功导入 ${results.length} 个 GitHub Skill`)
-      router.push('/settings/skills')
+      router.replace('/settings/skills')
     } catch (err) {
       notify.error(err instanceof Error ? err.message : '从 GitHub 导入 Skill 失败')
     } finally {
@@ -208,7 +208,7 @@ export function SkillEditor({ skillId }: SkillEditorProps) {
       onConfirm: async () => {
         await deleteSkill(skill.id)
         notify.success('已移除 Skill')
-        router.push('/settings/skills')
+        router.replace('/settings/skills')
       },
     })
   }

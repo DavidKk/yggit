@@ -11,6 +11,7 @@ import { dropdownPopupClass } from '@/components/sk/dropdownMenu'
 import { useAgent } from '@/lib/agent/agent-context'
 import { isModelAllowed } from '@/lib/agent/model-filter'
 import { AGENT_PRESETS } from '@/lib/agent/types'
+import { saveLastGitUrl } from '@/lib/git/last-git-url'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -123,7 +124,12 @@ export function AgentQuickModelPopover({ tabIndex, className }: Props) {
               <Tooltip content={t('gitAgent.settingsTitle')} placement="top">
                 <Link
                   href="/settings/models"
-                  onClick={() => setOpen(false)}
+                  onClick={() => {
+                    setOpen(false)
+                    if (typeof window !== 'undefined' && window.location.pathname.startsWith('/git')) {
+                      saveLastGitUrl(window.location.pathname + window.location.search)
+                    }
+                  }}
                   className="flex size-6 items-center justify-center rounded text-ink-soft hover:bg-[var(--overlay-06)] hover:text-accent transition-colors cursor-pointer"
                   aria-label={t('gitAgent.settingsTitle')}
                 >

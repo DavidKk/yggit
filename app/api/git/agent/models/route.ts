@@ -37,8 +37,8 @@ function extractModelsFromResponse(json: unknown): ModelItem[] {
     }
     if (typeof item === 'object' && item !== null) {
       const obj = item as Record<string, unknown>
-      const id = obj.id ?? obj.model ?? obj.model_name ?? obj.modelId ?? obj.name
-      const name = obj.name ?? obj.model_name ?? obj.id ?? obj.model
+      const id = obj.id ?? obj.slug ?? obj.model ?? obj.model_name ?? obj.modelId ?? obj.name
+      const name = obj.display_name ?? obj.name ?? obj.model_name ?? obj.slug ?? obj.id ?? obj.model
       if (id) {
         addModel(id, name)
       } else if (obj.provider && obj.model) {
