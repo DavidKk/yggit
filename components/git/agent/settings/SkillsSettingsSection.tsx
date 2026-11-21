@@ -1,10 +1,10 @@
 'use client'
 
 import React, { useEffect, useRef, useState } from 'react'
-import { LuBookOpen, LuCircleAlert, LuCircleCheck, LuEye, LuFolderOpen, LuGithub, LuPlus, LuRefreshCw, LuSparkles, LuTrash2 } from 'react-icons/lu'
+import { LuBookOpen, LuEye, LuFolderOpen, LuGithub, LuPlus, LuRefreshCw, LuSparkles, LuTrash2 } from 'react-icons/lu'
 
 import { useNotification } from '@/components/notification/useNotification'
-import { Badge, Button, Modal } from '@/components/sk'
+import { Badge, Button, Modal, SwitchToggle } from '@/components/sk'
 import { parseSkillMarkdown } from '@/lib/skills/parser'
 import { checkAndUpdateGitHubSkill, discoverSkillsFromGitHub } from '@/lib/skills/providers/github-provider'
 import { deleteSkill, listSkills, saveSkill, subscribeSkills, toggleSkill } from '@/lib/skills/storage'
@@ -207,17 +207,6 @@ export function SkillsSettingsSection() {
                     <Badge tone={isBuiltin ? 'info' : s.source.type === 'github' ? 'accent' : 'neutral'} size="mini">
                       {isBuiltin ? '内置' : s.source.type === 'github' ? 'GitHub' : '本地'}
                     </Badge>
-                    {s.enabled ? (
-                      <span className="flex items-center gap-1 text-[11px] text-emerald-500 font-medium">
-                        <LuCircleCheck className="size-3" />
-                        <span>已启用</span>
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1 text-[11px] text-ink-soft">
-                        <LuCircleAlert className="size-3" />
-                        <span>已停用</span>
-                      </span>
-                    )}
                   </div>
                   <p className="text-xs text-ink-soft mt-1 line-clamp-2 leading-relaxed">{s.description}</p>
                   <div className="flex items-center gap-3 mt-1.5 text-[10px] text-ink-soft/80 font-mono">
@@ -226,7 +215,7 @@ export function SkillsSettingsSection() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1.5 shrink-0">
+                <div className="flex items-center gap-2 shrink-0">
                   {s.source.type === 'github' && (
                     <Button variant="ghost" size="mini" disabled={updatingId === s.id} onClick={() => void handleCheckUpdate(s)} title="检查并同步 GitHub 最新版本">
                       <LuRefreshCw className={cn('size-3.5 text-accent', updatingId === s.id && 'animate-spin')} />
@@ -235,14 +224,17 @@ export function SkillsSettingsSection() {
                   <Button variant="ghost" size="mini" onClick={() => setViewSkill(s)} title="查看详情与说明">
                     <LuEye className="size-3.5" />
                   </Button>
-                  <Button variant={s.enabled ? 'default' : 'accent'} size="mini" onClick={() => void handleToggle(s.id, s.enabled)}>
-                    {s.enabled ? '停用' : '启用'}
-                  </Button>
                   {!isBuiltin && (
                     <Button variant="ghost" size="mini" onClick={() => void handleDelete(s.id)} title="移除此 Skill">
                       <LuTrash2 className="size-3.5 text-fail" />
                     </Button>
                   )}
+                  <SwitchToggle
+                    checked={s.enabled}
+                    onCheckedChange={() => void handleToggle(s.id, s.enabled)}
+                    tooltip={s.enabled ? '停用此技能' : '启用此技能'}
+                    aria-label={`启用或停用 ${s.name}`}
+                  />
                 </div>
               </div>
             )

@@ -171,10 +171,26 @@ export function AgentSettingsPageContent({ section = 'models', menuActionId }: A
           <div className="@container/settings flex-1 min-h-0 overflow-y-auto p-3 pb-24">
             <div className="grid w-full gap-3">
               {activeSection === 'models' && <ModelChannelSection />}
-              {activeSection === 'skills' && <SkillsSettingsSection />}
-              {activeSection === 'mcp' && <McpSettingsSection />}
-              {activeSection === 'tasks' && <TasksSettingsSection />}
-              {activeSection === 'logs' && <LogsSettingsSection />}
+              {activeSection === 'skills' && (
+                <div className="max-w-4xl">
+                  <SkillsSettingsSection />
+                </div>
+              )}
+              {activeSection === 'mcp' && (
+                <div className="max-w-4xl">
+                  <McpSettingsSection />
+                </div>
+              )}
+              {activeSection === 'tasks' && (
+                <div className="max-w-4xl">
+                  <TasksSettingsSection />
+                </div>
+              )}
+              {activeSection === 'logs' && (
+                <div className="max-w-4xl">
+                  <LogsSettingsSection />
+                </div>
+              )}
               {activeSection === 'privacy' && (
                 <SettingsColumns tools={<RuleDebugger />}>
                   <PrivacyRedactSection />

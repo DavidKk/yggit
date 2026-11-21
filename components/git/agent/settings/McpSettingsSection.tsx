@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react'
 import { LuCircleAlert, LuCircleCheck, LuGlobe, LuNetwork, LuPlus, LuRefreshCw, LuServer, LuTrash2, LuWrench } from 'react-icons/lu'
 
 import { useNotification } from '@/components/notification/useNotification'
-import { Badge, Button, Modal } from '@/components/sk'
+import { Badge, Button, Modal, SwitchToggle } from '@/components/sk'
 import { testAndDiscoverMcpServer } from '@/lib/mcp/client'
 import { deleteMcpServer, listMcpServers, saveMcpServer, subscribeMcp, toggleMcpServer, toggleMcpTool } from '@/lib/mcp/storage'
 import type { McpServerConfig, WebMcpSupportReport } from '@/lib/mcp/types'
@@ -208,17 +208,20 @@ export function McpSettingsSection() {
                     {s.lastError && <p className="mt-1 text-[11px] text-fail font-mono line-clamp-1">错误: {s.lastError}</p>}
                   </div>
 
-                  <div className="flex items-center gap-1.5 shrink-0">
+                  <div className="flex items-center gap-2 shrink-0">
                     <Button variant="default" size="mini" loading={isTesting} onClick={() => void handleTestServer(s)} title="测试连接并刷新工具列表">
                       <LuRefreshCw className="size-3.5 mr-1" />
                       <span>测试 & 刷新</span>
                     </Button>
-                    <Button variant={s.enabled ? 'default' : 'accent'} size="mini" onClick={() => void handleToggleServer(s.id, s.enabled)}>
-                      {s.enabled ? '停用' : '启用'}
-                    </Button>
                     <Button variant="ghost" size="mini" onClick={() => void handleDelete(s.id)} title="移除 Server">
                       <LuTrash2 className="size-3.5 text-fail" />
                     </Button>
+                    <SwitchToggle
+                      checked={s.enabled}
+                      onCheckedChange={() => void handleToggleServer(s.id, s.enabled)}
+                      tooltip={s.enabled ? '停用此 Server' : '启用此 Server'}
+                      aria-label={`启用或停用 ${s.name}`}
+                    />
                   </div>
                 </div>
 
@@ -234,22 +237,23 @@ export function McpSettingsSection() {
                         <div
                           key={tool.name}
                           className={cn(
-                            'flex items-start justify-between gap-2 p-2 rounded border transition-colors',
-                            tool.enabled ? 'border-line bg-paper-2' : 'border-line/40 bg-paper-2/40 opacity-50'
+                            'flex items-center justify-between gap-3 p-2.5 rounded border transition-colors',
+                            tool.enabled !== false ? 'border-line bg-panel' : 'border-line/40 bg-paper-2/40 opacity-55'
                           )}
                         >
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-1.5">
                               <span className="font-mono text-xs font-semibold text-ink">{tool.name}</span>
-                              <Badge tone={tool.enabled ? 'ok' : 'neutral'} size="mini">
-                                {tool.enabled ? '可调用' : '已禁用'}
-                              </Badge>
                             </div>
                             {tool.description && <p className="text-[11px] text-ink-soft line-clamp-2 mt-0.5 leading-relaxed">{tool.description}</p>}
                           </div>
-                          <Button variant="ghost" size="mini" onClick={() => void handleToggleTool(s.id, tool.name, tool.enabled)}>
-                            {tool.enabled ? '禁用' : '启用'}
-                          </Button>
+                          <SwitchToggle
+                            size="sm"
+                            checked={tool.enabled !== false}
+                            onCheckedChange={() => void handleToggleTool(s.id, tool.name, tool.enabled !== false)}
+                            tooltip={tool.enabled !== false ? '停用此工具' : '启用此工具'}
+                            aria-label={`启用或停用工具 ${tool.name}`}
+                          />
                         </div>
                       ))}
                     </div>
