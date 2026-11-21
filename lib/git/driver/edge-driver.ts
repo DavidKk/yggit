@@ -129,16 +129,97 @@ export class EdgeGitDriver implements IGitDriver {
     throw new Error('浏览器 Edge 模式暂不支持推送，请在本地模式使用')
   }
 
-  async pull(_repo: string, _options?: GitPullOptions): Promise<{ ok: boolean; message: string }> {
-    throw new Error('浏览器 Edge 模式暂不支持拉取，请在本地模式使用')
+  async pull(repo: string, options?: GitPullOptions): Promise<{ ok: boolean; message: string }> {
+    // 1. Try sync via local backend if repository matches a local path or registered project
+    try {
+      const res = await fetch('/api/git/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'pull', repo, ...options }),
+      })
+      if (res.ok) {
+        const data = (await res.json()) as { ok?: boolean; message?: string }
+        if (data.ok) return { ok: true, message: data.message || '拉取成功' }
+      }
+    } catch {
+      // Fallback to browser isomorphic-git
+    }
+
+    // 2. Edge isomorphic-git fast-forward pull
+    try {
+      const reader = await this.repository(repo)
+      const { fs } = reader
+      const http = (await import('isomorphic-git/http/web')).default
+      await git.pull({
+        fs,
+        http,
+        dir: '/',
+        remote: options?.remote || 'origin',
+        ref: options?.branch,
+        singleBranch: true,
+        fastForwardOnly: true,
+        author: { name: 'Edge User', email: 'edge@yggdrasil.local' },
+      })
+      return { ok: true, message: '拉取完成' }
+    } catch (error) {
+      throw new Error(`拉取失败: ${error instanceof Error ? error.message : String(error)}`)
+    }
   }
 
-  async fetch(_repo: string, _options?: GitFetchOptions): Promise<{ ok: boolean; message: string }> {
-    throw new Error('浏览器 Edge 模式暂不支持抓取，请在本地模式使用')
+  async fetch(repo: string, options?: GitFetchOptions): Promise<{ ok: boolean; message: string }> {
+    // 1. Try sync via local backend if repository matches a local path or registered project
+    try {
+      const res = await fetch('/api/git/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'fetch', repo, ...options }),
+      })
+      if (res.ok) {
+        const data = (await res.json()) as { ok?: boolean; message?: string }
+        if (data.ok) {
+          this.repositories.delete(repo)
+          return { ok: true, message: data.message || '抓取成功' }
+        }
+      }
+    } catch {
+      // Backend not reachable, fall back to browser isomorphic-git
+    }
+
+    // 2. Browser isomorphic-git fetch into filesystem directory handle
+    try {
+      const reader = await this.repository(repo)
+      const { fs } = reader
+      const http = (await import('isomorphic-git/http/web')).default
+      await git.fetch({
+        fs,
+        http,
+        dir: '/',
+        remote: options?.remote || 'origin',
+        prune: options?.prune !== false,
+        tags: true,
+      })
+      this.repositories.delete(repo)
+      return { ok: true, message: '抓取完成' }
+    } catch (error) {
+      throw new Error(`抓取失败: ${error instanceof Error ? error.message : String(error)}`)
+    }
   }
 
-  async getRemotes(_repo: string): Promise<GitRemoteSource[]> {
-    return []
+  async getRemotes(repo: string): Promise<GitRemoteSource[]> {
+    try {
+      const reader = await this.repository(repo)
+      const { fs } = reader
+      const rawRemotes = await git.listRemotes({ fs, dir: '/' })
+      return rawRemotes
+        .filter((r) => r.url)
+        .map((r) => ({
+          name: r.remote,
+          url: r.url!,
+          isPrivate: false,
+        }))
+    } catch {
+      return []
+    }
   }
 
   async getRemoteUrl(_repo: string, _remote: string): Promise<string> {
@@ -190,11 +271,13 @@ export class EdgeGitDriver implements IGitDriver {
       throw new Error('未指定项目仓库路径')
     }
     const { branch, ref } = options
-    const repo = parseGitHubRepo(options.repo) ? uniqueLocalProject((await getEdgeCatalog()).projects, options.repo)?.localPath || options.repo : options.repo
+    const edgeProjects = typeof getEdgeCatalog === 'function' ? (await getEdgeCatalog().catch(() => ({ projects: [] }))).projects || [] : []
+    const localMatch = uniqueLocalProject(edgeProjects, options.repo)?.localPath
+    const repo = localMatch || (parseGitHubRepo(options.repo) ? options.repo : options.repo)
 
     // Check if it's a GitHub remote repo
     const gh = parseGitHubRepo(repo)
-    if (gh) {
+    if (gh && !localMatch) {
       options.onProgress?.('正在拉取远端 Git 仓库历史...')
       return await readRemoteGitLog(repo, branch || ref, options.skip)
     }
@@ -282,20 +365,44 @@ export class EdgeGitDriver implements IGitDriver {
       }
 
       // 4. Remotes & Origin URL
-      let remotes: GitRemoteBranch[] = []
+      const remotes: GitRemoteBranch[] = []
+      const remoteSources: GitRemoteSource[] = []
       let remoteUrl = ''
       try {
         const rawRemotes = await git.listRemotes({ fs, dir: '/' })
-        remotes = rawRemotes.map((r) => ({
-          name: `${r.remote}/HEAD`,
-          remote: r.remote,
-          branch: 'HEAD',
-          tip: '',
-        }))
-        const origin = rawRemotes.find((r) => r.remote === 'origin') || rawRemotes[0]
-        if (origin) {
-          remoteUrl = origin.url
-        } else {
+        for (const r of rawRemotes) {
+          if (!r.remote) continue
+          const branchNames = await git.listBranches({ fs, dir: '/', remote: r.remote }).catch(() => [])
+          // If a remote has no branches and no url (such as empty glab-base stub), ignore it
+          if (!branchNames.length && !r.url) continue
+
+          if (r.url && !remoteSources.some((item) => item.name === r.remote)) {
+            remoteSources.push({
+              name: r.remote,
+              url: r.url,
+              isPrivate: false,
+            })
+            if (!remoteUrl || r.remote === 'origin') {
+              remoteUrl = r.url
+            }
+          }
+
+          for (const b of branchNames) {
+            if (!b || b === 'HEAD') continue
+            const tip = await git.resolveRef({ fs, dir: '/', ref: `refs/remotes/${r.remote}/${b}` }).catch(() => '')
+            const fullName = `${r.remote}/${b}`
+            if (!remotes.some((item) => item.name === fullName)) {
+              remotes.push({
+                name: fullName,
+                remote: r.remote,
+                branch: b,
+                tip,
+              })
+            }
+          }
+        }
+
+        if (!remoteUrl) {
           const cfgUrl = await git.getConfig({ fs, dir: '/', path: 'remote.origin.url' })
           if (cfgUrl && typeof cfgUrl === 'string') {
             remoteUrl = cfgUrl
@@ -401,6 +508,7 @@ export class EdgeGitDriver implements IGitDriver {
         branch: currentBranch,
         branches,
         remotes,
+        remoteSources,
         tags,
         stashes: [],
         worktrees: [],

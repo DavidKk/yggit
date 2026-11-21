@@ -698,12 +698,14 @@ export async function getDirectoryHandle(repoId: string): Promise<FileSystemDire
           const records = (allReq.result || []) as StoredRepoRecord[]
           const raw = repoId.trim()
           const basename = raw.split(/[/\\]/).filter(Boolean).pop() || raw
+          const rawRemoteKey = remoteIdentity(raw)
           const match = records.find((r) => {
             if (r.id.toLowerCase() === raw.toLowerCase()) return true
             if (r.name.toLowerCase() === raw.toLowerCase()) return true
-            if (r.name.toLowerCase() === basename.toLowerCase()) return true
             if (`l_${projectId(r.name)}`.toLowerCase() === raw.toLowerCase()) return true
             if (`l_${projectId(r.id)}`.toLowerCase() === raw.toLowerCase()) return true
+            if (rawRemoteKey && r.id && remoteIdentity(r.id) === rawRemoteKey) return true
+            if (r.name.toLowerCase() === basename.toLowerCase()) return true
             return false
           })
           resolve(match?.handle || null)

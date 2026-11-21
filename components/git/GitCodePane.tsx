@@ -253,8 +253,8 @@ export function GitCodePane({
                   onMouseEnter={() => setHoveredLineIndex(index)}
                   className={cn(
                     'group/coderow relative flex w-full min-w-full transition-colors leading-5 items-start',
-                    row.kind === 'add' && 'bg-[#ecfdf5]/85 text-[#064e3b] dark:bg-[#064e3b]/22 dark:text-ink border-l-2 border-emerald-500/70',
-                    row.kind === 'del' && 'bg-[#fff1f2]/85 text-[#881337] dark:bg-[#881337]/22 dark:text-ink border-l-2 border-rose-500/70',
+                    row.kind === 'add' && 'bg-[#ecfdf5]/85 text-[#064e3b] dark:bg-[#122824] dark:text-[#d1fae5] border-l-2 border-emerald-500/80',
+                    row.kind === 'del' && 'bg-[#fff1f2]/85 text-[#881337] dark:bg-[#2b1720] dark:text-[#ffe4e6] border-l-2 border-rose-500/80',
                     active && 'bg-accent/20 ring-1 ring-inset ring-accent',
                     targetLine === index && targetSequence !== undefined && 'bg-warn/15 ring-1 ring-inset ring-warn',
                     isAgentLine && 'bg-violet-500/20 ring-1 ring-inset ring-violet-500 border-l-2 border-violet-500 text-violet-100',
@@ -337,8 +337,8 @@ export function GitCodePane({
                     onMouseEnter={() => setHoveredLineIndex(index)}
                     className={cn(
                       'group/coderow relative flex h-5 min-w-full w-max whitespace-pre transition-colors leading-5 items-center',
-                      row.kind === 'add' && 'bg-[#ecfdf5]/85 text-[#064e3b] dark:bg-[#064e3b]/22 dark:text-ink border-l-2 border-emerald-500/70',
-                      row.kind === 'del' && 'bg-[#fff1f2]/85 text-[#881337] dark:bg-[#881337]/22 dark:text-ink border-l-2 border-rose-500/70',
+                      row.kind === 'add' && 'bg-[#ecfdf5]/85 text-[#064e3b] dark:bg-[#122824] dark:text-[#d1fae5] border-l-2 border-emerald-500/80',
+                      row.kind === 'del' && 'bg-[#fff1f2]/85 text-[#881337] dark:bg-[#2b1720] dark:text-[#ffe4e6] border-l-2 border-rose-500/80',
                       active && 'bg-accent/20 ring-1 ring-accent ring-inset',
                       targetLine === index && targetSequence !== undefined && 'bg-warn/15 ring-1 ring-inset ring-warn',
                       isAgentLine && 'bg-violet-500/20 ring-1 ring-inset ring-violet-500 border-l-2 border-violet-500 text-violet-100',

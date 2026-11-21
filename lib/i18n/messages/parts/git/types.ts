@@ -574,5 +574,18 @@ export type GitMessages = {
     soloTag?: string
     unsoloTag?: string
     annotateTag?: string
+    applyStash?: string
+    popStash?: string
+    deleteStash?: string
+    editStashMessage?: string
+    hide?: string
+    unhide?: string
+    solo?: string
+    unsolo?: string
+    fetchRemoteActionSimple?: string
+    editRemoteActionSimple?: string
+    removeRemoteActionSimple?: string
+    copyLinkToRemoteSimple?: string
+    filePanelTitle?: string
   }
 }

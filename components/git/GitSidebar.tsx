@@ -25,18 +25,18 @@ import {
   LuGitBranch,
   LuGitBranchPlus,
   LuGitCommitHorizontal,
+  LuGitCompareArrows,
   LuGitMerge,
   LuHash,
   LuHistory,
-  LuInbox,
   LuLink,
   LuPencil,
+  LuPin,
   LuPlus,
   LuTag,
   LuText,
   LuTrash2,
   LuUndo2,
-  LuUser,
 } from 'react-icons/lu'
 
 import { AddRemoteModal, EditRemoteModal, SetUpstreamModal } from '@/components/git/GitRemoteModal'
@@ -442,6 +442,8 @@ export function GitSidebar({
 
   const [hiddenStashes, setHiddenStashes] = useGitUiPref(repoPrefKey(view.repo, 'hiddenStashes'), [] as string[], Array.isArray)
   const [hiddenTags, setHiddenTags] = useGitUiPref(repoPrefKey(view.repo, 'hiddenTags'), [] as string[], Array.isArray)
+  const [hiddenBranches, setHiddenBranches] = useGitUiPref(repoPrefKey(view.repo, 'hiddenBranches'), [] as string[], Array.isArray)
+  const [, setPinnedBranches] = useGitUiPref(repoPrefKey(view.repo, 'pinnedBranches'), [] as string[], Array.isArray)
 
   const filteredStashes = useMemo(
     () => view.stashes.filter((stash) => !hiddenStashes.includes(stash.name)).filter((stash) => nameMatch(stash.name, stashNeedle) || nameMatch(stash.subject || '', stashNeedle)),
@@ -529,194 +531,276 @@ export function GitSidebar({
     e.preventDefault()
     e.stopPropagation()
 
-    const tipCommit = view.commits.find((c) => c.hash === item.tip)
     const isCurrent = item.current || item.name === view.branch || item.name === view.head
-
-    const actionItems: FloatingMenuItem[] = []
-
-    if (kind === 'local') {
-      actionItems.push(
-        {
-          key: 'checkout-branch',
-          label: isCurrent ? t('git.operations.currentBranchLabel', { branch: item.name }) : t('git.operations.checkoutBranchAction', { branch: item.name }),
-          icon: <LuGitBranch className="size-3.5 shrink-0 text-accent" />,
-          disabled: isCurrent,
-          onSelect: () => void onCheckoutBranch?.(item.name, false),
-          group: t('git.operations.groupBranchOps'),
-        },
-        {
-          key: 'new-branch',
-          label: t('git.operations.newBranchFrom'),
-          icon: <LuGitBranchPlus className="size-3.5 shrink-0 text-ink" />,
-          onSelect: () => void onCreateBranch?.(item.name, item.tip),
-          group: t('git.operations.groupBranchOps'),
-        },
-        {
-          key: 'rename-branch',
-          label: t('git.operations.renameBranchAction'),
-          icon: <LuPencil className="size-3.5 shrink-0 text-ink-soft" />,
-          onSelect: () => void onRenameBranch?.(item.name),
-          group: t('git.operations.groupBranchOps'),
-        },
-        {
-          key: 'merge-branch',
-          label: t('git.operations.mergeIntoCurrent', { branch: view.head || view.branch }),
-          icon: <LuGitMerge className="size-3.5 shrink-0 text-ink-soft" />,
-          disabled: isCurrent,
-          onSelect: () => void onMergeBranch?.(item.name),
-          group: t('git.operations.groupBranchOps'),
-        },
-        {
-          key: 'rebase-branch',
-          label: t('git.operations.rebaseOntoCurrent', { branch: view.head || view.branch }),
-          icon: <LuGitCommitHorizontal className="size-3.5 shrink-0 text-ink-soft" />,
-          disabled: isCurrent,
-          onSelect: () => void onRebaseBranch?.(item.name),
-          group: t('git.operations.groupBranchOps'),
-        },
-        {
-          key: 'push-branch',
-          label: t('git.operations.pushBranchAction', { branch: item.name }),
-          icon: <LuArrowUpFromLine className="size-3.5 shrink-0 text-ink-soft" />,
-          onSelect: () => void onPushBranch?.(item.name),
-          group: t('git.operations.groupRemoteSync'),
-        },
-        {
-          key: 'pull-branch',
-          label: t('git.operations.pullBranchAction', { branch: item.name }),
-          icon: <LuArrowDownToLine className="size-3.5 shrink-0 text-ink-soft" />,
-          onSelect: () => void onPullBranch?.(item.name),
-          group: t('git.operations.groupRemoteSync'),
-        }
-      )
-    } else {
-      actionItems.push(
-        {
-          key: 'checkout-remote',
-          label: t('git.operations.checkoutRemoteBranch', { branch: item.name }),
-          icon: <LuGitBranch className="size-3.5 shrink-0 text-accent" />,
-          onSelect: () => void onCheckoutBranch?.(item.name, true),
-          group: t('git.operations.groupBranchOps'),
-        },
-        {
-          key: 'new-branch-from-remote',
-          label: t('git.operations.newBranchFromRemote'),
-          icon: <LuGitBranchPlus className="size-3.5 shrink-0 text-ink" />,
-          onSelect: () => void onCreateBranch?.(item.name, item.tip),
-          group: t('git.operations.groupBranchOps'),
-        },
-        {
-          key: 'merge-remote',
-          label: t('git.operations.mergeIntoCurrent', { branch: view.head || view.branch }),
-          icon: <LuGitMerge className="size-3.5 shrink-0 text-ink-soft" />,
-          onSelect: () => void onMergeBranch?.(item.name),
-          group: t('git.operations.groupBranchOps'),
-        },
-        {
-          key: 'rebase-remote',
-          label: t('git.operations.rebaseOntoCurrent', { branch: view.head || view.branch }),
-          icon: <LuGitCommitHorizontal className="size-3.5 shrink-0 text-ink-soft" />,
-          onSelect: () => void onRebaseBranch?.(item.name),
-          group: t('git.operations.groupBranchOps'),
-        },
-        {
-          key: 'pull-remote',
-          label: t('git.operations.pullBranchAction', { branch: item.name }),
-          icon: <LuArrowDownToLine className="size-3.5 shrink-0 text-ink-soft" />,
-          onSelect: () => void onPullBranch?.(item.name),
-          group: t('git.operations.groupRemoteSync'),
-        }
-      )
-    }
-
     const isSolo = soloBranch === item.name
-    if (onSoloBranch) {
-      actionItems.push({
-        key: 'solo-branch',
-        label: isSolo ? t('git.operations.unsoloBranch') || '取消只看' : t('git.operations.soloBranch') || '只看此分支',
-        icon: isSolo ? <LuEyeOff className="size-3.5 shrink-0 text-accent" /> : <LuEye className="size-3.5 shrink-0 text-accent" />,
-        checked: isSolo,
-        dividerBefore: true,
-        onSelect: () => void onSoloBranch(isSolo ? null : item.name),
-        group: t('git.operations.groupView') || '视图',
-      })
-    }
-
+    const currentBranch = view.branch || view.head || 'HEAD'
     const remoteNames = view.remotes.map((r) => r.remote)
     const copyBranchName = kind === 'remote' ? stripRemotePrefix(item.path || item.name, remoteNames) : item.name
 
-    const copyItems: FloatingMenuItem[] = [
+    const actionItems: FloatingMenuItem[] = [
       {
-        key: 'copy-branch-name',
-        label: `${t('git.graph.copyBranchName')} (${copyBranchName})`,
-        icon: <LuCopy className="size-3.5 shrink-0 text-accent" />,
-        onSelect: () => void copyValue(copyBranchName),
+        key: 'pull-branch',
+        label: t('git.operations.pullFastForwardIfPossible') || 'Pull (fast-forward if possible)',
+        icon: <LuArrowDownToLine className="size-3.5 shrink-0 text-ink-soft" />,
+        onSelect: () => void onPullBranch?.(item.name),
       },
-    ]
-
-    if (kind === 'remote' || (item.title && item.title !== item.name)) {
-      const fullPath = item.title || item.name
-      if (fullPath !== copyBranchName) {
-        copyItems.push({
-          key: 'copy-full-name',
-          label: `${t('git.operations.copyFullPathAction', { path: fullPath })}`,
-          icon: <LuCopy className="size-3.5 shrink-0" />,
-          onSelect: () => void copyValue(fullPath),
-        })
-      }
-    }
-
-    if (tipCommit) {
-      copyItems.push(
-        {
-          key: 'copy-subject',
-          label: `${t('git.graph.copyCommitSubject')} (${tipCommit.subject})`,
-          icon: <LuText className="size-3.5 shrink-0 text-ink-soft" />,
-          onSelect: () => void copyValue(tipCommit.subject),
+      {
+        key: 'push-branch',
+        label: t('git.operations.push') || 'Push',
+        icon: <LuArrowUpFromLine className="size-3.5 shrink-0 text-ink-soft" />,
+        onSelect: () => void onPushBranch?.(item.name),
+      },
+      {
+        key: 'set-upstream',
+        label: t('git.operations.setUpstreamTitle') || 'Set Upstream',
+        icon: <LuLink className="size-3.5 shrink-0 text-accent" />,
+        onSelect: () => setSetUpstreamBranch(item.name),
+      },
+      {
+        key: 'merge-branch',
+        label: `Merge ${item.name} into ${currentBranch}`,
+        icon: <LuGitMerge className="size-3.5 shrink-0 text-ink-soft" />,
+        disabled: isCurrent,
+        dividerBefore: true,
+        onSelect: () => void onMergeBranch?.(item.name),
+      },
+      {
+        key: 'rebase-branch',
+        label: `Rebase ${currentBranch} onto ${item.name}`,
+        icon: <LuGitCommitHorizontal className="size-3.5 shrink-0 text-ink-soft" />,
+        disabled: isCurrent,
+        onSelect: () => void onRebaseBranch?.(item.name),
+      },
+      {
+        key: 'checkout-branch',
+        label: `Checkout ${item.name}`,
+        icon: <LuGitBranch className="size-3.5 shrink-0 text-accent" />,
+        disabled: isCurrent,
+        dividerBefore: true,
+        onSelect: () => void onCheckoutBranch?.(item.name, kind === 'remote'),
+      },
+      {
+        key: 'create-worktree',
+        label: `Create worktree from ${item.name}`,
+        icon: <LuFolderGit2 className="size-3.5 shrink-0 text-accent" />,
+        onSelect: () => (onAddWorktree ? onAddWorktree() : undefined),
+      },
+      {
+        key: 'create-branch-here',
+        label: t('git.operations.createBranchHere') || 'Create branch here',
+        icon: <LuGitBranchPlus className="size-3.5 shrink-0 text-ink" />,
+        dividerBefore: true,
+        onSelect: () => void onCreateBranch?.(item.name, item.tip),
+      },
+      {
+        key: 'cherry-pick-commit',
+        label: t('git.operations.cherryPickCommitAction') || 'Cherry pick commit',
+        icon: <LuGitCommitHorizontal className="size-3.5 shrink-0 text-ink-soft" />,
+        disabled: !item.tip,
+        onSelect: async () => {
+          if (!item.tip) return
+          try {
+            const driver = getGitDriver()
+            await driver.cherryPick(view.repo, item.tip)
+            notify.success(`已遴选提交 ${item.tip.slice(0, 7)}`)
+            await onRefresh?.()
+          } catch (err) {
+            notify.error(err instanceof Error ? err.message : 'Cherry-pick 失败')
+          }
         },
-        {
-          key: 'copy-hash',
-          label: `${t('git.graph.copyCommitHash')} (${tipCommit.short || tipCommit.hash.slice(0, 7)})`,
-          icon: <LuHash className="size-3.5 shrink-0 text-ink-soft" />,
-          onSelect: () => void copyValue(tipCommit.hash),
+      },
+      {
+        key: 'reset-to-commit',
+        label: `Reset ${currentBranch} to this commit`,
+        icon: <LuUndo2 className="size-3.5 shrink-0 text-warn" />,
+        disabled: !item.tip,
+        children: [
+          {
+            key: 'reset-soft',
+            label: t('git.operations.resetSoftDesc') || 'Soft (保留工作区与暂存区)',
+            icon: <LuUndo2 className="size-3.5 shrink-0" />,
+            onSelect: async () => {
+              if (!item.tip) return
+              try {
+                const driver = getGitDriver()
+                if (driver.reset) {
+                  await driver.reset(view.repo, item.tip, 'soft')
+                  notify.success(`已软重置到 ${item.tip.slice(0, 7)}`)
+                  await onRefresh?.()
+                }
+              } catch (err) {
+                notify.error(err instanceof Error ? err.message : '重置失败')
+              }
+            },
+          },
+          {
+            key: 'reset-mixed',
+            label: t('git.operations.resetMixedDesc') || 'Mixed (保留工作区，清空暂存区)',
+            icon: <LuUndo2 className="size-3.5 shrink-0" />,
+            onSelect: async () => {
+              if (!item.tip) return
+              try {
+                const driver = getGitDriver()
+                if (driver.reset) {
+                  await driver.reset(view.repo, item.tip, 'mixed')
+                  notify.success(`已重置到 ${item.tip.slice(0, 7)}`)
+                  await onRefresh?.()
+                }
+              } catch (err) {
+                notify.error(err instanceof Error ? err.message : '重置失败')
+              }
+            },
+          },
+          {
+            key: 'reset-hard',
+            label: t('git.operations.resetHardDesc') || 'Hard (丢弃所有未提交修改)',
+            icon: <LuTrash2 className="size-3.5 shrink-0 text-fail" />,
+            danger: true,
+            onSelect: async () => {
+              if (!item.tip) return
+              try {
+                const driver = getGitDriver()
+                if (driver.reset) {
+                  await driver.reset(view.repo, item.tip, 'hard')
+                  notify.success(`已强制重置到 ${item.tip.slice(0, 7)}`)
+                  await onRefresh?.()
+                }
+              } catch (err) {
+                notify.error(err instanceof Error ? err.message : '重置失败')
+              }
+            },
+          },
+        ],
+      },
+      {
+        key: 'revert-commit',
+        label: t('git.operations.revertCommitAction') || 'Revert commit',
+        icon: <LuHistory className="size-3.5 shrink-0 text-ink-soft" />,
+        disabled: !item.tip,
+        onSelect: async () => {
+          if (!item.tip) return
+          try {
+            const driver = getGitDriver()
+            if (driver.revert) {
+              await driver.revert(view.repo, item.tip)
+              notify.success(`已撤销提交 ${item.tip.slice(0, 7)}`)
+              await onRefresh?.()
+            }
+          } catch (err) {
+            notify.error(err instanceof Error ? err.message : '撤销失败')
+          }
         },
-        {
-          key: 'copy-author',
-          label: `${t('git.graph.copyAuthor')} (${tipCommit.author})`,
-          icon: <LuUser className="size-3.5 shrink-0 text-ink-soft" />,
-          onSelect: () => void copyValue(tipCommit.author),
-        }
-      )
-    } else if (item.tip) {
-      const tipHash = item.tip
-      copyItems.push({
-        key: 'copy-hash',
-        label: `${t('git.graph.copyCommitHash')} (${tipHash.slice(0, 7)})`,
-        icon: <LuHash className="size-3.5 shrink-0 text-ink-soft" />,
-        onSelect: () => void copyValue(tipHash),
-      })
-    }
-
-    actionItems.push({
-      key: 'copy-menu-group',
-      label: t('git.operations.groupCopy') || '复制',
-      icon: <LuCopy className="size-3.5 shrink-0 text-ink-soft" />,
-      dividerBefore: true,
-      children: copyItems,
-    })
-
-    if (kind === 'local') {
-      actionItems.push({
+      },
+      {
+        key: 'explain-branch-changes',
+        label: t('git.operations.explainTagChanges') || 'Explain Branch Changes (Preview)',
+        icon: <LuBot className="size-3.5 shrink-0 text-accent" />,
+        dividerBefore: true,
+        onSelect: () => {
+          window.dispatchEvent(new CustomEvent('yggit:agent-request', { detail: { prompt: `请诊断分析分支 ${item.name} 的变更内容` } }))
+        },
+      },
+      {
+        key: 'rename-branch',
+        label: `Rename ${item.name}`,
+        icon: <LuPencil className="size-3.5 shrink-0 text-ink-soft" />,
+        dividerBefore: true,
+        onSelect: () => void onRenameBranch?.(item.name),
+      },
+      {
         key: 'delete-branch',
-        label: t('git.operations.deleteBranchAction', { branch: item.name }),
+        label: `Delete ${item.name}`,
         icon: <LuTrash2 className="size-3.5 shrink-0 text-fail" />,
         danger: true,
         disabled: isCurrent,
-        dividerBefore: true,
         onSelect: () => void onDeleteBranch?.(item.name),
-        group: t('git.operations.groupDangerous'),
-      })
-    }
+      },
+      {
+        key: 'copy-branch-name',
+        label: t('git.operations.copyBranchName') || 'Copy branch name',
+        icon: <LuCopy className="size-3.5 shrink-0 text-accent" />,
+        dividerBefore: true,
+        onSelect: () => void copyValue(copyBranchName),
+      },
+      {
+        key: 'copy-commit-sha',
+        label: t('git.operations.copyHash') || 'Copy commit sha',
+        icon: <LuHash className="size-3.5 shrink-0 text-ink-soft" />,
+        disabled: !item.tip,
+        onSelect: () => void copyValue(item.tip || ''),
+      },
+      {
+        key: 'hide-branch',
+        label: hiddenBranches.includes(item.name) ? t('git.operations.unhideTag') || '取消隐藏' : t('git.operations.hideTag') || 'Hide',
+        icon: hiddenBranches.includes(item.name) ? <LuEye className="size-3.5 shrink-0 text-accent" /> : <LuEyeOff className="size-3.5 shrink-0 text-ink-soft" />,
+        dividerBefore: true,
+        onSelect: () => setHiddenBranches((prev) => (prev.includes(item.name) ? prev.filter((b) => b !== item.name) : [...prev, item.name])),
+      },
+      {
+        key: 'pin-to-left',
+        label: t('git.operations.pinBranch') || 'Pin to Left',
+        icon: <LuPin className="size-3.5 shrink-0 text-ink-soft" />,
+        onSelect: () => {
+          setPinnedBranches((prev) => (prev.includes(item.name) ? prev.filter((b) => b !== item.name) : [...prev, item.name]))
+          notify.success(`已切换置顶分支 ${item.name}`)
+        },
+      },
+      {
+        key: 'solo-branch',
+        label: isSolo ? t('git.operations.unsoloTag') || '取消只看' : t('git.operations.soloTag') || 'Solo',
+        icon: isSolo ? <LuEyeOff className="size-3.5 shrink-0 text-accent" /> : <LuEye className="size-3.5 shrink-0 text-accent" />,
+        onSelect: () => void onSoloBranch?.(isSolo ? null : item.name),
+      },
+      {
+        key: 'compare-working-dir',
+        label: t('git.operations.compareWorkdir') || 'Compare commit against working directory',
+        icon: <LuGitCompareArrows className="size-3.5 shrink-0 text-accent" />,
+        dividerBefore: true,
+        disabled: !item.tip,
+        onSelect: () => {
+          onSelect({ kind, name: item.name })
+        },
+      },
+      {
+        key: 'create-tag-here',
+        label: t('git.operations.createTag') || 'Create tag here',
+        icon: <LuTag className="size-3.5 shrink-0 text-accent" />,
+        dividerBefore: true,
+        disabled: !item.tip,
+        onSelect: async () => {
+          const tagName = window.prompt('请输入标签名称：')
+          if (!tagName?.trim() || !item.tip) return
+          try {
+            const driver = getGitDriver()
+            await driver.createTag?.(view.repo, tagName.trim(), { target: item.tip })
+            notify.success(`已创建标签 ${tagName.trim()}`)
+            await onRefresh?.()
+          } catch (err) {
+            notify.error(err instanceof Error ? err.message : '创建标签失败')
+          }
+        },
+      },
+      {
+        key: 'create-annotated-tag-here',
+        label: t('git.operations.createAnnotatedTag') || 'Create annotated tag here',
+        icon: <LuPencil className="size-3.5 shrink-0 text-accent" />,
+        disabled: !item.tip,
+        onSelect: async () => {
+          const tagName = window.prompt('请输入附注标签名称：')
+          if (!tagName?.trim() || !item.tip) return
+          const msg = window.prompt('请输入附注信息：')
+          if (!msg?.trim()) return
+          try {
+            const driver = getGitDriver()
+            await driver.createTag?.(view.repo, tagName.trim(), { target: item.tip, message: msg.trim() })
+            notify.success(`已创建附注标签 ${tagName.trim()}`)
+            await onRefresh?.()
+          } catch (err) {
+            notify.error(err instanceof Error ? err.message : '创建附注标签失败')
+          }
+        },
+      },
+    ]
 
     setContextMenu({
       anchor: { x: e.clientX, y: e.clientY },
@@ -1009,26 +1093,26 @@ export function GitSidebar({
     const items: FloatingMenuItem[] = [
       {
         key: 'apply-stash',
-        label: t('git.operations.applyStashAction', { stash: stash.name }) || `应用暂存 (${stash.name})`,
+        label: t('git.operations.applyStash') || 'Apply Stash',
         icon: <LuArchive className="size-3.5 shrink-0 text-accent" />,
         onSelect: () => void executeStashAction('apply', idx),
       },
       {
         key: 'pop-stash',
-        label: t('git.operations.popStashAction', { stash: stash.name }) || `弹出暂存 (${stash.name})`,
+        label: t('git.operations.popStash') || 'Pop Stash',
         icon: <LuArchiveRestore className="size-3.5 shrink-0 text-ok" />,
         onSelect: () => void executeStashAction('pop', idx),
       },
       {
         key: 'drop-stash',
-        label: t('git.operations.deleteStashAction', { stash: stash.name }) || `删除暂存 (${stash.name})`,
+        label: t('git.operations.deleteStash') || 'Delete Stash',
         icon: <LuTrash2 className="size-3.5 shrink-0 text-fail" />,
         danger: true,
         onSelect: () => void executeStashAction('drop', idx),
       },
       {
         key: 'edit-stash-message',
-        label: t('git.operations.editStashMessageAction') || '编辑暂存说明…',
+        label: t('git.operations.editStashMessage') || 'Edit stash message',
         icon: <LuPencil className="size-3.5 shrink-0 text-ink-soft" />,
         dividerBefore: true,
         onSelect: () => {
@@ -1038,44 +1122,12 @@ export function GitSidebar({
       },
       {
         key: 'hide-stash',
-        label: t('git.operations.hideStashAction') || '隐藏暂存',
+        label: t('git.operations.hide') || 'Hide',
         icon: <LuEyeOff className="size-3.5 shrink-0 text-ink-soft" />,
         dividerBefore: true,
         onSelect: () => setHiddenStashes((prev) => (prev.includes(stash.name) ? prev.filter((s) => s !== stash.name) : [...prev, stash.name])),
       },
     ]
-
-    const copyItems: FloatingMenuItem[] = [
-      {
-        key: 'copy-stash-name',
-        label: t('git.operations.copyStashNameAction', { stash: stash.name }),
-        icon: <LuInbox className="size-3.5 shrink-0 text-accent" />,
-        onSelect: () => void copyValue(stash.name),
-      },
-    ]
-    if (stash.subject) {
-      const subj = stash.subject
-      copyItems.push({
-        key: 'copy-subject',
-        label: `${t('git.graph.copyCommitSubject')} (${subj})`,
-        icon: <LuText className="size-3.5 shrink-0 text-ink-soft" />,
-        onSelect: () => void copyValue(subj),
-      })
-    }
-    copyItems.push({
-      key: 'copy-hash',
-      label: `${t('git.graph.copyCommitHash')} (${stash.hash.slice(0, 7)})`,
-      icon: <LuHash className="size-3.5 shrink-0 text-ink-soft" />,
-      onSelect: () => void copyValue(stash.hash),
-    })
-
-    items.push({
-      key: 'copy-stash-group',
-      label: t('git.operations.groupCopy') || '复制',
-      icon: <LuCopy className="size-3.5 shrink-0 text-ink-soft" />,
-      dividerBefore: true,
-      children: copyItems,
-    })
 
     setContextMenu({
       anchor: { x: e.clientX, y: e.clientY },
@@ -1247,27 +1299,25 @@ export function GitSidebar({
 
     const items: FloatingMenuItem[] = [
       {
-        key: 'pull-remote',
-        label: t('git.operations.pullRemoteAction', { remote: group.source }) || `拉取源: ${group.source}`,
+        key: 'fetch-remote',
+        label: (t('git.operations.fetchRemoteActionSimple') || `Fetch ${group.source}`).replace('{remote}', group.source),
         icon: <LuArrowDownToLine className="size-3.5 shrink-0 text-accent" />,
         onSelect: async () => {
           try {
-            notify.info((t('git.operations.pullingRemote') || '正在拉取 {remote}...').replace('{remote}', group.source))
+            notify.info((t('git.operations.fetchingRemote') || `正在抓取 ${group.source}...`).replace('{remote}', group.source))
             const driver = getGitDriver()
             await driver.fetch(view.repo, { remote: group.source, prune: true })
-            const res = await driver.pull(view.repo, { remote: group.source, ffOnly: true })
-            notify.success(res.message || t('git.operations.pullSuccess') || '拉取成功')
+            notify.success((t('git.operations.fetchRemoteSuccess') || `抓取完成`).replace('{remote}', group.source))
             await onRefresh?.()
           } catch (err) {
-            notify.error(err instanceof Error ? err.message : '拉取失败')
+            notify.error(err instanceof Error ? err.message : '抓取失败')
           }
         },
       },
       {
         key: 'edit-remote',
-        label: (t('git.operations.editRemoteAction') || '编辑 ({remote})').replace('{remote}', group.source),
+        label: (t('git.operations.editRemoteActionSimple') || `Edit ${group.source}`).replace('{remote}', group.source),
         icon: <LuPencil className="size-3.5 shrink-0 text-ink-soft" />,
-        dividerBefore: true,
         onSelect: async () => {
           let url = remoteUrl
           if (!url) {
@@ -1279,18 +1329,19 @@ export function GitSidebar({
       },
       {
         key: 'remove-remote',
-        label: (t('git.operations.removeRemoteAction') || '删除 ({remote})').replace('{remote}', group.source),
+        label: (t('git.operations.removeRemoteActionSimple') || `Remove ${group.source}`).replace('{remote}', group.source),
         icon: <LuTrash2 className="size-3.5 shrink-0 text-fail" />,
+        danger: true,
         onSelect: async () => {
           const confirmed = window.confirm(
-            (t('git.operations.removeRemoteConfirm') || '确定要删除远程源 "{remote}" 吗？此操作将移除该远程及其关联的跟踪分支。').replace('{remote}', group.source)
+            (t('git.operations.removeRemoteConfirm') || `确定要删除远程源 "${group.source}" 吗？此操作将移除该远程及其关联的跟踪分支。`).replace('{remote}', group.source)
           )
           if (!confirmed) return
           try {
             notify.info(`正在删除远程源 ${group.source}...`)
             const driver = getGitDriver()
             await driver.removeRemote?.(view.repo, group.source)
-            notify.success((t('git.operations.removeRemoteSuccess') || '已成功删除远程源 {remote}').replace('{remote}', group.source))
+            notify.success((t('git.operations.removeRemoteSuccess') || `已成功删除远程源 ${group.source}`).replace('{remote}', group.source))
             await onRefresh?.()
           } catch (err) {
             notify.error(err instanceof Error ? err.message : '删除远程源失败')
@@ -1299,26 +1350,20 @@ export function GitSidebar({
       },
       {
         key: 'hide-remote',
-        label: isHidden
-          ? (t('git.operations.unhideRemoteAction') || '取消隐藏').replace('{remote}', group.source)
-          : (t('git.operations.hideRemoteAction') || '隐藏').replace('{remote}', group.source),
+        label: isHidden ? t('git.operations.unhide') || '取消隐藏' : t('git.operations.hide') || 'Hide',
         icon: isHidden ? <LuEye className="size-3.5 shrink-0 text-accent" /> : <LuEyeOff className="size-3.5 shrink-0 text-ink-soft" />,
-        checked: isHidden,
         dividerBefore: true,
         onSelect: () => onToggleHideRemote?.(group.source),
       },
       {
         key: 'solo-remote',
-        label: isSolo
-          ? (t('git.operations.unsoloRemoteAction') || '取消只看').replace('{remote}', group.source)
-          : (t('git.operations.soloRemoteAction') || '只看此源').replace('{remote}', group.source),
+        label: isSolo ? t('git.operations.unsolo') || '取消只看' : t('git.operations.solo') || 'Solo',
         icon: isSolo ? <LuEyeOff className="size-3.5 shrink-0 text-accent" /> : <LuEye className="size-3.5 shrink-0 text-accent" />,
-        checked: isSolo,
         onSelect: () => onSoloRemote?.(isSolo ? null : group.source),
       },
       {
         key: 'copy-remote-link',
-        label: (t('git.operations.copyRemoteUrlAction') || '复制远程链接: {remote}').replace('{remote}', group.source),
+        label: (t('git.operations.copyLinkToRemoteSimple') || `Copy link to remote: ${group.source}`).replace('{remote}', group.source),
         icon: <LuCopy className="size-3.5 shrink-0 text-accent" />,
         dividerBefore: true,
         onSelect: async () => {
@@ -2135,8 +2180,9 @@ function Row({
         handleTreeParentKey(event, parentId)
       }}
     >
-      <span data-git-sidebar-label className="min-w-0 flex-1 truncate whitespace-nowrap text-left select-text">
-        {label}
+      <span data-git-sidebar-label className="min-w-0 flex-1 truncate whitespace-nowrap text-left select-text flex items-center">
+        {(kind === 'local' || kind === 'remote') && <LuGitBranch className="size-3.5 shrink-0 text-ink-soft select-none mr-1.5" aria-hidden />}
+        <span className="truncate">{label}</span>
       </span>
       <div className="ml-auto flex shrink-0 items-center gap-1.5 pl-2">
         {kind === 'local' && (

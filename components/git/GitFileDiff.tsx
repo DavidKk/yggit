@@ -65,6 +65,8 @@ type Props = {
   initialTab?: 'diff' | 'history' | 'blame'
   onTabChange?: (tab: 'diff' | 'history' | 'blame') => void
   onLocateCommit?: (hash: string) => void
+  onOpenFileHistory?: (path: string) => void
+  onOpenFileBlame?: (path: string) => void
 }
 
 const isBoolean = (value: unknown): value is boolean => typeof value === 'boolean'
@@ -582,20 +584,16 @@ export function GitFileDiff({
   onPrevFile: _onPrevFile,
   onNextFile: _onNextFile,
   hasConflict,
-  onOpenConflictView,
+  onOpenConflictView: _onOpenConflictView,
   initialTab,
-  onTabChange,
+  onTabChange: _onTabChange,
   onLocateCommit,
+  onOpenFileHistory,
+  onOpenFileBlame,
 }: Props) {
   const t = useT()
   const [tabInternal, setTabInternal] = useState<'diff' | 'history' | 'blame'>(initialTab || 'diff')
   const activeTab = initialTab ?? tabInternal
-  const setActiveTab = (nextTab: 'diff' | 'history' | 'blame') => {
-    if (onTabChange) onTabChange(nextTab)
-    else setTabInternal(nextTab)
-  }
-  const [historyCount, setHistoryCount] = useState(0)
-  const [blameLineCount, setBlameLineCount] = useState(0)
 
   useEffect(() => {
     if (initialTab) setTabInternal(initialTab)
@@ -634,13 +632,9 @@ export function GitFileDiff({
   const resultBlameMap = useGitBlame(repo, path, hash)
 
   useEffect(() => {
-    if (!conflictActive && !hasConflict) return
-    if (!p1Hash || !p2Hash || !path) return
+    if ((!conflictActive && !hasConflict && !(commit && commit.parents.length > 1)) || !p1Hash || !p2Hash || !path) return
     let cancelled = false
     setConflictLoading(true)
-    setConflictContents([null, null, null])
-    setRemergeDiff('')
-    setConflictNavigation({ index: -1, sequence: 0 })
     const blob = async (h: string) => {
       if (!h || !path) return null
       try {
@@ -659,7 +653,7 @@ export function GitFileDiff({
     return () => {
       cancelled = true
     }
-  }, [repo, hash, p1Hash, p2Hash, path, conflictActive, hasConflict])
+  }, [repo, hash, p1Hash, p2Hash, path, hasConflict, commit])
 
   useEffect(() => {
     if (regions.length > 0 && conflictNavigation.index === -1) {
@@ -941,90 +935,51 @@ export function GitFileDiff({
     >
       <header className="grid h-10 shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 border-b border-line px-2">
         <div className="flex min-w-0 items-center gap-2">
-          {activeTab === 'history' ? (
-            <>
-              <LuHistory className="size-3.5 shrink-0 text-accent" />
-              <h2 className="m-0 min-w-0 truncate text-xs text-ink" title={path}>
-                {path}
-              </h2>
-              <span className="shrink-0 text-ink-soft text-[11px] font-normal">({t('git.diff.fileHistoryTitle') || '文件历史'})</span>
-            </>
-          ) : activeTab === 'blame' ? (
-            <>
-              <LuPencil className="size-3.5 shrink-0 text-accent" />
-              <h2 className="m-0 min-w-0 truncate text-xs text-ink" title={path}>
-                {path}
-              </h2>
-              <span className="shrink-0 text-ink-soft text-[11px] font-normal">({t('git.diff.fileBlameTitle') || '文件追溯'})</span>
-            </>
-          ) : conflictActive ? (
-            <>
-              <LuGitMerge className="size-4 shrink-0 text-warn" aria-hidden />
-              <span className="shrink-0 text-xs font-semibold">{t('git.diff.conflictComparison')}</span>
-              <LuFileCode className="size-3 shrink-0 text-accent" aria-hidden />
-              <h2 className="m-0 min-w-0 truncate text-xs text-ink" title={path}>
-                {path}
-              </h2>
-              {commit?.author ? (
-                <span className="shrink-0 text-ink-soft text-[11px] font-normal" title={`${commit.author} · ${commit.date}`}>
-                  ({commit.author})
-                </span>
-              ) : null}
-            </>
+          {conflictActive ? (
+            <LuGitMerge className="size-4 shrink-0 text-warn" aria-hidden />
           ) : (
-            <>
-              <StatusIcon className={cn('size-3.5 shrink-0', mark.className)} aria-label={mark.label} />
-              <h2 className="m-0 min-w-0 truncate text-xs text-ink" title={path}>
-                {path}
-              </h2>
-              <CountMarks counts={counts} />
-            </>
+            <StatusIcon className={cn('size-4 shrink-0', mark.className)} aria-label={mark.label} />
+          )}
+          <h2 className="m-0 min-w-0 truncate text-xs text-ink font-medium" title={path}>
+            {path}
+          </h2>
+          {conflictActive ? (
+            <span className="shrink-0 text-ink-soft text-[11px] font-normal" title={commit?.author ? `${commit.author} · ${commit.date}` : undefined}>
+              ({t('git.diff.conflictComparison') || '冲突'})
+            </span>
+          ) : (
+            <CountMarks counts={counts} />
           )}
         </div>
         <div className="justify-self-center flex items-center gap-2">
-          {/* Main View Mode Switcher */}
-          <SegmentedNav
-            aria-label={t('git.diff.contentMode')}
-            size="mini"
-            value={activeTab}
-            onChange={(val) => setActiveTab(val as 'diff' | 'history' | 'blame')}
-            items={[
-              { id: 'diff', label: t('git.diff.diffView') || '变更', icon: <LuFileCode /> },
-              { id: 'history', label: t('git.diff.fileHistoryTitle') || '历史', icon: <LuHistory /> },
-              { id: 'blame', label: t('git.diff.fileBlameTitle') || '追溯', icon: <LuPencil /> },
-            ]}
-          />
-
-          {activeTab === 'diff' ? (
-            conflictActive ? (
-              <SegmentedNav
-                aria-label={t('git.diff.conflictMode')}
-                size="mini"
-                value={conflictViewMode}
-                onChange={(val) => setConflictViewMode(val as '3way' | 'remerge')}
-                items={[
-                  { id: '3way', label: t('git.diff.threeWay'), icon: <LuColumns2 /> },
-                  { id: 'remerge', label: 'Remerge Diff', icon: <LuRows3 /> },
-                ]}
-              />
-            ) : (
-              <>
-                <SegmentedNav aria-label={t('git.diff.contentMode')} size="mini" value={mode} onChange={setMode} items={modeItems} />
-                {showFilePane ? (
-                  <SegmentedNav
-                    aria-label={resolvedKind === 'svg' ? t('git.diff.svgView') : t('git.diff.markdownView')}
-                    size="mini"
-                    value={pane}
-                    onChange={setPane}
-                    items={paneItems}
-                  />
-                ) : null}
-                {mode === 'diff' && showDiffViewports ? (
-                  <SegmentedNav aria-label={t('git.diff.viewport')} size="mini" value={viewport} onChange={setViewport} items={viewportItems} />
-                ) : null}
-              </>
-            )
-          ) : null}
+          {conflictActive ? (
+            <SegmentedNav
+              aria-label={t('git.diff.conflictMode')}
+              size="mini"
+              value={conflictViewMode}
+              onChange={(val) => setConflictViewMode(val as '3way' | 'remerge')}
+              items={[
+                { id: '3way', label: t('git.diff.threeWay'), icon: <LuColumns2 /> },
+                { id: 'remerge', label: 'Remerge Diff', icon: <LuRows3 /> },
+              ]}
+            />
+          ) : (
+            <>
+              <SegmentedNav aria-label={t('git.diff.contentMode')} size="mini" value={mode} onChange={setMode} items={modeItems} />
+              {showFilePane ? (
+                <SegmentedNav
+                  aria-label={resolvedKind === 'svg' ? t('git.diff.svgView') : t('git.diff.markdownView')}
+                  size="mini"
+                  value={pane}
+                  onChange={setPane}
+                  items={paneItems}
+                />
+              ) : null}
+              {mode === 'diff' && showDiffViewports ? (
+                <SegmentedNav aria-label={t('git.diff.viewport')} size="mini" value={viewport} onChange={setViewport} items={viewportItems} />
+              ) : null}
+            </>
+          )}
 
           <SegmentedNav
             aria-label={t('git.diff.wrapMode')}
@@ -1038,55 +993,45 @@ export function GitFileDiff({
           />
         </div>
         <div className="flex items-center justify-end gap-1">
-          {activeTab === 'history' ? (
-            historyCount > 0 ? (
-              <span className="mr-1 text-xs text-ink-soft tabular-nums font-mono">{t('git.diff.commitsCount', { count: historyCount }) || `${historyCount} 提交`}</span>
-            ) : null
-          ) : activeTab === 'blame' ? (
-            blameLineCount > 0 ? (
-              <span className="mr-1 text-xs text-ink-soft tabular-nums font-mono">{`${blameLineCount} 行`}</span>
-            ) : null
-          ) : conflictActive ? (
-            regions.length > 0 && (
-              <span className="mr-1 text-xs text-ink-soft tabular-nums font-mono">
-                {conflictNavigation.index >= 0 ? `${conflictNavigation.index + 1}/${regions.length}` : `${regions.length}`}
-              </span>
-            )
-          ) : (
-            mode === 'diff' &&
-            activeChangeBlocks.length > 0 && (
-              <span className="mr-1 text-xs text-ink-soft tabular-nums font-mono">
-                {`${(((changeNavigation.index % activeChangeBlocks.length) + activeChangeBlocks.length) % activeChangeBlocks.length) + 1}/${activeChangeBlocks.length}`}
-              </span>
-            )
-          )}
+          {/* Stepper count */}
+          <span className="min-w-[36px] text-center text-xs text-ink-soft tabular-nums font-mono select-none">
+            {conflictActive
+              ? regions.length > 0
+                ? conflictNavigation.index >= 0
+                  ? `${conflictNavigation.index + 1}/${regions.length}`
+                  : `${regions.length}`
+                : ''
+              : activeChangeBlocks.length > 0
+                ? `${(((changeNavigation.index % activeChangeBlocks.length) + activeChangeBlocks.length) % activeChangeBlocks.length) + 1}/${activeChangeBlocks.length}`
+                : ''}
+          </span>
 
-          {activeTab === 'diff' ? (
-            <div className="flex items-center gap-0.5">
-              <Button
-                variant="plain"
-                size="mini"
-                disabled={conflictActive ? conflictLoading || !regions.length : loading || activeChangeBlocks.length === 0}
-                aria-label={conflictActive ? t('git.diff.previousConflict') : t('git.diff.prevChange')}
-                title={conflictActive ? t('git.diff.previousConflict') : t('git.diff.prevChange')}
-                onClick={() => (conflictActive ? stepConflict(-1) : stepChange(-1))}
-              >
-                <LuChevronUp className="size-3.5" aria-hidden="true" />
-              </Button>
-              <Button
-                variant="plain"
-                size="mini"
-                disabled={conflictActive ? conflictLoading || !regions.length : loading || activeChangeBlocks.length === 0}
-                aria-label={conflictActive ? t('git.diff.nextConflict') : t('git.diff.nextChange')}
-                title={conflictActive ? t('git.diff.nextConflict') : t('git.diff.nextChange')}
-                onClick={() => (conflictActive ? stepConflict(1) : stepChange(1))}
-              >
-                <LuChevronDown className="size-3.5" aria-hidden="true" />
-              </Button>
-            </div>
-          ) : null}
+          {/* Stepper navigation buttons (up/down) */}
+          <div className="flex items-center gap-0.5">
+            <Button
+              variant="plain"
+              size="mini"
+              disabled={conflictActive ? conflictLoading || !regions.length : loading || activeChangeBlocks.length === 0}
+              aria-label={conflictActive ? t('git.diff.previousConflict') : t('git.diff.prevChange')}
+              title={conflictActive ? t('git.diff.previousConflict') : t('git.diff.prevChange')}
+              onClick={() => (conflictActive ? stepConflict(-1) : stepChange(-1))}
+            >
+              <LuChevronUp className="size-3.5" aria-hidden="true" />
+            </Button>
+            <Button
+              variant="plain"
+              size="mini"
+              disabled={conflictActive ? conflictLoading || !regions.length : loading || activeChangeBlocks.length === 0}
+              aria-label={conflictActive ? t('git.diff.nextConflict') : t('git.diff.nextChange')}
+              title={conflictActive ? t('git.diff.nextConflict') : t('git.diff.nextChange')}
+              onClick={() => (conflictActive ? stepConflict(1) : stepChange(1))}
+            >
+              <LuChevronDown className="size-3.5" aria-hidden="true" />
+            </Button>
+          </div>
 
-          {!conflictActive && !(activeTab === 'diff' && mode === 'diff' && viewport === 'split') && (
+          {/* Search Button (Diff Mode) */}
+          {!conflictActive ? (
             <Button
               variant={showFind ? 'default' : 'plain'}
               size="mini"
@@ -1095,40 +1040,48 @@ export function GitFileDiff({
               onClick={() => {
                 setShowFind((prev) => {
                   const next = !prev
-                  if (next) {
-                    setTimeout(() => findInputRef.current?.focus(), 50)
-                  }
+                  if (next) setTimeout(() => findInputRef.current?.focus(), 50)
                   return next
                 })
               }}
             >
               <LuSearch className="size-3.5" aria-hidden />
             </Button>
-          )}
+          ) : null}
 
-          {activeTab === 'diff' &&
-            (conflictActive ? (
-              <Tooltip content={t('git.diff.diffView')}>
-                <Button variant="plain" size="mini" onClick={() => setConflictActive(false)} aria-label={t('git.diff.diffView')}>
-                  <LuFileCode className="size-3.5 text-accent" />
-                </Button>
-              </Tooltip>
-            ) : hasConflict || Boolean(conflict?.hasConflict) || Boolean(commit && commit.parents.length > 1) ? (
-              <Tooltip content={t('git.diff.conflictComparison')}>
-                <Button
-                  variant="plain"
-                  size="mini"
-                  onClick={() => {
-                    if (onOpenConflictView) onOpenConflictView()
-                    setConflictActive(true)
-                  }}
-                  aria-label={t('git.diff.conflictComparison')}
-                >
-                  <LuGitMerge className="size-3.5 text-warn" />
-                </Button>
-              </Tooltip>
-            ) : null)}
+          {/* Dedicated File History Button */}
+          {onOpenFileHistory ? (
+            <Tooltip content={t('git.operations.fileHistory') || 'File History'}>
+              <Button variant="plain" size="mini" onClick={() => onOpenFileHistory(path)} aria-label={t('git.operations.fileHistory')}>
+                <LuHistory className="size-3.5 text-accent" />
+              </Button>
+            </Tooltip>
+          ) : null}
 
+          {/* Dedicated File Blame Button */}
+          {onOpenFileBlame ? (
+            <Tooltip content={t('git.operations.fileBlame') || 'File Blame'}>
+              <Button variant="plain" size="mini" onClick={() => onOpenFileBlame(path)} aria-label={t('git.operations.fileBlame')}>
+                <LuPencil className="size-3.5 text-ink-soft" />
+              </Button>
+            </Tooltip>
+          ) : null}
+
+          {/* Conflict / Changes toggle button */}
+          {hasConflict || Boolean(conflict?.hasConflict) || Boolean(commit && commit.parents.length > 1) ? (
+            <Tooltip content={conflictActive ? t('git.diff.diffView') || '变更' : t('git.diff.conflictComparison') || '冲突'}>
+              <Button
+                variant="plain"
+                size="mini"
+                onClick={() => setConflictActive(!conflictActive)}
+                aria-label={conflictActive ? t('git.diff.diffView') : t('git.diff.conflictComparison')}
+              >
+                {conflictActive ? <LuFileCode className="size-3.5 text-accent" /> : <LuGitMerge className="size-3.5 text-warn" />}
+              </Button>
+            </Tooltip>
+          ) : null}
+
+          {/* Close button */}
           <Button variant="plain" size="mini" aria-label={t('common.close')} onClick={onClose}>
             <LuX className="size-3.5" aria-hidden />
           </Button>
@@ -1154,17 +1107,9 @@ export function GitFileDiff({
       ) : null}
 
       {activeTab === 'history' ? (
-        <GitFileHistoryView
-          repo={repo}
-          path={path}
-          currentHash={hash}
-          wordWrap={wordWrap}
-          searchQuery={findQuery}
-          onLocateCommit={onLocateCommit}
-          onCommitCountChange={setHistoryCount}
-        />
+        <GitFileHistoryView repo={repo} path={path} currentHash={hash} wordWrap={wordWrap} searchQuery={findQuery} onLocateCommit={onLocateCommit} />
       ) : activeTab === 'blame' ? (
-        <GitFileBlameView repo={repo} path={path} hash={hash} wordWrap={wordWrap} searchNeedle={needle} onLocateCommit={onLocateCommit} onTotalLinesChange={setBlameLineCount} />
+        <GitFileBlameView repo={repo} path={path} hash={hash} wordWrap={wordWrap} searchNeedle={needle} onLocateCommit={onLocateCommit} />
       ) : conflictActive ? (
         conflictViewMode === '3way' ? (
           <div className="flex min-h-0 flex-1 flex-col gap-2 bg-paper p-2">

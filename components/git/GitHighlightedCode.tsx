@@ -77,12 +77,12 @@ export function GitTokenSpans({
     diffKind === 'add'
       ? cn(
           'inline-block rounded-[3px] px-1 py-0.5 font-medium leading-tight select-text align-baseline',
-          'bg-[#a7f3d0] text-[#064e3b] border border-[#6ee7b7]/70 shadow-xs dark:bg-[#065f46]/85 dark:text-[#a7f3d0] dark:border-[#059669]/60'
+          'bg-[#6ee7b7] text-[#022c22] border border-[#34d399]/70 shadow-xs dark:bg-[#047857] dark:text-[#a7f3d0] dark:border-[#059669]/60'
         )
       : diffKind === 'del'
         ? cn(
             'inline-block rounded-[3px] px-1 py-0.5 font-medium leading-tight select-text align-baseline',
-            'bg-[#fecdd3] text-[#881337] border border-[#fda4af]/70 shadow-xs dark:bg-[#881337]/80 dark:text-[#fecdd3] dark:border-[#9f1239]/60'
+            'bg-[#fda4af] text-[#4c0519] border border-[#fb7185]/70 shadow-xs dark:bg-[#9f1239] dark:text-[#ffe4e6] dark:border-[#be123c]/60'
           )
         : 'bg-accent/30 rounded-[3px] px-0.5'
 

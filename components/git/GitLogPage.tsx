@@ -1,15 +1,18 @@
 'use client'
 
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { LuChevronsUpDown, LuFolderGit2, LuSettings } from 'react-icons/lu'
+import { LuChevronsUpDown, LuFolderGit2, LuHistory, LuPencil, LuSettings, LuX } from 'react-icons/lu'
 
 import { BrandLogo } from '@/components/BrandLogo'
 import { measurePanelFit } from '@/components/git/fitColumn'
 import { CreateBranchModal, RenameBranchModal } from '@/components/git/GitBranchModal'
 import { GitCommitPanel } from '@/components/git/GitCommitPanel'
 import { GitDebug } from '@/components/git/GitDebug'
+import { GitFileBlameView } from '@/components/git/GitFileBlameView'
 import { GitFileDiff } from '@/components/git/GitFileDiff'
+import { GitFileHistoryView } from '@/components/git/GitFileHistoryView'
 import { GIT_FIND_EVENT, useGitFindShortcut } from '@/components/git/gitFind'
 import { GitHistory } from '@/components/git/GitHistory'
 import { GitMergePanel } from '@/components/git/GitMergePanel'
@@ -23,7 +26,7 @@ import { useT } from '@/components/i18n/LocaleProvider'
 import { LocaleSwitcher } from '@/components/i18n/LocaleSwitcher'
 import { useInWorkspaceHeader, WorkspaceHeaderSlot } from '@/components/layout/WorkspaceHeaderContext'
 import { useNotification } from '@/components/notification/useNotification'
-import { Button, EmptyState, Spinner, Tooltip } from '@/components/sk'
+import { Button, EmptyState, SegmentedNav, Spinner, Tooltip } from '@/components/sk'
 import { dropdownTriggerClass } from '@/components/sk/dropdownMenu'
 import { ThemeSwitcher } from '@/components/theme/ThemeSwitcher'
 import { useOptionalAgent } from '@/lib/agent/agent-context'
@@ -94,6 +97,7 @@ function highlightOf(view: GitLogView, selection: GitSelection): string {
 
 export function GitLogPage({ initial, initialCommitHash, initialFilePath, initialPersistence: _initialPersistence }: Props) {
   const t = useT()
+  const router = useRouter()
   const notification = useNotification()
   const failed = isError(initial)
   const [view, setView] = useState<GitLogView | null>(failed ? null : initial)
@@ -143,6 +147,7 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
   const lineageSet = useMemo(() => (lineageHashes && lineageHashes.length > 0 ? new Set(lineageHashes) : null), [lineageHashes])
   const [sidebarWidth, setSidebarWidth] = useGitUiPref('layout.sidebarWidth', 256, isPositiveNumber)
   const [treeWidth, setTreeWidth] = useGitUiPref('layout.treeWidth', 320, isPositiveNumber)
+  const [filePanel, setFilePanel] = useState<{ type: 'history' | 'blame'; path: string; hash?: string } | null>(null)
   const [remoteCheck] = useState<GitRemoteCheck | null>(null)
   const [soloBranch, setSoloBranch] = useState<string | null>(null)
   const [soloRemote, setSoloRemote] = useState<string | null>(null)
@@ -356,34 +361,75 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
     }
   }, [busy])
 
+  const lastFetchTimeRef = useRef<number>(0)
+  const isFetchingRef = useRef<boolean>(false)
+
+  const autoFetch = useCallback(
+    async (force = false) => {
+      const currentRepo = viewRef.current?.repo
+      if (!currentRepo || isFetchingRef.current || busy) return
+      const now = Date.now()
+      // Throttle automatic network fetch to at most once every 45s unless forced
+      if (!force && now - lastFetchTimeRef.current < 45_000) return
+
+      isFetchingRef.current = true
+      lastFetchTimeRef.current = now
+      try {
+        const driver = getGitDriver()
+        await driver.fetch(currentRepo, { all: true, prune: true }).catch(() => {})
+        await silentRefresh()
+      } catch {
+        // Silently ignore background fetch errors
+      } finally {
+        isFetchingRef.current = false
+      }
+    },
+    [busy, silentRefresh]
+  )
+
   useEffect(() => {
     if (!view?.repo) return
     let debounceTimer: ReturnType<typeof setTimeout> | null = null
 
+    // 1. Initial background fetch 2s after repository is ready
+    const initTimer = setTimeout(() => {
+      void autoFetch()
+    }, 2000)
+
+    // 2. Focus / Visibility trigger
     const handleTrigger = () => {
       if (document.visibilityState !== 'visible') return
       if (debounceTimer) clearTimeout(debounceTimer)
       debounceTimer = setTimeout(() => {
         void silentRefresh()
+        void autoFetch()
       }, 200)
     }
 
     window.addEventListener('focus', handleTrigger)
     document.addEventListener('visibilitychange', handleTrigger)
 
+    // 3. Local polling every 5s & Remote autoFetch every 3 minutes (180s)
+    let tickCount = 0
     const pollInterval = window.setInterval(() => {
       if (document.visibilityState === 'visible') {
         void silentRefresh()
+        tickCount++
+        if (tickCount >= 36) {
+          tickCount = 0
+          void autoFetch()
+        }
       }
     }, 5000)
 
     return () => {
+      clearTimeout(initTimer)
       if (debounceTimer) clearTimeout(debounceTimer)
       window.clearInterval(pollInterval)
       window.removeEventListener('focus', handleTrigger)
       document.removeEventListener('visibilitychange', handleTrigger)
     }
-  }, [silentRefresh, view?.repo])
+  }, [silentRefresh, autoFetch, view?.repo])
 
   function applyView(next: GitLogView) {
     const nextSelection = readGitUiPref(repoPrefKey(next.repo, 'selection'), isGitSelection) || selectionFor(next)
@@ -591,10 +637,16 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
         // Local repo path or Edge handle name
         void load(targetUrl)
       }
-    } else if (getDriverMode() === 'edge' && (!view || failed)) {
+    } else if (getDriverMode() === 'edge') {
       const pathParts = window.location.pathname.split('/').filter(Boolean)
       if (pathParts[0] === 'repo' && pathParts[1]) {
         void load(pathParts[1])
+      } else if (pathParts[0] === 'git' && pathParts.length > 1) {
+        const repoName = pathParts[pathParts.length - 1]
+        void load(repoName)
+      } else if (view?.repo && view.repo.startsWith('/')) {
+        const name = view.displayPath || repoName(view.repo)
+        if (name) void load(name)
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1319,7 +1371,26 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
               </>
             ) : null}
             <div className="ml-auto flex shrink-0 items-center gap-1.5">
-              <GitModeSwitcher />
+              <GitModeSwitcher
+                currentRepo={view?.repo}
+                currentName={view?.displayPath || (view?.repo ? repoName(view.repo, view.displayPath) : '')}
+                currentRemoteUrl={view?.remoteUrl}
+                onSwitchRepo={async (_nextMode, targetRepo) => {
+                  setView(null)
+                  setCommits([])
+                  setHasMore(false)
+                  setSelectedHash('')
+                  setSelectedFile('')
+                  setSelectedStatus('')
+                  setConflictViewActive(false)
+                  setFilePanel(null)
+                  if (targetRepo) {
+                    await load(targetRepo)
+                  } else {
+                    router.push('/git')
+                  }
+                }}
+              />
               <span className="mx-0.5 h-3.5 w-px shrink-0 bg-[color-mix(in_oklab,var(--ink)_14%,transparent)]" aria-hidden />
               <ThemeSwitcher compact />
               <LocaleSwitcher compact />
@@ -1371,7 +1442,7 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
             </div>
           </EmptyState>
         ) : (
-          <div ref={frameRef} className="flex min-h-0 flex-1 overflow-hidden" style={frameStyle}>
+          <div ref={frameRef} className="relative flex min-h-0 flex-1 overflow-hidden" style={frameStyle}>
             {selected && (selectedFile || (conflictViewActive && conflicts[selected.hash])) ? (
               <GitFileDiff
                 repo={view.repo}
@@ -1394,6 +1465,8 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                 onOpenConflictView={() => handleOpenConflictView(selected.hash, selectedFile)}
                 initialTab={fileDetailTab}
                 onTabChange={setFileDetailTab}
+                onOpenFileHistory={(path) => setFilePanel({ type: 'history', path, hash: selected?.hash })}
+                onOpenFileBlame={(path) => setFilePanel({ type: 'blame', path, hash: selected?.hash })}
                 onLocateCommit={(commitHash) => {
                   setSelectedHash(commitHash)
                   setFocusRequest({ hash: commitHash })
@@ -1561,12 +1634,10 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                     setFileDetailTab('diff')
                   }}
                   onOpenFileHistory={(path) => {
-                    setSelectedFile(path)
-                    setFileDetailTab('history')
+                    setFilePanel({ type: 'history', path, hash: selected?.hash })
                   }}
                   onOpenFileBlame={(path) => {
-                    setSelectedFile(path)
-                    setFileDetailTab('blame')
+                    setFilePanel({ type: 'blame', path, hash: selected?.hash })
                   }}
                   onClose={() => {
                     setSelectedHash('')
@@ -1575,10 +1646,70 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                     setFileDetailTab('diff')
                     setLineageHashes(null)
                     setConflictViewActive(false)
+                    setFilePanel(null)
                   }}
                 />
               </>
             ) : null}
+            {filePanel && (
+              <div className="absolute inset-y-0 right-0 z-40 flex w-full max-w-4xl flex-col border-l border-line bg-canvas shadow-2xl animate-in slide-in-from-right duration-200">
+                <header className="flex h-10 shrink-0 items-center justify-between border-b border-line bg-panel px-3">
+                  <div className="flex min-w-0 items-center gap-2">
+                    {filePanel.type === 'history' ? (
+                      <LuHistory className="size-4 shrink-0 text-accent" aria-hidden />
+                    ) : (
+                      <LuPencil className="size-4 shrink-0 text-accent" aria-hidden />
+                    )}
+                    <h3 className="m-0 min-w-0 truncate text-xs font-semibold text-ink" title={filePanel.path}>
+                      {filePanel.path.split('/').pop() || filePanel.path}
+                    </h3>
+                    <span className="hidden truncate text-[11px] text-ink-soft md:inline" title={filePanel.path}>
+                      ({filePanel.path})
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <SegmentedNav
+                      aria-label={t('git.operations.filePanelTitle') || 'File Details'}
+                      size="mini"
+                      value={filePanel.type}
+                      onChange={(val) => setFilePanel((prev) => (prev ? { ...prev, type: val as 'history' | 'blame' } : null))}
+                      items={[
+                        { id: 'history', label: t('git.operations.fileHistory') || 'File History', icon: <LuHistory className="size-3.5" /> },
+                        { id: 'blame', label: t('git.operations.fileBlame') || 'File Blame', icon: <LuPencil className="size-3.5" /> },
+                      ]}
+                    />
+                    <Button variant="plain" size="mini" aria-label={t('common.close')} onClick={() => setFilePanel(null)}>
+                      <LuX className="size-3.5" aria-hidden />
+                    </Button>
+                  </div>
+                </header>
+                <div className="flex min-h-0 flex-1 overflow-hidden">
+                  {filePanel.type === 'history' ? (
+                    <GitFileHistoryView
+                      repo={view.repo}
+                      path={filePanel.path}
+                      currentHash={filePanel.hash || selected?.hash}
+                      onLocateCommit={(commitHash) => {
+                        setSelectedHash(commitHash)
+                        setFocusRequest({ hash: commitHash })
+                        setFilePanel(null)
+                      }}
+                    />
+                  ) : (
+                    <GitFileBlameView
+                      repo={view.repo}
+                      path={filePanel.path}
+                      hash={filePanel.hash || selected?.hash}
+                      onLocateCommit={(commitHash) => {
+                        setSelectedHash(commitHash)
+                        setFocusRequest({ hash: commitHash })
+                        setFilePanel(null)
+                      }}
+                    />
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
