@@ -1,8 +1,8 @@
-# Yggit Agent — Skill、MCP、Token 统计与服务可观测性技术架构文档
+# Yggit Agent — Skill、MCP、任务流追踪与服务诊断技术架构文档
 
-> 版本：V1.0  
+> 版本：V1.1  
 > 类型：技术架构与系统设计规范（Technical Specification）  
-> 状态：方案定稿，已完成 V1 核心闭环  
+> 状态：方案定稿，已完成 V1 核心闭环（Token 统计部分暂缓并移除，聚焦于 Skill、MCP、Tasks、Logs）  
 > 关联 PRD：[docs/prd/agent-skills-mcp-and-observability.md](../prd/agent-skills-mcp-and-observability.md)  
 > 目录索引：[docs/README.md](../README.md)
 
@@ -10,7 +10,7 @@
 
 ## 1. 架构总览与双模运行模型
 
-Yggit Agent 采用**双模驱动架构（Dual-Mode Architecture）**，使同一套业务逻辑与数据模型能够无缝运行在 Edge（纯 Web 浏览器）与 Local（本地伴侣守护进程）两种形态下，实现技能、工具和可观测性组件的来源无关与运行环境无关。
+Yggit Agent 采用**双模驱动架构（Dual-Mode Architecture）**，使同一套业务逻辑与数据模型能够无缝运行在 Edge（纯 Web 浏览器）与 Local（本地伴侣守护进程）两种形态下，实现技能、工具和任务追踪组件的来源无关与运行环境无关。
 
 ```text
                            +---------------------------+
@@ -45,8 +45,8 @@ Yggit Agent 采用**双模驱动架构（Dual-Mode Architecture）**，使同一
                   +----------------------+----------------------+
                   |                                             |
      +------------v------------+                   +------------v------------+
-     | Observability (Metrics) |                   |    Diagnostics (Logs)   |
-     |   (lib/agent/metrics)   |                   |       (lib/logger)      |
+     |   Task Step Tracing     |                   |    Diagnostics (Logs)   |
+     |    (lib/agent/tasks)    |                   |       (lib/logger)      |
      +------------+------------+                   +------------+------------+
                   |                                             |
                   +----------------------+----------------------+
@@ -62,7 +62,7 @@ Yggit Agent 采用**双模驱动架构（Dual-Mode Architecture）**，使同一
 
 1. **EDGE 模式 (Web / Browser)**：
    - 纯前端无服务化架构，零安装门槛。
-   - 所有状态（Skills, MCP Servers, Metrics, Tasks, Logs）持久化于浏览器 IndexedDB。
+   - 所有状态（Skills, MCP Servers, Tasks, Logs）持久化于浏览器 IndexedDB。
    - 遵循浏览器同源策略（SOP）与 CORS 规范；外部 HTTP MCP 服务需支持跨域请求。
    - 通过 WebMCP（`navigator.modelContext` / `window.modelContext`）探测浏览器原生大模型上下文注入能力。
 2. **LOCAL 模式 (Companion)**：
@@ -142,36 +142,9 @@ export interface WebMcpSupportReport {
 }
 ```
 
-### 2.3 Token 统计与任务追踪模型 (`lib/agent/metrics/types.ts` & `lib/agent/tasks/types.ts`)
+### 2.3 任务追踪模型 (`lib/agent/tasks/types.ts`)
 
 ```typescript
-export interface TokenUsageRecord {
-  id: string
-  timestamp: number
-  model: string
-  purpose: 'chat' | 'diagnostic' | 'git_action' | 'task'
-  promptTokens: number
-  completionTokens: number
-  cachedTokens: number
-  totalTokens: number
-  latencyMs: number
-  status: 'success' | 'error'
-  errorMessage?: string
-}
-
-export interface TokenMetricsSummary {
-  period: '7d' | '30d' | '90d' | 'all'
-  totalTokens: number
-  totalPromptTokens: number
-  totalCompletionTokens: number
-  totalCachedTokens: number
-  cacheHitRate: number // 缓存命中率：totalCachedTokens / (totalPromptTokens + totalCachedTokens)
-  requestCount: number
-  averageLatencyMs: number
-  byModel: Record<string, number>
-  byPurpose: Record<string, number>
-}
-
 export interface AgentTask {
   id: string
   title: string
@@ -181,7 +154,7 @@ export interface AgentTask {
   status: 'pending' | 'running' | 'completed' | 'failed'
   steps: AgentTaskStep[]
   totalDurationMs?: number
-  totalTokensUsed?: number
+  error?: string
 }
 
 export interface AgentTaskStep {
@@ -191,9 +164,8 @@ export interface AgentTaskStep {
   title: string
   status: 'running' | 'completed' | 'failed'
   durationMs?: number
-  tokensUsed?: number
-  inputSummary?: string
-  outputSummary?: string
+  input?: unknown
+  output?: unknown
   metadata?: Record<string, unknown>
 }
 ```
@@ -221,13 +193,12 @@ export interface ServiceLogEntry {
 
 系统注册统一的数据库常量集合于 [lib/storage/databases.ts](file:///Users/davidjones/Develop/ops/apps/yggdrasil/lib/storage/databases.ts)，支持多 Tab 实例共享与变更实时通知：
 
-| 数据库名              | 对应常量           | 存储核心实体       | 索引策略                                        |
-| :-------------------- | :----------------- | :----------------- | :---------------------------------------------- |
-| `yggit_skills_store`  | `SKILLS_DATABASE`  | `SkillDescriptor`  | 主键 `id`，索引 `source.type`, `enabled`        |
-| `yggit_mcp_store`     | `MCP_DATABASE`     | `McpServerConfig`  | 主键 `id`，索引 `enabled`                       |
-| `yggit_metrics_store` | `METRICS_DATABASE` | `TokenUsageRecord` | 主键 `id`，索引 `timestamp`, `model`, `purpose` |
-| `yggit_tasks_store`   | `TASKS_DATABASE`   | `AgentTask`        | 主键 `id`，索引 `createdAt`, `status`           |
-| `yggit_logs_store`    | `LOGS_DATABASE`    | `ServiceLogEntry`  | 主键 `id`，索引 `timestamp`, `level`, `module`  |
+| 数据库名             | 对应常量          | 存储核心实体      | 索引策略                                       |
+| :------------------- | :---------------- | :---------------- | :--------------------------------------------- |
+| `yggit_skills_store` | `SKILLS_DATABASE` | `SkillDescriptor` | 主键 `id`，索引 `source.type`, `enabled`       |
+| `yggit_mcp_store`    | `MCP_DATABASE`    | `McpServerConfig` | 主键 `id`，索引 `enabled`                      |
+| `yggit_tasks_store`  | `TASKS_DATABASE`  | `AgentTask`       | 主键 `id`，索引 `createdAt`, `status`          |
+| `yggit_logs_store`   | `LOGS_DATABASE`   | `ServiceLogEntry` | 主键 `id`，索引 `timestamp`, `level`, `module` |
 
 ---
 
@@ -274,34 +245,15 @@ $$\text{External Tool Name} = \text{"mcp\_\_"} + \text{serverId} + \text{"\_\_"}
 
 ---
 
-### 4.3 Token 计量可观测引擎 (`lib/agent/metrics/`)
-
-参考 Calm Ops 工单系统（`ticket-janitor`）的指标标准设计：
-
-#### 1. 拦截采集
-
-在 [lib/agent/openapi-client.ts](file:///Users/davidjones/Develop/ops/apps/yggdrasil/lib/agent/openapi-client.ts) 的统一出口注入拦截器：
-
-- **SSE 流式**：在请求体中附带 `stream_options: { include_usage: true }`，监听流式末尾 chunk 携带的 `usage` 节点，累加生成 token 数。
-- **标准 JSON**：直接从非流式响应体的 `usage` 字段获取 `prompt_tokens`, `completion_tokens`, `prompt_tokens_details.cached_tokens`。
-
-#### 2. 滑动窗口聚合与缓存命中率算法
-
-在 [lib/agent/metrics/storage.ts](file:///Users/davidjones/Develop/ops/apps/yggdrasil/lib/agent/metrics/storage.ts) 中按时间戳滑动过滤：
-$$\text{Cache Hit Rate} = \frac{\sum \text{Cached Tokens}}{\sum \text{Prompt Tokens} + \sum \text{Cached Tokens}} \times 100\%$$
-并同时聚合各模型的 Token 占比及各业务用途（`chat` / `diagnostic` / `git_action` / `task`）的分布柱状数据。
-
----
-
-### 4.4 Agent Task 任务流水线 (`lib/agent/tasks/`)
+### 4.3 Agent Task 任务流水线 (`lib/agent/tasks/`)
 
 - 跟踪从用户发起指令到 Agent 最终产出结果的完整执行链。
 - **状态机**：`pending` ➔ `running` ➔ `completed` / `failed`。
-- **步骤节点**：按序号记录 `skill_match` ➔ `llm_turn` ➔ `tool_call` ➔ `artifact`，记录每一步的输入摘录、输出摘录、Token 开销与耗时毫秒数。
+- **步骤节点**：按序号记录 `skill_match` ➔ `llm_turn` ➔ `tool_call` ➔ `artifact`，记录每一步的输入摘录、输出摘录与耗时毫秒数。
 
 ---
 
-### 4.5 服务诊断日志与脱敏 Issue 导出 (`lib/logger/index.ts`)
+### 4.4 服务诊断日志与脱敏 Issue 导出 (`lib/logger/index.ts`)
 
 - **双层缓冲**：内存中保留容量为 200 条的 FIFO 环形缓冲区以支撑 UI 毫秒级刷新，同时异步将重要日志批量写入 IndexedDB。
 - **隐私脱敏导出 (Copy for Issue)**：
@@ -323,7 +275,6 @@ sequenceDiagram
     participant OpenAPI as OpenAPI Client
     participant ToolRouter as Tool Router
     participant McpClient as MCP HTTP Client
-    participant MetricStore as Metrics Store
     participant Logger as Service Logger
 
     User->>UI: 发送任务或会话消息
@@ -360,8 +311,7 @@ sequenceDiagram
     end
 
     rect rgb(255, 250, 245)
-        note over AgentCtx,MetricStore: 3. 指标与链路收尾
-        AgentCtx->>MetricStore: recordTokenUsage(tokens, latency, model, purpose)
+        note over AgentCtx,Logger: 3. 任务与链路收尾
         AgentCtx->>TaskStore: completeTask(taskId)
         AgentCtx->>Logger: logInfo("Agent task completed successfully")
     end
@@ -392,14 +342,11 @@ apps/yggdrasil/
 │   │   ├── webmcp.ts                 # 浏览器原生 WebMCP 探测器
 │   │   └── storage.ts                # IndexedDB 服务配置存储 (yggit_mcp_store)
 │   ├── agent/
-│   │   ├── metrics/                  # Token 计量可观测
-│   │   │   ├── types.ts              # Token 记录与时序聚合模型
-│   │   │   └── storage.ts            # IndexedDB 指标存储与算法 (yggit_metrics_store)
 │   │   ├── tasks/                    # 任务生命周期与步骤追踪
 │   │   │   ├── types.ts              # AgentTask & AgentTaskStep 模型
 │   │   │   └── storage.ts            # IndexedDB 任务存储 (yggit_tasks_store)
 │   │   ├── tools.ts                  # 外部 MCP 工具与原生工具的统一路由分发
-│   │   ├── openapi-client.ts         # 流式/非流式 Token 统一拦截与记录
+│   │   ├── openapi-client.ts         # 流式/非流式请求客户端
 │   │   └── agent-context.tsx         # 全流程调度生命周期串联
 │   ├── logger/                       # 服务诊断日志
 │   │   └── index.ts                  # 环形缓冲、IndexedDB 存储与脱敏 Issue 报告生成
@@ -408,7 +355,6 @@ apps/yggdrasil/
 ├── components/git/agent/settings/    # Calm Ops 视觉规范设置中心面板
 │   ├── SkillsSettingsSection.tsx     # Skill 管理、导入与 SKILL.md 预览
 │   ├── McpSettingsSection.tsx        # MCP Server 卡片、WebMCP 状态与工具开关
-│   ├── TokenMetricsSection.tsx       # KPI 指标卡、分布柱状图与调用日志表
 │   ├── TasksSettingsSection.tsx      # 任务流列表与时间轴步骤追踪详情
 │   ├── LogsSettingsSection.tsx       # 实时日志流、分级过滤与一键 Copy Issue
 │   ├── SettingsSideNav.tsx           # 左侧设置导航集成
@@ -416,13 +362,12 @@ apps/yggdrasil/
 ├── app/(workspace)/settings/         # Next.js App Router 独立页面路由
 │   ├── skills/page.tsx               # /settings/skills
 │   ├── mcp/page.tsx                  # /settings/mcp
-│   ├── tokens/page.tsx               # /settings/tokens
 │   ├── tasks/page.tsx                # /settings/tasks
 │   └── logs/page.tsx                 # /settings/logs
 └── __tests__/lib/                    # 自动化单元测试矩阵
     ├── skills/parser-and-matcher.spec.ts
     ├── mcp/client-and-storage.spec.ts
-    ├── agent/metrics-and-tasks.spec.ts
+    ├── agent/tasks.spec.ts
     └── logger/service-logger.spec.ts
 ```
 

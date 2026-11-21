@@ -74,7 +74,6 @@ export const gitAgentEn: { gitAgent: GitAgentMessages } = {
     tabSkills: 'Skills',
     tabMcp: 'MCP & WebMCP',
     tabTasks: 'Tasks',
-    tabTokens: 'Token Metrics',
     tabLogs: 'Logs',
     tabPrivacy: 'Privacy & Redaction',
     tabGeneral: 'General Settings',

@@ -1,5 +1,3 @@
-import { recordTokenUsage } from './metrics/storage'
-import type { TokenInvocationPurpose } from './metrics/types'
 import { RedactionEngine } from './redact/engine'
 import { StreamingUnmasker, unmaskText, unmaskToolArguments } from './redact/unmask'
 import type { AgentChatMessage, AgentCompletionResponse, AgentToolCall, AgentToolDefinition, EphemeralAgentConfig } from './types'
@@ -11,7 +9,7 @@ export interface CompletionOptions {
   redactionEngine?: RedactionEngine
   onDelta?: (delta: string) => void
   signal?: AbortSignal
-  purpose?: TokenInvocationPurpose
+  purpose?: 'chat' | 'diagnostic' | 'git_action' | 'task'
   taskId?: string
 }
 
@@ -154,20 +152,7 @@ export async function sendAgentCompletion(options: CompletionOptions): Promise<A
   const latencyMs = Math.round(performance.now() - start)
   const promptTokens = json.usage?.prompt_tokens ?? Math.max(1, Math.round(messages.reduce((acc, m) => acc + (m.content?.length || 0), 0) / 4))
   const completionTokens = json.usage?.completion_tokens ?? Math.max(1, Math.round(rawContent.length / 4))
-  const cachedTokens = json.usage?.prompt_tokens_details?.cached_tokens ?? 0
   const totalTokens = json.usage?.total_tokens ?? promptTokens + completionTokens
-
-  void recordTokenUsage({
-    model: config.model,
-    purpose: options.purpose || 'chat',
-    promptTokens,
-    completionTokens,
-    cachedTokens,
-    totalTokens,
-    latencyMs,
-    status: 'success',
-    taskId: options.taskId,
-  })
 
   return {
     id: json.id || `resp_${Date.now()}`,
@@ -190,7 +175,7 @@ async function handleStreamingResponse(params: {
   options: CompletionOptions
 }): Promise<AgentCompletionResponse> {
   const { response, redactionEngine, onDelta, start, options } = params
-  const { config, messages } = options
+  const { messages } = options
   const session = redactionEngine ? redactionEngine.getSession() : undefined
   const unmasker = session ? new StreamingUnmasker(session) : undefined
 
@@ -306,20 +291,7 @@ async function handleStreamingResponse(params: {
   const latencyMs = Math.round(performance.now() - start)
   const promptTokens = streamUsage?.prompt_tokens ?? Math.max(1, Math.round(messages.reduce((acc, m) => acc + (m.content?.length || 0), 0) / 4))
   const completionTokens = streamUsage?.completion_tokens ?? Math.max(1, Math.round(accumulatedContent.length / 4))
-  const cachedTokens = streamUsage?.prompt_tokens_details?.cached_tokens ?? 0
   const totalTokens = streamUsage?.total_tokens ?? promptTokens + completionTokens
-
-  void recordTokenUsage({
-    model: config.model,
-    purpose: options.purpose || 'chat',
-    promptTokens,
-    completionTokens,
-    cachedTokens,
-    totalTokens,
-    latencyMs,
-    status: 'success',
-    taskId: options.taskId,
-  })
 
   return {
     id: responseId,

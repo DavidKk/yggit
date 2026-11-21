@@ -74,7 +74,6 @@ export const gitAgentZh: { gitAgent: GitAgentMessages } = {
     tabSkills: '技能库 (Skills)',
     tabMcp: 'MCP & WebMCP',
     tabTasks: '任务追踪 (Tasks)',
-    tabTokens: 'Token 统计',
     tabLogs: '诊断日志 (Logs)',
     tabPrivacy: '隐私与脱敏',
     tabGeneral: '通用设置',

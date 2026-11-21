@@ -74,7 +74,6 @@ export type GitAgentMessages = {
   tabSkills?: string
   tabMcp?: string
   tabTasks?: string
-  tabTokens?: string
   tabLogs?: string
   tabPrivacy: string
   tabGeneral: string

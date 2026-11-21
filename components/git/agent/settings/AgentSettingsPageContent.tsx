@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from 'next/navigation'
 import React from 'react'
-import { LuArrowLeft, LuChartColumn, LuCpu, LuListTodo, LuMousePointerClick, LuNetwork, LuScrollText, LuShieldCheck, LuSlidersHorizontal, LuSparkles } from 'react-icons/lu'
+import { LuArrowLeft, LuCpu, LuListTodo, LuMousePointerClick, LuNetwork, LuScrollText, LuShieldCheck, LuSlidersHorizontal, LuSparkles } from 'react-icons/lu'
 
 import { BrandLogo } from '@/components/BrandLogo'
 import { useT } from '@/components/i18n/LocaleProvider'
@@ -22,7 +22,6 @@ import { SettingsColumns } from './SettingsColumns'
 import { type SettingsSectionKey, SettingsSideNav } from './SettingsSideNav'
 import { SkillsSettingsSection } from './SkillsSettingsSection'
 import { TasksSettingsSection } from './TasksSettingsSection'
-import { TokenMetricsSection } from './TokenMetricsSection'
 
 /**
  * Git Agent configuration page layout adhering to ticket-janitor / Calm Ops UI/UX standards.
@@ -48,7 +47,7 @@ export function AgentSettingsPageContent({ section = 'models', menuActionId }: A
 
   // Canonical path redirection: if accessed with legacy ?tab= query parameter, redirect to path route
   React.useEffect(() => {
-    if (tabParam && ['models', 'skills', 'mcp', 'tasks', 'tokens', 'logs', 'privacy', 'general', 'menus'].includes(tabParam)) {
+    if (tabParam && ['models', 'skills', 'mcp', 'tasks', 'logs', 'privacy', 'general', 'menus'].includes(tabParam)) {
       router.replace(`/settings/${tabParam}`)
     }
   }, [tabParam, router])
@@ -94,11 +93,6 @@ export function AgentSettingsPageContent({ section = 'models', menuActionId }: A
       title: 'Agent 任务执行链路 (Tasks)',
       desc: '追溯 Agent 接受用户请求、选择技能、执行工具与多轮推理的步骤明细。',
       icon: <LuListTodo className="size-4 text-accent" aria-hidden="true" />,
-    },
-    tokens: {
-      title: 'Token 消耗统计与分析 (Metrics)',
-      desc: '统计 Agent 各模型 Prompt 输入、Completion 输出、缓存命中率及延迟。',
-      icon: <LuChartColumn className="size-4 text-accent" aria-hidden="true" />,
     },
     logs: {
       title: '服务运行与诊断日志 (Logs)',
@@ -180,7 +174,6 @@ export function AgentSettingsPageContent({ section = 'models', menuActionId }: A
               {activeSection === 'skills' && <SkillsSettingsSection />}
               {activeSection === 'mcp' && <McpSettingsSection />}
               {activeSection === 'tasks' && <TasksSettingsSection />}
-              {activeSection === 'tokens' && <TokenMetricsSection />}
               {activeSection === 'logs' && <LogsSettingsSection />}
               {activeSection === 'privacy' && (
                 <SettingsColumns tools={<RuleDebugger />}>

@@ -29,7 +29,6 @@ export const gitAgentCht: { gitAgent: GitAgentMessages } = {
     tabSkills: '技能庫 (Skills)',
     tabMcp: 'MCP & WebMCP',
     tabTasks: '任務追蹤 (Tasks)',
-    tabTokens: 'Token 統計',
     tabLogs: '診斷日誌 (Logs)',
     tabPrivacy: '隱私與脫敏',
     tabGeneral: '通用設定',

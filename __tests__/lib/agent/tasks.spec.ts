@@ -1,46 +1,8 @@
-import { clearAllTokenMetrics, getTokenMetricsSummary, recordTokenUsage } from '@/lib/agent/metrics/storage'
 import { addStepToTask, clearAllTasks, completeTask, createTask, failTask, listTasks } from '@/lib/agent/tasks/storage'
 
-describe('Agent Token Metrics & Tasks Storage', () => {
+describe('Agent Tasks Storage', () => {
   beforeEach(async () => {
-    await clearAllTokenMetrics()
     await clearAllTasks()
-  })
-
-  it('records token usage and aggregates summary by model and purpose', async () => {
-    await recordTokenUsage({
-      model: 'gpt-4o',
-      purpose: 'chat',
-      promptTokens: 1000,
-      completionTokens: 200,
-      cachedTokens: 800,
-      totalTokens: 1200,
-      latencyMs: 1200,
-      status: 'success',
-    })
-
-    await recordTokenUsage({
-      model: 'gpt-4o',
-      purpose: 'diagnostic',
-      promptTokens: 500,
-      completionTokens: 100,
-      cachedTokens: 0,
-      totalTokens: 600,
-      latencyMs: 800,
-      status: 'success',
-    })
-
-    const summary = await getTokenMetricsSummary(30)
-    expect(summary.totalPromptTokens).toBe(1500)
-    expect(summary.totalCompletionTokens).toBe(300)
-    expect(summary.totalCachedTokens).toBe(800)
-    expect(summary.totalTokens).toBe(1800)
-    expect(summary.totalRequests).toBe(2)
-    expect(summary.averageLatencyMs).toBe(1000)
-
-    expect(summary.byModel.find((m) => m.model === 'gpt-4o')?.totalTokens).toBe(1800)
-    expect(summary.byPurpose.find((p) => p.purpose === 'chat')?.totalTokens).toBe(1200)
-    expect(summary.byPurpose.find((p) => p.purpose === 'diagnostic')?.totalTokens).toBe(600)
   })
 
   it('tracks agent task lifecycle with step timeline', async () => {

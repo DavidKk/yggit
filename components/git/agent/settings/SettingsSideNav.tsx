@@ -2,13 +2,13 @@
 
 import Link from 'next/link'
 import React from 'react'
-import { LuChartColumn, LuCpu, LuListTodo, LuMousePointerClick, LuNetwork, LuScrollText, LuShieldCheck, LuSlidersHorizontal, LuSparkles } from 'react-icons/lu'
+import { LuCpu, LuListTodo, LuMousePointerClick, LuNetwork, LuScrollText, LuShieldCheck, LuSlidersHorizontal, LuSparkles } from 'react-icons/lu'
 
 import { useT } from '@/components/i18n/LocaleProvider'
 import { Tooltip } from '@/components/sk'
 import { cn } from '@/lib/utils'
 
-export type SettingsSectionKey = 'models' | 'skills' | 'mcp' | 'tasks' | 'tokens' | 'logs' | 'privacy' | 'general' | 'menus'
+export type SettingsSectionKey = 'models' | 'skills' | 'mcp' | 'tasks' | 'logs' | 'privacy' | 'general' | 'menus'
 
 interface Props {
   activeSection: SettingsSectionKey
@@ -42,12 +42,6 @@ export function SettingsSideNav({ activeSection, onSelectSection }: Props) {
       label: t('gitAgent.tabTasks') || '任务追踪 (Tasks)',
       href: '/settings/tasks',
       icon: <LuListTodo className="h-4.5 w-4.5" aria-hidden="true" />,
-    },
-    {
-      id: 'tokens' as const,
-      label: t('gitAgent.tabTokens') || 'Token 统计',
-      href: '/settings/tokens',
-      icon: <LuChartColumn className="h-4.5 w-4.5" aria-hidden="true" />,
     },
     {
       id: 'logs' as const,
