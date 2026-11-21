@@ -97,7 +97,7 @@ async function readHead(repo: string): Promise<string> {
   }
 }
 
-function historyArgs(ref: string, skip: number): string[] {
+function historyArgs(ref: string, skip: number, take: number = GIT_LOG_PAGE_SIZE): string[] {
   const requested = (ref || '').trim()
   if (requested.startsWith('-')) throw new Error('无效的引用')
   const isStash = /^(?:stash(?:@\{\d+\})?|refs\/stash)$/.test(requested)
@@ -107,14 +107,15 @@ function historyArgs(ref: string, skip: number): string[] {
   // Stashes are drawn separately; never walk their index or untracked parents as ordinary commits.
   const revisions = isStash ? [...branchRefs, `${requested}^1`] : !requested || requested === '*' ? branchRefs : [requested]
   const offset = Number.isFinite(skip) && skip > 0 ? Math.floor(skip) : 0
-  return ['log', ...revisions, '--date-order', '-n', String(GIT_LOG_PAGE_SIZE + 1), '--skip', String(offset), '--date=iso-strict', `--pretty=format:${LOG_FORMAT}`]
+  const limit = Number.isFinite(take) && take > 0 ? Math.floor(take) : GIT_LOG_PAGE_SIZE
+  return ['log', ...revisions, '--date-order', '-n', String(limit + 1), '--skip', String(offset), '--date=iso-strict', `--pretty=format:${LOG_FORMAT}`]
 }
 
-async function readLogPage(repo: string, ref: string, skip: number): Promise<{ commits: GitCommit[]; hasMore: boolean }> {
+export async function readLogPage(repo: string, ref: string, skip: number, take: number = GIT_LOG_PAGE_SIZE): Promise<{ commits: GitCommit[]; hasMore: boolean }> {
   try {
-    const text = await git(repo, historyArgs(ref, skip))
+    const text = await git(repo, historyArgs(ref, skip, take))
     const commits = parseGitLog(text)
-    return { commits: commits.slice(0, GIT_LOG_PAGE_SIZE), hasMore: commits.length > GIT_LOG_PAGE_SIZE }
+    return { commits: commits.slice(0, take), hasMore: commits.length > take }
   } catch (error) {
     const message = gitFailure(error)
     if (message.includes('does not have any commits') || /bad revision|unknown revision|ambiguous argument/i.test(message)) return { commits: [], hasMore: false }
@@ -163,9 +164,63 @@ async function readWorktree(repo: string): Promise<GitWorktree | null> {
   return { files: files.length, insertions, deletions, addedFiles, deletedFiles, modifiedFiles }
 }
 
-export async function readGitHistory(input: { repo?: string; ref?: string; skip?: number }): Promise<{ commits: GitCommit[]; hasMore: boolean }> {
+export async function locateCommitOffset(repo: string, ref: string, hash: string): Promise<number> {
+  try {
+    const requested = (ref || '').trim()
+    const isStash = /^(?:stash(?:@\{\d+\})?|refs\/stash)$/.test(requested)
+    const branchRefs = ['--branches', '--tags', '--remotes', 'HEAD']
+    const revisions = isStash ? [...branchRefs, `${requested}^1`] : !requested || requested === '*' ? branchRefs : [requested]
+    const text = await git(repo, ['log', ...revisions, '--date-order', '--format=%H'])
+    const clean = hash.trim().toLowerCase()
+    const lines = text.split('\n')
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim().toLowerCase()
+      if (line === clean || (clean.length >= 7 && line.startsWith(clean))) {
+        return i
+      }
+    }
+    return -1
+  } catch {
+    return -1
+  }
+}
+
+export async function readGitHistory(input: { repo?: string; ref?: string; skip?: number; take?: number; locate?: string }): Promise<{
+  commits: GitCommit[]
+  hasMore: boolean
+  hasPrev?: boolean
+  startIndex?: number
+  locatedIndex?: number
+}> {
   const repo = await resolveGitRepo(input.repo)
-  return readLogPage(repo, (input.ref || '*').trim() || '*', input.skip ?? 0)
+  const targetRef = (input.ref || '*').trim() || '*'
+
+  if (input.locate) {
+    const offset = await locateCommitOffset(repo, targetRef, input.locate)
+    if (offset >= 0) {
+      const take = input.take ?? GIT_LOG_PAGE_SIZE
+      const half = Math.floor(take / 2)
+      const startIndex = Math.max(0, offset - half)
+      const page = await readLogPage(repo, targetRef, startIndex, take)
+      return {
+        commits: page.commits,
+        hasMore: page.hasMore,
+        hasPrev: startIndex > 0,
+        startIndex,
+        locatedIndex: offset,
+      }
+    }
+  }
+
+  const skip = input.skip ?? 0
+  const take = input.take ?? GIT_LOG_PAGE_SIZE
+  const page = await readLogPage(repo, targetRef, skip, take)
+  return {
+    commits: page.commits,
+    hasMore: page.hasMore,
+    hasPrev: skip > 0,
+    startIndex: skip,
+  }
 }
 
 export async function readGitLog(input?: { repo?: string; branch?: string; ref?: string; skip?: number }): Promise<GitLogView> {

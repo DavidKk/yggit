@@ -46,6 +46,7 @@ export type GitMessages = {
     next: string
     closeFind: string
     findZero: string
+    allLoaded: string
   }
   graph: {
     colBranch: string
@@ -421,6 +422,8 @@ export type GitMessages = {
     stashTooltipAction?: string
     popTooltipAction?: string
     noStashTooltipAction?: string
+    refreshing?: string
+    refreshTooltipAction?: string
     branchNameRequired?: string
     branchNameInvalid?: string
     createDescCommit?: string
@@ -439,5 +442,46 @@ export type GitMessages = {
     copyAllRemoteBranches?: string
     collapseRemote?: string
     expandRemote?: string
+    undo?: string
+    redo?: string
+    pull?: string
+    push?: string
+    branch?: string
+    stash?: string
+    pop?: string
+    refresh?: string
+    pullHeaderDesc?: string
+    pullFastForwardIfPossible?: string
+    pullFastForwardOnly?: string
+    pullRebase?: string
+    copyBranchName?: string
+    copyHash?: string
+    copySubject?: string
+    copyAuthor?: string
+    copyDate?: string
+    copyShareLink?: string
+    copyIssueCard?: string
+    checkoutBranch?: string
+    checkoutRemote?: string
+    stashChanges?: string
+    cherryPickCommit?: string
+    createTag?: string
+    deleteBranch?: string
+    checkoutWorktree?: string
+    openWorktree?: string
+    openRemote?: string
+    groupWorktree?: string
+    groupAgent?: string
+    copiedToClipboard?: string
+    copyFailed?: string
+    deleteConfirmText?: string
+    deleteFolderBranches?: string
+    deleteFolderBranchesConfirmTitle?: string
+    deleteFolderBranchesConfirmDesc?: string
+    deleteFolderBranchesSkippedCurrent?: string
+    deleteFolderBranchesSuccess?: string
+    deleteFolderBranchesPartialFail?: string
+    confirmDeleteCount?: string
+    branchesToBeDeleted?: string
   }
 }

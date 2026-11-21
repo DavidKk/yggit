@@ -130,6 +130,9 @@ export type GitLogView = {
   submodules: GitSubmodule[]
   commits: GitCommit[]
   hasMore: boolean
+  hasPrev?: boolean
+  startIndex?: number
+  locatedIndex?: number
   marks: Record<string, BranchMark>
   worktree: GitWorktree | null
 }

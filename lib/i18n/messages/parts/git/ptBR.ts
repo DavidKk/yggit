@@ -53,6 +53,7 @@ export const gitPtBR: GitMessages = {
     next: 'Próximo',
     closeFind: 'Fechar pesquisa',
     findZero: '0 resultados',
+    allLoaded: 'Todos os commits do histórico carregados',
   },
   graph: {
     colBranch: 'Ramo',

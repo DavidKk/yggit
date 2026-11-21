@@ -215,4 +215,21 @@ describe('conflict file controls', () => {
     )
     expect(container.querySelector('[aria-label="git.commit.conflictCountUnknown"]')?.textContent).toBe('?')
   })
+
+  it('automatically expands ancestor directories for the selectedPath even when default collapsed', async () => {
+    writeGitUiPref('commit.treeExpandDefault', false)
+    const nestedDiff = jest.fn(async ({ hash }: { hash: string }) => ({
+      hash,
+      files: [{ path: 'deep/nested/folder/file.txt', oldPath: '', status: 'M' }],
+      patch: '',
+      truncated: false,
+    }))
+    jest.mocked(getGitDriver).mockReturnValue({ readCommitDiff: nestedDiff } as unknown as ReturnType<typeof getGitDriver>)
+
+    await act(async () => {
+      root.render(<GitCommitPanel repo="edge_test" commit={commit} width={408} selectedPath="deep/nested/folder/file.txt" onSelect={jest.fn()} onClose={jest.fn()} />)
+    })
+
+    expect(container.textContent).toContain('file.txt')
+  })
 })

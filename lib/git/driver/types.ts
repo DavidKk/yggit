@@ -8,6 +8,7 @@ export interface ReadLogOptions {
   ref?: string
   skip?: number
   take?: number
+  locate?: string
   onProgress?: (stage: string) => void
 }
 

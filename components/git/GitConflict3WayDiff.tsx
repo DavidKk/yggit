@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { LuAlignLeft, LuChevronDown, LuChevronUp, LuColumns2, LuFileCode, LuGitMerge, LuRows3, LuWrapText, LuX } from 'react-icons/lu'
 
 import { GitCodePane } from '@/components/git/GitCodePane'
+import { useGitBlame } from '@/components/git/useGitBlame'
 import { useT } from '@/components/i18n/LocaleProvider'
 import { Button, SegmentedNav, Tooltip } from '@/components/sk'
 import { fetchRemergeDiff, type MergeConflictRecord } from '@/lib/git/conflict-cache'
@@ -50,6 +51,11 @@ export function GitConflict3WayDiff({ repo = '', commit, commits, conflict, sele
   const rows = useMemo(() => contents.map(rowsFor), [contents])
   const patchRows = useMemo(() => rowsFor(patch || null), [patch])
   const active = regions[navigation.index]
+  const p1Commit = useMemo(() => commits.find((c) => c.hash === p1Hash), [commits, p1Hash])
+  const p2Commit = useMemo(() => commits.find((c) => c.hash === p2Hash), [commits, p2Hash])
+  const p1BlameMap = useGitBlame(repo, currentPath, p1Hash)
+  const p2BlameMap = useGitBlame(repo, currentPath, p2Hash)
+  const resultBlameMap = useGitBlame(repo, currentPath, commit.hash)
 
   useEffect(() => {
     if (regions.length > 0 && navigation.index === -1) {
@@ -97,6 +103,11 @@ export function GitConflict3WayDiff({ repo = '', commit, commits, conflict, sele
           <span className="truncate" title={currentPath}>
             {currentPath}
           </span>
+          {commit.author ? (
+            <span className="shrink-0 text-ink-soft text-[11px] font-normal" title={`${commit.author} · ${commit.date}`}>
+              ({commit.author})
+            </span>
+          ) : null}
         </div>
         <div className="justify-self-center flex items-center gap-2">
           <SegmentedNav
@@ -146,43 +157,47 @@ export function GitConflict3WayDiff({ repo = '', commit, commits, conflict, sele
         <div className="flex min-h-0 flex-1 flex-col gap-2 bg-paper p-2">
           <div className="grid min-h-0 flex-1 grid-cols-2 gap-2">
             <GitCodePane
-              label={`${t('git.diff.parentOne')} · ${topology?.targetBranchHint || p1Hash.slice(0, 7)}`}
+              label={`${t('git.diff.parentOne')} · ${topology?.targetBranchHint || p1Hash.slice(0, 7)}${p1Commit?.author ? ` (${p1Commit.author})` : ''}`}
               path={currentPath}
               rows={rows[0]}
               loading={loading}
               targetLine={active?.parents[0]}
               targetSequence={navigation.sequence}
               wordWrap={wordWrap}
+              blameMap={p1BlameMap}
             />
             <GitCodePane
-              label={`${t('git.diff.parentTwo')} · ${topology?.sourceBranchHint || p2Hash.slice(0, 7)}`}
+              label={`${t('git.diff.parentTwo')} · ${topology?.sourceBranchHint || p2Hash.slice(0, 7)}${p2Commit?.author ? ` (${p2Commit.author})` : ''}`}
               path={currentPath}
               rows={rows[1]}
               loading={loading}
               targetLine={active?.parents[1]}
               targetSequence={navigation.sequence}
               wordWrap={wordWrap}
+              blameMap={p2BlameMap}
             />
           </div>
           <GitCodePane
-            label={`${t('git.diff.mergeResult')} · ${commit.hash.slice(0, 7)}`}
+            label={`${t('git.diff.mergeResult')} · ${commit.hash.slice(0, 7)}${commit.author ? ` (${commit.author})` : ''}`}
             path={currentPath}
             rows={rows[2]}
             loading={loading}
             targetLine={active?.result}
             targetSequence={navigation.sequence}
             wordWrap={wordWrap}
+            blameMap={resultBlameMap}
           />
         </div>
       ) : (
         <GitCodePane
-          label="Remerge Diff"
+          label={`Remerge Diff · ${commit.hash.slice(0, 7)}${commit.author ? ` (${commit.author})` : ''}`}
           path={currentPath}
           rows={patchRows}
           loading={loading}
           targetLine={active?.patch}
           targetSequence={navigation.sequence}
           wordWrap={wordWrap}
+          blameMap={resultBlameMap}
         />
       )}
     </section>

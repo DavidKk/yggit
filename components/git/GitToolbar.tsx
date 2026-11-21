@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { LuArchive, LuArrowDown, LuArrowUp, LuChevronDown, LuGitBranchPlus, LuRedo, LuUndo, LuUpload } from 'react-icons/lu'
+import { LuArchive, LuArchiveRestore, LuArrowDownToLine, LuArrowUpFromLine, LuChevronDown, LuGitBranchPlus, LuRedo2, LuRefreshCw, LuUndo2 } from 'react-icons/lu'
 
 import { CreateBranchModal } from '@/components/git/GitBranchModal'
 import { useT } from '@/components/i18n/LocaleProvider'
@@ -28,6 +28,7 @@ export function GitToolbar({ repo, currentBranch, hasStashes = false, disabled =
   const [stashing, setStashing] = useState(false)
   const [undoing, setUndoing] = useState(false)
   const [redoing, setRedoing] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
   const [branchModalOpen, setBranchModalOpen] = useState(false)
   const [pullMenuOpen, setPullMenuOpen] = useState(false)
   const pullMenuAnchorRef = useRef<HTMLDivElement>(null)
@@ -43,10 +44,14 @@ export function GitToolbar({ repo, currentBranch, hasStashes = false, disabled =
   })
 
   const pullOptions: Array<{ key: PullOperation; label: string; desc: string }> = [
-    { key: 'fetch-all', label: 'Fetch All', desc: t('git.operations.pullFetchAllDesc') || '抓取所有远程分支及元数据' },
-    { key: 'pull-ff', label: 'Pull (fast-forward if possible)', desc: t('git.operations.pullDefaultModeDesc') || '尽可能快进拉取合并 (默认)' },
-    { key: 'pull-ff-only', label: 'Pull (fast-forward only)', desc: t('git.operations.pullFastForwardDesc') || '仅在能直接快进时拉取' },
-    { key: 'pull-rebase', label: 'Pull (rebase)', desc: t('git.operations.pullRebaseDesc') || '拉取并变基当前本地提交' },
+    { key: 'fetch-all', label: t('git.operations.pullFetchAll') || 'Fetch All', desc: t('git.operations.pullFetchAllDesc') || '抓取所有远程分支及元数据' },
+    {
+      key: 'pull-ff',
+      label: t('git.operations.pullFastForwardIfPossible') || 'Pull (fast-forward if possible)',
+      desc: t('git.operations.pullDefaultModeDesc') || '尽可能快进拉取合并 (默认)',
+    },
+    { key: 'pull-ff-only', label: t('git.operations.pullFastForwardOnly') || 'Pull (fast-forward only)', desc: t('git.operations.pullFastForwardDesc') || '仅在能直接快进时拉取' },
+    { key: 'pull-rebase', label: t('git.operations.pullRebase') || 'Pull (rebase)', desc: t('git.operations.pullRebaseDesc') || '拉取并变基当前本地提交' },
   ]
 
   const handleExecutePull = async (op: PullOperation = defaultPullOp) => {
@@ -161,8 +166,18 @@ export function GitToolbar({ repo, currentBranch, hasStashes = false, disabled =
     }
   }
 
+  const handleManualRefresh = async () => {
+    if (refreshing || disabled || !repo) return
+    setRefreshing(true)
+    try {
+      await onRefresh()
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
   const isEdge = getDriverMode() === 'edge'
-  const anyBusy = pulling || pushing || stashing || undoing || redoing || disabled
+  const anyBusy = pulling || pushing || stashing || undoing || redoing || refreshing || disabled
 
   return (
     <div className="flex items-center gap-0.5 sm:gap-1 text-xs">
@@ -178,8 +193,8 @@ export function GitToolbar({ repo, currentBranch, hasStashes = false, disabled =
               onClick={() => void handleUndo()}
               className="h-7 gap-1 px-1.5 text-xs font-normal text-ink-soft hover:enabled:bg-[color-mix(in_oklab,var(--ink)_7%,transparent)] hover:enabled:text-ink disabled:opacity-40"
             >
-              <LuUndo className="size-3.5" />
-              <span className="hidden md:inline">Undo</span>
+              <LuUndo2 className="size-3.5" />
+              <span className="hidden md:inline">{t('git.operations.undo') || 'Undo'}</span>
             </Button>
           </Tooltip>
 
@@ -192,8 +207,8 @@ export function GitToolbar({ repo, currentBranch, hasStashes = false, disabled =
               onClick={() => void handleRedo()}
               className="h-7 gap-1 px-1.5 text-xs font-normal text-ink-soft hover:enabled:bg-[color-mix(in_oklab,var(--ink)_7%,transparent)] hover:enabled:text-ink disabled:opacity-40"
             >
-              <LuRedo className="size-3.5" />
-              <span className="hidden md:inline">Redo</span>
+              <LuRedo2 className="size-3.5" />
+              <span className="hidden md:inline">{t('git.operations.redo') || 'Redo'}</span>
             </Button>
           </Tooltip>
 
@@ -216,8 +231,8 @@ export function GitToolbar({ repo, currentBranch, hasStashes = false, disabled =
             onClick={() => void handleExecutePull()}
             className="flex h-7 items-center gap-1 rounded-l px-2 text-xs font-normal text-ink-soft transition-colors hover:bg-[color-mix(in_oklab,var(--ink)_7%,transparent)] hover:text-ink disabled:opacity-50"
           >
-            {pulling ? <Spinner className="size-3.5 text-accent" /> : <LuArrowDown className="size-3.5" />}
-            <span className="hidden sm:inline">Pull</span>
+            {pulling ? <Spinner className="size-3.5 text-accent" /> : <LuArrowDownToLine className="size-3.5" />}
+            <span className="hidden sm:inline">{t('git.operations.pull') || 'Pull'}</span>
           </button>
         </Tooltip>
         <button
@@ -244,7 +259,7 @@ export function GitToolbar({ repo, currentBranch, hasStashes = false, disabled =
             }}
           >
             <div className="border-b border-line pb-2 mb-2 px-1">
-              <p className="text-[11px] font-semibold text-ink leading-tight">Select a default pull/fetch operation to execute when clicking this button</p>
+              <p className="text-[11px] font-semibold text-ink leading-tight">{t('git.operations.pullHeaderDesc') || '选择点击 Pull 按钮时执行的默认同步方式'}</p>
               <p className="text-[10px] text-ink-soft mt-0.5">{t('git.operations.pullDefaultModeDesc') || '选择点击 Pull 按钮时执行的默认同步方式'}</p>
             </div>
             <div className="flex flex-col gap-1">
@@ -296,8 +311,8 @@ export function GitToolbar({ repo, currentBranch, hasStashes = false, disabled =
           disabled={anyBusy}
           onClick={() => void handlePush()}
         >
-          {pushing ? <Spinner className="size-3.5 text-accent" /> : <LuArrowUp className="size-3.5" />}
-          <span className="hidden sm:inline">Push</span>
+          {pushing ? <Spinner className="size-3.5 text-accent" /> : <LuArrowUpFromLine className="size-3.5" />}
+          <span className="hidden sm:inline">{t('git.operations.push') || 'Push'}</span>
         </Button>
       </Tooltip>
 
@@ -311,7 +326,7 @@ export function GitToolbar({ repo, currentBranch, hasStashes = false, disabled =
           onClick={() => setBranchModalOpen(true)}
         >
           <LuGitBranchPlus className="size-3.5 text-accent" />
-          <span className="hidden sm:inline">Branch</span>
+          <span className="hidden sm:inline">{t('git.operations.branch') || 'Branch'}</span>
         </Button>
       </Tooltip>
 
@@ -325,7 +340,7 @@ export function GitToolbar({ repo, currentBranch, hasStashes = false, disabled =
           onClick={() => void handleStashSave()}
         >
           {stashing ? <Spinner className="size-3.5 text-accent" /> : <LuArchive className="size-3.5 text-ink-soft" />}
-          <span className="hidden sm:inline">Stash</span>
+          <span className="hidden sm:inline">{t('git.operations.stash') || 'Stash'}</span>
         </Button>
       </Tooltip>
 
@@ -346,8 +361,22 @@ export function GitToolbar({ repo, currentBranch, hasStashes = false, disabled =
           disabled={anyBusy}
           onClick={() => void handleStashPop()}
         >
-          <LuUpload className="size-3.5 text-ink-soft" />
-          <span className="hidden sm:inline">Pop</span>
+          <LuArchiveRestore className="size-3.5 text-ink-soft" />
+          <span className="hidden sm:inline">{t('git.operations.pop') || 'Pop'}</span>
+        </Button>
+      </Tooltip>
+
+      {/* Refresh Button */}
+      <Tooltip content={refreshing ? t('git.operations.refreshing') || '正在刷新…' : t('git.operations.refreshTooltipAction') || '刷新 Git 状态 (Refresh)'}>
+        <Button
+          variant="plain"
+          size="xs"
+          className="h-7 gap-1 px-2 text-xs font-normal text-ink-soft hover:enabled:bg-[color-mix(in_oklab,var(--ink)_7%,transparent)] hover:enabled:text-ink"
+          disabled={anyBusy}
+          onClick={() => void handleManualRefresh()}
+        >
+          <LuRefreshCw className={cn('size-3.5 text-ink-soft', refreshing && 'animate-spin text-accent')} />
+          <span className="hidden sm:inline">{t('git.operations.refresh') || 'Refresh'}</span>
         </Button>
       </Tooltip>
 

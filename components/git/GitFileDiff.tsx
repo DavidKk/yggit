@@ -756,18 +756,18 @@ export function GitFileDiff({ repo, hash, path, status = 'M', onClose, onPrevFil
     return groupChangeBlocks
   }, [viewport, fullChangeBlocks, groupChangeBlocks])
 
-  const [changeNavigation, setChangeNavigation] = useState({ index: -1, sequence: 0 })
-  const activeChangeLineIndex = activeChangeBlocks[changeNavigation.index]?.lineIndex
+  const [changeNavigation, setChangeNavigation] = useState({ index: 0, sequence: 0 })
+  const activeChangeLineIndex = changeNavigation.sequence > 0 ? activeChangeBlocks[changeNavigation.index]?.lineIndex : undefined
 
   useEffect(() => {
-    setChangeNavigation({ index: -1, sequence: 0 })
+    setChangeNavigation({ index: 0, sequence: 0 })
   }, [path, hash, viewport])
 
   const stepChange = useCallback(
     (delta: number) => {
       if (activeChangeBlocks.length === 0) return
       setChangeNavigation((previous) => ({
-        index: previous.index < 0 ? (delta > 0 ? 0 : activeChangeBlocks.length - 1) : (previous.index + delta + activeChangeBlocks.length) % activeChangeBlocks.length,
+        index: (previous.index + delta + activeChangeBlocks.length) % activeChangeBlocks.length,
         sequence: previous.sequence + 1,
       }))
     },
@@ -775,7 +775,7 @@ export function GitFileDiff({ repo, hash, path, status = 'M', onClose, onPrevFil
   )
 
   useEffect(() => {
-    if (activeChangeLineIndex === undefined) return
+    if (activeChangeLineIndex === undefined || changeNavigation.sequence === 0) return
     diffContainerRef.current?.querySelector(`[data-diff-line-idx="${activeChangeLineIndex}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' })
   }, [activeChangeLineIndex, changeNavigation.sequence])
 
@@ -837,7 +837,7 @@ export function GitFileDiff({ repo, hash, path, status = 'M', onClose, onPrevFil
         <div className="flex items-center justify-end gap-1">
           {mode === 'diff' && activeChangeBlocks.length > 0 && (
             <span className="mr-1 text-xs text-ink-soft tabular-nums font-mono">
-              {changeNavigation.index >= 0 ? `${changeNavigation.index + 1}/${activeChangeBlocks.length}` : `${activeChangeBlocks.length}`}
+              {`${(((changeNavigation.index % activeChangeBlocks.length) + activeChangeBlocks.length) % activeChangeBlocks.length) + 1}/${activeChangeBlocks.length}`}
             </span>
           )}
           {mode === 'diff' && (

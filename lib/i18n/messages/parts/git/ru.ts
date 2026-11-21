@@ -53,6 +53,7 @@ export const gitRu: GitMessages = {
     next: 'Следующий',
     closeFind: 'Закрыть поиск',
     findZero: '0 совпадений',
+    allLoaded: 'Все коммиты истории загружены',
   },
   graph: {
     colBranch: 'Ветка',

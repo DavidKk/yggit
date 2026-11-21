@@ -54,6 +54,7 @@ export const gitFr: GitMessages = {
     next: 'Suivant',
     closeFind: 'Fermer la recherche',
     findZero: '0 correspondances',
+    allLoaded: 'Tous les commits historiques chargés',
   },
   graph: {
     colBranch: 'Branche',

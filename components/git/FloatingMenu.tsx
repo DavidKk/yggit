@@ -261,6 +261,7 @@ function FloatingMenuItemRow({
         type="button"
         role={item.checked === undefined ? 'menuitem' : 'menuitemcheckbox'}
         aria-checked={item.checked}
+        data-menu-key={item.key}
         disabled={item.disabled}
         onClick={handleClick}
         className={cn(

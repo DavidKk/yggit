@@ -111,6 +111,8 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
   const [folders, setFolders] = useState<string[]>([])
   const [commits, setCommits] = useState<GitCommit[]>(failed ? [] : initial.commits)
   const [hasMore, setHasMore] = useState(failed ? false : initial.hasMore)
+  const [hasPrev, setHasPrev] = useState(failed ? false : Boolean(initial.hasPrev))
+  const [startIndex, setStartIndex] = useState<number>(failed ? 0 : (initial.startIndex ?? 0))
   const [focusRequest, setFocusRequest] = useState<{ hash: string } | null>(initialCommitHash ? { hash: initialCommitHash } : null)
   const [selectedHash, setSelectedHash] = useState(initialCommitHash || '')
   const [selectedFile, setSelectedFile] = useState(() => initialFilePath || (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('file') || '' : ''))
@@ -253,6 +255,16 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
     setHasMore(more)
   }, [])
 
+  const handlePagePrepend = useCallback((newCommits: GitCommit[], nextHasPrev: boolean, nextStartIndex: number) => {
+    setCommits((prev) => {
+      const seen = new Set(prev.map((c) => c.hash))
+      const uniqueNew = newCommits.filter((c) => !seen.has(c.hash))
+      return [...uniqueNew, ...prev]
+    })
+    setHasPrev(nextHasPrev)
+    setStartIndex(nextStartIndex)
+  }, [])
+
   const applyCatalog = useCallback((body: { projects?: GitProjectView[]; folders?: string[] }) => {
     if (Array.isArray(body.projects)) setProjects(body.projects)
     if (Array.isArray(body.folders)) setFolders(body.folders)
@@ -335,12 +347,85 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
     }
   }, [probeRemotes, view?.repo])
 
+  const viewRef = useRef(view)
+  viewRef.current = view
+
+  const silentRefreshingRef = useRef(false)
+  const silentRefresh = useCallback(async () => {
+    if (silentRefreshingRef.current || busy) return
+    const currentRepo = viewRef.current?.repo
+    if (!currentRepo) return
+
+    silentRefreshingRef.current = true
+    try {
+      const driver = getGitDriver()
+      const next = await driver.readLog({ repo: currentRepo })
+      if (viewRef.current?.repo !== currentRepo) return
+
+      setView((prev) => {
+        if (!prev) return next
+        return {
+          ...prev,
+          head: next.head,
+          branch: next.branch,
+          branches: next.branches,
+          remotes: next.remotes,
+          tags: next.tags,
+          stashes: next.stashes,
+          worktrees: next.worktrees,
+          submodules: next.submodules,
+          marks: next.marks,
+          worktree: next.worktree,
+        }
+      })
+      setCommits(next.commits)
+      setHasMore(next.hasMore)
+      setHasPrev(Boolean(next.hasPrev))
+      setStartIndex(next.startIndex ?? 0)
+    } catch {
+      // Keep background revalidation non-intrusive
+    } finally {
+      silentRefreshingRef.current = false
+    }
+  }, [busy])
+
+  useEffect(() => {
+    if (!view?.repo) return
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null
+
+    const handleTrigger = () => {
+      if (document.visibilityState !== 'visible') return
+      if (debounceTimer) clearTimeout(debounceTimer)
+      debounceTimer = setTimeout(() => {
+        void silentRefresh()
+      }, 200)
+    }
+
+    window.addEventListener('focus', handleTrigger)
+    document.addEventListener('visibilitychange', handleTrigger)
+
+    const pollInterval = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        void silentRefresh()
+      }
+    }, 5000)
+
+    return () => {
+      if (debounceTimer) clearTimeout(debounceTimer)
+      window.clearInterval(pollInterval)
+      window.removeEventListener('focus', handleTrigger)
+      document.removeEventListener('visibilitychange', handleTrigger)
+    }
+  }, [silentRefresh, view?.repo])
+
   function applyView(next: GitLogView) {
     const nextSelection = readGitUiPref(repoPrefKey(next.repo, 'selection'), isGitSelection) || selectionFor(next)
     setView(next)
     setSelection(nextSelection)
     setCommits(next.commits)
     setHasMore(next.hasMore)
+    setHasPrev(Boolean(next.hasPrev))
+    setStartIndex(next.startIndex ?? 0)
     setSelectedHash('')
     setSelectedFile('')
     setSelectedStatus('')
@@ -375,7 +460,65 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
       )
       if (hit) targetHash = hit.hash
     }
+
+    if (targetHash === GIT_WORKTREE_HASH) {
+      if (startIndex > 0 && view?.repo) {
+        void (async () => {
+          try {
+            const driver = getGitDriver()
+            const res = await driver.readLog({ repo: view.repo, ref: scope, skip: 0, take: 50 })
+            setCommits(res.commits)
+            setHasMore(Boolean(res.hasMore))
+            setHasPrev(false)
+            setStartIndex(0)
+            setSelectedHash(GIT_WORKTREE_HASH)
+            setSelectedFile('')
+            setSelectedStatus('')
+            setLineageHashes(null)
+            setConflictViewActive(false)
+          } catch {}
+        })()
+        return
+      }
+      setSelectedHash(GIT_WORKTREE_HASH)
+      setSelectedFile('')
+      setSelectedStatus('')
+      setLineageHashes(null)
+      setConflictViewActive(false)
+      return
+    }
+
     if (targetHash) {
+      const inWindow = commits.some((c) => c.hash === targetHash || c.hash.startsWith(targetHash))
+      if (!inWindow && view?.repo) {
+        void (async () => {
+          try {
+            const driver = getGitDriver()
+            const res = await driver.readLog({
+              repo: view.repo,
+              ref: scope,
+              locate: targetHash,
+              take: 50,
+            })
+            if (res.commits.length > 0) {
+              setCommits(res.commits)
+              setHasMore(Boolean(res.hasMore))
+              setHasPrev(Boolean(res.hasPrev))
+              setStartIndex(res.startIndex ?? 0)
+              setSelectedHash(targetHash)
+              setSelectedFile('')
+              setSelectedStatus('')
+              setLineageHashes(null)
+              setConflictViewActive(false)
+              setFocusRequest({ hash: targetHash })
+            }
+          } catch (e) {
+            console.error('Locate commit error:', e)
+          }
+        })()
+        return
+      }
+
       setSelectedHash(targetHash)
       setSelectedFile('')
       setSelectedStatus('')
@@ -394,6 +537,41 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
         ? gitStashAsCommit(selectedStash)
         : commits.find((commit) => commit.hash === selectedHash || (selectedHash && selectedHash.length >= 6 && commit.hash.startsWith(selectedHash))) || null
   const selectedIsWorktree = selectedHash === GIT_WORKTREE_HASH
+
+  const handleCommitFilesLoaded = useCallback(
+    (files: GitFileChange[]) => {
+      setCommitFiles(files)
+      if (selectedIsWorktree) {
+        setView((prev) => {
+          if (!prev) return prev
+          if (files.length === 0) {
+            if (prev.worktree === null) return prev
+            return { ...prev, worktree: null }
+          }
+          let added = 0
+          let deleted = 0
+          let modified = 0
+          for (const f of files) {
+            if (f.status === 'A' || f.status === '?' || f.status === 'U') added++
+            else if (f.status === 'D') deleted++
+            else modified++
+          }
+          return {
+            ...prev,
+            worktree: {
+              files: files.length,
+              insertions: prev.worktree?.insertions ?? 0,
+              deletions: prev.worktree?.deletions ?? 0,
+              addedFiles: added,
+              deletedFiles: deleted,
+              modifiedFiles: modified,
+            },
+          }
+        })
+      }
+    },
+    [selectedIsWorktree]
+  )
   const sidebarWidthRef = useRef(sidebarWidth)
   const treeWidthRef = useRef(treeWidth)
   const selectedRef = useRef(!!selected)
@@ -1010,7 +1188,7 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
             {view?.repo ? (
               <>
                 <span className="mx-1 h-3.5 w-px shrink-0 bg-[color-mix(in_oklab,var(--ink)_14%,transparent)]" aria-hidden />
-                <GitToolbar repo={view.repo} currentBranch={view.head || view.branch} hasStashes={view.stashes.length > 0} disabled={busy} onRefresh={() => void load(view.repo)} />
+                <GitToolbar repo={view.repo} currentBranch={view.head || view.branch} hasStashes={view.stashes.length > 0} disabled={busy} onRefresh={silentRefresh} />
               </>
             ) : null}
           </WorkspaceHeaderSlot>
@@ -1095,7 +1273,7 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
             {view?.repo ? (
               <>
                 <span className="mx-1 h-3.5 w-px shrink-0 bg-[color-mix(in_oklab,var(--ink)_14%,transparent)]" aria-hidden />
-                <GitToolbar repo={view.repo} currentBranch={view.head || view.branch} hasStashes={view.stashes.length > 0} disabled={busy} onRefresh={() => void load(view.repo)} />
+                <GitToolbar repo={view.repo} currentBranch={view.head || view.branch} hasStashes={view.stashes.length > 0} disabled={busy} onRefresh={silentRefresh} />
               </>
             ) : null}
             <div className="ml-auto flex shrink-0 items-center gap-1.5">
@@ -1195,6 +1373,9 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                   onOpenRepo={(repo) => void load(repo)}
                   onAddWorktree={handleAddWorktree}
                   onCheckoutBranch={handleCheckoutBranch}
+                  onBranchHoverStart={handleBranchHoverStart}
+                  onBranchHoverEnd={handleBranchHoverEnd}
+                  onRefresh={silentRefresh}
                 />
                 <PanelSplitter
                   label={t('git.splitter.sidebar')}
@@ -1222,6 +1403,8 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                       scope={scope}
                       commits={commits}
                       hasMore={hasMore}
+                      hasPrev={hasPrev}
+                      startIndex={startIndex}
                       worktree={view.worktree}
                       stashes={view.stashes}
                       highlight={highlight}
@@ -1252,6 +1435,8 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                       onOpenConflictView={handleOpenConflictView}
                       onCheckoutBranch={handleCheckoutBranch}
                       onPage={onPage}
+                      onPagePrepend={handlePagePrepend}
+                      onRefresh={silentRefresh}
                     />
                   )}
                   {/* Standalone Merge Lineage Panel beside Git history */}
@@ -1300,7 +1485,8 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                   conflictFiles={conflicts[selected.hash]?.conflictFiles}
                   conflictFileCounts={conflicts[selected.hash]?.conflictFileCounts}
                   selectedPath={selectedFile}
-                  onFilesLoaded={setCommitFiles}
+                  onFilesLoaded={handleCommitFilesLoaded}
+                  onRefresh={silentRefresh}
                   onSelect={(path, status) => {
                     setSelectedFile(path)
                     setSelectedStatus(status)

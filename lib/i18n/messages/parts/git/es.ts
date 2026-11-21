@@ -53,6 +53,7 @@ export const gitEs: GitMessages = {
     next: 'Siguiente',
     closeFind: 'Cerrar búsqueda',
     findZero: '0 coincidencias',
+    allLoaded: 'Todos los commits históricos cargados',
   },
   graph: {
     colBranch: 'Rama',

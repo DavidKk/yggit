@@ -53,6 +53,7 @@ export const gitKo: GitMessages = {
     next: '다음',
     closeFind: '찾기 닫기',
     findZero: '0개',
+    allLoaded: '모든 히스토리 커밋을 불러왔습니다',
   },
   graph: {
     colBranch: '브랜치',

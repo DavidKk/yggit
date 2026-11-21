@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation'
 import React, { useMemo, useState } from 'react'
 import {
   LuArchive,
-  LuArrowDown,
-  LuArrowUp,
+  LuArrowDownToLine,
+  LuArrowUpFromLine,
   LuBot,
   LuChevronRight,
   LuClipboardList,
@@ -127,7 +127,7 @@ const AVAILABLE_QUICK_ACTIONS: QuickActionDef[] = [
     description: '从远程对应上游分支拉取最新提交并合并到本地分支',
     badge: '同步',
     badgeTone: 'ok',
-    icon: LuArrowDown,
+    icon: LuArrowDownToLine,
   },
   {
     id: 'push-branch',
@@ -137,7 +137,7 @@ const AVAILABLE_QUICK_ACTIONS: QuickActionDef[] = [
     description: '将本地分支推送到对应的远程仓库分支（自动关联 upstream）',
     badge: '同步',
     badgeTone: 'ok',
-    icon: LuArrowUp,
+    icon: LuArrowUpFromLine,
   },
   {
     id: 'open-remote',

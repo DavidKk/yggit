@@ -36,7 +36,9 @@ export class LocalGitDriver implements IGitDriver {
     if (options.repo) params.set('repo', options.repo)
     if (options.branch) params.set('branch', options.branch)
     if (options.ref) params.set('ref', options.ref)
-    if (options.skip) params.set('skip', String(options.skip))
+    if (options.skip !== undefined) params.set('skip', String(options.skip))
+    if (options.take !== undefined) params.set('take', String(options.take))
+    if (options.locate) params.set('locate', options.locate)
 
     const res = await fetch(`/api/git/log?${params.toString()}`)
     if (!res.ok) {

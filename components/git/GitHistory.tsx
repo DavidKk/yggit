@@ -18,6 +18,8 @@ type Props = {
   scope: string
   commits: GitCommit[]
   hasMore: boolean
+  hasPrev?: boolean
+  startIndex?: number
   worktree: GitWorktree | null
   stashes?: GitStash[]
   highlight: string
@@ -36,6 +38,7 @@ type Props = {
   onCheckoutBranch?: (branch: string, isRemote?: boolean) => void
   onOpenConflictView?: (hash: string, file?: string) => void
   onPage: (scope: string, commits: GitCommit[], hasMore: boolean) => void
+  onPagePrepend?: (commits: GitCommit[], hasPrev: boolean, startIndex: number) => void
   onRefresh?: () => Promise<void> | void
   currentBranch?: string
   soloBranch?: string | null
@@ -73,6 +76,8 @@ export function GitHistory({
   scope,
   commits,
   hasMore,
+  hasPrev,
+  startIndex,
   worktree,
   stashes,
   highlight,
@@ -91,6 +96,7 @@ export function GitHistory({
   onCheckoutBranch,
   onOpenConflictView,
   onPage,
+  onPagePrepend,
   onRefresh,
   currentBranch,
   soloBranch,
@@ -104,15 +110,16 @@ export function GitHistory({
   const panelRef = useRef<HTMLDivElement>(null)
   const findInputRef = useRef<HTMLInputElement>(null)
   const sentinelRef = useRef<HTMLDivElement>(null)
+  const topSentinelRef = useRef<HTMLDivElement>(null)
   const lockRef = useRef(false)
   const focusedRequestRef = useRef<Props['focusRequest']>(null)
-  const stateRef = useRef({ repo, scope, commits, hasMore })
+  const stateRef = useRef({ repo, scope, commits, hasMore, hasPrev, startIndex })
   const [loading, setLoading] = useState(false)
   const [atBottom, setAtBottom] = useState(false)
   const [query, setQuery] = useState('')
   const [findOpen, setFindOpen] = useState(false)
   const holdExplore = useGitUiDebugHoldExploreLoading()
-  stateRef.current = { repo, scope, commits, hasMore }
+  stateRef.current = { repo, scope, commits, hasMore, hasPrev, startIndex }
 
   const needle = query.trim().toLowerCase()
   const matches = useMemo(() => {
@@ -137,15 +144,17 @@ export function GitHistory({
     lockRef.current = true
     setLoading(true)
     const root = rootRefHolder.current.current
-    if (root && root.scrollHeight - root.scrollTop - root.clientHeight <= 120) {
+    if (root && root.scrollHeight - root.scrollTop - root.clientHeight <= 240) {
       setAtBottom(true)
     }
+    const startTime = Date.now()
     const driver = getGitDriver()
+    const skipOffset = (current.startIndex ?? 0) + current.commits.length
     driver
       .readLog({
         repo: current.repo,
         ref: current.scope,
-        skip: current.commits.length,
+        skip: skipOffset,
       })
       .then((body) => {
         if (!body || !body.commits) return
@@ -156,11 +165,62 @@ export function GitHistory({
       })
       .catch(() => {})
       .finally(() => {
-        lockRef.current = false
-        setLoading(false)
-        setAtBottom(false)
+        const elapsed = Date.now() - startTime
+        const delay = Math.max(0, 320 - elapsed)
+        setTimeout(() => {
+          lockRef.current = false
+          setLoading(false)
+          const r = rootRefHolder.current.current
+          if (r) {
+            setAtBottom(r.scrollHeight - r.scrollTop - r.clientHeight <= 240)
+          } else {
+            setAtBottom(false)
+          }
+        }, delay)
       })
   }, [onPage])
+
+  const loadPrev = useCallback(() => {
+    const current = stateRef.current
+    const curStartIndex = current.startIndex ?? 0
+    if (lockRef.current || !current.hasPrev || curStartIndex <= 0 || !current.repo || !current.scope) return
+    lockRef.current = true
+    setLoading(true)
+    const take = Math.min(50, curStartIndex)
+    const newSkip = curStartIndex - take
+    const root = rootRefHolder.current.current
+    const prevScrollTop = root?.scrollTop ?? 0
+    const startTime = Date.now()
+    const driver = getGitDriver()
+
+    driver
+      .readLog({
+        repo: current.repo,
+        ref: current.scope,
+        skip: newSkip,
+        take,
+      })
+      .then((body) => {
+        if (!body || !body.commits || body.commits.length === 0) return
+        if (stateRef.current.repo !== current.repo || stateRef.current.scope !== current.scope) return
+        onPagePrepend?.(body.commits, newSkip > 0, newSkip)
+        requestAnimationFrame(() => {
+          const r = rootRefHolder.current.current
+          if (r) {
+            r.scrollTop = prevScrollTop + body.commits.length * 26
+          }
+        })
+      })
+      .catch(() => {})
+      .finally(() => {
+        const elapsed = Date.now() - startTime
+        const delay = Math.max(0, 320 - elapsed)
+        setTimeout(() => {
+          lockRef.current = false
+          setLoading(false)
+        }, delay)
+      })
+  }, [onPagePrepend])
 
   useEffect(() => {
     if (!focusRequest?.hash || focusedRequestRef.current === focusRequest) return
@@ -195,30 +255,51 @@ export function GitHistory({
   useEffect(() => {
     const root = rootRef.current
     const sentinel = sentinelRef.current
-    if (!root || !sentinel || !hasMore) return
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) loadMore()
-      },
-      { root, rootMargin: '800px' }
-    )
-    observer.observe(sentinel)
+    const topSentinel = topSentinelRef.current
+    if (!root) return
 
-    // Fallback passive scroll listener for rapid trackpad/mousewheel flings
+    let bottomObserver: IntersectionObserver | null = null
+    if (sentinel && hasMore) {
+      bottomObserver = new IntersectionObserver(
+        (entries) => {
+          if (entries.some((entry) => entry.isIntersecting)) loadMore()
+        },
+        { root, rootMargin: '240px' }
+      )
+      bottomObserver.observe(sentinel)
+    }
+
+    let topObserver: IntersectionObserver | null = null
+    if (topSentinel && hasPrev) {
+      topObserver = new IntersectionObserver(
+        (entries) => {
+          if (entries.some((entry) => entry.isIntersecting)) loadPrev()
+        },
+        { root, rootMargin: '240px' }
+      )
+      topObserver.observe(topSentinel)
+    }
+
+    // Passive scroll listener: keeps atBottom in sync and triggers fallback loadMore / loadPrev
     const onScroll = () => {
-      if (lockRef.current || !hasMore) return
       const remaining = root.scrollHeight - root.scrollTop - root.clientHeight
-      if (remaining < 800) {
+      const nearBottom = remaining <= 240
+      setAtBottom(nearBottom)
+      if (lockRef.current) return
+      if (nearBottom && hasMore) {
         loadMore()
+      } else if (root.scrollTop <= 240 && hasPrev && (startIndex ?? 0) > 0) {
+        loadPrev()
       }
     }
     root.addEventListener('scroll', onScroll, { passive: true })
 
     return () => {
-      observer.disconnect()
+      bottomObserver?.disconnect()
+      topObserver?.disconnect()
       root.removeEventListener('scroll', onScroll)
     }
-  }, [hasMore, loadMore, rootRef])
+  }, [hasMore, hasPrev, loadMore, loadPrev, rootRef, startIndex])
 
   useEffect(() => {
     const panel = panelRef.current
@@ -303,7 +384,7 @@ export function GitHistory({
         remoteUrl={remoteUrl}
         commits={commits}
         conflicts={conflicts}
-        worktree={worktree}
+        worktree={startIndex === 0 || !startIndex ? worktree : null}
         stashes={stashes}
         highlight={highlight}
         lineageHashes={lineageHashes}
@@ -315,7 +396,16 @@ export function GitHistory({
         onBranchHoverEnd={onBranchHoverEnd}
         findNeedle={needle}
         scrollRef={rootRef}
-        footer={hasMore ? <div ref={sentinelRef} className="h-px" aria-hidden /> : null}
+        header={hasPrev ? <div ref={topSentinelRef} className="h-px" aria-hidden /> : null}
+        footer={
+          hasMore ? (
+            <div ref={sentinelRef} className="h-px" aria-hidden />
+          ) : (
+            <div className="flex items-center justify-center py-6 text-xs text-ink-soft/60">
+              <span>{t('git.history.allLoaded')}</span>
+            </div>
+          )
+        }
         onSelect={onSelect}
         onSelectWorktree={onSelectWorktree}
         onCheckoutBranch={onCheckoutBranch}

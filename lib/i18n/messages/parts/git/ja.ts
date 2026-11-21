@@ -53,6 +53,7 @@ export const gitJa: GitMessages = {
     next: '次へ',
     closeFind: '検索を閉じる',
     findZero: '0 件',
+    allLoaded: 'すべての履歴コミットを読み込みました',
   },
   graph: {
     colBranch: 'ブランチ',

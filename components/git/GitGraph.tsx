@@ -18,7 +18,7 @@ import { buildBranchContextMenu } from '@/lib/git/branch-context-menu'
 import type { MergeConflictRecord } from '@/lib/git/conflict-cache'
 import { useContextMenuConfig } from '@/lib/git/context-menu-config'
 import { getGitDriver } from '@/lib/git/driver'
-import { formatCommitDateDivider } from '@/lib/git/format-commit-ago'
+import { formatCommitAgo, formatCommitDateDivider } from '@/lib/git/format-commit-ago'
 import { COL, DOT, graphScene, isHighlightedStroke, laneColor, PAD, ROW, type Stroke, xAt } from '@/lib/git/graph-scene'
 import { getBranchCommitHashes } from '@/lib/git/topology'
 import { GIT_WORKTREE_HASH, type GitCommit, type GitStash, gitStashAsCommit, type GitWorktree } from '@/lib/git/types'
@@ -74,6 +74,8 @@ type Props = {
   findNeedle?: string
   /** Scrollport for the commit list (header stays outside). */
   scrollRef?: Ref<HTMLDivElement>
+  /** Rendered at the top of the scrollable list (e.g. infinite-scroll upward sentinel). */
+  header?: ReactNode
   /** Rendered at the end of the scrollable list (e.g. infinite-scroll sentinel). */
   footer?: ReactNode
   conflicts?: Record<string, MergeConflictRecord>
@@ -254,6 +256,7 @@ function GitGraphComponent({
   onBranchHoverEnd,
   findNeedle = '',
   scrollRef,
+  header,
   footer,
   conflicts,
   onSelect,
@@ -275,6 +278,14 @@ function GitGraphComponent({
   const spotlightMap = spotlight?.targetsMap
   const [contextMenu, setContextMenu] = useState<GraphContextMenu | null>(null)
   const [hoveredHash, setHoveredHash] = useState<string | null>(null)
+  const [hoveredNode, setHoveredNode] = useState<{
+    commit: GitCommit
+    x: number
+    y: number
+    color: string
+    isMerge: boolean
+    isConflictedMerge: boolean
+  } | null>(null)
   const isScrollingRef = useRef(false)
   const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -740,7 +751,8 @@ function GitGraphComponent({
         scrollRef={scrollRef}
         scrollProps={{ 'aria-label': t('git.graph.historyAria'), onScroll: handleListScroll }}
       >
-        <div className="relative min-w-0 pb-6">
+        <div className="relative min-w-0 pb-12">
+          {header}
           {/* Date boundary dividers rendered precisely on the seam between rows (rowIndex - 1 and rowIndex) */}
           <div className="pointer-events-none absolute inset-0 z-20 overflow-visible" aria-hidden>
             {dateBoundaries.map((b) => (
@@ -950,6 +962,14 @@ function GitGraphComponent({
                   onPointerEnter={() => {
                     if (isScrollingRef.current) return
                     setHoveredHash(commit.hash)
+                    if (internalHoverBranch || activeHoverBranch) {
+                      if (hoverTimerRef.current) {
+                        clearTimeout(hoverTimerRef.current)
+                        hoverTimerRef.current = null
+                      }
+                      setInternalHoverBranch(null)
+                      onBranchHoverEnd?.()
+                    }
                   }}
                   onPointerLeave={() => {
                     if (isScrollingRef.current) return
@@ -984,7 +1004,8 @@ function GitGraphComponent({
                       'group/commit grid h-[26px] max-h-[26px] w-full min-w-0 cursor-pointer select-text items-center justify-start gap-0 rounded-none border-0 bg-transparent px-0 text-left leading-none font-normal outline-none focus:outline-none focus-visible:outline-none transition-opacity duration-150',
                       findNeedle && !findHit && 'opacity-35',
                       isLineageActive && !isLineageHit && !selected && !isHovered && 'opacity-35 hover:opacity-100',
-                      isSpotlightDimmed && !selected && !isHovered && 'opacity-35 hover:opacity-100'
+                      isSpotlightDimmed && !selected && !isHovered && 'opacity-35 hover:opacity-100',
+                      isHoverBranchActive && isBranchActive && !branchHashes?.has(commit.hash) && !selected && !isHovered && 'opacity-25 hover:opacity-100'
                     )}
                     style={{ gridTemplateColumns: columns }}
                     onClick={() => {
@@ -1081,7 +1102,7 @@ function GitGraphComponent({
                       <span
                         className="flex min-w-0 flex-1 items-center truncate pr-3 text-sm leading-none font-normal select-text cursor-pointer transition-colors duration-150 text-ink"
                         style={{ height: DOT }}
-                        title={commit.date ? `${commit.subject} (${commit.date})` : commit.subject}
+                        title={`${commit.short || commit.hash.slice(0, 7)} · ${commit.author} (${commit.date})\n${commit.subject}`}
                       >
                         {commit.subject}
                       </span>
@@ -1191,15 +1212,18 @@ function GitGraphComponent({
                 const isSpotlightDimmed = isSpotlightActive && !isSpotlightHit
                 const isHead = index === headIndex || commit.refs.some((r) => r === 'HEAD' || r.startsWith('HEAD -> '))
                 const isTagged = commit.refs.some((r) => r.startsWith('tag: '))
-                const isDimmed = Boolean((lineageHashes && lineageHashes.size > 0 && !isLineageHit && !isHead) || isSpotlightDimmed)
+                const isHoverBranchDimmed = isHoverBranchActive && isBranchActive && !branchHashes?.has(commit.hash)
+                const isDimmed = Boolean((lineageHashes && lineageHashes.size > 0 && !isLineageHit && !isHead) || isSpotlightDimmed || isHoverBranchDimmed)
                 const isSelected = selectedHash === commit.hash
+                const chips = refChips(commit.refs, remoteNames)
+                const branch = branchAt.get(commit.hash) || ''
                 return (
                   <span
                     key={commit.hash}
                     data-git-graph-dot
                     data-git-node-hash={commit.hash}
                     className={cn(
-                      'pointer-events-none select-none absolute flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full leading-none transition-all duration-200',
+                      'pointer-events-auto cursor-pointer select-none absolute flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full leading-none transition-all duration-200',
                       !isMerge && 'text-[9px] font-semibold text-ink',
                       isSelected && 'scale-110 z-10',
                       isLineageHit && 'ring-2 ring-accent ring-offset-1 ring-offset-[var(--panel)] scale-110 z-10 shadow-[0_0_8px_var(--accent)]',
@@ -1237,14 +1261,48 @@ function GitGraphComponent({
                             animation: isHead && !isSelected ? 'wt-head-breathe 2.8s ease-in-out infinite' : undefined,
                           }
                     }
-                    title={
+                    title={`${commit.short || commit.hash.slice(0, 7)} · ${commit.author} (${commit.date})\n${commit.subject}${
                       isConflictedMerge
-                        ? t(conflicts?.[commit.hash]?.unresolvedConflictFiles?.length ? 'git.history.committedConflicts' : 'git.history.historicalConflicts', {
+                        ? '\n' +
+                          t(conflicts?.[commit.hash]?.unresolvedConflictFiles?.length ? 'git.history.committedConflicts' : 'git.history.historicalConflicts', {
                             count: conflicts?.[commit.hash]?.unresolvedConflictFiles?.length || conflicts?.[commit.hash]?.conflictCount || 1,
                           })
-                        : undefined
-                    }
+                        : ''
+                    }`}
                     aria-label={commit.author}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onSelect?.(commit)
+                    }}
+                    onPointerEnter={() => {
+                      if (isScrollingRef.current) return
+                      setHoveredHash(commit.hash)
+                      setHoveredNode({
+                        commit,
+                        x: xAt(point.lane),
+                        y,
+                        color: tint,
+                        isMerge,
+                        isConflictedMerge,
+                      })
+                    }}
+                    onPointerLeave={() => {
+                      if (isScrollingRef.current) return
+                      setHoveredNode((prev) => (prev?.commit.hash === commit.hash ? null : prev))
+                      setHoveredHash((prev) => (prev === commit.hash ? null : prev))
+                    }}
+                    onContextMenu={(event) => {
+                      event.preventDefault()
+                      event.stopPropagation()
+                      const branchList = [...chips.map((c) => c.label), ...(branch ? [branch] : [])]
+                      setContextMenu({
+                        type: 'commit',
+                        commit,
+                        branches: branchList,
+                        color: tint,
+                        anchor: { x: event.clientX, y: event.clientY },
+                      })
+                    }}
                   >
                     {isMerge ? (
                       isConflictedMerge ? (
@@ -1267,6 +1325,38 @@ function GitGraphComponent({
                   </span>
                 )
               })}
+              {hoveredNode && (
+                <div
+                  className="pointer-events-none absolute z-50 animate-in fade-in-50 zoom-in-95 duration-150"
+                  style={{
+                    left: Math.max(145, Math.min(hoveredNode.x, contentWidth - 145)),
+                    top: hoveredNode.y < 95 ? hoveredNode.y + 14 : hoveredNode.y - 10,
+                    transform: hoveredNode.y < 95 ? 'translateX(-50%)' : 'translate(-50%, -100%)',
+                  }}
+                >
+                  <div className="flex flex-col gap-1 w-72 rounded-lg border border-line bg-panel/95 p-2.5 shadow-xl text-left select-none backdrop-blur-md">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-mono text-xs font-semibold text-accent">{hoveredNode.commit.short || hoveredNode.commit.hash.slice(0, 7)}</span>
+                      <span className="text-[11px] text-ink-soft">{formatCommitAgo(hoveredNode.commit.date, locale)}</span>
+                    </div>
+                    <p className="text-xs font-medium text-ink leading-snug line-clamp-2">{hoveredNode.commit.subject}</p>
+                    <div className="flex items-center justify-between gap-2 border-t border-line/50 pt-1.5 mt-0.5 text-[11px] text-ink-soft font-sans">
+                      <span className="font-medium text-ink truncate">{hoveredNode.commit.author}</span>
+                      <span className="text-[10px] text-ink-soft/80 shrink-0">{hoveredNode.commit.date}</span>
+                    </div>
+                    {hoveredNode.isConflictedMerge && (
+                      <div className="flex items-center gap-1.5 text-[11px] text-warn pt-0.5">
+                        <LuTriangleAlert className="size-3.5 shrink-0" />
+                        <span>
+                          {t(conflicts?.[hoveredNode.commit.hash]?.unresolvedConflictFiles?.length ? 'git.history.committedConflicts' : 'git.history.historicalConflicts', {
+                            count: conflicts?.[hoveredNode.commit.hash]?.unresolvedConflictFiles?.length || conflicts?.[hoveredNode.commit.hash]?.conflictCount || 1,
+                          })}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
           {graphEdge.left ? (

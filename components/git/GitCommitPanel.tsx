@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   LuArchive,
   LuChevronDown,
@@ -205,6 +205,18 @@ function folderPaths(nodes: TreeNode[], into: string[] = []): string[] {
     }
   }
   return into
+}
+
+function getAncestorPaths(filePath: string): string[] {
+  if (!filePath) return []
+  const parts = filePath.split('/').filter(Boolean)
+  const ancestors: string[] = []
+  let current = ''
+  for (let i = 0; i < parts.length - 1; i++) {
+    current = current ? `${current}/${parts[i]}` : parts[i]
+    ancestors.push(current)
+  }
+  return ancestors
 }
 
 function fileName(path: string): string {
@@ -665,6 +677,7 @@ export function GitCommitPanel({ repo, commit, width, title, conflictFiles, conf
   const [openPaths, setOpenPaths] = useState<Set<string>>(() => new Set())
   const expandDefaultRef = useRef(expandDefault)
   expandDefaultRef.current = expandDefault
+  const prevCommitHashRef = useRef(commit.hash)
 
   const handleToggleLayout = (nextMode: WorktreeLayout) => {
     setWorktreeLayout(nextMode)
@@ -682,7 +695,10 @@ export function GitCommitPanel({ repo, commit, width, title, conflictFiles, conf
     setStagedQuery('')
     setUnstagedQuery('')
     setConflictsOnly(false)
-    setOpenPaths(new Set())
+    if (prevCommitHashRef.current !== commit.hash) {
+      prevCommitHashRef.current = commit.hash
+      setOpenPaths(new Set())
+    }
     const driver = getGitDriver()
     driver
       .readCommitDiff({ repo, hash: commit.hash, tree: true })
@@ -694,7 +710,21 @@ export function GitCommitPanel({ repo, commit, width, title, conflictFiles, conf
         }
         setChanges(body)
         onFilesLoaded?.(body.files || [])
-        setOpenPaths(expandDefaultRef.current ? new Set(folderPaths(buildTree(body.files))) : new Set())
+        const allFolderPaths = folderPaths(buildTree(body.files))
+        setOpenPaths((prev) => {
+          const next = new Set<string>()
+          if (prev.size > 0) {
+            for (const p of prev) {
+              if (allFolderPaths.includes(p)) next.add(p)
+            }
+          } else if (expandDefaultRef.current) {
+            for (const p of allFolderPaths) next.add(p)
+          }
+          if (selectedPath) {
+            for (const anc of getAncestorPaths(selectedPath)) next.add(anc)
+          }
+          return next
+        })
       })
       .catch((err) => {
         if (!cancelled) setError(err instanceof Error ? err.message : t('git.errors.readChanges'))
@@ -702,7 +732,7 @@ export function GitCommitPanel({ repo, commit, width, title, conflictFiles, conf
     return () => {
       cancelled = true
     }
-  }, [repo, commit.hash, t, onFilesLoaded])
+  }, [repo, commit.hash, t, onFilesLoaded, selectedPath])
 
   useEffect(() => {
     if (view !== 'all' || allFiles || !changes) return
@@ -717,7 +747,21 @@ export function GitCommitPanel({ repo, commit, width, title, conflictFiles, conf
           return
         }
         setAllFiles(body.files)
-        setOpenPaths(expandDefaultRef.current ? new Set(folderPaths(buildTree(body.files))) : new Set())
+        const allFolderPaths = folderPaths(buildTree(body.files))
+        setOpenPaths((prev) => {
+          const next = new Set<string>()
+          if (prev.size > 0) {
+            for (const p of prev) {
+              if (allFolderPaths.includes(p)) next.add(p)
+            }
+          } else if (expandDefaultRef.current) {
+            for (const p of allFolderPaths) next.add(p)
+          }
+          if (selectedPath) {
+            for (const anc of getAncestorPaths(selectedPath)) next.add(anc)
+          }
+          return next
+        })
       })
       .catch((err) => {
         if (!cancelled) setError(err instanceof Error ? err.message : t('git.errors.readTree'))
@@ -725,7 +769,25 @@ export function GitCommitPanel({ repo, commit, width, title, conflictFiles, conf
     return () => {
       cancelled = true
     }
-  }, [view, allFiles, changes, repo, commit.hash, t])
+  }, [view, allFiles, changes, repo, commit.hash, t, selectedPath])
+
+  // Auto-expand ancestors whenever selectedPath changes
+  useEffect(() => {
+    if (!selectedPath) return
+    const ancestors = getAncestorPaths(selectedPath)
+    if (ancestors.length === 0) return
+    setOpenPaths((prev) => {
+      let changed = false
+      const next = new Set(prev)
+      for (const anc of ancestors) {
+        if (!next.has(anc)) {
+          next.add(anc)
+          changed = true
+        }
+      }
+      return changed ? next : prev
+    })
+  }, [selectedPath])
 
   // Handle Amend commit auto filling
   useEffect(() => {
@@ -824,6 +886,23 @@ export function GitCommitPanel({ repo, commit, width, title, conflictFiles, conf
     }
   }, [fileNeedle, filterConflicts, folders])
 
+  // Auto-scroll selectedPath into view in the file tree
+  useEffect(() => {
+    if (!selectedPath) return
+    const timer = setTimeout(() => {
+      const scrollEl = panelRef.current?.querySelector('[role="list"]') as HTMLElement | null
+      if (!scrollEl) return
+      const idx = treeRows.findIndex((row) => row.node.path === selectedPath)
+      if (idx < 0) return
+      const rowTop = idx * 28
+      const rowBottom = rowTop + 28
+      if (rowTop < scrollEl.scrollTop || rowBottom > scrollEl.scrollTop + scrollEl.clientHeight) {
+        scrollEl.scrollTo({ top: Math.max(0, rowTop - scrollEl.clientHeight / 2 + 14), behavior: 'smooth' })
+      }
+    }, 60)
+    return () => clearTimeout(timer)
+  }, [selectedPath, treeRows])
+
   const toggleFolder = (path: string) => {
     setOpenPaths((prev) => {
       const next = new Set(prev)
@@ -842,7 +921,7 @@ export function GitCommitPanel({ repo, commit, width, title, conflictFiles, conf
     })
   }
 
-  const reloadDiff = async () => {
+  const reloadDiff = useCallback(async () => {
     try {
       const driver = getGitDriver()
       const body = await driver.readCommitDiff({ repo, hash: commit.hash, tree: true })
@@ -853,7 +932,24 @@ export function GitCommitPanel({ repo, commit, width, title, conflictFiles, conf
     } catch {
       // ignore
     }
-  }
+  }, [repo, commit.hash, onFilesLoaded])
+
+  // Automatically refresh working tree diff when window regains focus
+  useEffect(() => {
+    if (!isWorktree) return
+    let timer: ReturnType<typeof setTimeout> | null = null
+    const onFocus = () => {
+      if (timer) clearTimeout(timer)
+      timer = setTimeout(() => {
+        void reloadDiff()
+      }, 150)
+    }
+    window.addEventListener('focus', onFocus)
+    return () => {
+      if (timer) clearTimeout(timer)
+      window.removeEventListener('focus', onFocus)
+    }
+  }, [isWorktree, reloadDiff])
 
   const handleStage = async (filePath: string) => {
     try {
@@ -861,6 +957,7 @@ export function GitCommitPanel({ repo, commit, width, title, conflictFiles, conf
       await driver.stage(repo, [filePath])
       notify.success((t('git.operations.stageFile') || '已暂存 {file}').replace('{file}', filePath))
       await reloadDiff()
+      await onRefresh?.()
     } catch (e) {
       notify.error(e instanceof Error ? e.message : t('git.operations.stageSuccess') || '暂存失败')
     }
@@ -872,6 +969,7 @@ export function GitCommitPanel({ repo, commit, width, title, conflictFiles, conf
       await driver.unstage(repo, [filePath])
       notify.success((t('git.operations.unstageFile') || '已取消暂存 {file}').replace('{file}', filePath))
       await reloadDiff()
+      await onRefresh?.()
     } catch (e) {
       notify.error(e instanceof Error ? e.message : t('git.operations.unstageSuccess') || '取消暂存失败')
     }
@@ -890,6 +988,7 @@ export function GitCommitPanel({ repo, commit, width, title, conflictFiles, conf
       await driver.discard(repo, [filePath])
       notify.success((t('git.operations.discardSuccess') || '已放弃更改 {file}').replace('{file}', filePath))
       await reloadDiff()
+      await onRefresh?.()
     } catch (e) {
       notify.error(e instanceof Error ? e.message : t('git.operations.discardFile') || '放弃更改失败')
     }
@@ -901,6 +1000,7 @@ export function GitCommitPanel({ repo, commit, width, title, conflictFiles, conf
       await driver.stage(repo, [], true)
       notify.success(t('git.operations.stageSuccess') || '已暂存全部更改')
       await reloadDiff()
+      await onRefresh?.()
     } catch (e) {
       notify.error(e instanceof Error ? e.message : t('git.operations.stageSuccess') || '暂存全部失败')
     }
@@ -912,6 +1012,7 @@ export function GitCommitPanel({ repo, commit, width, title, conflictFiles, conf
       await driver.unstage(repo, [], true)
       notify.success(t('git.operations.unstageSuccess') || '已取消暂存全部更改')
       await reloadDiff()
+      await onRefresh?.()
     } catch (e) {
       notify.error(e instanceof Error ? e.message : t('git.operations.unstageSuccess') || '取消暂存全部失败')
     }
@@ -987,6 +1088,7 @@ export function GitCommitPanel({ repo, commit, width, title, conflictFiles, conf
       const res = await driver.ignorePattern(repo, pattern)
       notify.success(res.message || `已将 ${pattern} 加入 .gitignore`)
       await reloadDiff()
+      await onRefresh?.()
     } catch (e) {
       notify.error(e instanceof Error ? e.message : '添加到 .gitignore 失败')
     }
@@ -1098,6 +1200,7 @@ export function GitCommitPanel({ repo, commit, width, title, conflictFiles, conf
             await driver.stash(repo, { action: 'save', message: `Stash ${name}`, paths: [filePath] })
             notify.success(`已暂存文件 ${name}`)
             await reloadDiff()
+            await onRefresh?.()
           } catch (err) {
             notify.error(err instanceof Error ? err.message : '暂存文件失败')
           }
@@ -1234,6 +1337,7 @@ export function GitCommitPanel({ repo, commit, width, title, conflictFiles, conf
             await driver.stash(repo, { action: 'save', message: `Stash folder ${folderName}`, paths: [folderPath] })
             notify.success(t('git.operations.stashSuccess') || `已暂存文件夹 ${folderName}`)
             await reloadDiff()
+            await onRefresh?.()
           } catch (err) {
             notify.error(err instanceof Error ? err.message : '暂存文件夹失败')
           }

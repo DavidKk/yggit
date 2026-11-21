@@ -54,8 +54,15 @@ export class EdgeGitDriver implements IGitDriver {
     throw new Error('浏览器 Edge 模式暂不支持创建分支，请在本地模式使用')
   }
 
-  async deleteBranch(_repo: string, _branch: string, _force?: boolean): Promise<{ ok: boolean; message: string }> {
-    throw new Error('浏览器 Edge 模式暂不支持删除分支，请在本地模式使用')
+  async deleteBranch(repo: string, branch: string, _force?: boolean): Promise<{ ok: boolean; message: string }> {
+    const reader = await this.repository(repo)
+    const { fs } = reader
+    try {
+      await git.deleteBranch({ fs, dir: '/', ref: branch })
+      return { ok: true, message: `已删除分支 ${branch}` }
+    } catch (error) {
+      throw new Error(`删除分支失败: ${error instanceof Error ? error.message : String(error)}`)
+    }
   }
 
   async renameBranch(_repo: string, _oldName: string, _newName: string): Promise<{ ok: boolean; message: string }> {
@@ -284,7 +291,8 @@ export class EdgeGitDriver implements IGitDriver {
       const targetRef = branch || ref || currentBranch || 'HEAD'
       let commits: GitCommit[] = []
       let hasMore = false
-      const skip = Math.max(0, Math.floor(options.skip || 0))
+      let hasPrev = false
+      let startIndex = Math.max(0, Math.floor(options.skip || 0))
       const take = Math.max(1, Math.floor(options.take || GIT_LOG_PAGE_SIZE))
       try {
         const rawCommits = await git.log({
@@ -292,8 +300,17 @@ export class EdgeGitDriver implements IGitDriver {
           cache,
           dir: '/',
           ref: targetRef === '*' ? currentBranch : targetRef,
-          depth: skip + take + 1,
+          depth: options.locate ? 5000 : startIndex + take + 1,
         })
+
+        if (options.locate) {
+          const clean = options.locate.trim().toLowerCase()
+          const locatedIdx = rawCommits.findIndex((c) => c.oid.toLowerCase() === clean || (clean.length >= 7 && c.oid.toLowerCase().startsWith(clean)))
+          if (locatedIdx >= 0) {
+            const half = Math.floor(take / 2)
+            startIndex = Math.max(0, locatedIdx - half)
+          }
+        }
 
         const branchTips = new Map<string, string[]>()
         for (const b of branches) {
@@ -314,8 +331,9 @@ export class EdgeGitDriver implements IGitDriver {
           }
         }
 
-        hasMore = rawCommits.length > skip + take
-        commits = rawCommits.slice(skip, skip + take).map((item) => {
+        hasMore = rawCommits.length > startIndex + take
+        hasPrev = startIndex > 0
+        commits = rawCommits.slice(startIndex, startIndex + take).map((item) => {
           const oid = item.oid
           const c = item.commit
           const refs = branchTips.get(oid) || []
@@ -369,6 +387,8 @@ export class EdgeGitDriver implements IGitDriver {
         submodules: [],
         commits,
         hasMore,
+        hasPrev,
+        startIndex,
         marks: {},
         worktree: worktreeStatus,
       }

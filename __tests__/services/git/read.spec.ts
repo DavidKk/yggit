@@ -100,4 +100,23 @@ describe('git stash history', () => {
     expect(view.commits.map((commit) => commit.hash)).toEqual(branchHistory.slice(0, GIT_LOG_PAGE_SIZE))
     expect(view.commits.some((commit) => commit.hash === sideTip)).toBe(true)
   })
+
+  it('locates commit and returns a windowed slice centered around it', async () => {
+    // Pick an older commit deep in history
+    const targetHash = branchHistory[25]
+    expect(targetHash).toBeDefined()
+
+    const windowResult = await readGitHistory({
+      repo,
+      locate: targetHash,
+      take: 20,
+    })
+
+    expect(windowResult.locatedIndex).toBe(25)
+    expect(windowResult.startIndex).toBe(15) // 25 - 10
+    expect(windowResult.commits.length).toBe(20)
+    expect(windowResult.commits.some((c) => c.hash === targetHash)).toBe(true)
+    expect(windowResult.hasPrev).toBe(true)
+    expect(windowResult.hasMore).toBe(true)
+  })
 })

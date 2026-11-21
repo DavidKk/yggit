@@ -168,6 +168,7 @@ export function RefChipsCell({
       soloBranch,
       onSoloBranch,
       config: contextConfig,
+      t,
       onNotify: (type, msg) => {
         if (type === 'success') notify.success(msg)
         else notify.error(msg)

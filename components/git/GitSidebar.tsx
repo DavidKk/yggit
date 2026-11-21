@@ -3,8 +3,9 @@
 import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import {
   LuArchive,
-  LuArrowDown,
-  LuArrowUp,
+  LuArchiveRestore,
+  LuArrowDownToLine,
+  LuArrowUpFromLine,
   LuBoxes,
   LuCheck,
   LuChevronDown,
@@ -38,9 +39,9 @@ import { FloatingMenu, type FloatingMenuItem } from '@/components/git/RefChipsCe
 import { handleTreeExpandKey, handleTreeParentKey } from '@/components/git/treeExpandKey'
 import { useT } from '@/components/i18n/LocaleProvider'
 import { useNotification } from '@/components/notification/useNotification'
-import { Badge, Button, EmptyState, Tooltip, VirtualList } from '@/components/sk'
+import { Badge, Button, EmptyState, Modal, Tooltip, VirtualList } from '@/components/sk'
 import { copyToClipboard } from '@/lib/clipboard'
-import { useGitDriver } from '@/lib/git/driver'
+import { getGitDriver, useGitDriver } from '@/lib/git/driver'
 import type { GitLogView, GitRemoteProbe, GitSelection } from '@/lib/git/types'
 import { isBoolean, isRecordBoolean, repoPrefKey, useGitUiPref, useGitUiReady } from '@/lib/git/ui-prefs'
 import { cn } from '@/lib/utils'
@@ -66,6 +67,9 @@ type Props = {
   soloBranch?: string | null
   onSoloBranch?: (branch: string | null) => void
   onAddWorktree?: () => void
+  onBranchHoverStart?: (branchName: string) => void
+  onBranchHoverEnd?: () => void
+  onRefresh?: () => Promise<void> | void
 }
 
 type SectionId = 'local' | 'remote' | 'stash' | 'tag' | 'worktree' | 'submodule'
@@ -224,10 +228,50 @@ export function GitSidebar({
   soloBranch,
   onSoloBranch,
   onAddWorktree,
+  onBranchHoverStart,
+  onBranchHoverEnd,
+  onRefresh,
 }: Props) {
   const t = useT()
   const ready = useGitUiReady()
   const { isEdge } = useGitDriver()
+  const [deleteFolderModal, setDeleteFolderModal] = useState<{
+    open: boolean
+    folderLabel: string
+    branchesToDelete: string[]
+    skippedCurrentBranch: string | null
+  } | null>(null)
+  const [deletingFolderBranches, setDeletingFolderBranches] = useState(false)
+
+  const handleConfirmDeleteFolderBranches = async () => {
+    if (!deleteFolderModal || deletingFolderBranches) return
+    setDeletingFolderBranches(true)
+    const { branchesToDelete } = deleteFolderModal
+    const driver = getGitDriver()
+    let successCount = 0
+    let failedCount = 0
+
+    for (const b of branchesToDelete) {
+      try {
+        await driver.deleteBranch(view.repo, b, true)
+        successCount++
+      } catch (err) {
+        console.error(`Failed to delete branch ${b}:`, err)
+        failedCount++
+      }
+    }
+
+    setDeletingFolderBranches(false)
+    setDeleteFolderModal(null)
+
+    if (successCount > 0) {
+      notify.success(t('git.operations.deleteFolderBranchesSuccess', { count: successCount }) || `成功删除 ${successCount} 个分支`)
+      await onRefresh?.()
+    }
+    if (failedCount > 0) {
+      notify.error(t('git.operations.deleteFolderBranchesPartialFail', { count: failedCount }) || `${failedCount} 个分支删除失败`)
+    }
+  }
   const [openRaw, setOpen] = useGitUiPref(repoPrefKey(view.repo, 'sections'), SECTION_DEFAULT, isSectionMap)
   const open = sectionsOf(openRaw)
   const [openRemotes, setOpenRemotes] = useGitUiPref(repoPrefKey(view.repo, 'remotes'), {} as Record<string, boolean>, isRecordBoolean)
@@ -400,18 +444,6 @@ export function GitSidebar({
 
     const actionItems: FloatingMenuItem[] = []
 
-    const isSolo = soloBranch === item.name
-    if (onSoloBranch) {
-      actionItems.push({
-        key: 'solo-branch',
-        label: isSolo ? t('git.operations.unsoloBranch') || '退出 SOLO' : t('git.operations.soloBranch') || 'SOLO 分支',
-        icon: isSolo ? <LuEyeOff className="size-3.5 shrink-0 text-accent" /> : <LuEye className="size-3.5 shrink-0 text-accent" />,
-        checked: isSolo,
-        onSelect: () => void onSoloBranch(isSolo ? null : item.name),
-        group: t('git.operations.groupView') || '视图',
-      })
-    }
-
     if (kind === 'local') {
       actionItems.push(
         {
@@ -455,26 +487,16 @@ export function GitSidebar({
         {
           key: 'push-branch',
           label: t('git.operations.pushBranchAction', { branch: item.name }),
-          icon: <LuArrowUp className="size-3.5 shrink-0 text-ink-soft" />,
+          icon: <LuArrowUpFromLine className="size-3.5 shrink-0 text-ink-soft" />,
           onSelect: () => void onPushBranch?.(item.name),
           group: t('git.operations.groupRemoteSync'),
         },
         {
           key: 'pull-branch',
           label: t('git.operations.pullBranchAction', { branch: item.name }),
-          icon: <LuArrowDown className="size-3.5 shrink-0 text-ink-soft" />,
+          icon: <LuArrowDownToLine className="size-3.5 shrink-0 text-ink-soft" />,
           onSelect: () => void onPullBranch?.(item.name),
           group: t('git.operations.groupRemoteSync'),
-        },
-        {
-          key: 'delete-branch',
-          label: t('git.operations.deleteBranchAction', { branch: item.name }),
-          icon: <LuTrash2 className="size-3.5 shrink-0 text-fail" />,
-          danger: true,
-          disabled: isCurrent,
-          dividerBefore: true,
-          onSelect: () => void onDeleteBranch?.(item.name),
-          group: t('git.operations.groupDangerous'),
         }
       )
     } else {
@@ -510,11 +532,24 @@ export function GitSidebar({
         {
           key: 'pull-remote',
           label: t('git.operations.pullBranchAction', { branch: item.name }),
-          icon: <LuArrowDown className="size-3.5 shrink-0 text-ink-soft" />,
+          icon: <LuArrowDownToLine className="size-3.5 shrink-0 text-ink-soft" />,
           onSelect: () => void onPullBranch?.(item.name),
           group: t('git.operations.groupRemoteSync'),
         }
       )
+    }
+
+    const isSolo = soloBranch === item.name
+    if (onSoloBranch) {
+      actionItems.push({
+        key: 'solo-branch',
+        label: isSolo ? t('git.operations.unsoloBranch') || '退出 SOLO' : t('git.operations.soloBranch') || 'SOLO 分支',
+        icon: isSolo ? <LuEyeOff className="size-3.5 shrink-0 text-accent" /> : <LuEye className="size-3.5 shrink-0 text-accent" />,
+        checked: isSolo,
+        dividerBefore: true,
+        onSelect: () => void onSoloBranch(isSolo ? null : item.name),
+        group: t('git.operations.groupView') || '视图',
+      })
     }
 
     const copyBranchName = kind === 'remote' ? item.path || item.name.replace(/^[^/]+\//, '') : item.name
@@ -524,9 +559,7 @@ export function GitSidebar({
         key: 'copy-branch-name',
         label: `${t('git.graph.copyBranchName')} (${copyBranchName})`,
         icon: <LuCopy className="size-3.5 shrink-0 text-accent" />,
-        dividerBefore: actionItems.length > 0,
         onSelect: () => void copyValue(copyBranchName),
-        group: t('git.operations.groupCopy'),
       },
     ]
 
@@ -538,7 +571,6 @@ export function GitSidebar({
           label: `${t('git.operations.copyFullPathAction', { path: fullPath })}`,
           icon: <LuCopy className="size-3.5 shrink-0" />,
           onSelect: () => void copyValue(fullPath),
-          group: t('git.operations.groupCopy'),
         })
       }
     }
@@ -550,21 +582,18 @@ export function GitSidebar({
           label: `${t('git.graph.copyCommitSubject')} (${tipCommit.subject})`,
           icon: <LuText className="size-3.5 shrink-0 text-ink-soft" />,
           onSelect: () => void copyValue(tipCommit.subject),
-          group: t('git.operations.groupCopy'),
         },
         {
           key: 'copy-hash',
           label: `${t('git.graph.copyCommitHash')} (${tipCommit.short || tipCommit.hash.slice(0, 7)})`,
           icon: <LuHash className="size-3.5 shrink-0 text-ink-soft" />,
           onSelect: () => void copyValue(tipCommit.hash),
-          group: t('git.operations.groupCopy'),
         },
         {
           key: 'copy-author',
           label: `${t('git.graph.copyAuthor')} (${tipCommit.author})`,
           icon: <LuUser className="size-3.5 shrink-0 text-ink-soft" />,
           onSelect: () => void copyValue(tipCommit.author),
-          group: t('git.operations.groupCopy'),
         }
       )
     } else if (item.tip) {
@@ -574,14 +603,34 @@ export function GitSidebar({
         label: `${t('git.graph.copyCommitHash')} (${tipHash.slice(0, 7)})`,
         icon: <LuHash className="size-3.5 shrink-0 text-ink-soft" />,
         onSelect: () => void copyValue(tipHash),
-        group: t('git.operations.groupCopy'),
+      })
+    }
+
+    actionItems.push({
+      key: 'copy-menu-group',
+      label: t('git.operations.groupCopy') || '复制',
+      icon: <LuCopy className="size-3.5 shrink-0 text-ink-soft" />,
+      dividerBefore: true,
+      children: copyItems,
+    })
+
+    if (kind === 'local') {
+      actionItems.push({
+        key: 'delete-branch',
+        label: t('git.operations.deleteBranchAction', { branch: item.name }),
+        icon: <LuTrash2 className="size-3.5 shrink-0 text-fail" />,
+        danger: true,
+        disabled: isCurrent,
+        dividerBefore: true,
+        onSelect: () => void onDeleteBranch?.(item.name),
+        group: t('git.operations.groupDangerous'),
       })
     }
 
     setContextMenu({
       anchor: { x: e.clientX, y: e.clientY },
       ariaLabel: item.name,
-      items: [...actionItems, ...copyItems],
+      items: actionItems,
     })
   }
 
@@ -636,7 +685,7 @@ export function GitSidebar({
       {
         key: 'pop-stash',
         label: t('git.operations.popStashAction', { stash: stash.name }),
-        icon: <LuArrowUp className="size-3.5 shrink-0 text-ok" />,
+        icon: <LuArchiveRestore className="size-3.5 shrink-0 text-ok" />,
         onSelect: () => void onStashAction?.('pop', idx),
         group: t('git.operations.groupActions'),
       },
@@ -718,12 +767,23 @@ export function GitSidebar({
     })
   }
 
-  const handleFolderContextMenu = (e: React.MouseEvent, node: BranchNode, _kind: 'local' | 'remote', folderId: string, expanded: boolean) => {
+  const handleFolderContextMenu = (e: React.MouseEvent, node: BranchNode, kind: 'local' | 'remote', folderId: string, expanded: boolean) => {
     e.preventDefault()
     e.stopPropagation()
 
     const branchItems = collectAllBranchItems(node)
-    const items: FloatingMenuItem[] = [
+    const items: FloatingMenuItem[] = []
+
+    if (node.children.length > 0) {
+      items.push({
+        key: 'toggle-folder',
+        label: expanded ? t('git.operations.collapseGroup') || '折叠该组' : t('git.operations.expandGroup') || '展开该组',
+        icon: expanded ? <LuChevronDown className="size-3.5 shrink-0" /> : <LuChevronRight className="size-3.5 shrink-0" />,
+        onSelect: () => toggleFolder(folderId),
+      })
+    }
+
+    const copyChildren: FloatingMenuItem[] = [
       {
         key: 'copy-folder-name',
         label: (t('git.operations.copyGroupName') || '复制组名称 ({name})').replace('{name}', node.label),
@@ -733,7 +793,7 @@ export function GitSidebar({
     ]
 
     if (node.id && node.id !== node.label) {
-      items.push({
+      copyChildren.push({
         key: 'copy-folder-path',
         label: (t('git.operations.copyGroupPath') || '复制完整分组路径 ({path})').replace('{path}', node.id),
         icon: <LuCopy className="size-3.5 shrink-0" />,
@@ -742,7 +802,7 @@ export function GitSidebar({
     }
 
     if (branchItems.length > 0) {
-      items.push({
+      copyChildren.push({
         key: 'copy-branches-list',
         label: (t('git.operations.copyGroupBranches') || '复制组内分支名称 ({count} 个)').replace('{count}', String(branchItems.length)),
         icon: <LuGitBranch className="size-3.5 shrink-0 text-accent" />,
@@ -753,7 +813,7 @@ export function GitSidebar({
     if (node.item) {
       const tipCommit = view.commits.find((c) => c.hash === node.item?.tip)
       if (tipCommit) {
-        items.push(
+        copyChildren.push(
           {
             key: 'copy-commit-subject',
             label: `${t('git.graph.copyCommitSubject') || '复制提交信息'} (${tipCommit.subject})`,
@@ -769,7 +829,7 @@ export function GitSidebar({
         )
       } else if (node.item.tip) {
         const hash = node.item.tip
-        items.push({
+        copyChildren.push({
           key: 'copy-commit-hash',
           label: `${t('git.graph.copyCommitHash') || '复制 Commit SHA'} (${hash.slice(0, 7)})`,
           icon: <LuHash className="size-3.5 shrink-0 text-ink-soft" />,
@@ -778,13 +838,39 @@ export function GitSidebar({
       }
     }
 
-    if (node.children.length > 0) {
+    if (copyChildren.length > 0) {
       items.push({
-        key: 'toggle-folder',
-        label: expanded ? t('git.operations.collapseGroup') || '折叠该组' : t('git.operations.expandGroup') || '展开该组',
-        icon: expanded ? <LuChevronDown className="size-3.5 shrink-0" /> : <LuChevronRight className="size-3.5 shrink-0" />,
-        onSelect: () => toggleFolder(folderId),
+        key: 'copy-folder-group',
+        label: t('git.operations.groupCopy') || '复制',
+        icon: <LuCopy className="size-3.5 shrink-0 text-ink-soft" />,
+        dividerBefore: items.length > 0,
+        children: copyChildren,
       })
+    }
+
+    if (kind === 'local' && branchItems.length > 0) {
+      const allBranchNames = branchItems.map((b) => b.name)
+      const currentBranch = view.head || view.branch
+      const isCurrentInFolder = allBranchNames.includes(currentBranch)
+      const branchesToDelete = allBranchNames.filter((b) => b !== currentBranch)
+
+      if (branchesToDelete.length > 0) {
+        items.push({
+          key: 'delete-folder-branches',
+          label: t('git.operations.deleteFolderBranches', { count: branchesToDelete.length }) || `删除文件夹下所有分支 (${branchesToDelete.length} 个)`,
+          icon: <LuTrash2 className="size-3.5 shrink-0 text-fail" />,
+          danger: true,
+          dividerBefore: true,
+          onSelect: () => {
+            setDeleteFolderModal({
+              open: true,
+              folderLabel: node.label,
+              branchesToDelete,
+              skippedCurrentBranch: isCurrentInFolder ? currentBranch : null,
+            })
+          },
+        })
+      }
     }
 
     setContextMenu({
@@ -870,6 +956,8 @@ export function GitSidebar({
               onCheckoutBranch={onCheckoutBranch}
               soloBranch={soloBranch}
               parentId={row.parentId}
+              onBranchHoverStart={onBranchHoverStart}
+              onBranchHoverEnd={onBranchHoverEnd}
             />
           ),
         })),
@@ -958,6 +1046,8 @@ export function GitSidebar({
                       idPrefix={`remote:${group.source}`}
                       parentId={row.parentId}
                       updateByName={updateByName}
+                      onBranchHoverStart={onBranchHoverStart}
+                      onBranchHoverEnd={onBranchHoverEnd}
                     />
                   ),
                 }))
@@ -1085,7 +1175,13 @@ export function GitSidebar({
   }
 
   return (
-    <aside data-git-sidebar data-git-tree-root className="flex h-full min-h-0 shrink-0 flex-col overflow-hidden select-text" style={{ width: `var(--git-sidebar-w, ${width}px)` }}>
+    <aside
+      data-git-sidebar
+      data-git-tree-root
+      className="flex h-full min-h-0 shrink-0 flex-col overflow-hidden select-text"
+      style={{ width: `var(--git-sidebar-w, ${width}px)` }}
+      onPointerLeave={() => onBranchHoverEnd?.()}
+    >
       <nav aria-label={t('git.sidebar.navAria')} className="flex min-h-0 flex-1 flex-col pt-1 pb-2" aria-busy={!ready || undefined}>
         {sections.map((section) => {
           const expanded = expandedOf(section.id)
@@ -1245,6 +1341,53 @@ export function GitSidebar({
       {contextMenu ? (
         <FloatingMenu anchor={contextMenu.anchor} ariaLabel={contextMenu.ariaLabel} color="var(--accent)" onClose={() => setContextMenu(null)} items={contextMenu.items} />
       ) : null}
+      {deleteFolderModal?.open ? (
+        <Modal
+          open={deleteFolderModal.open}
+          title={t('git.operations.deleteFolderBranchesConfirmTitle') || '批量删除分支'}
+          description={
+            t('git.operations.deleteFolderBranchesConfirmDesc', {
+              folder: deleteFolderModal.folderLabel,
+              count: deleteFolderModal.branchesToDelete.length,
+            }) || `确定要删除文件夹 "${deleteFolderModal.folderLabel}" 下的 ${deleteFolderModal.branchesToDelete.length} 个本地分支吗？此操作不可逆。`
+          }
+          onClose={() => {
+            if (!deletingFolderBranches) setDeleteFolderModal(null)
+          }}
+          footer={
+            <div className="flex w-full items-center justify-end gap-2">
+              <Button variant="plain" size="md" disabled={deletingFolderBranches} onClick={() => setDeleteFolderModal(null)}>
+                {t('common.cancel') || '取消'}
+              </Button>
+              <Button variant="fail" size="md" loading={deletingFolderBranches} onClick={() => void handleConfirmDeleteFolderBranches()}>
+                {t('git.operations.confirmDeleteCount', { count: deleteFolderModal.branchesToDelete.length }) || `删除 ${deleteFolderModal.branchesToDelete.length} 个分支`}
+              </Button>
+            </div>
+          }
+        >
+          <div className="flex flex-col gap-3 py-1">
+            {deleteFolderModal.skippedCurrentBranch ? (
+              <div className="flex items-center gap-2 rounded border border-warn/30 bg-warn/10 px-3 py-2 text-xs text-warn">
+                <LuCircleAlert className="size-4 shrink-0 text-warn" />
+                <span>
+                  {t('git.operations.deleteFolderBranchesSkippedCurrent', {
+                    branch: deleteFolderModal.skippedCurrentBranch,
+                  }) || `当前分支 "${deleteFolderModal.skippedCurrentBranch}" 将被跳过，不会被删除。`}
+                </span>
+              </div>
+            ) : null}
+            <div className="text-xs text-ink-soft">{t('git.operations.branchesToBeDeleted') || '将被删除的分支列表：'}</div>
+            <div className="max-h-48 overflow-y-auto rounded border border-line bg-surface-panel p-2 flex flex-col gap-1">
+              {deleteFolderModal.branchesToDelete.map((b) => (
+                <div key={b} className="flex items-center gap-1.5 text-xs text-fail font-mono">
+                  <LuGitBranch className="size-3.5 shrink-0" />
+                  <span className="truncate">{b}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </Modal>
+      ) : null}
     </aside>
   )
 }
@@ -1265,6 +1408,8 @@ function BranchTree({
   idPrefix = kind,
   parentId,
   updateByName,
+  onBranchHoverStart,
+  onBranchHoverEnd,
 }: {
   nodes: BranchNode[]
   depth: number
@@ -1281,6 +1426,8 @@ function BranchTree({
   idPrefix?: string
   parentId?: string
   updateByName?: Map<string, GitRemoteProbe>
+  onBranchHoverStart?: (branchName: string) => void
+  onBranchHoverEnd?: () => void
 }) {
   const t = useT()
   return (
@@ -1310,6 +1457,8 @@ function BranchTree({
               onClick={() => onSelect({ kind, name: node.item!.name })}
               onDoubleClick={() => onCheckoutBranch?.(node.item!.name, kind === 'remote')}
               onContextMenu={(e) => onContextMenu?.(e, node.item!, kind)}
+              onPointerEnter={() => onBranchHoverStart?.(node.item!.name)}
+              onPointerLeave={() => onBranchHoverEnd?.()}
             />
           )
         }
@@ -1341,6 +1490,12 @@ function BranchTree({
               }}
               onDoubleClick={() => {
                 if (node.item) onCheckoutBranch?.(node.item.name, kind === 'remote')
+              }}
+              onPointerEnter={() => {
+                if (node.item) onBranchHoverStart?.(node.item.name)
+              }}
+              onPointerLeave={() => {
+                if (node.item) onBranchHoverEnd?.()
               }}
               onContextMenu={(e) => {
                 if (node.item) {
@@ -1398,6 +1553,8 @@ function Row({
   onClick,
   onDoubleClick,
   onContextMenu,
+  onPointerEnter,
+  onPointerLeave,
 }: {
   label: string
   title?: string
@@ -1410,6 +1567,8 @@ function Row({
   onClick: () => void
   onDoubleClick?: () => void
   onContextMenu?: (e: React.MouseEvent) => void
+  onPointerEnter?: () => void
+  onPointerLeave?: () => void
 }) {
   const t = useT()
   return (
@@ -1433,6 +1592,8 @@ function Row({
       }}
       onDoubleClick={onDoubleClick}
       onContextMenu={onContextMenu}
+      onPointerEnter={onPointerEnter}
+      onPointerLeave={onPointerLeave}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault()

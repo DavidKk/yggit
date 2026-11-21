@@ -3,10 +3,11 @@
 import React from 'react'
 import {
   LuArchive,
-  LuArrowDown,
-  LuArrowUp,
+  LuArrowDownToLine,
+  LuArrowUpFromLine,
   LuBot,
   LuClock,
+  LuCopy,
   LuExternalLink,
   LuEye,
   LuEyeOff,
@@ -24,7 +25,7 @@ import {
   LuTag,
   LuText,
   LuTrash2,
-  LuUndo,
+  LuUndo2,
   LuUser,
 } from 'react-icons/lu'
 
@@ -62,6 +63,7 @@ export interface BuildBranchMenuOptions {
   hasWorktrees?: boolean
   soloBranch?: string | null
   config: ContextMenuUserConfig
+  t?: (key: any, vars?: any) => string
   onNotify?: (type: 'success' | 'error', message: string) => void
   onCheckoutBranch?: (branch: string, isRemote?: boolean) => void
   onCreateBranch?: (branchName: string, startPoint?: string) => void
@@ -97,6 +99,7 @@ export function buildBranchContextMenu({
   hasWorktrees = false,
   soloBranch,
   config,
+  t,
   onNotify,
   onCheckoutBranch,
   onCreateBranch,
@@ -113,10 +116,11 @@ export function buildBranchContextMenu({
   onAgentPrompt,
 }: BuildBranchMenuOptions): FloatingMenuItem[] {
   const shortHash = commit?.short || commit?.hash?.slice(0, 7) || ''
+  const tr = (key: string, fallback: string, vars?: any) => (t ? t(key, vars) || fallback : fallback)
   const copyVal = async (text: string) => {
     const ok = await copyToClipboard(text)
-    if (ok) onNotify?.('success', '已复制到剪贴板')
-    else onNotify?.('error', '复制失败')
+    if (ok) onNotify?.('success', tr('git.operations.copiedToClipboard', '已复制到剪贴板'))
+    else onNotify?.('error', tr('git.operations.copyFailed', '复制失败'))
   }
 
   const cleanBranch = isRemote && branchName ? branchName.replace(/^[^/]+\//, '') : branchName
@@ -125,7 +129,7 @@ export function buildBranchContextMenu({
   const allActions: Record<string, FloatingMenuItem> = {
     'solo-branch': {
       key: 'solo-branch',
-      label: soloBranch === branchName ? '退出 SOLO' : 'SOLO 分支',
+      label: soloBranch === branchName ? tr('git.operations.unsoloBranch', '退出 SOLO') : tr('git.operations.soloBranch', 'SOLO 分支'),
       icon: soloBranch === branchName ? <LuEyeOff className="size-4 shrink-0 text-accent" /> : <LuEye className="size-4 shrink-0 text-accent" />,
       checked: soloBranch === branchName,
       onSelect: () => {
@@ -136,7 +140,7 @@ export function buildBranchContextMenu({
     },
     'copy-branch': {
       key: 'copy-branch',
-      label: cleanBranch ? `复制分支名 (${cleanBranch})` : '复制分支名',
+      label: cleanBranch ? tr('git.operations.copyBranchNameAction', `复制分支名 (${cleanBranch})`, { branch: cleanBranch }) : tr('git.operations.copyBranchName', '复制分支名'),
       icon: <LuGitBranch className="size-4 shrink-0 text-accent" />,
       shortcut: '⌘C',
       onSelect: () => {
@@ -145,7 +149,7 @@ export function buildBranchContextMenu({
     },
     'copy-hash': {
       key: 'copy-hash',
-      label: '复制 Commit Hash',
+      label: tr('git.operations.copyHash', '复制 Commit Hash'),
       icon: <LuHash className="size-4 shrink-0 text-ink-soft" />,
       badge: shortHash,
       shortcut: '⌘⇧C',
@@ -155,7 +159,7 @@ export function buildBranchContextMenu({
     },
     'copy-subject': {
       key: 'copy-subject',
-      label: '复制提交说明',
+      label: tr('git.operations.copySubject', '复制提交说明'),
       icon: <LuText className="size-4 shrink-0 text-ink-soft" />,
       shortcut: '⌥⌘C',
       onSelect: () => {
@@ -164,7 +168,7 @@ export function buildBranchContextMenu({
     },
     'copy-author': {
       key: 'copy-author',
-      label: '复制作者',
+      label: tr('git.operations.copyAuthor', '复制作者'),
       icon: <LuUser className="size-4 shrink-0 text-ink-soft" />,
       shortcut: '⌘⌥C',
       onSelect: () => {
@@ -173,7 +177,7 @@ export function buildBranchContextMenu({
     },
     'copy-date': {
       key: 'copy-date',
-      label: '复制提交日期',
+      label: tr('git.operations.copyDate', '复制提交日期'),
       icon: <LuClock className="size-4 shrink-0 text-ink-soft" />,
       onSelect: () => {
         if (commit?.date) void copyVal(commit.date)
@@ -181,7 +185,7 @@ export function buildBranchContextMenu({
     },
     'copy-share-link': {
       key: 'copy-share-link',
-      label: '复制分享链接',
+      label: tr('git.operations.copyShareLink', '复制分享链接'),
       icon: <LuShare2 className="size-4 shrink-0 text-ink-soft" />,
       onSelect: () => {
         if (!commit?.hash) return
@@ -192,7 +196,7 @@ export function buildBranchContextMenu({
     },
     'copy-issue-card': {
       key: 'copy-issue-card',
-      label: '复制工单分享卡片 (Markdown)',
+      label: tr('git.operations.copyIssueCard', '复制工单分享卡片 (Markdown)'),
       icon: <LuShare2 className="size-4 shrink-0 text-ink-soft" />,
       onSelect: () => {
         if (!commit) return
@@ -224,7 +228,13 @@ export function buildBranchContextMenu({
     },
     'checkout-branch': {
       key: 'checkout-branch',
-      label: isRemote ? (branchName ? `检出为本地分支 (${branchName})` : '检出为本地分支') : branchName ? `切换到 ${branchName}` : '切换到此分支',
+      label: isRemote
+        ? branchName
+          ? tr('git.operations.checkoutRemoteBranch', `检出为本地分支 (${branchName})`, { branch: branchName })
+          : tr('git.operations.checkoutRemote', '检出为本地分支')
+        : branchName
+          ? tr('git.operations.checkoutBranchAction', `切换到 ${branchName}`, { branch: branchName })
+          : tr('git.operations.checkoutBranch', '切换到此分支'),
       icon: <LuGitPullRequest className="size-4 shrink-0 text-accent" />,
       onSelect: () => {
         if (branchName) onCheckoutBranch?.(branchName, isRemote)
@@ -232,7 +242,7 @@ export function buildBranchContextMenu({
     },
     'new-branch': {
       key: 'new-branch',
-      label: '基于此分支新建分支…',
+      label: tr('git.operations.newBranchFrom', '基于此分支新建分支…'),
       icon: <LuGitBranchPlus className="size-4 shrink-0 text-ink-soft" />,
       onSelect: () => {
         if (onCreateBranch) {
@@ -244,7 +254,7 @@ export function buildBranchContextMenu({
     },
     'rename-branch': {
       key: 'rename-branch',
-      label: '重命名分支…',
+      label: tr('git.operations.renameBranchAction', '重命名分支…'),
       icon: <LuPencil className="size-4 shrink-0 text-ink-soft" />,
       onSelect: () => {
         if (branchName && onRenameBranch) {
@@ -256,7 +266,9 @@ export function buildBranchContextMenu({
     },
     'merge-branch': {
       key: 'merge-branch',
-      label: '合并到当前分支 (Merge)',
+      label: branchName
+        ? tr('git.operations.mergeIntoCurrent', `合并到当前分支 (${branchName})`, { branch: branchName })
+        : tr('git.operations.mergeIntoCurrent', '合并到当前分支 (Merge)', { branch: '' }),
       icon: <LuGitMerge className="size-4 shrink-0 text-ink-soft" />,
       onSelect: () => {
         if (branchName && onMergeBranch) {
@@ -268,7 +280,9 @@ export function buildBranchContextMenu({
     },
     'rebase-branch': {
       key: 'rebase-branch',
-      label: branchName ? `变基到 ${branchName} (Rebase)` : '变基到此分支 (Rebase)',
+      label: branchName
+        ? tr('git.operations.rebaseOntoCurrent', `变基到 ${branchName} (Rebase)`, { branch: branchName })
+        : tr('git.operations.rebaseOntoCurrent', '变基到此分支 (Rebase)', { branch: '' }),
       icon: <LuGitCommitHorizontal className="size-4 shrink-0 text-accent" />,
       onSelect: () => {
         if (branchName && onRebaseBranch) {
@@ -280,8 +294,8 @@ export function buildBranchContextMenu({
     },
     'push-branch': {
       key: 'push-branch',
-      label: branchName ? `推送分支 ${branchName}` : '推送此分支 (Push)',
-      icon: <LuArrowUp className="size-4 shrink-0 text-accent" />,
+      label: branchName ? tr('git.operations.pushBranchAction', `推送分支 ${branchName}`, { branch: branchName }) : tr('git.operations.pushTooltipAction', '推送此分支 (Push)'),
+      icon: <LuArrowUpFromLine className="size-4 shrink-0 text-accent" />,
       onSelect: () => {
         if (branchName && onPushBranch) {
           onPushBranch(branchName)
@@ -290,8 +304,10 @@ export function buildBranchContextMenu({
     },
     'pull-branch': {
       key: 'pull-branch',
-      label: branchName ? `从远端拉取 ${branchName}` : '拉取此分支 (Pull)',
-      icon: <LuArrowDown className="size-4 shrink-0 text-ok" />,
+      label: branchName
+        ? tr('git.operations.pullBranchAction', `从远端拉取 ${branchName}`, { branch: branchName })
+        : tr('git.operations.pullBranchAction', '拉取此分支 (Pull)', { branch: '' }),
+      icon: <LuArrowDownToLine className="size-4 shrink-0 text-ok" />,
       onSelect: () => {
         if (branchName && onPullBranch) {
           onPullBranch(branchName)
@@ -300,7 +316,7 @@ export function buildBranchContextMenu({
     },
     'stash-changes': {
       key: 'stash-changes',
-      label: '暂存工作区修改 (Stash)',
+      label: tr('git.operations.stashChanges', '暂存工作区修改 (Stash)'),
       icon: <LuArchive className="size-4 shrink-0 text-accent" />,
       onSelect: () => {
         if (onStashAction) {
@@ -310,7 +326,9 @@ export function buildBranchContextMenu({
     },
     'cherry-pick': {
       key: 'cherry-pick',
-      label: commit?.hash ? `遴选提交 ${shortHash}` : '遴选此提交 (Cherry-pick)',
+      label: commit?.hash
+        ? tr('git.operations.cherryPickCommit', `遴选提交 ${shortHash}`, { hash: shortHash })
+        : tr('git.operations.cherryPickCommit', '遴选此提交 (Cherry-pick)', { hash: '' }),
       icon: <LuGitCommitHorizontal className="size-4 shrink-0 text-ink-soft" />,
       onSelect: () => {
         if (commit?.hash && onCherryPick) {
@@ -322,15 +340,15 @@ export function buildBranchContextMenu({
     },
     'undo-commit': {
       key: 'undo-commit',
-      label: '撤销上一次提交 (Undo Commit)',
-      icon: <LuUndo className="size-4 shrink-0 text-warn" />,
+      label: tr('git.operations.undoLastCommit', '撤销上一次提交 (Undo Commit)'),
+      icon: <LuUndo2 className="size-4 shrink-0 text-warn" />,
       onSelect: () => {
         onUndoCommit?.()
       },
     },
     'create-tag': {
       key: 'create-tag',
-      label: '创建标签…',
+      label: tr('git.operations.createTag', '创建标签…'),
       icon: <LuTag className="size-4 shrink-0 text-ink-soft" />,
       onSelect: () => {
         onNotify?.('success', `在此提交创建标签：${shortHash}`)
@@ -338,11 +356,11 @@ export function buildBranchContextMenu({
     },
     'delete-branch': {
       key: 'delete-branch',
-      label: branchName ? `删除分支 ${branchName}` : '删除此分支',
+      label: branchName ? tr('git.operations.deleteBranchAction', `删除分支 ${branchName}`, { branch: branchName }) : tr('git.operations.deleteBranch', '删除此分支'),
       icon: <LuTrash2 className="size-4 shrink-0 text-fail" />,
       danger: true,
       needsConfirm: config.dangerConfirm,
-      confirmText: '确定删除此分支？再次点击执行',
+      confirmText: tr('git.operations.deleteConfirmText', '确定删除此分支？再次点击执行'),
       onSelect: () => {
         if (branchName && onDeleteBranch) {
           onDeleteBranch(branchName)
@@ -353,7 +371,7 @@ export function buildBranchContextMenu({
     },
     'new-worktree': {
       key: 'new-worktree',
-      label: '在独立 Worktree 中检出…',
+      label: tr('git.operations.checkoutWorktree', '在独立 Worktree 中检出…'),
       icon: <LuFolderPlus className="size-4 shrink-0 text-ink-soft" />,
       onSelect: () => {
         onNotify?.('success', `创建 Worktree：${branchName}`)
@@ -361,7 +379,7 @@ export function buildBranchContextMenu({
     },
     'open-worktree': {
       key: 'open-worktree',
-      label: '打开关联 Worktree 工作区',
+      label: tr('git.operations.openWorktree', '打开关联 Worktree 工作区'),
       icon: <LuFolderGit2 className="size-4 shrink-0 text-ink-soft" />,
       onSelect: () => {
         onNotify?.('success', `打开 Worktree 工作区`)
@@ -369,7 +387,7 @@ export function buildBranchContextMenu({
     },
     'open-remote': {
       key: 'open-remote',
-      label: '在远程仓库打开',
+      label: tr('git.operations.openRemote', '在远程仓库打开'),
       icon: <LuExternalLink className="size-4 shrink-0 text-ink-soft" />,
       onSelect: () => {
         if (!remoteUrl) return
@@ -395,29 +413,7 @@ export function buildBranchContextMenu({
     }
   }
 
-  // 3. "Copy" submenu
-  if (config.enabledGroups.copy) {
-    const copyChildren: FloatingMenuItem[] = []
-    if (branchName) copyChildren.push(allActions['copy-branch'])
-    if (commit?.hash) copyChildren.push(allActions['copy-hash'])
-    if (commit?.subject) copyChildren.push(allActions['copy-subject'])
-    if (commit?.author) copyChildren.push(allActions['copy-author'])
-    if (commit?.date) copyChildren.push(allActions['copy-date'])
-    if (commit?.hash) copyChildren.push(allActions['copy-share-link'])
-    if (commit) copyChildren.push(allActions['copy-issue-card'])
-
-    if (copyChildren.length > 0) {
-      items.push({
-        key: 'menu-copy-group',
-        label: '复制',
-        icon: <LuShare2 className="size-4 shrink-0 text-ink-soft" />,
-        dividerBefore: items.length > 0,
-        children: copyChildren,
-      })
-    }
-  }
-
-  // SOLO branch view entry (when branch is specified and solo view is supported)
+  // 3. SOLO branch view entry (when branch is specified and solo view is supported)
   if (branchName && onSoloBranch) {
     items.push({
       ...allActions['solo-branch'],
@@ -429,7 +425,6 @@ export function buildBranchContextMenu({
   const showBranchGroup = config.enabledGroups.branch && (!isReadOnly || !config.hideUnavailableCapabilities)
   if (showBranchGroup && branchName) {
     const branchChildren: FloatingMenuItem[] = [
-      allActions['solo-branch'],
       allActions['checkout-branch'],
       allActions['new-branch'],
       allActions['rename-branch'],
@@ -448,10 +443,32 @@ export function buildBranchContextMenu({
 
     items.push({
       key: 'menu-branch-group',
-      label: '分支操作',
+      label: tr('git.operations.groupBranchOps', '分支操作'),
       icon: <LuGitBranch className="size-4 shrink-0 text-ink-soft" />,
       children: branchChildren,
     })
+  }
+
+  // 5. "Copy" submenu
+  if (config.enabledGroups.copy) {
+    const copyChildren: FloatingMenuItem[] = []
+    if (branchName) copyChildren.push(allActions['copy-branch'])
+    if (commit?.hash) copyChildren.push(allActions['copy-hash'])
+    if (commit?.subject) copyChildren.push(allActions['copy-subject'])
+    if (commit?.author) copyChildren.push(allActions['copy-author'])
+    if (commit?.date) copyChildren.push(allActions['copy-date'])
+    if (commit?.hash) copyChildren.push(allActions['copy-share-link'])
+    if (commit) copyChildren.push(allActions['copy-issue-card'])
+
+    if (copyChildren.length > 0) {
+      items.push({
+        key: 'menu-copy-group',
+        label: tr('git.operations.groupCopy', '复制'),
+        icon: <LuCopy className="size-4 shrink-0 text-ink-soft" />,
+        dividerBefore: items.length > 0,
+        children: copyChildren,
+      })
+    }
   }
 
   // 5. "Worktree" submenu (displayed when repository supports worktrees and not read-only)
@@ -459,7 +476,7 @@ export function buildBranchContextMenu({
   if (showWorktree) {
     items.push({
       key: 'menu-worktree-group',
-      label: 'Worktree',
+      label: tr('git.operations.groupWorktree', 'Worktree'),
       icon: <LuFolderGit2 className="size-4 shrink-0 text-ink-soft" />,
       children: [allActions['new-worktree'], allActions['open-worktree']],
     })
@@ -475,7 +492,7 @@ export function buildBranchContextMenu({
     const activeAgentActions = config.agentActions.filter((a) => a.enabled)
     items.push({
       key: 'menu-agent-group',
-      label: 'Agent 智能诊断',
+      label: tr('git.operations.groupAgent', 'Agent 智能诊断'),
       icon: <LuBot className="size-4 shrink-0 text-accent" />,
       dividerBefore: true,
       children: activeAgentActions.map((agentAct) => ({
