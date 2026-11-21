@@ -323,6 +323,27 @@ export type GitMessages = {
     fetchSuccess: string
     fetchRemoteAction?: string
     pullRemoteAction?: string
+    editRemoteAction?: string
+    editRemoteSuccess?: string
+    removeRemoteAction?: string
+    removeRemoteConfirm?: string
+    removeRemoteSuccess?: string
+    editRemoteTitle?: string
+    editRemoteDesc?: string
+    remoteNameLabel?: string
+    remoteNameRequired?: string
+    remoteNameInvalid?: string
+    remoteUrlLabel?: string
+    remoteUrlRequired?: string
+    saveRemoteBtn?: string
+    savingRemote?: string
+    hideRemoteAction?: string
+    unhideRemoteAction?: string
+    soloRemoteAction?: string
+    unsoloRemoteAction?: string
+    copyRemoteUrlAction?: string
+    copyRemoteUrlSuccess?: string
+    openRemoteInBrowser?: string
     fetchingRemote?: string
     fetchRemoteSuccess?: string
     pullRemoteFfAction?: string

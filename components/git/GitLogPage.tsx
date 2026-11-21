@@ -145,6 +145,9 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
   const [sidebarWidth, setSidebarWidth] = useGitUiPref('layout.sidebarWidth', 256, isPositiveNumber)
   const [treeWidth, setTreeWidth] = useGitUiPref('layout.treeWidth', 320, isPositiveNumber)
   const [remoteCheck] = useState<GitRemoteCheck | null>(null)
+  const [soloBranch, setSoloBranch] = useState<string | null>(null)
+  const [soloRemote, setSoloRemote] = useState<string | null>(null)
+  const [hiddenRemotes, setHiddenRemotes] = useState<string[]>([])
   const [copiedHeaderShare, setCopiedHeaderShare] = useState(false)
   const [renameModal, setRenameModal] = useState<{ open: boolean; oldName: string }>({ open: false, oldName: '' })
   const [createBranchModal, setCreateBranchModal] = useState<{ open: boolean; startPoint?: string; currentBranch?: string }>({ open: false })
@@ -1469,6 +1472,12 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                   selection={selection}
                   width={sidebarWidth}
                   remoteUpdates={remoteCheck?.updates || []}
+                  soloBranch={soloBranch}
+                  onSoloBranch={setSoloBranch}
+                  soloRemote={soloRemote}
+                  onSoloRemote={setSoloRemote}
+                  hiddenRemotes={hiddenRemotes}
+                  onToggleHideRemote={(remote) => setHiddenRemotes((prev) => (prev.includes(remote) ? prev.filter((r) => r !== remote) : [...prev, remote]))}
                   onSelect={select}
                   onOpenRepo={(repo) => void load(repo)}
                   onAddWorktree={handleAddWorktree}
@@ -1538,6 +1547,11 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                         setConflictViewActive(false)
                       }}
                       onOpenConflictView={handleOpenConflictView}
+                      currentBranch={view.branch}
+                      soloBranch={soloBranch}
+                      onSoloBranch={setSoloBranch}
+                      soloRemote={soloRemote}
+                      hiddenRemotes={hiddenRemotes}
                       onCheckoutBranch={handleCheckoutBranch}
                       onCreateBranch={handleCreateBranch}
                       onDeleteBranch={handleDeleteBranch}

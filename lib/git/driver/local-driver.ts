@@ -1,5 +1,5 @@
 import { readApiErrorMessage } from '@/lib/api-error'
-import { GIT_WORKTREE_HASH, type GitCommitChanges, type GitLogView, type GitProjectCatalog, type GitProjectView } from '@/lib/git/types'
+import { GIT_WORKTREE_HASH, type GitCommitChanges, type GitLogView, type GitProjectCatalog, type GitProjectView, type GitRemoteSource } from '@/lib/git/types'
 
 import type {
   AddProjectPayload,
@@ -431,6 +431,63 @@ export class LocalGitDriver implements IGitDriver {
       throw new Error(readApiErrorMessage(data, '抓取失败'))
     }
     return { ok: true, message: data.message || '抓取完成' }
+  }
+
+  async getRemotes(repo: string): Promise<GitRemoteSource[]> {
+    const res = await fetch(`/api/git/remote?${new URLSearchParams({ repo })}`)
+    const data = (await res.json()) as { ok?: boolean; remotes?: GitRemoteSource[]; error?: string }
+    if (!res.ok || data.ok === false) {
+      throw new Error(readApiErrorMessage(data, '获取远程源列表失败'))
+    }
+    return data.remotes || []
+  }
+
+  async getRemoteUrl(repo: string, remote: string): Promise<string> {
+    const res = await fetch(`/api/git/remote?${new URLSearchParams({ repo, remote })}`)
+    const data = (await res.json()) as { ok?: boolean; url?: string; error?: string }
+    if (!res.ok || data.ok === false) {
+      throw new Error(readApiErrorMessage(data, '获取远程源 URL 失败'))
+    }
+    return data.url || ''
+  }
+
+  async setRemoteUrl(repo: string, remote: string, url: string): Promise<{ ok: boolean; message: string }> {
+    const res = await fetch('/api/git/remote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ repo, action: 'setUrl', remote, url }),
+    })
+    const data = (await res.json()) as { ok?: boolean; message?: string; error?: string }
+    if (!res.ok || data.ok === false) {
+      throw new Error(readApiErrorMessage(data, '更新远程源 URL 失败'))
+    }
+    return { ok: true, message: data.message || '更新成功' }
+  }
+
+  async renameRemote(repo: string, oldName: string, newName: string): Promise<{ ok: boolean; message: string }> {
+    const res = await fetch('/api/git/remote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ repo, action: 'rename', remote: oldName, newName }),
+    })
+    const data = (await res.json()) as { ok?: boolean; message?: string; error?: string }
+    if (!res.ok || data.ok === false) {
+      throw new Error(readApiErrorMessage(data, '重命名远程源失败'))
+    }
+    return { ok: true, message: data.message || '重命名成功' }
+  }
+
+  async removeRemote(repo: string, remote: string): Promise<{ ok: boolean; message: string }> {
+    const res = await fetch('/api/git/remote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ repo, action: 'remove', remote }),
+    })
+    const data = (await res.json()) as { ok?: boolean; message?: string; error?: string }
+    if (!res.ok || data.ok === false) {
+      throw new Error(readApiErrorMessage(data, '删除远程源失败'))
+    }
+    return { ok: true, message: data.message || '删除成功' }
   }
 
   async stash(repo: string, options: GitStashOptions): Promise<{ ok: boolean; message: string }> {

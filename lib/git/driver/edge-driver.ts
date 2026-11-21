@@ -21,7 +21,7 @@ import {
 import { remoteIdentity, uniqueLocalProject } from '@/lib/git/project-access'
 import { listRemoteGroup } from '@/lib/git/remote-groups'
 import { parseRemoteUrl } from '@/lib/git/temporary-store'
-import type { GitCommit, GitCommitChanges, GitLogView, GitProjectCatalog, GitProjectHost, GitProjectView, GitRemoteBranch, GitWorktree } from '@/lib/git/types'
+import type { GitCommit, GitCommitChanges, GitLogView, GitProjectCatalog, GitProjectHost, GitProjectView, GitRemoteBranch, GitRemoteSource, GitWorktree } from '@/lib/git/types'
 import { parseGitHubRepo, readRemoteBlobData, readRemoteCommitChanges, readRemoteGitLog } from '@/services/git/remote-provider'
 
 import { EdgeRepositoryReader } from './edge-repository-reader'
@@ -135,6 +135,26 @@ export class EdgeGitDriver implements IGitDriver {
 
   async fetch(_repo: string, _options?: GitFetchOptions): Promise<{ ok: boolean; message: string }> {
     throw new Error('浏览器 Edge 模式暂不支持抓取，请在本地模式使用')
+  }
+
+  async getRemotes(_repo: string): Promise<GitRemoteSource[]> {
+    return []
+  }
+
+  async getRemoteUrl(_repo: string, _remote: string): Promise<string> {
+    return ''
+  }
+
+  async setRemoteUrl(_repo: string, _remote: string, _url: string): Promise<{ ok: boolean; message: string }> {
+    throw new Error('浏览器 Edge 模式暂不支持修改远程源，请在本地模式使用')
+  }
+
+  async renameRemote(_repo: string, _oldName: string, _newName: string): Promise<{ ok: boolean; message: string }> {
+    throw new Error('浏览器 Edge 模式暂不支持重命名远程源，请在本地模式使用')
+  }
+
+  async removeRemote(_repo: string, _remote: string): Promise<{ ok: boolean; message: string }> {
+    throw new Error('浏览器 Edge 模式暂不支持删除远程源，请在本地模式使用')
   }
 
   async stash(_repo: string, _options: GitStashOptions): Promise<{ ok: boolean; message: string }> {

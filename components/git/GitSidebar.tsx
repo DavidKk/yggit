@@ -15,6 +15,7 @@ import {
   LuCircleAlert,
   LuCloud,
   LuCopy,
+  LuExternalLink,
   LuEye,
   LuEyeOff,
   LuFolder,
@@ -33,6 +34,7 @@ import {
   LuUser,
 } from 'react-icons/lu'
 
+import { EditRemoteModal } from '@/components/git/GitRemoteModal'
 import { GitSearchDropdown } from '@/components/git/GitSearchDropdown'
 import { FloatingMenu, type FloatingMenuItem } from '@/components/git/RefChipsCell'
 import { handleTreeExpandKey, handleTreeParentKey } from '@/components/git/treeExpandKey'
@@ -66,6 +68,10 @@ type Props = {
   onStashAction?: (action: 'apply' | 'pop' | 'drop', index: number) => void
   soloBranch?: string | null
   onSoloBranch?: (branch: string | null) => void
+  soloRemote?: string | null
+  onSoloRemote?: (remote: string | null) => void
+  hiddenRemotes?: string[]
+  onToggleHideRemote?: (remote: string) => void
   onAddWorktree?: () => void
   onBranchHoverStart?: (branchName: string) => void
   onBranchHoverEnd?: () => void
@@ -225,6 +231,10 @@ export function GitSidebar({
   onStashAction,
   soloBranch,
   onSoloBranch,
+  soloRemote,
+  onSoloRemote,
+  hiddenRemotes,
+  onToggleHideRemote,
   onAddWorktree,
   onBranchHoverStart,
   onBranchHoverEnd,
@@ -268,6 +278,29 @@ export function GitSidebar({
     }
     if (failedCount > 0) {
       notify.error(t('git.operations.deleteFolderBranchesPartialFail', { count: failedCount }) || `${failedCount} 个分支删除失败`)
+    }
+  }
+
+  const [editRemoteState, setEditRemoteState] = useState<{ open: boolean; remote: string; url: string }>({ open: false, remote: '', url: '' })
+  const [editRemoteBusy, setEditRemoteBusy] = useState(false)
+
+  const handleSaveRemote = async (oldName: string, newName: string, newUrl: string) => {
+    setEditRemoteBusy(true)
+    try {
+      const driver = getGitDriver()
+      if (newUrl !== editRemoteState.url) {
+        await driver.setRemoteUrl(view.repo, oldName, newUrl)
+      }
+      if (newName !== oldName) {
+        await driver.renameRemote(view.repo, oldName, newName)
+      }
+      notify.success(t('git.operations.editRemoteSuccess', { remote: newName }) || `已成功更新远程源 ${newName}`)
+      setEditRemoteState({ open: false, remote: '', url: '' })
+      await onRefresh?.()
+    } catch (err) {
+      notify.error(err instanceof Error ? err.message : '更新远程源失败')
+    } finally {
+      setEditRemoteBusy(false)
     }
   }
   const [openRaw, setOpen] = useGitUiPref(repoPrefKey(view.repo, 'sections'), SECTION_DEFAULT, isSectionMap)
@@ -885,11 +918,33 @@ export function GitSidebar({
 
     const allRemoteBranches = group.tree.flatMap(collectAllBranchItems)
     const expanded = openRemotes[group.source] ?? remoteDefault
+    const isSolo = soloRemote === group.source
+    const isHidden = hiddenRemotes?.includes(group.source)
+
+    const remoteSource = view.remoteSources?.find((r) => r.name === group.source)
+    const remoteUrl = remoteSource?.url || (group.source === 'origin' ? view.remoteUrl : '') || ''
+
     const items: FloatingMenuItem[] = [
+      {
+        key: 'fetch-remote',
+        label: (t('git.operations.fetchRemoteAction') || '抓取此远程 (git fetch --prune {remote})').replace('{remote}', group.source),
+        icon: <LuArrowDownToLine className="size-3.5 shrink-0 text-accent" />,
+        onSelect: async () => {
+          try {
+            notify.info((t('git.operations.fetchingRemote') || '正在抓取 {remote}...').replace('{remote}', group.source))
+            const driver = getGitDriver()
+            const res = await driver.fetch(view.repo, { remote: group.source, prune: true })
+            notify.success(res.message || (t('git.operations.fetchRemoteSuccess') || '已完成抓取 {remote}').replace('{remote}', group.source))
+            await onRefresh?.()
+          } catch (err) {
+            notify.error(err instanceof Error ? err.message : '抓取失败')
+          }
+        },
+      },
       {
         key: 'pull-remote',
         label: (t('git.operations.pullRemoteAction') || '拉取此远程 ({remote})').replace('{remote}', group.source),
-        icon: <LuArrowDownToLine className="size-3.5 shrink-0 text-accent" />,
+        icon: <LuArrowDownToLine className="size-3.5 shrink-0 text-ok" />,
         onSelect: async () => {
           try {
             notify.info((t('git.operations.pullingRemote') || '正在拉取 {remote}...').replace('{remote}', group.source))
@@ -904,19 +959,101 @@ export function GitSidebar({
         },
       },
       {
-        key: 'copy-remote-name',
-        label: (t('git.operations.copyRemoteSourceName') || '复制远程源名称 ({source})').replace('{source}', group.source),
-        icon: <LuCloud className="size-3.5 shrink-0 text-accent" />,
+        key: 'edit-remote',
+        label: (t('git.operations.editRemoteAction') || '编辑远程源 ({remote})').replace('{remote}', group.source),
+        icon: <LuPencil className="size-3.5 shrink-0 text-ink-soft" />,
         dividerBefore: true,
-        onSelect: () => void copyValue(group.source),
+        onSelect: async () => {
+          let url = remoteUrl
+          if (!url) {
+            const driver = getGitDriver()
+            url = (await driver.getRemoteUrl?.(view.repo, group.source).catch(() => '')) || ''
+          }
+          setEditRemoteState({ open: true, remote: group.source, url })
+        },
+      },
+      {
+        key: 'remove-remote',
+        label: (t('git.operations.removeRemoteAction') || '删除远程源 ({remote})').replace('{remote}', group.source),
+        icon: <LuTrash2 className="size-3.5 shrink-0 text-fail" />,
+        onSelect: async () => {
+          const confirmed = window.confirm(
+            (t('git.operations.removeRemoteConfirm') || '确定要删除远程源 "{remote}" 吗？此操作将移除该远程及其关联的跟踪分支。').replace('{remote}', group.source)
+          )
+          if (!confirmed) return
+          try {
+            notify.info(`正在删除远程源 ${group.source}...`)
+            const driver = getGitDriver()
+            await driver.removeRemote?.(view.repo, group.source)
+            notify.success((t('git.operations.removeRemoteSuccess') || '已成功删除远程源 {remote}').replace('{remote}', group.source))
+            await onRefresh?.()
+          } catch (err) {
+            notify.error(err instanceof Error ? err.message : '删除远程源失败')
+          }
+        },
+      },
+      {
+        key: 'hide-remote',
+        label: isHidden
+          ? (t('git.operations.unhideRemoteAction') || '取消隐藏 ({remote})').replace('{remote}', group.source)
+          : (t('git.operations.hideRemoteAction') || '隐藏此远程分支 ({remote})').replace('{remote}', group.source),
+        icon: isHidden ? <LuEye className="size-3.5 shrink-0 text-accent" /> : <LuEyeOff className="size-3.5 shrink-0 text-ink-soft" />,
+        checked: isHidden,
+        dividerBefore: true,
+        onSelect: () => onToggleHideRemote?.(group.source),
+      },
+      {
+        key: 'solo-remote',
+        label: isSolo
+          ? (t('git.operations.unsoloRemoteAction') || '退出独占 ({remote})').replace('{remote}', group.source)
+          : (t('git.operations.soloRemoteAction') || '独占此远程 ({remote})').replace('{remote}', group.source),
+        icon: isSolo ? <LuEyeOff className="size-3.5 shrink-0 text-accent" /> : <LuEye className="size-3.5 shrink-0 text-accent" />,
+        checked: isSolo,
+        onSelect: () => onSoloRemote?.(isSolo ? null : group.source),
+      },
+      {
+        key: 'copy-remote-link',
+        label: (t('git.operations.copyRemoteUrlAction') || '复制远程链接: {remote}').replace('{remote}', group.source),
+        icon: <LuCopy className="size-3.5 shrink-0 text-accent" />,
+        dividerBefore: true,
+        onSelect: async () => {
+          let url = remoteUrl
+          if (!url) {
+            const driver = getGitDriver()
+            url = (await driver.getRemoteUrl?.(view.repo, group.source).catch(() => '')) || ''
+          }
+          if (!url) {
+            notify.error('未找到该远程源的 URL')
+            return
+          }
+          const ok = await copyToClipboard(url)
+          if (ok) {
+            notify.success((t('git.operations.copyRemoteUrlSuccess') || '已复制远程源链接: {url}').replace('{url}', url))
+          } else {
+            notify.error('复制失败')
+          }
+        },
       },
     ]
+
+    const webUrl = remoteUrl ? remoteUrl.replace(/^git@([^:]+):/, 'https://$1/').replace(/\.git$/, '') : ''
+    if (webUrl && (webUrl.startsWith('http://') || webUrl.startsWith('https://'))) {
+      items.push({
+        key: 'open-remote-browser',
+        label: t('git.operations.openRemoteInBrowser') || '在浏览器打开远程仓库',
+        icon: <LuExternalLink className="size-3.5 shrink-0 text-ink-soft" />,
+        onSelect: () => {
+          window.open(webUrl, '_blank', 'noopener,noreferrer')
+        },
+      })
+    }
 
     if (allRemoteBranches.length > 0) {
       items.push({
         key: 'copy-remote-branches',
         label: (t('git.operations.copyAllRemoteBranches') || '复制该远程下所有分支名 ({count} 个)').replace('{count}', String(allRemoteBranches.length)),
         icon: <LuGitBranch className="size-3.5 shrink-0 text-accent" />,
+        dividerBefore: true,
         onSelect: () => void copyValue(allRemoteBranches.map((b) => b.name).join('\n')),
       })
     }
@@ -1031,7 +1168,16 @@ export function GitSidebar({
                   <span data-git-sidebar-label className="min-w-0 flex-1 truncate whitespace-nowrap text-left text-xs select-text">
                     {group.source}
                   </span>
-                  {sourceUpdates > 0 ? (
+                  {soloRemote === group.source ? (
+                    <Badge tone="accent" size="mini" dot={false} className="shrink-0 select-none">
+                      SOLO
+                    </Badge>
+                  ) : hiddenRemotes?.includes(group.source) ? (
+                    <span className="shrink-0 text-ink-soft/70 text-[10px] flex items-center gap-0.5" title="已隐藏此远程分支">
+                      <LuEyeOff className="size-3" />
+                      隐藏
+                    </span>
+                  ) : sourceUpdates > 0 ? (
                     <Badge tone="accent" size="mini" dot={false} className="shrink-0 select-none" title={t('git.sidebar.remoteBranchUpdates', { count: sourceUpdates })}>
                       {sourceUpdates}
                     </Badge>
@@ -1176,6 +1322,8 @@ export function GitSidebar({
       filteredTags,
       filteredWorktrees,
       filteredSubmodules,
+      soloRemote,
+      hiddenRemotes,
     ]
   )
 
@@ -1388,6 +1536,14 @@ export function GitSidebar({
           </div>
         </Modal>
       ) : null}
+      <EditRemoteModal
+        open={editRemoteState.open}
+        remote={editRemoteState.remote}
+        initialUrl={editRemoteState.url}
+        busy={editRemoteBusy}
+        onClose={() => setEditRemoteState({ open: false, remote: '', url: '' })}
+        onSubmit={handleSaveRemote}
+      />
     </aside>
   )
 }

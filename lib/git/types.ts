@@ -124,6 +124,7 @@ export type GitLogView = {
   branch: string
   branches: GitBranch[]
   remotes: GitRemoteBranch[]
+  remoteSources?: GitRemoteSource[]
   tags: GitTag[]
   stashes: GitStash[]
   worktrees: GitWorktreeEntry[]

@@ -1,4 +1,4 @@
-import type { GitCommitChanges, GitLogView, GitProjectCatalog, GitProjectView } from '@/lib/git/types'
+import type { GitCommitChanges, GitLogView, GitProjectCatalog, GitProjectView, GitRemoteSource } from '@/lib/git/types'
 
 export type GitDriverMode = 'edge' | 'local'
 
@@ -215,6 +215,31 @@ export interface IGitDriver {
    * Fetch from remote
    */
   fetch(repo: string, options?: GitFetchOptions): Promise<{ ok: boolean; message: string }>
+
+  /**
+   * Get remotes configured for a repository
+   */
+  getRemotes(repo: string): Promise<GitRemoteSource[]>
+
+  /**
+   * Get specific remote URL
+   */
+  getRemoteUrl(repo: string, remote: string): Promise<string>
+
+  /**
+   * Update remote URL
+   */
+  setRemoteUrl(repo: string, remote: string, url: string): Promise<{ ok: boolean; message: string }>
+
+  /**
+   * Rename a remote
+   */
+  renameRemote(repo: string, oldName: string, newName: string): Promise<{ ok: boolean; message: string }>
+
+  /**
+   * Remove a remote
+   */
+  removeRemote(repo: string, remote: string): Promise<{ ok: boolean; message: string }>
 
   /**
    * Stash operations

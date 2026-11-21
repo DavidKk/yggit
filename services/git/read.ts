@@ -9,7 +9,7 @@ import { parseGitBranches, parseGitLog, parseGitRemotes, parseGitStashes, parseG
 import type { GitCommit, GitLogView, GitWorktree } from '@/lib/git/types'
 
 import { readBranchMarks } from './marks'
-import { listGitProjects, originUrl, rememberLocalProject, writeLastOpenedRepo } from './projects'
+import { getProjectRemotes, listGitProjects, originUrl, rememberLocalProject, writeLastOpenedRepo } from './projects'
 import { parseGitHubRepo, readRemoteGitLog } from './remote-provider'
 import { resolveRepoSlug } from './resolver'
 
@@ -240,8 +240,9 @@ export async function readGitLog(input?: { repo?: string; branch?: string; ref?:
   let page: { commits: GitCommit[]; hasMore: boolean } = { commits: [], hasMore: false }
   let status: GitWorktree | null = null
   let origin = ''
+  let projectRemotes: Awaited<ReturnType<typeof getProjectRemotes>> = []
   try {
-    ;[branchText, remoteText, tagText, stashText, worktreeText, submoduleText, page, status, origin] = await Promise.all([
+    ;[branchText, remoteText, tagText, stashText, worktreeText, submoduleText, page, status, origin, projectRemotes] = await Promise.all([
       git(repo, ['for-each-ref', 'refs/heads', '--format=%(refname:short)%00%(upstream:short)%00%(HEAD)%00%(objectname)']),
       gitOptional(repo, ['for-each-ref', 'refs/remotes', '--format=%(refname:short)%00%(objectname)']),
       gitOptional(repo, ['for-each-ref', 'refs/tags', '--sort=-creatordate', '--format=%(refname:short)%00%(*objectname)%00%(objectname)']),
@@ -251,6 +252,7 @@ export async function readGitLog(input?: { repo?: string; branch?: string; ref?:
       readLogPage(repo, historyRef, input?.skip ?? 0),
       readWorktree(repo),
       originUrl(repo),
+      getProjectRemotes(repo),
     ])
   } catch (error) {
     throw new Error(gitFailure(error))
@@ -273,6 +275,7 @@ export async function readGitLog(input?: { repo?: string; branch?: string; ref?:
     branch,
     branches,
     remotes: parseGitRemotes(remoteText),
+    remoteSources: projectRemotes,
     tags: parseGitTags(tagText),
     stashes: parseGitStashes(stashText),
     worktrees,

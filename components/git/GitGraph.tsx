@@ -111,6 +111,8 @@ type Props = {
   currentBranch?: string
   soloBranch?: string | null
   onSoloBranch?: (branch: string | null) => void
+  soloRemote?: string | null
+  hiddenRemotes?: string[]
 }
 
 function toDateKey(dateStr?: string): string {
@@ -276,6 +278,8 @@ function GitGraphComponent({
   currentBranch,
   soloBranch,
   onSoloBranch,
+  soloRemote,
+  hiddenRemotes,
 }: Props) {
   const t = useT()
   const locale = useLocaleCode()
@@ -932,7 +936,7 @@ function GitGraphComponent({
               if (!commit) return null
               const selected = selectedHash === commit.hash
               const findHit = commitFindHit(commit, findNeedle)
-              const chips = refChips(commit.refs, remoteNames)
+              const chips = refChips(commit.refs, remoteNames, { hiddenRemotes, soloRemote })
               const point = points[index]
               const color = point ? laneColor(point.color) : 'var(--accent)'
               const branch = branchAt.get(commit.hash) || ''
@@ -1146,7 +1150,7 @@ function GitGraphComponent({
                 <GraphDefs strokes={scene.strokes} />
                 <GraphStrokes strokes={scene.strokes} lineageHashes={lineageHashes} spotlightHashes={spotlightHashes} />
                 {commits.map((commit, index) => {
-                  const chips = refChips(commit.refs, remoteNames)
+                  const chips = refChips(commit.refs, remoteNames, { hiddenRemotes, soloRemote })
                   const branch = branchAt.get(commit.hash) || ''
                   const point = points[index]
                   if (!point) return null
@@ -1239,9 +1243,15 @@ function GitGraphComponent({
                 const isHead = index === headIndex || commit.refs.some((r) => r === 'HEAD' || r.startsWith('HEAD -> '))
                 const isTagged = commit.refs.some((r) => r.startsWith('tag: '))
                 const isHoverBranchDimmed = isHoverBranchActive && isBranchActive && !branchHashes?.has(commit.hash)
-                const isDimmed = Boolean((lineageHashes && lineageHashes.size > 0 && !isLineageHit && !isHead) || isSpotlightDimmed || isHoverBranchDimmed)
+                const isRemoteSoloDimmed = Boolean(soloRemote && !commit.refs.some((r) => r.startsWith(`${soloRemote}/`) || r === 'HEAD' || r.startsWith('HEAD -> ')))
+                const isRemoteHiddenDimmed = Boolean(
+                  hiddenRemotes && hiddenRemotes.length > 0 && commit.refs.length > 0 && commit.refs.every((r) => hiddenRemotes.some((hr) => r.startsWith(`${hr}/`)))
+                )
+                const isDimmed = Boolean(
+                  (lineageHashes && lineageHashes.size > 0 && !isLineageHit && !isHead) || isSpotlightDimmed || isHoverBranchDimmed || isRemoteSoloDimmed || isRemoteHiddenDimmed
+                )
                 const isSelected = selectedHash === commit.hash
-                const chips = refChips(commit.refs, remoteNames)
+                const chips = refChips(commit.refs, remoteNames, { hiddenRemotes, soloRemote })
                 const branch = branchAt.get(commit.hash) || ''
                 const nodeX = xAt(point.lane)
                 return (

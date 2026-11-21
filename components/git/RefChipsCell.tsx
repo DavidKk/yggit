@@ -339,7 +339,7 @@ export function RefChipsCell({
   )
 }
 
-export function refChips(refs: string[], remoteNames: string[]): RefChip[] {
+export function refChips(refs: string[], remoteNames: string[], options?: { hiddenRemotes?: string[]; soloRemote?: string | null }): RefChip[] {
   const chips: RefChip[] = []
   for (const ref of refs) {
     if (ref === 'HEAD' || ref.endsWith('/HEAD')) continue
@@ -352,6 +352,8 @@ export function refChips(refs: string[], remoteNames: string[]): RefChip[] {
     } else {
       const remote = remoteNames.find((item) => ref === item || ref.startsWith(`${item}/`))
       if (remote) {
+        if (options?.hiddenRemotes?.includes(remote)) continue
+        if (options?.soloRemote && options.soloRemote !== remote) continue
         const label = ref === remote ? remote : ref.slice(remote.length + 1)
         chips.push({ name: ref, label, kind: 'remote' })
       } else {

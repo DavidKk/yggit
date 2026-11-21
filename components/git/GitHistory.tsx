@@ -48,6 +48,8 @@ type Props = {
   currentBranch?: string
   soloBranch?: string | null
   onSoloBranch?: (branch: string | null) => void
+  soloRemote?: string | null
+  hiddenRemotes?: string[]
 }
 
 function commitMatches(commit: GitCommit, needle: string) {
@@ -111,6 +113,8 @@ export function GitHistory({
   currentBranch,
   soloBranch,
   onSoloBranch,
+  soloRemote,
+  hiddenRemotes,
 }: Props) {
   const t = useT()
   const internalRootRef = useRef<HTMLDivElement>(null)
@@ -429,6 +433,8 @@ export function GitHistory({
         currentBranch={currentBranch}
         soloBranch={soloBranch}
         onSoloBranch={onSoloBranch}
+        soloRemote={soloRemote}
+        hiddenRemotes={hiddenRemotes}
       />
       {showExplore ? <GitExploreStrip className="pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-panel/95 py-0.5" /> : null}
     </div>
