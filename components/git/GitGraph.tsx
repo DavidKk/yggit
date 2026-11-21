@@ -29,6 +29,25 @@ const BADGE_H = DOT
 const NODE_DOT = 16
 const MERGE_NODE_DOT = 8
 
+export function isCommitCurrentBranch(
+  commit: GitCommit,
+  chips: ReturnType<typeof refChips>,
+  checkedOut: Set<string>,
+  headIndex: number | null | undefined,
+  index: number,
+  currentBranch?: string
+): boolean {
+  if (index === headIndex) return true
+  if (chips.some((chip) => chip.kind === 'head' || checkedOut.has(chip.name))) return true
+  if (commit.refs.some((r) => r === 'HEAD' || r.startsWith('HEAD -> '))) return true
+  if (currentBranch) {
+    if (checkedOut.has(currentBranch) && chips.some((chip) => chip.name === currentBranch)) return true
+    if (commit.refs.some((r) => r === currentBranch || r === `HEAD -> ${currentBranch}` || r.endsWith(`/${currentBranch}`))) return true
+    if (chips.some((chip) => chip.name === currentBranch || chip.name === `origin/${currentBranch}` || chip.name.endsWith(`/${currentBranch}`))) return true
+  }
+  return false
+}
+
 type GraphContextMenu =
   | {
       type: 'commit'
@@ -127,18 +146,12 @@ function initials(name: string): string {
 /** Memoized SVG linearGradient definitions layer to avoid DOM churn on hover / selection. */
 const GraphDefs = memo(function GraphDefs({
   strokes,
-  commits,
-  points,
-  commitRow,
-  remoteNames,
-  checkedOut,
-  headIndex,
 }: {
   strokes: Stroke[]
-  commits: GitCommit[]
-  points: ReturnType<typeof graphScene>['points']
-  commitRow: number[]
-  remoteNames: string[]
+  commits?: GitCommit[]
+  points?: ReturnType<typeof graphScene>['points']
+  commitRow?: number[]
+  remoteNames?: string[]
   checkedOut?: Set<string>
   headIndex?: number | null
 }) {
@@ -165,24 +178,6 @@ const GraphDefs = memo(function GraphDefs({
             </linearGradient>
           )
         })}
-      {commits.map((commit, index) => {
-        const chips = refChips(commit.refs, remoteNames)
-        if (chips.length === 0) return null
-        const point = points[index]
-        if (!point) return null
-        const y = commitRow[index] * ROW + ROW / 2
-        const isMerge = commit.parents.length > 1
-        const x = xAt(point.lane) - (isMerge ? MERGE_NODE_DOT : NODE_DOT) / 2
-        if (x <= 0) return null
-        const isHead = chips.some((chip) => chip.kind === 'head' || (checkedOut && checkedOut.has(chip.name))) || (chips.length > 0 && index === headIndex)
-        const color = laneColor(point.color)
-        return (
-          <linearGradient key={`lead-grad-${commit.hash}`} id={`wt-lead-${commit.hash}`} gradientUnits="userSpaceOnUse" x1={0} y1={y} x2={x} y2={y}>
-            <stop offset="0%" stopColor={color} stopOpacity={isHead ? 0.35 : 0.1} />
-            <stop offset="100%" stopColor={color} stopOpacity={isHead ? 1 : 0.65} />
-          </linearGradient>
-        )
-      })}
     </defs>
   )
 })
@@ -579,22 +574,16 @@ function GitGraphComponent({
       const maxScroll = Math.max(0, pan.scrollWidth - pan.clientWidth)
       if (maxScroll <= 0) return
 
-      if (hasHorizontalDelta) {
-        const prev = pan.scrollLeft
-        pan.scrollLeft = Math.max(0, Math.min(maxScroll, pan.scrollLeft + e.deltaX))
-        if (pan.scrollLeft !== prev) {
-          e.preventDefault()
-          syncGraphEdge()
-        }
-        return
-      }
-
-      // Check boundary only for Alt-wheel or Shift-wheel over the graph column
       const rect = frame.getBoundingClientRect()
       const isOverGraph = e.clientX >= rect.left + branchRef.current && e.clientX <= rect.left + branchRef.current + graphRef.current
       if (!isOverGraph) return
 
-      const delta = e.deltaY
+      // Ignore accidental trackpad horizontal jitter while scrolling vertically through commits
+      if (hasHorizontalDelta && !isShiftWheel && !isAltWheel && Math.abs(e.deltaX) <= Math.abs(e.deltaY) * 1.2) {
+        return
+      }
+
+      const delta = hasHorizontalDelta ? e.deltaX : e.deltaY
       const prev = pan.scrollLeft
       pan.scrollLeft = Math.max(0, Math.min(maxScroll, pan.scrollLeft + delta))
       if (pan.scrollLeft !== prev) {
@@ -953,8 +942,9 @@ function GitGraphComponent({
               const isSpotlightHit = Boolean(spotlightTarget)
               const isSpotlightDimmed = isSpotlightActive && !isSpotlightHit
               const isHead = index === headIndex || commit.refs.some((r) => r === 'HEAD' || r.startsWith('HEAD -> '))
+              const isCommitCurrent = isCommitCurrentBranch(commit, chips, checkedOut, headIndex, index, currentBranch)
               const isCurrentBranchHead = Boolean(
-                isHead || (currentBranch && commit.refs.some((r) => r === currentBranch || r === `HEAD -> ${currentBranch}` || r.endsWith(`/${currentBranch}`)))
+                isCommitCurrent || (currentBranch && commit.refs.some((r) => r === currentBranch || r === `HEAD -> ${currentBranch}` || r.endsWith(`/${currentBranch}`)))
               )
               const marked = Boolean(
                 highlight && commit.refs.some((r) => r === highlight || r === `HEAD -> ${highlight}` || r === `tag: ${highlight}` || r.endsWith(`/${highlight}`))
@@ -973,7 +963,8 @@ function GitGraphComponent({
               const isMerge = commit.parents.length > 1
               const isConflictedMerge = isMerge && Boolean(conflicts?.[commit.hash]?.hasConflict)
               const nodeRadius = isMerge ? (selected ? 8.5 : 4) : selected ? 12.5 : isHead ? 10 : 8
-              const nodeX = xAt(point?.lane ?? 0)
+              const minNodeX = (isMerge ? MERGE_NODE_DOT : NODE_DOT) / 2 + 8
+              const nodeX = Math.max(minNodeX + (graphEdge.scrollLeft || 0), xAt(point?.lane ?? 0))
               return (
                 <li
                   key={commit.hash}
@@ -1072,17 +1063,11 @@ function GitGraphComponent({
                           />
                           {spotlightTarget && <AnnotationBadge target={spotlightTarget} className="ml-1 shrink-0" />}
                           <span
-                            className={cn('min-w-2 flex-1', isHead || chips.some((chip) => chip.kind === 'head' || checkedOut.has(chip.name)) ? 'h-0.5' : 'h-px')}
+                            className={cn('min-w-2 flex-1', isCommitCurrent ? 'h-0.5' : 'h-px')}
                             style={{
-                              background:
-                                isHead || chips.some((chip) => chip.kind === 'head' || checkedOut.has(chip.name))
-                                  ? `linear-gradient(to right, ${color}, color-mix(in oklab, ${color} 20%, transparent))`
-                                  : undefined,
-                              backgroundImage:
-                                isHead || chips.some((chip) => chip.kind === 'head' || checkedOut.has(chip.name))
-                                  ? undefined
-                                  : `repeating-linear-gradient(to right, ${color} 0, ${color} 2px, transparent 2px, transparent 5px)`,
-                              opacity: isHead || chips.some((chip) => chip.kind === 'head' || checkedOut.has(chip.name)) ? 1 : 0.4,
+                              background: isCommitCurrent ? color : undefined,
+                              backgroundImage: isCommitCurrent ? undefined : `repeating-linear-gradient(to right, ${color} 0, ${color} 3px, transparent 3px, transparent 6px)`,
+                              opacity: isCommitCurrent ? 1 : 0.7,
                             }}
                           />
                         </>
@@ -1111,9 +1096,9 @@ function GitGraphComponent({
                           </span>
                           {spotlightTarget && <AnnotationBadge target={spotlightTarget} className="ml-1 shrink-0" />}
                           <span
-                            className={cn('h-0.5 min-w-2 flex-1', isHovered ? 'inline-flex opacity-35' : 'hidden opacity-25 group-hover/commit:inline-flex')}
+                            className={cn('h-px min-w-2 flex-1', isHovered ? 'inline-flex opacity-70' : 'hidden opacity-30 group-hover/commit:inline-flex')}
                             style={{
-                              background: `linear-gradient(to right, ${color}, color-mix(in oklab, ${color} 20%, transparent))`,
+                              backgroundImage: `repeating-linear-gradient(to right, ${color} 0, ${color} 3px, transparent 3px, transparent 6px)`,
                             }}
                           />
                         </>
@@ -1157,15 +1142,7 @@ function GitGraphComponent({
           >
             <div className="relative" style={{ width: contentWidth, height: scene.height + 24 }}>
               <svg className="pointer-events-none absolute inset-0 overflow-visible" width={contentWidth} height={scene.height + 24} aria-hidden>
-                <GraphDefs
-                  strokes={scene.strokes}
-                  commits={commits}
-                  points={points}
-                  commitRow={scene.commitRow}
-                  remoteNames={remoteNames}
-                  checkedOut={checkedOut}
-                  headIndex={headIndex}
-                />
+                <GraphDefs strokes={scene.strokes} />
                 <GraphStrokes strokes={scene.strokes} lineageHashes={lineageHashes} spotlightHashes={spotlightHashes} />
                 {commits.map((commit, index) => {
                   const chips = refChips(commit.refs, remoteNames)
@@ -1177,21 +1154,26 @@ function GitGraphComponent({
                   if (chips.length === 0 && (!branch || !isHovered)) return null
                   const y = scene.commitRow[index] * ROW + ROW / 2
                   const isMerge = commit.parents.length > 1
-                  const x = xAt(point.lane) - (isMerge ? MERGE_NODE_DOT : NODE_DOT) / 2
-                  if (x <= 0) return null
-                  const isHead = chips.some((chip) => chip.kind === 'head' || checkedOut.has(chip.name)) || (chips.length > 0 && index === headIndex)
+                  const isCommitCurrent = isCommitCurrentBranch(commit, chips, checkedOut, headIndex, index, currentBranch)
                   const color = laneColor(point.color)
+                  const nodeRadius = (isMerge ? MERGE_NODE_DOT : NODE_DOT) / 2
+                  const minNodeX = nodeRadius + 8
+                  const scrollLeft = graphEdge.scrollLeft || 0
+                  const nodeX = Math.max(minNodeX + scrollLeft, xAt(point.lane))
+                  const x1 = scrollLeft
+                  const x2 = nodeX - nodeRadius
+                  if (x2 <= x1) return null
                   return (
                     <line
                       key={`badge:${commit.hash}`}
-                      x1={0}
+                      x1={x1}
                       y1={y}
-                      x2={x}
+                      x2={x2}
                       y2={y}
-                      stroke={chips.length > 0 ? `url(#wt-lead-${commit.hash})` : color}
-                      strokeWidth={isHead ? 2 : 1}
-                      strokeDasharray={isHead ? undefined : '2 3'}
-                      strokeOpacity={chips.length > 0 ? (isHead ? 1 : 0.4) : isHead ? 0.85 : 0.25}
+                      stroke={color}
+                      strokeWidth={isCommitCurrent ? 2 : 1}
+                      strokeDasharray={isCommitCurrent ? undefined : '3 3'}
+                      strokeOpacity={isCommitCurrent ? 1 : 0.7}
                       strokeLinecap="round"
                     />
                   )
@@ -1219,6 +1201,7 @@ function GitGraphComponent({
                 if (!stash) return null
                 const tint = mark.color || 'var(--accent)'
                 const isSelected = selectedHash === stash.hash
+                const markX = Math.max(NODE_DOT / 2 + 8 + (graphEdge.scrollLeft || 0), mark.x)
                 return (
                   <span
                     key={mark.key}
@@ -1229,7 +1212,7 @@ function GitGraphComponent({
                       isSelected && 'scale-110 z-10'
                     )}
                     style={{
-                      left: mark.x,
+                      left: markX,
                       top: mark.y,
                       width: NODE_DOT,
                       height: NODE_DOT,
@@ -1261,6 +1244,9 @@ function GitGraphComponent({
                 const isSelected = selectedHash === commit.hash
                 const chips = refChips(commit.refs, remoteNames)
                 const branch = branchAt.get(commit.hash) || ''
+                const nodeRadius = (isMerge ? MERGE_NODE_DOT : NODE_DOT) / 2
+                const minNodeX = nodeRadius + 8
+                const nodeX = Math.max(minNodeX + (graphEdge.scrollLeft || 0), xAt(point.lane))
                 return (
                   <span
                     key={commit.hash}
@@ -1277,7 +1263,7 @@ function GitGraphComponent({
                     style={
                       isMerge
                         ? {
-                            left: xAt(point.lane),
+                            left: nodeX,
                             top: y,
                             width: MERGE_NODE_DOT,
                             height: MERGE_NODE_DOT,
@@ -1292,7 +1278,7 @@ function GitGraphComponent({
                                 : `0 0 3px color-mix(in oklab, ${tint} 30%, transparent)`,
                           }
                         : {
-                            left: xAt(point.lane),
+                            left: nodeX,
                             top: y,
                             width: NODE_DOT,
                             height: NODE_DOT,
@@ -1323,7 +1309,7 @@ function GitGraphComponent({
                       setHoveredHash(commit.hash)
                       setHoveredNode({
                         commit,
-                        x: xAt(point.lane),
+                        x: nodeX,
                         y,
                         color: tint,
                         isMerge,
@@ -1403,13 +1389,7 @@ function GitGraphComponent({
               )}
             </div>
           </div>
-          {graphEdge.left ? (
-            <div
-              className="pointer-events-none absolute top-0 left-[var(--git-branch-w)] z-[3] h-full w-4 bg-[linear-gradient(to_right,color-mix(in_oklab,var(--panel)_88%,transparent),transparent)]"
-              style={{ height: scene.height }}
-              aria-hidden
-            />
-          ) : null}
+
           {graphEdge.right ? (
             <div
               className="pointer-events-none absolute top-0 z-[3] h-full w-4 bg-[linear-gradient(to_left,color-mix(in_oklab,var(--panel)_88%,transparent),transparent)]"
