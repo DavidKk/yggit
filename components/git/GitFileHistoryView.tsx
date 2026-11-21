@@ -5,7 +5,7 @@ import { LuCheck, LuClock, LuCopy, LuCornerDownRight, LuGitCommitVertical, LuSea
 
 import { GitDiffCodeText, useGitLineTokens } from '@/components/git/GitHighlightedCode'
 import { useLocaleCode, useT } from '@/components/i18n/LocaleProvider'
-import { Button, Spinner, Tooltip } from '@/components/sk'
+import { Badge, Button, Spinner, Tooltip } from '@/components/sk'
 import { getGitDriver } from '@/lib/git/driver'
 import { formatCommitAgo } from '@/lib/git/format-commit-ago'
 import type { GitCommit, GitCommitChanges } from '@/lib/git/types'
@@ -168,28 +168,31 @@ export function GitFileHistoryView({
   return (
     <div className="flex min-h-0 flex-1 overflow-hidden bg-canvas">
       {/* Left Pane: Commit History List */}
-      <aside className="flex w-80 md:w-96 shrink-0 flex-col border-r border-line bg-panel">
+      <aside className="flex w-72 md:w-80 shrink-0 flex-col border-r border-line bg-panel">
         {/* Search / Filter header */}
-        <div className="border-b border-line p-2">
-          <div className="relative flex items-center">
-            <LuSearch className="pointer-events-none absolute left-2.5 size-3.5 text-ink-soft" aria-hidden />
+        <div className="flex items-center gap-1.5 border-b border-line px-2 py-1.5">
+          <div className="relative flex min-w-0 flex-1 items-center">
+            <LuSearch className="pointer-events-none absolute left-2 size-3.5 text-ink-soft" aria-hidden />
             <input
               type="text"
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
               placeholder={t('git.diff.searchHistoryPlaceholder') || '搜索历史提交…'}
-              className="h-7 w-full rounded border border-line bg-canvas/80 pl-8 pr-7 text-xs text-ink placeholder:text-ink-soft/60 focus:border-accent focus:outline-hidden"
+              className="h-6 w-full rounded border border-line bg-canvas/80 pl-7 pr-6 text-xs text-ink placeholder:text-ink-soft/60 focus:border-accent focus:outline-hidden"
             />
             {filter ? (
-              <button type="button" onClick={() => setFilter('')} className="absolute right-2 text-ink-soft hover:text-ink cursor-pointer" aria-label={t('common.clear')}>
+              <button type="button" onClick={() => setFilter('')} className="absolute right-1.5 text-ink-soft hover:text-ink cursor-pointer" aria-label={t('common.clear')}>
                 <LuX className="size-3" />
               </button>
             ) : null}
           </div>
+          <Badge tone="neutral" size="mini" dot={false} className="shrink-0 font-mono text-[10px]">
+            {filteredCommits.length}
+          </Badge>
         </div>
 
         {/* Commits list */}
-        <div className="flex-1 overflow-y-auto min-h-0">
+        <div className="flex-1 overflow-y-auto min-h-0 py-1">
           {loading ? (
             <div className="flex items-center justify-center p-8 text-ink-soft">
               <Spinner className="mr-2 size-4" />
@@ -200,7 +203,7 @@ export function GitFileHistoryView({
           ) : filteredCommits.length === 0 ? (
             <div className="p-6 text-center text-xs text-ink-soft">{t('git.diff.noHistoryFound') || '未找到该文件的历史记录'}</div>
           ) : (
-            <ul className="divide-y divide-line/40">
+            <ul className="flex flex-col gap-0.5 px-1">
               {filteredCommits.map((c) => {
                 const isSelected = c.hash === selectedHash
                 return (
@@ -208,26 +211,15 @@ export function GitFileHistoryView({
                     key={c.hash}
                     onClick={() => setSelectedHash(c.hash)}
                     className={cn(
-                      'group relative flex cursor-pointer flex-col gap-1 p-2.5 transition-colors select-none',
-                      isSelected ? 'border-l-2 border-accent bg-accent/10 text-ink' : 'border-l-2 border-transparent hover:bg-canvas/60 text-ink-soft hover:text-ink'
+                      'group relative flex cursor-pointer flex-col justify-center gap-0.5 rounded-md px-2 py-1.5 transition-colors select-none',
+                      isSelected ? 'bg-accent/15 text-ink shadow-xs ring-1 ring-accent/30' : 'text-ink-soft hover:bg-[var(--overlay-08)] hover:text-ink'
                     )}
                   >
-                    <div className="flex items-center justify-between gap-1.5">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="font-mono text-[11px] font-semibold text-accent">{c.short || c.hash.slice(0, 7)}</span>
-                        <span className="truncate text-[11px] text-ink-soft" title={c.author}>
-                          {c.author}
-                        </span>
-                      </div>
-                      <span className="shrink-0 text-[10px] text-ink-soft/75">{formatCommitAgo(c.date, locale)}</span>
-                    </div>
-
-                    <p className="line-clamp-2 text-xs font-medium text-ink leading-snug" title={c.subject}>
-                      {c.subject}
-                    </p>
-
-                    {/* Quick action: locate in commit graph */}
-                    <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="font-mono text-[11px] font-semibold text-accent shrink-0">{c.short || c.hash.slice(0, 7)}</span>
+                      <span className="truncate text-xs font-medium text-ink min-w-0 flex-1 leading-snug" title={c.subject}>
+                        {c.subject}
+                      </span>
                       <Tooltip content={t('git.diff.locateInGraph') || '在提交图中定位'}>
                         <button
                           type="button"
@@ -235,12 +227,19 @@ export function GitFileHistoryView({
                             e.stopPropagation()
                             onLocateCommit?.(c.hash)
                           }}
-                          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-accent hover:bg-accent/15 cursor-pointer"
+                          className="shrink-0 opacity-0 group-hover:opacity-100 p-0.5 rounded text-ink-soft hover:text-accent hover:bg-accent/15 cursor-pointer transition-opacity"
+                          aria-label="在提交图中定位"
                         >
                           <LuCornerDownRight className="size-3" />
-                          <span>{t('git.diff.locateInGraph') || '定位'}</span>
                         </button>
                       </Tooltip>
+                    </div>
+
+                    <div className="flex items-center justify-between text-[10.5px] text-ink-soft/80 leading-none">
+                      <span className="truncate max-w-[150px]" title={c.author}>
+                        {c.author}
+                      </span>
+                      <span className="shrink-0 text-[10px] text-ink-soft/70">{formatCommitAgo(c.date, locale)}</span>
                     </div>
                   </li>
                 )
@@ -253,7 +252,7 @@ export function GitFileHistoryView({
       {/* Right Pane: Selected Commit Diff */}
       <section className="flex flex-1 flex-col overflow-hidden min-w-0 bg-canvas">
         {selectedCommit ? (
-          <header className="flex shrink-0 items-center justify-between border-b border-line bg-canvas/40 px-3 py-2 text-xs">
+          <header className="flex h-9 shrink-0 items-center justify-between border-b border-line bg-panel/40 px-3 text-xs">
             <div className="flex min-w-0 items-center gap-2">
               <span className="flex items-center gap-1 font-mono font-semibold text-accent">
                 <LuGitCommitVertical className="size-3.5" />
