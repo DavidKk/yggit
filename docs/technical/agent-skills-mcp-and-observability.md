@@ -75,3 +75,93 @@ Integrated into Yggdrasil's settings layout:
 - `/settings/tokens`: Token utilization metrics and recent logs.
 - `/settings/tasks`: Agent task execution trace viewer.
 - `/settings/logs`: Service diagnostics logs and issue export.
+
+---
+
+## 7. System Execution Flow
+
+The following sequence diagram illustrates the lifecycle of a prompt through Skill matching, dynamic MCP tool augmentation, execution tracing, and token recording:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User
+    participant UI as Chat / Spotlight UI
+    participant AgentCtx as Agent Context
+    participant TaskStore as Tasks Store
+    participant SkillEngine as Skill Matcher
+    participant OpenAPI as OpenAPI Client
+    participant ToolRouter as Tool Router
+    participant McpClient as MCP HTTP Client
+    participant MetricStore as Metrics Store
+    participant Logger as Service Logger
+
+    User->>UI: Submit prompt
+    UI->>AgentCtx: handleSendMessage(prompt)
+    AgentCtx->>TaskStore: createTask(task)
+    AgentCtx->>SkillEngine: matchSkillsForPrompt(prompt, enabledSkills)
+    SkillEngine-->>AgentCtx: matchedSkills
+    AgentCtx->>TaskStore: addStepToTask(skill_match)
+
+    AgentCtx->>ToolRouter: buildMcpToolDefinitions(enabledServers)
+    ToolRouter-->>AgentCtx: mergedToolDefinitions (Native + MCP)
+
+    AgentCtx->>OpenAPI: createChatCompletion(prompt + systemPromptWithSkills, tools)
+    OpenAPI-->>AgentCtx: Stream chunks / tool call request
+    AgentCtx->>TaskStore: addStepToTask(llm_turn)
+
+    alt Tool Call triggered
+        AgentCtx->>ToolRouter: executeAgentTool(toolName, args)
+        alt Tool name has mcp__ prefix
+            ToolRouter->>McpClient: callMcpTool(serverId, toolName, args)
+            McpClient-->>ToolRouter: JSON-RPC response
+        else Native Git tool
+            ToolRouter->>AgentCtx: execute native handler
+        end
+        ToolRouter-->>AgentCtx: toolResult
+        AgentCtx->>TaskStore: addStepToTask(tool_call)
+    end
+
+    AgentCtx->>MetricStore: recordTokenUsage(tokens, latency, model, purpose)
+    AgentCtx->>TaskStore: completeTask(taskId)
+    AgentCtx->>Logger: logInfo("Agent task completed")
+    AgentCtx-->>UI: Render response & task summary
+```
+
+---
+
+## 8. Phased Task Breakdown & Delivery Milestones
+
+To ensure high maintainability, verifiable safety, and decoupled iterative releases, the engineering implementation is structured into 4 distinct phases:
+
+### Phase 1: Core Protocols & Persistent Foundations (Delivered)
+
+- **Task 1.1: Skill Standard Engine**: `SKILL.md` parser, frontmatter reader, presets (`Git Code Review`, `Git Conflict Analysis`, `Conventional Commits Crafting`), and IndexedDB persistence.
+- **Task 1.2: MCP HTTP Client**: JSON-RPC 2.0 client over Streamable HTTP, server configuration store, and dynamic tool name spacing (`mcp__{serverId}__{toolName}`).
+- **Task 1.3: Observability & Task Tracing**: Stream SSE usage capture, period token aggregations (7d/30d/90d), task execution step traces, and diagnostics ring buffer logger.
+- **Task 1.4: Calm Ops Settings UI**: Complete `/settings/{skills,mcp,tokens,tasks,logs}` panels with search, filters, modals, and one-click GitHub/GitLab issue report generator.
+
+### Phase 2: Remote Ecology & Enhanced Authentication (Next Milestone)
+
+- **Task 2.1: GitHub Multi-Skill Tree Walker**: Deep recursive fetcher supporting standard `agent-skills/` directory layouts in both public and private repositories.
+- **Task 2.2: OAuth 2.1 with PKCE for MCP**: Standard browser OAuth authorization code grant flow without requiring manual token copy-pasting.
+- **Task 2.3: Browser WebMCP API Full Binding**: Deep adapter for Chrome 146+ `window.modelContext` dynamic tool and prompt registration.
+
+### Phase 3: Observability Policies & Heuristic Routing
+
+- **Task 3.1: Token Budget Guard**: Configurable daily/monthly token limits with proactive UI warnings and pause controls.
+- **Task 3.2: Context-Aware Skill Scoring**: Multi-signal scoring combining commit diff semantics, current branch state, and prompt intent.
+- **Task 3.3: Self-Healing Task Retry**: Diagnostic engine proposing automated remediation steps on tool failures.
+
+### Phase 4: Local Companion Integration
+
+- **Task 4.1: File Watcher Hot-Reload**: Direct folder watching (`chokidar`) in Local Companion mode for instant hot reload of local `SKILL.md` changes.
+- **Task 4.2: Private Registry & Air-Gapped Sync**: Offline bundle export/import for strictly air-gapped enterprise environments.
+
+---
+
+## 9. Security & Privacy Guarantees
+
+1. **Zero External Data Leakage**: Skill content, source code fragments, commit messages, and token usage records remain strictly within the client device (browser IndexedDB or local companion storage). No telemetry or user content is transmitted to Yggit servers.
+2. **Dynamic Tool Namespace Isolation**: All external MCP tools are bound to `mcp__{serverId}__{toolName}` prefixes, preventing accidental or malicious overriding of native Git system tools.
+3. **Issue Report Sanitization**: Diagnostics export runs through token and secret redaction rules before rendering Markdown for external bug reports.
