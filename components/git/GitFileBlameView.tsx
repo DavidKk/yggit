@@ -42,6 +42,8 @@ export function GitFileBlameView({
     let cancelled = false
     setLoading(true)
     setError('')
+    setContent('')
+    setBlameMap({})
     const driver = getGitDriver()
 
     Promise.all([

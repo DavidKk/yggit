@@ -1571,8 +1571,14 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                 onOpenConflictView={() => handleOpenConflictView(selected.hash, selectedFile)}
                 initialTab={fileDetailTab}
                 onTabChange={setFileDetailTab}
-                onOpenFileHistory={(path) => setFilePanel({ type: 'history', path, hash: selected?.hash })}
-                onOpenFileBlame={(path) => setFilePanel({ type: 'blame', path, hash: selected?.hash })}
+                onOpenFileHistory={(path) => {
+                  setSelectedFile(path)
+                  setFilePanel({ type: 'history', path, hash: selected?.hash })
+                }}
+                onOpenFileBlame={(path) => {
+                  setSelectedFile(path)
+                  setFilePanel({ type: 'blame', path, hash: selected?.hash })
+                }}
                 onLocateCommit={(commitHash) => {
                   setSelectedHash(commitHash)
                   setFocusRequest({ hash: commitHash })
@@ -1731,18 +1737,23 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                   title={selectedIsWorktree ? t('git.panel.worktree') : t('git.panel.files')}
                   conflictFiles={conflicts[selected.hash]?.conflictFiles}
                   conflictFileCounts={conflicts[selected.hash]?.conflictFileCounts}
-                  selectedPath={selectedFile}
+                  selectedPath={filePanel ? filePanel.path : selectedFile}
                   onFilesLoaded={handleCommitFilesLoaded}
                   onRefresh={silentRefresh}
                   onSelect={(path, status) => {
                     setSelectedFile(path)
                     setSelectedStatus(status)
                     setFileDetailTab('diff')
+                    if (filePanel) {
+                      setFilePanel((prev) => (prev ? { ...prev, path } : null))
+                    }
                   }}
                   onOpenFileHistory={(path) => {
+                    setSelectedFile(path)
                     setFilePanel({ type: 'history', path, hash: selected?.hash })
                   }}
                   onOpenFileBlame={(path) => {
+                    setSelectedFile(path)
                     setFilePanel({ type: 'blame', path, hash: selected?.hash })
                   }}
                   onClose={() => {

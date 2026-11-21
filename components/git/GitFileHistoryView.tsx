@@ -88,6 +88,9 @@ export function GitFileHistoryView({
     let cancelled = false
     setLoading(true)
     setError('')
+    setSelectedHash('')
+    setDiff(null)
+    setDiffError('')
     const driver = getGitDriver()
     const fetchHistory = driver.readFileHistory
       ? driver.readFileHistory({ repo, path, ref: currentHash, limit: 100 })

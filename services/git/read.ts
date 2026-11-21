@@ -129,9 +129,25 @@ export async function readFileHistory(options: { repo?: string; path: string; re
   const limit = options.limit && options.limit > 0 ? Math.min(options.limit, 500) : 100
   try {
     const text = await git(repo, ['log', '--follow', '--date-order', '-n', String(limit), '--date=iso-strict', `--pretty=format:${LOG_FORMAT}`, targetRef, '--', options.path])
-    const commits = parseGitLog(text)
+    let commits = parseGitLog(text)
+    if (commits.length === 0 && targetRef !== 'HEAD') {
+      try {
+        const headText = await git(repo, ['log', '--follow', '--date-order', '-n', String(limit), '--date=iso-strict', `--pretty=format:${LOG_FORMAT}`, 'HEAD', '--', options.path])
+        commits = parseGitLog(headText)
+      } catch {
+        // ignore fallback failure
+      }
+    }
     return { commits }
   } catch (error) {
+    if (targetRef !== 'HEAD') {
+      try {
+        const headText = await git(repo, ['log', '--follow', '--date-order', '-n', String(limit), '--date=iso-strict', `--pretty=format:${LOG_FORMAT}`, 'HEAD', '--', options.path])
+        return { commits: parseGitLog(headText) }
+      } catch {
+        // ignore
+      }
+    }
     const message = gitFailure(error)
     if (message.includes('does not have any commits') || /bad revision|unknown revision|ambiguous argument/i.test(message)) {
       return { commits: [] }

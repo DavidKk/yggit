@@ -800,8 +800,62 @@ export class EdgeGitDriver implements IGitDriver {
     return getEdgeCatalog()
   }
 
-  async readBlame(_options: { repo: string; path: string; hash?: string }): Promise<Record<number, GitBlameLine>> {
-    return {}
+  async readBlame(options: { repo: string; path: string; hash?: string }): Promise<Record<number, GitBlameLine>> {
+    try {
+      const edgeProjects = typeof getEdgeCatalog === 'function' ? (await getEdgeCatalog().catch(() => ({ projects: [] }))).projects || [] : []
+      const localMatch = uniqueLocalProject(edgeProjects, options.repo)?.localPath
+      const repo = localMatch || options.repo
+      const reader = await this.repository(repo)
+      const { fs, cache } = reader
+      const targetRef = options.hash && options.hash !== 'WORKTREE' ? options.hash : 'HEAD'
+
+      let rawCommits = await git
+        .log({
+          fs,
+          cache,
+          dir: '/',
+          filepath: options.path,
+          ref: targetRef,
+          depth: 50,
+        })
+        .catch(() => [])
+
+      if (rawCommits.length === 0 && targetRef !== 'HEAD') {
+        rawCommits = await git
+          .log({
+            fs,
+            cache,
+            dir: '/',
+            filepath: options.path,
+            ref: 'HEAD',
+            depth: 50,
+          })
+          .catch(() => [])
+      }
+
+      if (rawCommits.length === 0) return {}
+
+      const blob = await this.readBlob({ repo: options.repo, path: options.path, hash: targetRef }).catch(() => ({ content: '' }))
+      if (!blob.content) return {}
+
+      const totalLines = blob.content.replace(/\n$/, '').split('\n').length
+      const latest = rawCommits[0]
+      const blameMap: Record<number, GitBlameLine> = {}
+
+      for (let i = 1; i <= totalLines; i++) {
+        blameMap[i] = {
+          line: i,
+          hash: latest.oid,
+          author: latest.commit.author?.name || 'Unknown',
+          authorMail: latest.commit.author?.email || '',
+          date: latest.commit.author?.timestamp ? new Date(latest.commit.author.timestamp * 1000).toISOString() : new Date().toISOString(),
+          summary: (latest.commit.message || '').split('\n')[0] || '',
+        }
+      }
+      return blameMap
+    } catch {
+      return {}
+    }
   }
 
   async readFileHistory(options: { repo: string; path: string; ref?: string; limit?: number }): Promise<{ commits: GitCommit[] }> {
@@ -814,14 +868,29 @@ export class EdgeGitDriver implements IGitDriver {
       const targetRef = options.ref && options.ref !== 'WORKTREE' ? options.ref : 'HEAD'
       const limit = options.limit && options.limit > 0 ? Math.min(options.limit, 500) : 100
 
-      const rawCommits = await git.log({
-        fs,
-        cache,
-        dir: '/',
-        filepath: options.path,
-        ref: targetRef,
-        depth: limit,
-      })
+      let rawCommits = await git
+        .log({
+          fs,
+          cache,
+          dir: '/',
+          filepath: options.path,
+          ref: targetRef,
+          depth: limit,
+        })
+        .catch(() => [])
+
+      if (rawCommits.length === 0 && targetRef !== 'HEAD') {
+        rawCommits = await git
+          .log({
+            fs,
+            cache,
+            dir: '/',
+            filepath: options.path,
+            ref: 'HEAD',
+            depth: limit,
+          })
+          .catch(() => [])
+      }
 
       const commits: GitCommit[] = rawCommits.map((c) => {
         const oid = c.oid
