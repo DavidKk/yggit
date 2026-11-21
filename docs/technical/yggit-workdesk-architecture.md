@@ -229,6 +229,37 @@ $$\text{Fingerprint} = \text{SHA256}(\text{repoId} + \text{kind} + \text{target.
    - 步骤 2：以 $M_1$ 为基准模拟 $M_2 = \text{merge}(M_1, B_2)$；若产生文件冲突，记录步骤 2 冲突文件，明确指出是组合引入；
 3. **零污染保证**：全部在 Git 虚拟树对象中完成（Local 使用 `git merge-tree`，Edge 使用 in-memory tree builder），用户磁盘工作区不产生任何锁与中间文件。
 
+### 4.3 并行开发与 Worktree 巡检 (`WorktreeParallelDetector`)
+
+- **扫描对象**：遍历各项目已接入的 Git Worktree 列表及本地未合入的活动特性分支；
+- **核心判定指标**：
+  1. 当前工作树是否存在未提交/未暂存修改（脏工作区预警）；
+  2. 特性分支相对于目标默认分支的 Ahead / Behind 提交数；
+  3. 分支最后一次提交时间距今是否超过长生命周期阈值（默认 14 天未活动标示为停滞）。
+
+### 4.4 研发流程与发布分支审查 (`BranchWorkflowStandardDetector`)
+
+- **规则逻辑**：针对 `test`、`release/*` 等受控分支进行拓扑检测；
+- **First-Parent 追踪**：通过比对 `git log --first-parent` 与目标主干，识别出直接在测试分支上手工提交（Direct Commit）或 Cherry-pick 混入的代码；
+- **证据输出**：明确提取可疑 Commit 的作者、提交时间与变更文件列表，证据以 `commits` 与 `paths` 注入 Finding，交由用户或 Agent 进一步比对。
+
+### 4.5 聚类归卡算法 (`clusterFindingsToCards`)
+
+检测输出的散列 `Finding[]` 数组通过以下规则确定性聚类为 `WorkCard[]`：
+
+```typescript
+export function clusterFindingsToCards(findings: Finding[]): WorkCard[] {
+  // 1. 按 groupKey 分组聚类
+  // - 默认分支同步: groupKey = 'sync:default-branches'
+  // - 并行 Worktree: groupKey = 'worktree:parallel-dev'
+  // - 组合集成模拟: groupKey = `merge:scenario:${scenarioId}`
+  // - 流程规范检查: groupKey = `standard:workflow:${repoId}`
+  // 2. 针对每个分组生成 WorkCard 与 WorkItem 列表
+  // 3. 统计影响范围 (如 "5 个项目"、"3 个项目 · 4 Worktrees")
+  // 4. 读取本地归档记录，若用户已手动移除且 Commit OID 未变化，保持 hidden
+}
+```
+
 ---
 
 ## 5. 路由、视图映射与深链跳转规范
@@ -320,7 +351,21 @@ Agent 不得绕过前端直接静默修改 Git 仓库。所有写操作必须遵
 
 ---
 
-## 8. 实施里程碑与验证计划
+## 8. 本地存储管理与设置中心联动
+
+遵循 Yggit 全局存储管理架构（`app/api/storage` 与 `/settings/general`）：
+
+1. **本地存储路径**：
+   - LOCAL 模式下，Workdesk 的数据（包含历史扫描 Findings 快照与已忽略卡片列表）持久化保存在 `<APP_ROOT>/data/git-workdesk/` 目录下；
+   - EDGE 模式下，持久化保存在浏览器 IndexedDB 的 `yggit_workdesk_store` 表中。
+2. **容量巡检与分类展示**：
+   - `/api/storage` 路由自动统计 `git-workdesk` 目录体积，并作为分类项目呈现于 `/settings/general` 的存储分类列表中；
+3. **安全清理支持**：
+   - 用户在通用设置中点击“清理全部”或单项清理 `git-workdesk` 时，安全清空历史检测快照与过期 Findings，下次打开工作台时重新发起轻量扫描，不影响任何 Git 仓库自身的实际数据。
+
+---
+
+## 9. 实施里程碑与验证计划
 
 - **Milestone 1 (Domain & Storage)**：落地 `lib/workdesk/types.ts` 与双模存储适配器；
 - **Milestone 2 (Detectors & Pipeline)**：实现默认分支快进与工作区健康检测器，接入本地 Git CLI 驱动；

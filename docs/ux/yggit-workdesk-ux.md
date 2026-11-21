@@ -32,7 +32,7 @@ Yggit Workdesk 是**以 Git 为中心、以任务为载体**的虚拟研发同�
 
 ```text
 +--------------------------------------------------------------------------+
-|  TopBar (48px) - 品牌Logo / 项目切换器 / Local·Edge 徽标 / 设置           |
+|  TopBar (48px) - 品牌Logo / [⚑ 工作台 ⌄] / Local·Edge 徽标 / 设置          |
 +--------------------------------------------------------------------------+
 |  Main Shell (min-height: calc(100vh - 48px), padding-bottom: 110px)       |
 |                                                                          |
@@ -169,3 +169,25 @@ Yggit Workdesk 是**以 Git 为中心、以任务为载体**的虚拟研发同�
 - **转场过渡**：页面退场与进场动画时长控制在 `180ms - 220ms`，采用轻量 CSS `opacity` 与 `translateY(6px)` 组合；
 - **动态效果减弱支持**：当检测到系统开启 `@media (prefers-reduced-motion: reduce)` 时，关闭所有位移动画，直接无延迟切换；
 - **无障碍与按键**：所有卡片与证据行均为原生 `<button>` 或带 `role="button"` 的键盘可聚焦元素，支持 Enter / Space 键唤起。
+
+---
+
+## 8. 国际化文案契约 (i18n Token Matrix)
+
+所有面向用户的文案统一放置于 `lib/i18n/messages/parts/workdesk/`，严格禁止硬编码中文：
+
+| 词条 Key                  | 中文 (zh)                           | 繁体中文 (cht)                      | 英文 (en)                          |
+| ------------------------- | ----------------------------------- | ----------------------------------- | ---------------------------------- |
+| `workdesk.title`          | 工作台                              | 工作台                              | Workdesk                           |
+| `workdesk.topbarTitle`    | ⚑ 工作台                            | ⚑ 工作台                            | ⚑ Workdesk                         |
+| `workdesk.emptyTitle`     | 目前没有需要你处理的 Git 工作       | 目前沒有需要你處理的 Git 工作       | No Git tasks require attention     |
+| `workdesk.lane.branch`    | 分支维护                            | 分支維護                            | Branch Maintenance                 |
+| `workdesk.lane.merge`     | 合并集成                            | 合併整合                            | Merge & Integration                |
+| `workdesk.lane.standard`  | 研发规范                            | 研發規範                            | Engineering Standards              |
+| `workdesk.lane.review`    | 代码审查                            | 程式碼審查                          | Code Review                        |
+| `workdesk.status.safe`    | 可处理                              | 可處理                              | Safe to apply                      |
+| `workdesk.status.warn`    | 需核查                              | 需核查                              | Needs verification                 |
+| `workdesk.status.bad`     | 需处理                              | 需處理                              | Needs resolution                   |
+| `workdesk.action.back`    | 返回任务卡片                        | 返回任務卡片                        | Back to tasks                      |
+| `workdesk.action.dismiss` | 从工作台移除卡片                    | 從工作台移除卡片                    | Remove card from workdesk          |
+| `workdesk.agent.prompt`   | 需要协助时，使用下方 Git Agent 药丸 | 需要協助時，使用下方 Git Agent 藥丸 | Ask Git Agent below for assistance |
