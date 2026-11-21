@@ -7,32 +7,36 @@
 
 ---
 
-## 1. 需求背景与核心价值
+## 1. 项目背景与目标
 
-### 1.1 现状与痛点
+### 1.1 现状与团队协作核心痛点
 
 现有的 Yggit Agent 具备基础的 Git 上下文理解和会话交互能力，但在实际工程与深度 Git 协作场景中，面临以下瓶颈：
 
-1. **专业知识固化，无法复用团队工程规范**：
-   - 不同的项目和团队有着截然不同的 Code Review 规范、Commit Message 格式标准（如 Conventional Commits、Angular 规范）以及冲突解决 SOP。
-   - 痛点：目前 Agent 只能靠用户在每次 Prompt 里临时输入指令，缺乏持久化、团队级沉淀的**专业知识与流程扩展（Skill）**。
-2. **缺乏连接外部生态的工具标准**：
-   - Git 操作往往与外部系统紧密相关（如 GitHub/GitLab Issue、CI/CD 构建日志、代码分析 Lint 服务、内部脚手架）。
-   - 痛点：Agent 缺乏标准的外部工具连接协议，无法安全、无侵入地调用用户已有的服务。
+1. **专业知识与团队规约无法沉淀复用**：
+   - 不同的项目和团队有着截然不同的 Code Review 规范、Commit Message 格式标准（如 Conventional Commits、Angular 规范）以及特定语言的并发安全/排障 SOP。
+   - 目前 Agent 只能依靠用户在每次 Prompt 里临时输入长篇背景指令，缺乏持久化、团队级沉淀的**专业知识与操作流程（Skill）**。
+2. **缺乏标准化的外部生态工具连接**：
+   - Git 研发流往往与外部系统紧密相关（如 GitHub/GitLab Issue、CI/CD 构建日志、代码静态扫描 Lint 服务、内部脚手架）。
+   - Agent 缺乏标准的外部工具连接协议，无法安全、无侵入地调用用户已有的第三方工具或微服务。
 3. **Token 消耗缺乏透明度与成本控制**：
-   - 随着 Agent 多轮对话、差异比对、上下文拼接等操作增加，用户无法感知消耗了多少 Token、哪些模型耗费多、Prompt Cache 是否生效。
-   - 痛点：缺少类似 Calm Ops (`ticket-janitor`) 标准的 Token 利用率与调用日志仪表盘，成本难以评估。
+   - 随着 Agent 多轮会话、代码比对、长上下文拼接等操作增加，用户无法感知消耗了多少 Token、哪些模型耗费多、Prompt Cache 是否有效命中。
+   - 缺少类似 Calm Ops / 工单系统（`ticket-janitor`）标准的 Token 利用率指标看板与调用日志审计。
 4. **Agent 执行黑盒，排错与反馈成本高**：
-   - Agent 执行工具或多步思考时，用户无法看清内部步骤（如匹配了什么 Skill、发起了什么 Tool Call、入参和结果是什么）。
-   - 遇到异常时缺少结构化诊断日志，无法一键生成标准化 Issue 报告反馈问题。
+   - Agent 在会话中执行工具或多步思考时，用户无法看清内部步骤（如匹配了什么 Skill、发起了什么 Tool Call、入参和结果是什么）。
+   - 遇到异常时缺少结构化诊断日志，无法一键生成标准化 Issue 报告以反馈问题。
 
-### 1.2 核心目标：开放生态、工具扩展、透明可控
+### 1.2 核心目标与定位
 
-- **Skill 开放化**：遵循开放的 [Agent Skills](https://agentskills.io/) 标准（`SKILL.md` 格式），支持用户导入 Local 文件、GitHub 仓库或使用内置预设，按需渐进式加载到 Prompt。
-- **MCP 协议标准化**：遵循官方 [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) 规范，提供 Streamable HTTP Client 与 WebMCP（`navigator.modelContext`）嗅探桥接，用户可随时接入任意 HTTP MCP Server。
-- **计量与可观测透明化**：记录每一次交互的 Prompt / Completion / Cached Tokens、时延与状态，提供 7d/30d/90d 维度 KPI、模型分布、用途分布与历史调用日志。
-- **任务执行白盒化与诊断一键化**：记录任务分步执行流水线（Skill 匹配 ➔ LLM 生成 ➔ Tool 调用 ➔ 结果渲染），并提供五大模块集中日志流与一键复制脱敏 Issue 报告。
-- **用户数据绝对本地化**：Edge 模式基于浏览器 IndexedDB，Local 模式基于本地存储，源码、Diff、Git 历史与 Token 记录**绝不上传任何云端官方服务器**。
+为 Yggit Agent 增加 Skill、MCP 扩展能力、Token 计量看板、任务执行追踪及服务诊断日志，让用户能够为 Agent 自由配置专业知识、工作流程及外部工具。
+
+**核心定位**：
+
+- **Skill**：告诉 Agent 应该如何完成特定任务（规约、知识、工作流）。
+- **MCP**：为 Agent 提供可以调用的标准化外部工具和外部数据。
+- **Agent**：根据用户任务意图自动匹配 Skill，并按需调用对应的 MCP 工具。
+- **Observability**：全链路统计 Token 消耗与时延，白盒化追踪任务执行步骤，集中管理服务诊断日志。
+- **最终定位**：**Yggit 提供 Agent Runtime、Skill 管理和 MCP 连接能力，而不是成为 Skill 或 MCP 的集中云端托管平台。**
 
 ---
 
@@ -55,12 +59,15 @@
                  |                             |
                  +--------------+--------------+
                                 |
-                         Agent Runtime
+                          Agent Runtime
+                                |
+                         Yggit Core API
                                 |
             +-------------------+-------------------+
             |                                       |
-    Observability (Tokens)                  Diagnostics (Logs)
-    IndexedDB / Aggregation                 Ring Buffer / Export
+       EDGE Runtime                            LOCAL Runtime
+    Browser / IndexedDB                     Local Companion
+   Web FS Access / Fetch                    Local Storage / Git
             |                                       |
             +-------------------+-------------------+
                                 |
@@ -68,131 +75,259 @@
        (/settings/skills, mcp, tokens, tasks, logs)
 ```
 
-### 2.1 核心设计原则
+### 2.1 六大设计原则
 
-1. **协议标准化，避免厂商绑定**：
-   - Skill 严格使用 `SKILL.md`（带 YAML Frontmatter），不发明私有规则文件。
-   - MCP 严格遵循 JSON-RPC 2.0 与官方工具声明契约。
-2. **环境双模统一 (Edge & Local)**：
-   - Edge 纯浏览器环境下，全部数据保存在浏览器 IndexedDB，网络通过前端直接请求外部 MCP 或 GitHub。
-   - Local 模式下无缝复用统一的数据模型与接口，并支持本地文件系统直接读写。
-3. **渐进式按需加载 (Progressive Loading)**：
-   - 初始只加载 Skill 元信息（名称与描述），经意图匹配器判定相关后再完整注入 `SKILL.md` 指南，杜绝上下文浪费。
-4. **权限最小化与数据安全**：
-   - 工具调用与配置凭据（Token）保存在用户设备本地，不经中间服务转发。
-   - 敏感信息在日志导出提报时自动脱敏。
-
----
-
-## 3. 详细需求规格
-
-### 3.1 模块一：自定义 Skill 系统
-
-| 需求编号   | 功能点                      | 详细描述                                                                                           | 优先级 |
-| :--------- | :-------------------------- | :------------------------------------------------------------------------------------------------- | :----- |
-| **SKL-01** | **Agent Skills 标准解析**   | 解析 `SKILL.md`，提取 YAML Frontmatter (`name`, `description`, `tags`) 及 Markdown 正文指令。      | P0     |
-| **SKL-02** | **内置预设 Skill (Preset)** | 开箱预装 3 款高频技能：代码审查规范、冲突解决分析、规范化 Commit 编写。支持一键恢复与禁用。        | P0     |
-| **SKL-03** | **Local Skill 导入**        | 支持手动粘贴/输入 `SKILL.md` 源码或通过本地文件导入，解析后保存至本地存储。                        | P0     |
-| **SKL-04** | **GitHub Skill 挂载**       | 支持配置 GitHub 仓库（所有者、仓库名、分支、目录、可选 PAT），自动拉取 `SKILL.md` 并保持来源溯源。 | P1     |
-| **SKL-05** | **渐进式意图匹配与注入**    | 根据用户当前对话与上下文自动匹配最相关的 Skill，将规范合并入 System Prompt 中引导模型。            | P0     |
-| **SKL-06** | **Skill 设置中心管理 UI**   | 提供 `/settings/skills` 页面，支持卡片流展示、启停开关、删除、详情/源码预览及导入弹窗。            | P0     |
+1. **来源无关 (Source Agnostic)**：Skill 不绑定特定的存储方式，支持 Local 本地文件、GitHub 仓库，未来预留 Remote 市场/企业源。
+2. **运行环境无关 (Runtime Agnostic)**：EDGE（纯浏览器）和 LOCAL（本地伴侣）使用统一的 Skill 与 MCP 数据结构与接口。
+3. **协议标准化 (Protocol Standard)**：
+   - Skill 严格遵循 [Agent Skills](https://agentskills.io/) 开放标准，以 `SKILL.md`（带 YAML Frontmatter）为核心。
+   - MCP 严格遵循官方 [Model Context Protocol](https://modelcontextprotocol.io/) 规范，采用 JSON-RPC 2.0 over Streamable HTTP，不自行发明私有协议。
+4. **用户数据绝对本地化 (Zero Cloud Data Leakage)**：
+   - 源代码、Git Diff、提交历史、分析结果不上传 Yggit 官方服务器。
+   - Skill 私有内容、MCP 访问 Token 与凭据均保存在用户本地设备（浏览器 IndexedDB 或本地系统存储）。
+5. **渐进式按需加载 (Progressive Loading)**：
+   - Agent 上下文控制：第一阶段只读取 Skill 名称与描述；意图匹配命中后再完整注入 `SKILL.md` 指南；外部工具按任务动态过滤，杜绝上下文浪费与模型幻觉。
+6. **权限最小化 (Least Privilege)**：
+   - 默认只读权限；高风险工具、文件写入、Git 提交等写操作必须具备明确的授权开关与确认机制。
 
 ---
 
-### 3.2 模块二：WebMCP & HTTP MCP 外部工具集成
+## 3. Skill 系统详细设计
 
-| 需求编号   | 功能点                     | 详细描述                                                                                             | 优先级 |
-| :--------- | :------------------------- | :--------------------------------------------------------------------------------------------------- | :----- |
-| **MCP-01** | **JSON-RPC HTTP 客户端**   | 实现标准 Streamable HTTP 协议传输，支持 `initialize`、`tools/list`、`tools/call`、`resources/list`。 | P0     |
-| **MCP-02** | **认证与安全传输**         | 支持 Bearer Token 认证头注入及匿名模式，密钥保存在本地 IndexedDB。                                   | P0     |
-| **MCP-03** | **WebMCP 原生环境嗅探**    | 探测浏览器 `navigator.modelContext` / `window.modelContext`，实时展示当前浏览器环境的 MCP 支持状态。 | P1     |
-| **MCP-04** | **工具动态注册与命名空间** | 将 MCP 工具格式转换为 Agent 工具规范，采用 `mcp__{serverId}__{toolName}` 统一命名空间防冲突。        | P0     |
-| **MCP-05** | **动态路由与执行隔离**     | 在 Agent 工具执行分发层识别 `mcp__` 前缀，动态发起远程调用并向模型回传结果及异常处理。               | P0     |
-| **MCP-06** | **MCP 设置中心管理 UI**    | 提供 `/settings/mcp` 页面，支持添加/编辑 Server、一键测试连接、工具清单展开与个别工具禁用开关。      | P0     |
+### 3.1 Skill 定位与格式规范
 
+Skill 是 Agent 的专业知识和工作流程扩展，包含：
+
+- 任务执行规范（如 Conventional Commits、分支保护规约）
+- 专业领域知识（如 Go 并发模型、React Hooks 规则）
+- 操作排查流程（SOP）
+- 审查规则（Checklist）
+- 参考文档（References）
+
+采用开放标准，以 `SKILL.md` 为核心，头部包含 YAML Frontmatter：
+
+```markdown
+---
+name: Git Code Review
+description: Review pull request diffs focusing on architecture, edge cases, and maintainability.
+tags: ['git', 'code-review', 'quality']
 ---
 
-### 3.3 模块三：Token 计量与可观测性看板
+# Git Code Review Skill Guidelines
 
-| 需求编号   | 功能点                    | 详细描述                                                                                                | 优先级 |
-| :--------- | :------------------------ | :------------------------------------------------------------------------------------------------------ | :----- |
-| **MET-01** | **全链路 Token 自动捕获** | 在 LLM 请求生命周期中统一拦截，支持流式 SSE (`include_usage`) 与非流式的 Token、时延、状态记录。        | P0     |
-| **MET-02** | **本地时序持久化与聚合**  | 基于 IndexedDB 存储原始调用记录，提供 7d / 30d / 90d 滑动窗口聚合计算。                                 | P0     |
-| **MET-03** | **核心指标仪表盘**        | 展示总消耗 Token、Prompt Tokens、Completion Tokens、Cached Tokens（及缓存命中率）、调用频次、平均时延。 | P0     |
-| **MET-04** | **多维分布统计**          | 按 Model 模型维度和 Purpose 业务用途（`chat` / `diagnostic` / `git_action` / `task`）生成分布比例。     | P0     |
-| **MET-05** | **最近调用日志列表**      | 呈现最近 20~100 次调用的时间戳、模型、用途、状态、耗时与各类 Token 明细。                               | P0     |
-| **MET-06** | **Token 看板 UI**         | 提供 `/settings/tokens` 页面，遵循 Calm Ops / ticket-janitor 视觉规范设计。                             | P0     |
-
----
-
-### 3.4 模块四：Agent Task 任务全流程追溯
-
-| 需求编号   | 功能点                 | 详细描述                                                                                            | 优先级 |
-| :--------- | :--------------------- | :-------------------------------------------------------------------------------------------------- | :----- |
-| **TSK-01** | **任务实体生命周期**   | 会话触发复杂任务时创建 `AgentTask` 实体，状态流转：`pending` ➔ `running` ➔ `completed` / `failed`。 | P0     |
-| **TSK-02** | **分步执行流水线追踪** | 细粒度记录 `AgentTaskStep`：Skill 意图匹配 ➔ LLM 回合 ➔ Tool 工具调用（入参/返回值） ➔ 结果渲染。   | P0     |
-| **TSK-03** | **任务管理与追溯 UI**  | 提供 `/settings/tasks` 页面，支持任务列表、状态筛选、耗时汇总、关联 Token 汇总与时间轴展开详情。    | P0     |
-
----
-
-### 3.5 模块五：服务诊断日志与一键 Issue 提报
-
-| 需求编号   | 功能点                      | 详细描述                                                                                            | 优先级 |
-| :--------- | :-------------------------- | :-------------------------------------------------------------------------------------------------- | :----- |
-| **LOG-01** | **多模块统一日志记录**      | 覆盖 `agent`、`mcp`、`skill`、`git`、`system` 五大模块，支持 Debug/Info/Warn/Error 分级与双层缓冲。 | P0     |
-| **LOG-02** | **实时交互式日志流查看**    | 提供 `/settings/logs` 页面，支持按日志级别快速过滤、按模块过滤以及关键词实时检索。                  | P0     |
-| **LOG-03** | **一键生成脱敏 Issue 报告** | 提供「Copy for Issue」按钮，抓取最近环境信息与告警错误，自动剔除 Token/密钥生成标准 Markdown。      | P0     |
-
----
-
-## 4. 任务拆解与交付路线图（分阶段任务设计）
-
-建议将该能力拆解为 **4 个里程碑阶段（Milestones / Tasks）**：
-
-```mermaid
-flowchart TD
-    M1["里程碑 1 (已就绪): 核心协议与本地持久化 V1<br/>• SKILL.md 解析与 Preset<br/>• HTTP MCP 客户端<br/>• Token 记录与 IndexedDB<br/>• 设置页基础面板"]
-    M2["里程碑 2: 外部生态增强与深度打通<br/>• GitHub App 目录多文件导入<br/>• OAuth 2.1 鉴权流程支持<br/>• WebMCP 浏览器环境交互扩展"]
-    M3["里程碑 3: 自动化与可观测体验升级<br/>• 语义向量/关键词混合 Skill 匹配<br/>• Token 预算警报与限额<br/>• 任务失败自动回溯与重试"]
-    M4["里程碑 4: 本地与企业级增强 (Local Companion)<br/>• Local 模式下本地目录监听热更新<br/>• 内网 Skill / MCP 服务私有化接入<br/>• 团队规范一键导出与导入"]
-
-    M1 --> M2 --> M3 --> M4
+...
 ```
 
-### 里程碑 1：核心协议、全功能数据流与设置中心（当前状态：已完成 V1 闭环）
+### 3.2 Skill 来源支持
 
-- **范围**：Skill 解析、内置 Preset、IndexedDB 存储、Prompt 动态注入；HTTP MCP JSON-RPC 客户端、动态工具路由；Token 流式拦截与看板；Task 流水线；服务日志与 Issue 导出。
-- **交付物**：41 个代码文件、4 个设置页路由、4 组单元测试全绿。
+#### A. Preset 内置技能（开箱即用）
 
-### 里程碑 2：外部生态深化与安全认证增强（下一步规划）
+系统预装 3 款高频 Git 技能，支持一键恢复与禁用：
 
-- **范围**：
-  - GitHub 仓库递归扫描多级目录下的所有 `SKILL.md`（支持 `agent-skills/` 树结构）。
-  - MCP 服务器支持标准 OAuth 2.1 授权码流（带有 PKCE），免去手动粘贴 Token。
-  - WebMCP 标准提案的更深层 API 绑定。
+- **Git Code Review**：代码审查规范与清单。
+- **Git Conflict Analysis**：代码冲突成因溯源与安全合并策略。
+- **Conventional Commits Crafting**：语义化 Commit 信息自动生成规约。
 
-### 里程碑 3：可观测与自动化策略优化
+#### B. Local Skill（本地导入）
 
-- **范围**：
-  - Token 使用阈值预警（如当今日消耗达到设定预算时提示或阻断）。
-  - Skill 匹配度评分优化（从关键词权重升级为多重上下文启发式匹配）。
-  - Task 失败自动诊断与建议重试步骤。
+- **EDGE 模式**：
+  - 支持手动粘贴输入 `SKILL.md` 源码或通过本地文件上传导入。
+  - 使用 IndexedDB (`yggit_skills_store`) 缓存 Skill 完整内容。
+  - 支持调用 Web File System Access API 重新授权读取。
+- **LOCAL 模式**：
+  - 直接读取用户授权的本地目录（如 `~/.yggit/skills/`）。
+  - 支持本地文件变更热检测（后续通过 `chokidar` 支持）。
 
-### 里程碑 4：Local 伴侣模式原生互联
+#### C. GitHub Skill（代码仓挂载）
 
-- **范围**：
-  - 在 Local 伴侣模式下直接监听用户指定的本地目录变更（`chokidar`），修改本地 `SKILL.md` 无需手动重新导入即可热生效。
-  - 支持团队内网私有 Skill Registry 地址导入。
+用户关联自己的 GitHub 仓库，将仓库中的 Skill 直接挂载到 Yggit：
+
+- 支持 Public Repository（免鉴权直读）与 Private Repository（个人访问令牌 PAT / GitHub App 授权）。
+- 支持指定 Repository（`owner/repo`）、指定分支（`branch`）及指定目录（`directory`）。
+- 推荐标准多级目录结构（支持单仓多 Skill 自动发现）：
+  ```text
+  agent-skills/
+  ├── go/
+  │   ├── code-review/
+  │   │   └── SKILL.md
+  │   └── security-audit/
+  │       └── SKILL.md
+  ├── frontend/
+  │   └── react-review/
+  │       └── SKILL.md
+  └── git/
+      ├── history-analysis/
+      │   └── SKILL.md
+      └── conflict-analysis/
+          └── SKILL.md
+  ```
+- 支持手动检查更新、查看版本差异并按需更新。
+
+#### D. Remote Skill（预留）
+
+预留企业内部 Skill Registry、第三方 Skill 市场的接入接口。
+
+### 3.3 Skill 安全机制
+
+- **格式校验**：校验 YAML Frontmatter 必填字段，非法格式给出醒目提示。
+- **防路径穿越**：限制读取范围，禁止加载越界文件。
+- **指令隔离**：外部 Skill 指南属于增强提示词，不可覆盖 Agent 核心安全防护规则。
+- **更新预览**：更新 Skill 前允许查看 Markdown 内容变更比对。
 
 ---
 
-## 5. 验收标准与非功能性要求
+## 4. MCP 系统详细设计
 
-1. **零数据外流（隐私合规）**：
-   - 任何 Skill 内容、Git 代码片段、Token 消耗记录、MCP 调用参数严禁发往 Yggit 或第三方非授权服务器。
-2. **UI 规范一致性**：
-   - 界面严格遵循 Calm Ops 设计规范，严格使用 `react-icons`，禁用非标准 Emoji 图标。
-   - 所有用户界面文案必须通过 `lib/i18n` 具备简中、繁中、英文多语言支持。
-3. **高可靠性与错误降级**：
-   - 任意单个 MCP Server 连接失败或超时（默认 10s 超时），绝不可导致 Agent 整体会话崩溃，应优雅降级为工具错误回传。
-   - Skill 解析失败时跳过该项并记录错误日志，不阻断主流程。
+### 4.1 MCP 定位与协议范围
+
+MCP 是 Agent 连接外部工具和数据源的标准协议。Yggit 第一阶段定位为通用 **MCP Client**，由用户配置 HTTP MCP Server，连接自建或公网已有的服务。
+
+**第一阶段支持协议范围**：
+
+- **传输层**：Streamable HTTP（遵循标准 Content-Type 与流式传输规范）。
+- **协议握手**：MCP `initialize` 握手协商与版本对齐。
+- **功能特性**：
+  - `tools/list`：工具清单与 JSON Schema 参数发现。
+  - `tools/call`：工具调用执行与结果解析。
+  - `resources/list`：外部上下文资源发现。
+  - `prompts/list`：预置提示词模板发现。
+- **认证机制**：
+  - `none`：无认证连接。
+  - `bearer`：基于 Bearer Token（API Key）的请求头认证。
+  - `oauth`：预留 OAuth 2.1 鉴权字段。
+- **STDIO 策略**：EDGE 纯浏览器模式不支持 STDIO；LOCAL 伴侣模式作为后续扩展。
+
+### 4.2 WebMCP 浏览器环境集成
+
+- 自动探测浏览器宿主环境中的 `window.modelContext` / `navigator.modelContext`（遵循 Chrome 146+ WebMCP 标准提案）。
+- 展示当前浏览器的 WebMCP 连接状态与能力，为未来浏览器原生注入工具提供无缝兼容。
+
+### 4.3 工具命名空间与 Agent 调度
+
+- **统一命名空间**：外部 MCP 工具自动映射为 `mcp__{serverId}__{toolName}`，避免与 Yggit 原生 Git 系统工具重名冲突。
+- **工具权限控制**：
+  - 用户可针对每个 MCP Server 单独开启/关闭指定 Tool。
+  - 显示每个工具的名称、描述、JSON Schema 参数结构与所属服务。
+- **动态分发**：Agent 在调用工具时，通过命名空间前缀自动路由到对应的 HTTP MCP 实例，记录耗时与状态，并在返回结果异常时提供优雅降级。
+
+---
+
+## 5. EDGE 与 LOCAL 双模兼容矩阵
+
+| 维度               | EDGE 模式 (Web / Browser)                | LOCAL 模式 (Companion)           |
+| :----------------- | :--------------------------------------- | :------------------------------- |
+| **运行宿主**       | 任意现代浏览器 (Zero-install)            | 本地伴侣守护进程 (Node / Go)     |
+| **Skill 本地导入** | File System Access API / 手动录入        | 直接读取本地磁盘路径             |
+| **Skill 持久化**   | 浏览器 IndexedDB (`yggit_skills_store`)  | 本地文件与磁盘存储               |
+| **GitHub 访问**    | 前端原生 fetch 直连 (CORS / Proxy)       | 本地网络环境直连                 |
+| **HTTP MCP 传输**  | Streamable HTTP (需允许跨域 CORS)        | 本地 HTTP / 局域网服务无阻断直连 |
+| **STDIO MCP**      | 不支持 (浏览器沙箱限制)                  | 支持通过本地子进程执行           |
+| **Token 计量存储** | 浏览器 IndexedDB (`yggit_metrics_store`) | 本地磁盘时序文件 / IndexedDB     |
+| **服务日志**       | 内存环形缓冲 + IndexedDB                 | 本地日志文件 + 内存缓冲          |
+| **数据隐私保证**   | 源码、Diff、Token 绝对不离设备           | 源码、Diff、Token 绝对不离设备   |
+
+> **CORS 处理提示**：若第三方 HTTP MCP Server 未配置 CORS 允许浏览器跨域访问，系统将给出清晰提示，引导用户配置服务 CORS 头或切换至 LOCAL 模式连接。
+
+---
+
+## 6. Token 统计、任务追踪与服务日志
+
+### 6.1 Token 统计看板 (参考 `ticket-janitor` 范式)
+
+- **指标采集**：在 OpenAPI Client 层面同时拦截流式 SSE（解析 `include_usage`）与非流式调用，捕获 Prompt Tokens、Completion Tokens、Cached Tokens、Total Tokens 与响应时延。
+- **时序聚合**：提供 7 天 / 30 天 / 90 天多周期聚合，计算 Prompt Cache 命中率。
+- **多维分布**：
+  - 按模型分类（如 `claude-3-5-sonnet`, `gemini-1.5-pro`, `gpt-4o`）。
+  - 按业务用途分类（`chat` 会话, `diagnostic` 诊断, `git_action` 操作, `task` 任务）。
+- **调用审计表**：记录最近 20~100 次调用的时间戳、状态、耗时与各类 Token 明细。
+
+### 6.2 Agent Task 任务执行流追踪
+
+- **全生命周期管理**：当 Agent 接收复杂任务时生成 `AgentTask` 实体，状态流转：`pending` ➔ `running` ➔ `completed` / `failed`。
+- **步骤流水线追踪 (`AgentTaskStep`)**：
+  1. `skill_match`：匹配到的技能名称与匹配原因。
+  2. `llm_turn`：大模型推理回合与提示词摘要。
+  3. `tool_call`：调用的工具名称（原生或 MCP）、传入参数与执行返回结果。
+  4. `artifact`：生成的代码差异或分析报告。
+- **可视化时间轴**：在设置中心提供时间轴展开视图，展示各步骤耗时与状态。
+
+### 6.3 统一服务日志与一键 Issue 导出
+
+- **模块分级记录**：集中捕获 `agent`, `mcp`, `skill`, `git`, `system` 五大模块的日志。
+- **实时过滤与检索**：支持按级别（Info/Warn/Error）与模块筛选，支持实时关键词过滤。
+- **一键 Issue 反馈 (Copy for Issue)**：
+  - 点击按钮自动收集最近的报错日志与运行环境信息。
+  - **自动脱敏**：强制过滤所有 GitHub PAT、Bearer Token、私有仓库地址与敏感路径。
+  - 生成标准 Markdown 模版，一键复制即可粘贴到 GitHub / GitLab 提交 Bug Issue。
+
+---
+
+## 7. UI 信息架构与设置中心页面
+
+在 Yggdrasil 设置中心（`/settings`）左侧导航整合五大专属板块，严格遵循 Calm Ops 规范与 `react-icons` 规范：
+
+```text
+Settings Navigation
+├── General
+├── Models
+├── Skills (/settings/skills)
+│   ├── Installed Skills List (Status, Source, Version, Toggle)
+│   ├── Add Local Skill Modal (Name, Description, Markdown Editor)
+│   ├── Connect GitHub Modal (Repo, Branch, Directory, PAT)
+│   └── View SKILL.md Modal (Rendered Markdown + YAML Header)
+├── MCP Servers (/settings/mcp)
+│   ├── WebMCP Native Status Banner
+│   ├── Server Cards (URL, Transport, Auth, Status, Toggle)
+│   ├── Add Server Modal (URL, Bearer Token, Transport)
+│   └── Tools Drawer (Parameters Schema, Enable/Disable per Tool)
+├── Tasks (/settings/tasks)
+│   ├── Task Overview Cards (Duration, Tokens, Status)
+│   └── Execution Steps Timeline (Skill Match, Turns, Tool Calls)
+├── Tokens (/settings/tokens)
+│   ├── Volume KPI Cards (Total, Prompt, Completion, Cache Hit Rate)
+│   ├── Model & Purpose Distribution Bars
+│   └── Recent Invocation Logs Table
+└── Logs (/settings/logs)
+    ├── Level & Module Filters
+    ├── Real-time Log Stream Viewer
+    └── Copy Issue Report Button
+```
+
+---
+
+## 8. 实施计划与交付路线图
+
+| 里程碑                     | 目标与交付范围                                                                                                                                                                                              | 状态       |
+| :------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------- |
+| **Milestone 1 (已就绪)**   | **V1 核心闭环**：`SKILL.md` 解析与 Preset 预设；Streamable HTTP MCP 客户端与动态工具路由；Token 流式拦截与 7d/30d/90d 聚合；Task 分步流水线追踪；服务日志与 Issue 导出；全部 5 个设置面板与自动化单元测试。 | **已交付** |
+| **Milestone 2 (下一阶段)** | **外部生态与鉴权深化**：GitHub 仓库多级目录递归扫描（支持 `agent-skills/` 树结构）；标准 OAuth 2.1 PKCE 鉴权；WebMCP 浏览器原生 API 深度桥接。                                                              | 规划中     |
+| **Milestone 3 (中期待建)** | **策略与成本控制**：Token 每日使用预算限制与告警；基于 Git 分支与 Diff 语义的多维启发式 Skill 匹配评分；MCP 工具故障自愈重试。                                                                              | 规划中     |
+| **Milestone 4 (长期演进)** | **Local 伴侣增强**：本地文件目录监听（`chokidar`）实现 `SKILL.md` 热重载；企业内网私有 Skill/MCP Registry 离线离网同步。                                                                                    | 规划中     |
+
+---
+
+## 9. 验收标准
+
+### 9.1 Skill 验收标准
+
+- [x] 支持手动输入或导入本地 `SKILL.md` 并正确解析 Frontmatter。
+- [x] 支持配置 GitHub 仓库并拉取 `SKILL.md`。
+- [x] 开箱提供 3 款内置预设且支持自由启停。
+- [x] 对话时自动匹配相关 Skill 并动态注入 System Prompt。
+- [x] Skill 内容保存在用户本地，不上传云端。
+
+### 9.2 MCP 验收标准
+
+- [x] 支持添加符合 JSON-RPC 2.0 的 HTTP MCP 服务并完成 `initialize`。
+- [x] 成功发现工具列表与参数 Schema，支持个别工具独立启停。
+- [x] 支持 Bearer Token 鉴权，密钥保存在本地。
+- [x] Agent 触发 Tool Call 时正确路由到目标 MCP Server 并回传结果。
+- [x] 单个 MCP 超时或失败时具备隔离降级，不导致会话崩溃。
+
+### 9.3 统计、任务与日志验收标准
+
+- [x] 每次 LLM 会话正确捕获 Token（Prompt/Completion/Cached）与耗时。
+- [x] 7d/30d/90d 聚合计算准确，Prompt 缓存命中率算法正确。
+- [x] 任务流水线能够分步记录 Skill 匹配、LLM 推理与 Tool 调用入参结果。
+- [x] 日志覆盖 5 大模块，支持关键词检索。
+- [x] Issue 报告一键生成且彻底脱敏。

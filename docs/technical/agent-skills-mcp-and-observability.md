@@ -1,92 +1,322 @@
-# Agent Skills, WebMCP, Token Observability & Service Diagnostics
+# Yggit Agent — Skill、MCP、Token 统计与服务可观测性技术架构文档
 
-This document outlines the architecture, data models, and runtime flows for the custom Skill engine, WebMCP & HTTP MCP tool integration, token usage observability, and service diagnostics in Yggdrasil.
-
-## 1. Custom Skill System (Agent Skills Standard)
-
-The Skill system adheres to the open standard defined by [Agent Skills](https://agentskills.io/) using `SKILL.md` as the core format with YAML frontmatter.
-
-### Core Components
-
-- **`lib/skills/types.ts`**: Types for `SkillDescriptor` and `ParsedSkillMd`.
-- **`lib/skills/parser.ts`**: Extracts YAML frontmatter (`name`, `description`, metadata) and instructions body from `SKILL.md`.
-- **`lib/skills/presets.ts`**: Out-of-the-box built-in skills (`Git Code Review`, `Git Conflict Analysis`, `Conventional Commits Crafting`).
-- **`lib/skills/storage.ts`**: IndexedDB storage (`yggit_skills_store`) with preset initialization and live subscriptions.
-- **`lib/skills/matcher.ts`**: Matches enabled skills dynamically against user requests and injects task workflows into the system prompt.
-- **`lib/skills/providers/github-provider.ts`**: Fetches `SKILL.md` directly from public or private GitHub repositories.
+> 版本：V1.0  
+> 类型：技术架构与系统设计规范（Technical Specification）  
+> 状态：方案定稿，已完成 V1 核心闭环  
+> 关联 PRD：[docs/prd/agent-skills-mcp-and-observability.md](../prd/agent-skills-mcp-and-observability.md)  
+> 目录索引：[docs/README.md](../README.md)
 
 ---
 
-## 2. Model Context Protocol (MCP) & WebMCP
+## 1. 架构总览与双模运行模型
 
-Connects external tools and in-page capabilities to the Git Agent following the [Model Context Protocol](https://modelcontextprotocol.io/) specification.
+Yggit Agent 采用**双模驱动架构（Dual-Mode Architecture）**，使同一套业务逻辑与数据模型能够无缝运行在 Edge（纯 Web 浏览器）与 Local（本地伴侣守护进程）两种形态下，实现技能、工具和可观测性组件的来源无关与运行环境无关。
 
-### Core Components
+```text
+                           +---------------------------+
+                           |        Yggit Agent        |
+                           +-------------+-------------+
+                                         |
+                  +----------------------+----------------------+
+                  |                                             |
+     +------------v------------+                   +------------v------------+
+     |      Skill Engine       |                   |       MCP Client        |
+     |  (lib/skills/matcher)   |                   |    (lib/mcp/client)     |
+     +------------+------------+                   +------------+------------+
+                  |                                             |
+     +------------v------------+                   +------------v------------+
+     |     Skill Registry      |                   |    MCP Server Manager   |
+     |  (lib/skills/storage)   |                   |    (lib/mcp/storage)    |
+     +------------+------------+                   +------------+------------+
+                  |                                             |
+      +-----------+-----------+                     +-----------+-----------+
+      |           |           |                     |           |           |
++-----v-----+ +- -v- -+ +-----v-----+         +-----v-----+ +- -v- -+ +-----v-----+
+|  Presets  | | Local | |  GitHub   |         | HTTP Srv  | |WebMCP | |OAuth/Auth |
++-----------+ +-------+ +-----------+         +-----------+ +-------+ +-----------+
+                  |                                             |
+                  +----------------------+----------------------+
+                                         |
+                           +-------------v-------------+
+                           |       Agent Runtime       |
+                           | (lib/agent/agent-context) |
+                           +-------------+-------------+
+                                         |
+                  +----------------------+----------------------+
+                  |                                             |
+     +------------v------------+                   +------------v------------+
+     | Observability (Metrics) |                   |    Diagnostics (Logs)   |
+     |   (lib/agent/metrics)   |                   |       (lib/logger)      |
+     +------------+------------+                   +------------+------------+
+                  |                                             |
+                  +----------------------+----------------------+
+                                         |
+     +-----------------------------------v-----------------------------------+
+     |                        Persistence Layer                              |
+     |   EDGE: Browser IndexedDB (yggit_*_store)                             |
+     |   LOCAL: Local Companion Storage / File System                        |
+     +-----------------------------------------------------------------------+
+```
 
-- **`lib/mcp/types.ts`**: Types for `McpServerConfig`, `McpToolInfo`, and `WebMcpSupportReport`.
-- **`lib/mcp/client.ts`**: Streamable HTTP client executing standard JSON-RPC 2.0 requests (`initialize`, `tools/list`, `tools/call`, `resources/list`, `prompts/list`).
-- **`lib/mcp/webmcp.ts`**: Browser WebMCP (`document.modelContext`) environment probe.
-- **`lib/mcp/storage.ts`**: Persistent configuration store for MCP servers in IndexedDB (`yggit_mcp_store`).
-- **`lib/agent/tools.ts`**: Dynamic tool binding that maps enabled MCP server tools to `AgentToolDefinition`s (`mcp__{serverId}__{toolName}`) and routes executions seamlessly.
+### 1.1 双模特性与环境边界
+
+1. **EDGE 模式 (Web / Browser)**：
+   - 纯前端无服务化架构，零安装门槛。
+   - 所有状态（Skills, MCP Servers, Metrics, Tasks, Logs）持久化于浏览器 IndexedDB。
+   - 遵循浏览器同源策略（SOP）与 CORS 规范；外部 HTTP MCP 服务需支持跨域请求。
+   - 通过 WebMCP（`navigator.modelContext` / `window.modelContext`）探测浏览器原生大模型上下文注入能力。
+2. **LOCAL 模式 (Companion)**：
+   - 本地守护进程环境，直连本地 Git CLI 与文件系统。
+   - 可直接监听本地磁盘目录（如 `~/.yggit/skills/`）实现 `SKILL.md` 的热重载更新。
+   - 支持本地私有 HTTP MCP 服务直连（绕过浏览器 CORS 限制），后续可扩展 STDIO 进程级传输。
 
 ---
 
-## 3. Token Metrics & Observability
+## 2. 核心数据契约与 TypeScript 接口
 
-Observability subsystem inspired by ticket-janitor, tracking input prompt tokens, output completion tokens, cached context hits, total volume, request counts, and latency.
+### 2.1 Skill 领域模型 (`lib/skills/types.ts`)
 
-### Core Components
+```typescript
+export interface SkillDescriptor {
+  id: string
+  name: string
+  description: string
+  source: {
+    type: 'preset' | 'local' | 'github' | 'remote'
+    uri: string
+    branch?: string
+    directory?: string
+  }
+  version?: string
+  commitSha?: string
+  enabled: boolean
+  trusted: boolean
+  tags: string[]
+  content: string // 完整的 SKILL.md Markdown 指南内容
+  lastCheckedAt?: number
+  lastUpdatedAt?: number
+}
 
-- **`lib/agent/metrics/types.ts`**: `TokenUsageRecord` and `TokenMetricsSummary`.
-- **`lib/agent/metrics/storage.ts`**: IndexedDB store (`yggit_metrics_store`), period aggregations (7d / 30d / 90d), cache hit rate calculations, model breakdowns, and purpose breakdowns.
-- **`lib/agent/openapi-client.ts`**: Automatic token recording upon completion of each LLM turn (both streaming SSE and JSON).
+export interface ParsedSkillMd {
+  name: string
+  description: string
+  tags: string[]
+  instructions: string
+}
+```
+
+### 2.2 MCP 协议模型 (`lib/mcp/types.ts`)
+
+```typescript
+export interface McpServerConfig {
+  id: string
+  name: string
+  url: string
+  transport: 'streamable-http'
+  auth: {
+    type: 'none' | 'bearer' | 'oauth'
+    token?: string
+  }
+  enabled: boolean
+  tools?: McpToolInfo[]
+  createdAt: number
+  updatedAt: number
+}
+
+export interface McpToolInfo {
+  name: string
+  description: string
+  inputSchema: {
+    type: 'object'
+    properties?: Record<string, unknown>
+    required?: string[]
+  }
+  enabled?: boolean
+}
+
+export interface WebMcpSupportReport {
+  available: boolean
+  version?: string
+  supportedTransports: string[]
+  notes: string
+}
+```
+
+### 2.3 Token 统计与任务追踪模型 (`lib/agent/metrics/types.ts` & `lib/agent/tasks/types.ts`)
+
+```typescript
+export interface TokenUsageRecord {
+  id: string
+  timestamp: number
+  model: string
+  purpose: 'chat' | 'diagnostic' | 'git_action' | 'task'
+  promptTokens: number
+  completionTokens: number
+  cachedTokens: number
+  totalTokens: number
+  latencyMs: number
+  status: 'success' | 'error'
+  errorMessage?: string
+}
+
+export interface TokenMetricsSummary {
+  period: '7d' | '30d' | '90d' | 'all'
+  totalTokens: number
+  totalPromptTokens: number
+  totalCompletionTokens: number
+  totalCachedTokens: number
+  cacheHitRate: number // 缓存命中率：totalCachedTokens / (totalPromptTokens + totalCachedTokens)
+  requestCount: number
+  averageLatencyMs: number
+  byModel: Record<string, number>
+  byPurpose: Record<string, number>
+}
+
+export interface AgentTask {
+  id: string
+  title: string
+  prompt: string
+  createdAt: number
+  updatedAt: number
+  status: 'pending' | 'running' | 'completed' | 'failed'
+  steps: AgentTaskStep[]
+  totalDurationMs?: number
+  totalTokensUsed?: number
+}
+
+export interface AgentTaskStep {
+  id: string
+  stepNumber: number
+  type: 'skill_match' | 'llm_turn' | 'tool_call' | 'artifact'
+  title: string
+  status: 'running' | 'completed' | 'failed'
+  durationMs?: number
+  tokensUsed?: number
+  inputSummary?: string
+  outputSummary?: string
+  metadata?: Record<string, unknown>
+}
+```
+
+### 2.4 日志实体模型 (`lib/logger/index.ts`)
+
+```typescript
+export type LogLevel = 'debug' | 'info' | 'warn' | 'error'
+export type LogModule = 'agent' | 'mcp' | 'skill' | 'git' | 'system'
+
+export interface ServiceLogEntry {
+  id: string
+  timestamp: number
+  level: LogLevel
+  module: LogModule
+  message: string
+  data?: Record<string, unknown>
+  errorStack?: string
+}
+```
 
 ---
 
-## 4. Agent Task Tracking & Step Traces
+## 3. 本地存储体系与 IndexedDB 规范
 
-Records the end-to-end execution journey of the Agent when tasked during user conversations.
+系统注册统一的数据库常量集合于 [lib/storage/databases.ts](file:///Users/davidjones/Develop/ops/apps/yggdrasil/lib/storage/databases.ts)，支持多 Tab 实例共享与变更实时通知：
 
-### Core Components
-
-- **`lib/agent/tasks/types.ts`**: `AgentTask` and `AgentTaskStep` (`skill_match`, `llm_turn`, `tool_call`, `artifact`).
-- **`lib/agent/tasks/storage.ts`**: IndexedDB store (`yggit_tasks_store`) tracking task lifecycle (`pending`, `running`, `completed`, `failed`).
-- **`lib/agent/agent-context.tsx`**: Automatic task instantiation, skill matching step tracing, tool call logging with arguments/results, and completion summaries.
-
----
-
-## 5. Service Diagnostics Logs & Issue Reporting
-
-Centralized in-memory ring-buffer and IndexedDB logging across `agent`, `mcp`, `skill`, `git`, and `system` modules.
-
-### Core Components
-
-- **`lib/logger/index.ts`**: `recordLog`, `logInfo`, `logWarn`, `logError`, `loadPersistedLogs`, and `generateIssueReportMarkdown`.
-- **`components/git/agent/settings/LogsSettingsSection.tsx`**: Live log viewer, level/module filters, search, and one-click sanitized GitHub/GitLab issue report generator.
+| 数据库名              | 对应常量           | 存储核心实体       | 索引策略                                        |
+| :-------------------- | :----------------- | :----------------- | :---------------------------------------------- |
+| `yggit_skills_store`  | `SKILLS_DATABASE`  | `SkillDescriptor`  | 主键 `id`，索引 `source.type`, `enabled`        |
+| `yggit_mcp_store`     | `MCP_DATABASE`     | `McpServerConfig`  | 主键 `id`，索引 `enabled`                       |
+| `yggit_metrics_store` | `METRICS_DATABASE` | `TokenUsageRecord` | 主键 `id`，索引 `timestamp`, `model`, `purpose` |
+| `yggit_tasks_store`   | `TASKS_DATABASE`   | `AgentTask`        | 主键 `id`，索引 `createdAt`, `status`           |
+| `yggit_logs_store`    | `LOGS_DATABASE`    | `ServiceLogEntry`  | 主键 `id`，索引 `timestamp`, `level`, `module`  |
 
 ---
 
-## 6. UI Settings Routes
+## 4. 关键子系统技术实现
 
-Integrated into Yggdrasil's settings layout:
+### 4.1 Custom Skill 引擎
 
-- `/settings/skills`: Custom Skills management.
-- `/settings/mcp`: MCP servers & WebMCP status.
-- `/settings/tokens`: Token utilization metrics and recent logs.
-- `/settings/tasks`: Agent task execution trace viewer.
-- `/settings/logs`: Service diagnostics logs and issue export.
+#### 1. YAML Frontmatter 解析器 (`lib/skills/parser.ts`)
+
+- 严格遵循 `agentskills.io` 规范，采用轻量级正则解析头部 Frontmatter（`^---\s*([\s\S]*?)\s*---`），无需外部重型 YAML 库依赖。
+- 提取 `name`、`description` 与 `tags`，正文解析为 Markdown 操作指令（`instructions`）。
+
+#### 2. Preset 内置技能自愈载入 (`lib/skills/presets.ts`)
+
+- 包含 `preset-git-code-review`、`preset-git-conflict-analysis` 与 `preset-conventional-commits`。
+- 在 `lib/skills/storage.ts` 首次打开或初始化时，自动校验并写入 IndexedDB，提供开箱即用能力。
+
+#### 3. 渐进式匹配与 System Prompt 注入 (`lib/skills/matcher.ts`)
+
+- **上下文成本控制**：在初始匹配阶段，仅提取所有启用的 Skill 的元数据（名称、描述、标签）。
+- **意图判定**：使用轻量多词元分词和语义启发式打分（`matchSkillsForPrompt`），判定与用户当前 Prompt 的相关度。
+- **动态增强**：将命中的 Skill 组装为结构化 Markdown 指南块，通过 `buildSkillsSystemPrompt` 动态追加到 System Prompt 的末尾，确保模型行为严格受控。
 
 ---
 
-## 7. System Execution Flow
+### 4.2 MCP Client 与动态工具分发
 
-The following sequence diagram illustrates the lifecycle of a prompt through Skill matching, dynamic MCP tool augmentation, execution tracing, and token recording:
+#### 1. JSON-RPC 2.0 over Streamable HTTP (`lib/mcp/client.ts`)
+
+- **协议握手**：客户端初始化调用 `initialize` 方法，携带客户端版本与协议版本（`2024-11-05`）。
+- **工具发现**：握手完成后调用 `tools/list`，拉取服务端暴露的所有 Tool 及 JSON Schema 参数定义。
+- **工具调用**：构建 `tools/call` 请求，传递 `name` 与 `arguments`，10 秒超时隔离并解析返回结果。
+
+#### 2. 工具命名空间隔离 (`lib/agent/tools.ts`)
+
+为防止外部 MCP 工具与系统内置 Git 原生工具（如 `read_file`, `git_log`）冲突，统一施加命名空间规则：
+$$\text{External Tool Name} = \text{"mcp\_\_"} + \text{serverId} + \text{"\_\_"} + \text{toolName}$$
+
+在 Agent 运行时分发中心 [lib/agent/tools.ts](file:///Users/davidjones/Develop/ops/apps/yggdrasil/lib/agent/tools.ts) 中：
+
+- 识别以 `mcp__` 开头的工具调用，自动切分出 `serverId` 与原始 `toolName`。
+- 提取对应 MCP Server 的配置与鉴权头，调用 `callMcpTool` 远程派发。
+- 异常时捕获网络/超时错误，格式化为统一的 JSON 错误摘要回传模型，防止会话进程断裂。
+
+---
+
+### 4.3 Token 计量可观测引擎 (`lib/agent/metrics/`)
+
+参考 Calm Ops 工单系统（`ticket-janitor`）的指标标准设计：
+
+#### 1. 拦截采集
+
+在 [lib/agent/openapi-client.ts](file:///Users/davidjones/Develop/ops/apps/yggdrasil/lib/agent/openapi-client.ts) 的统一出口注入拦截器：
+
+- **SSE 流式**：在请求体中附带 `stream_options: { include_usage: true }`，监听流式末尾 chunk 携带的 `usage` 节点，累加生成 token 数。
+- **标准 JSON**：直接从非流式响应体的 `usage` 字段获取 `prompt_tokens`, `completion_tokens`, `prompt_tokens_details.cached_tokens`。
+
+#### 2. 滑动窗口聚合与缓存命中率算法
+
+在 [lib/agent/metrics/storage.ts](file:///Users/davidjones/Develop/ops/apps/yggdrasil/lib/agent/metrics/storage.ts) 中按时间戳滑动过滤：
+$$\text{Cache Hit Rate} = \frac{\sum \text{Cached Tokens}}{\sum \text{Prompt Tokens} + \sum \text{Cached Tokens}} \times 100\%$$
+并同时聚合各模型的 Token 占比及各业务用途（`chat` / `diagnostic` / `git_action` / `task`）的分布柱状数据。
+
+---
+
+### 4.4 Agent Task 任务流水线 (`lib/agent/tasks/`)
+
+- 跟踪从用户发起指令到 Agent 最终产出结果的完整执行链。
+- **状态机**：`pending` ➔ `running` ➔ `completed` / `failed`。
+- **步骤节点**：按序号记录 `skill_match` ➔ `llm_turn` ➔ `tool_call` ➔ `artifact`，记录每一步的输入摘录、输出摘录、Token 开销与耗时毫秒数。
+
+---
+
+### 4.5 服务诊断日志与脱敏 Issue 导出 (`lib/logger/index.ts`)
+
+- **双层缓冲**：内存中保留容量为 200 条的 FIFO 环形缓冲区以支撑 UI 毫秒级刷新，同时异步将重要日志批量写入 IndexedDB。
+- **隐私脱敏导出 (Copy for Issue)**：
+  - 自动捕获当前环境信息（浏览器版本、双模运行状态、激活模型、存储状态）。
+  - 内置敏感词过滤正则表达式：拦截匹配 GitHub PAT（`ghp_[A-Za-z0-9_]{36}`）、Bearer Token、私有仓库凭证及用户本地私有路径，一键生成脱敏的标准化 Markdown 缺陷报告。
+
+---
+
+## 5. 系统调用时序图
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor User
-    participant UI as Chat / Spotlight UI
+    participant UI as Chat / Settings UI
     participant AgentCtx as Agent Context
     participant TaskStore as Tasks Store
     participant SkillEngine as Skill Matcher
@@ -96,72 +326,114 @@ sequenceDiagram
     participant MetricStore as Metrics Store
     participant Logger as Service Logger
 
-    User->>UI: Submit prompt
+    User->>UI: 发送任务或会话消息
     UI->>AgentCtx: handleSendMessage(prompt)
-    AgentCtx->>TaskStore: createTask(task)
-    AgentCtx->>SkillEngine: matchSkillsForPrompt(prompt, enabledSkills)
-    SkillEngine-->>AgentCtx: matchedSkills
-    AgentCtx->>TaskStore: addStepToTask(skill_match)
+    AgentCtx->>TaskStore: createTask(title, prompt)
 
-    AgentCtx->>ToolRouter: buildMcpToolDefinitions(enabledServers)
-    ToolRouter-->>AgentCtx: mergedToolDefinitions (Native + MCP)
+    rect rgb(240, 248, 255)
+        note over AgentCtx,SkillEngine: 1. 技能动态匹配阶段
+        AgentCtx->>SkillEngine: matchSkillsForPrompt(prompt, enabledSkills)
+        SkillEngine-->>AgentCtx: matchedSkills
+        AgentCtx->>TaskStore: addStepToTask(skill_match)
+    end
+
+    rect rgb(245, 255, 250)
+        note over AgentCtx,ToolRouter: 2. 外部工具动态合并
+        AgentCtx->>ToolRouter: buildMcpToolDefinitions(enabledServers)
+        ToolRouter-->>AgentCtx: mergedTools (Native + MCP)
+    end
 
     AgentCtx->>OpenAPI: createChatCompletion(prompt + systemPromptWithSkills, tools)
-    OpenAPI-->>AgentCtx: Stream chunks / tool call request
+    OpenAPI-->>AgentCtx: 流式推理返回 / Tool Call 信号
     AgentCtx->>TaskStore: addStepToTask(llm_turn)
 
-    alt Tool Call triggered
+    opt 触发工具调用 (Tool Call)
         AgentCtx->>ToolRouter: executeAgentTool(toolName, args)
-        alt Tool name has mcp__ prefix
-            ToolRouter->>McpClient: callMcpTool(serverId, toolName, args)
-            McpClient-->>ToolRouter: JSON-RPC response
-        else Native Git tool
-            ToolRouter->>AgentCtx: execute native handler
+        alt 工具名称包含 mcp__ 前缀
+            ToolRouter->>McpClient: callMcpTool(serverId, rawToolName, args)
+            McpClient-->>ToolRouter: JSON-RPC 结果
+        else 原生 Git 系统工具
+            ToolRouter->>AgentCtx: 执行原生操作
         end
         ToolRouter-->>AgentCtx: toolResult
         AgentCtx->>TaskStore: addStepToTask(tool_call)
     end
 
-    AgentCtx->>MetricStore: recordTokenUsage(tokens, latency, model, purpose)
-    AgentCtx->>TaskStore: completeTask(taskId)
-    AgentCtx->>Logger: logInfo("Agent task completed")
-    AgentCtx-->>UI: Render response & task summary
+    rect rgb(255, 250, 245)
+        note over AgentCtx,MetricStore: 3. 指标与链路收尾
+        AgentCtx->>MetricStore: recordTokenUsage(tokens, latency, model, purpose)
+        AgentCtx->>TaskStore: completeTask(taskId)
+        AgentCtx->>Logger: logInfo("Agent task completed successfully")
+    end
+
+    AgentCtx-->>UI: 完成流式响应与任务结果渲染
 ```
 
 ---
 
-## 8. Phased Task Breakdown & Delivery Milestones
+## 6. 代码工程目录映射
 
-To ensure high maintainability, verifiable safety, and decoupled iterative releases, the engineering implementation is structured into 4 distinct phases:
+系统各模块在 Yggdrasil 中的落地目录与对应职责：
 
-### Phase 1: Core Protocols & Persistent Foundations (Delivered)
-
-- **Task 1.1: Skill Standard Engine**: `SKILL.md` parser, frontmatter reader, presets (`Git Code Review`, `Git Conflict Analysis`, `Conventional Commits Crafting`), and IndexedDB persistence.
-- **Task 1.2: MCP HTTP Client**: JSON-RPC 2.0 client over Streamable HTTP, server configuration store, and dynamic tool name spacing (`mcp__{serverId}__{toolName}`).
-- **Task 1.3: Observability & Task Tracing**: Stream SSE usage capture, period token aggregations (7d/30d/90d), task execution step traces, and diagnostics ring buffer logger.
-- **Task 1.4: Calm Ops Settings UI**: Complete `/settings/{skills,mcp,tokens,tasks,logs}` panels with search, filters, modals, and one-click GitHub/GitLab issue report generator.
-
-### Phase 2: Remote Ecology & Enhanced Authentication (Next Milestone)
-
-- **Task 2.1: GitHub Multi-Skill Tree Walker**: Deep recursive fetcher supporting standard `agent-skills/` directory layouts in both public and private repositories.
-- **Task 2.2: OAuth 2.1 with PKCE for MCP**: Standard browser OAuth authorization code grant flow without requiring manual token copy-pasting.
-- **Task 2.3: Browser WebMCP API Full Binding**: Deep adapter for Chrome 146+ `window.modelContext` dynamic tool and prompt registration.
-
-### Phase 3: Observability Policies & Heuristic Routing
-
-- **Task 3.1: Token Budget Guard**: Configurable daily/monthly token limits with proactive UI warnings and pause controls.
-- **Task 3.2: Context-Aware Skill Scoring**: Multi-signal scoring combining commit diff semantics, current branch state, and prompt intent.
-- **Task 3.3: Self-Healing Task Retry**: Diagnostic engine proposing automated remediation steps on tool failures.
-
-### Phase 4: Local Companion Integration
-
-- **Task 4.1: File Watcher Hot-Reload**: Direct folder watching (`chokidar`) in Local Companion mode for instant hot reload of local `SKILL.md` changes.
-- **Task 4.2: Private Registry & Air-Gapped Sync**: Offline bundle export/import for strictly air-gapped enterprise environments.
+```text
+apps/yggdrasil/
+├── lib/
+│   ├── skills/                       # Skill 引擎
+│   │   ├── types.ts                  # Skill 领域数据模型
+│   │   ├── parser.ts                 # SKILL.md YAML Frontmatter 解析器
+│   │   ├── presets.ts                # 3 款开箱即用 Preset 定义
+│   │   ├── storage.ts                # IndexedDB 存储适配器 (yggit_skills_store)
+│   │   ├── matcher.ts                # 意图匹配与 System Prompt 动态构建
+│   │   └── providers/
+│   │       └── github-provider.ts    # GitHub Raw/API 技能拉取 Provider
+│   ├── mcp/                          # MCP 客户端
+│   │   ├── types.ts                  # MCP 协议数据模型与 Schema 接口
+│   │   ├── client.ts                 # Streamable HTTP JSON-RPC 2.0 客户端
+│   │   ├── webmcp.ts                 # 浏览器原生 WebMCP 探测器
+│   │   └── storage.ts                # IndexedDB 服务配置存储 (yggit_mcp_store)
+│   ├── agent/
+│   │   ├── metrics/                  # Token 计量可观测
+│   │   │   ├── types.ts              # Token 记录与时序聚合模型
+│   │   │   └── storage.ts            # IndexedDB 指标存储与算法 (yggit_metrics_store)
+│   │   ├── tasks/                    # 任务生命周期与步骤追踪
+│   │   │   ├── types.ts              # AgentTask & AgentTaskStep 模型
+│   │   │   └── storage.ts            # IndexedDB 任务存储 (yggit_tasks_store)
+│   │   ├── tools.ts                  # 外部 MCP 工具与原生工具的统一路由分发
+│   │   ├── openapi-client.ts         # 流式/非流式 Token 统一拦截与记录
+│   │   └── agent-context.tsx         # 全流程调度生命周期串联
+│   ├── logger/                       # 服务诊断日志
+│   │   └── index.ts                  # 环形缓冲、IndexedDB 存储与脱敏 Issue 报告生成
+│   └── storage/
+│       └── databases.ts              # 集中式 IndexedDB 数据库名称注册表
+├── components/git/agent/settings/    # Calm Ops 视觉规范设置中心面板
+│   ├── SkillsSettingsSection.tsx     # Skill 管理、导入与 SKILL.md 预览
+│   ├── McpSettingsSection.tsx        # MCP Server 卡片、WebMCP 状态与工具开关
+│   ├── TokenMetricsSection.tsx       # KPI 指标卡、分布柱状图与调用日志表
+│   ├── TasksSettingsSection.tsx      # 任务流列表与时间轴步骤追踪详情
+│   ├── LogsSettingsSection.tsx       # 实时日志流、分级过滤与一键 Copy Issue
+│   ├── SettingsSideNav.tsx           # 左侧设置导航集成
+│   └── AgentSettingsPageContent.tsx  # 设置页面路由出口聚合
+├── app/(workspace)/settings/         # Next.js App Router 独立页面路由
+│   ├── skills/page.tsx               # /settings/skills
+│   ├── mcp/page.tsx                  # /settings/mcp
+│   ├── tokens/page.tsx               # /settings/tokens
+│   ├── tasks/page.tsx                # /settings/tasks
+│   └── logs/page.tsx                 # /settings/logs
+└── __tests__/lib/                    # 自动化单元测试矩阵
+    ├── skills/parser-and-matcher.spec.ts
+    ├── mcp/client-and-storage.spec.ts
+    ├── agent/metrics-and-tasks.spec.ts
+    └── logger/service-logger.spec.ts
+```
 
 ---
 
-## 9. Security & Privacy Guarantees
+## 7. 错误降级与安全防护策略
 
-1. **Zero External Data Leakage**: Skill content, source code fragments, commit messages, and token usage records remain strictly within the client device (browser IndexedDB or local companion storage). No telemetry or user content is transmitted to Yggit servers.
-2. **Dynamic Tool Namespace Isolation**: All external MCP tools are bound to `mcp__{serverId}__{toolName}` prefixes, preventing accidental or malicious overriding of native Git system tools.
-3. **Issue Report Sanitization**: Diagnostics export runs through token and secret redaction rules before rendering Markdown for external bug reports.
+1. **浏览器跨域 CORS 降级**：
+   - 当浏览器在 EDGE 模式直接请求第三方 HTTP MCP Server 触发 CORS 错误时，客户端捕获 `TypeError: Failed to fetch`，在面板上明确标识“CORS Restricted”，并引导用户配置服务跨域头或在 Local 伴侣模式运行。
+2. **高风险工具与单服务超时隔离**：
+   - 单个 MCP 服务异常中断或超时（统一 10s 超时）时，不扩散至其他 MCP 服务或原生 Git 功能。
+   - 工具列表支持单项 Toggle 禁用，管理员可随时切断高风险工具调用。
+3. **凭证脱敏与日志保护**：
+   - 日志系统内置脱敏管道，严禁在控制台或 IndexedDB 中持久化明文 API Key、GitHub PAT 或 Bearer Token。
