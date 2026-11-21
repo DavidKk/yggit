@@ -284,6 +284,7 @@ export const gitRu: GitMessages = {
     removeTemporary: 'Удалить из временного списка',
     openRemoteTemporary: 'Открыть публичный репозиторий временно',
     remoteUrlPlaceholder: 'Поиск проектов или вставьте Git URL',
+    noRemoteBind: 'Удаленный репозиторий не настроен · Нажмите для привязки/добавления',
   },
   status: {
     add: 'Добавлено',

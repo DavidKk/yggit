@@ -292,6 +292,7 @@ export const gitCht: GitMessages = {
     removeTemporary: '從臨時列表移除',
     openRemoteTemporary: '以臨時模式打開公開倉庫',
     remoteUrlPlaceholder: '搜尋專案或貼上 Git 倉庫 URL (https://...)',
+    noRemoteBind: '未配置遠端 · 點擊綁定/添加遠端服務',
   },
   status: {
     add: '新增',

@@ -284,6 +284,7 @@ export const gitKo: GitMessages = {
     removeTemporary: '임시 목록에서 제거',
     openRemoteTemporary: '공개 저장소를 임시 모드로 열기',
     remoteUrlPlaceholder: '프로젝트 검색 또는 Git URL 붙여넣기',
+    noRemoteBind: '원격 저장소 미구성 · 클릭하여 바인딩/추가',
   },
   status: {
     add: '추가됨',

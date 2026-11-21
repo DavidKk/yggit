@@ -286,6 +286,7 @@ export const gitDe: GitMessages = {
     removeTemporary: 'Aus temporärer Liste entfernen',
     openRemoteTemporary: 'Öffentliches Repository temporär öffnen',
     remoteUrlPlaceholder: 'Projekte suchen oder Git-URL einfügen',
+    noRemoteBind: 'Kein Remote konfiguriert · Klicken zum Binden/Hinzufügen',
   },
   status: {
     add: 'Hinzugefügt',

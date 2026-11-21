@@ -277,6 +277,7 @@ export type GitMessages = {
     removeTemporary: string
     openRemoteTemporary: string
     remoteUrlPlaceholder: string
+    noRemoteBind: string
   }
   status: { add: string; delete: string; rename: string; modify: string }
   driver: {

@@ -320,13 +320,9 @@ export function GitSidebar({
   const handleAddRemote = async (name: string, pullUrl: string, pushUrl: string) => {
     setAddRemoteBusy(true)
     try {
-      const res = await fetch('/api/git/remote', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ repo: view.repo, action: 'add', name, url: pullUrl, pushUrl }),
-      })
-      const data = await res.json()
-      if (!res.ok || !data.ok) throw new Error(data.message || data.error || '添加远程源失败')
+      const driver = getGitDriver()
+      const res = await driver.addRemote(view.repo, name, pullUrl, pushUrl)
+      if (!res.ok) throw new Error(res.message || '添加远程源失败')
       notify.success(t('git.operations.remoteAdded', { name }) || `成功添加远程源 ${name}`)
       setAddRemoteOpen(false)
       await onRefresh?.()

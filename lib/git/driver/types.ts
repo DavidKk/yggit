@@ -237,6 +237,11 @@ export interface IGitDriver {
   renameRemote(repo: string, oldName: string, newName: string): Promise<{ ok: boolean; message: string }>
 
   /**
+   * Add a remote
+   */
+  addRemote(repo: string, name: string, url: string, pushUrl?: string): Promise<{ ok: boolean; message: string }>
+
+  /**
    * Remove a remote
    */
   removeRemote(repo: string, remote: string): Promise<{ ok: boolean; message: string }>

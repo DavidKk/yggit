@@ -284,6 +284,7 @@ export const gitEs: GitMessages = {
     removeTemporary: 'Quitar de lista temporal',
     openRemoteTemporary: 'Abrir repositorio público en modo temporal',
     remoteUrlPlaceholder: 'Buscar proyectos o pegar URL de Git',
+    noRemoteBind: 'Sin remoto configurado · Haz clic para vincular/agregar',
   },
   status: {
     add: 'Añadido',

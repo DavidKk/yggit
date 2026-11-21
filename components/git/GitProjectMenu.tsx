@@ -7,6 +7,7 @@ import {
   LuChevronRight,
   LuClock3,
   LuCloud,
+  LuCloudOff,
   LuCopy,
   LuExternalLink,
   LuFolder,
@@ -23,6 +24,7 @@ import {
 } from 'react-icons/lu'
 import { TbCloudLock, TbFolderPlus } from 'react-icons/tb'
 
+import { AddRemoteModal } from '@/components/git/GitRemoteModal'
 import type { AddRemoteProjectOptions } from '@/lib/git/driver/types'
 
 const FOLDER_EXPAND_MS = 450
@@ -38,7 +40,7 @@ import { formControl, formDesc, formField, formFieldInlineDense, formTitle, form
 import { useNotification } from '@/components/notification/useNotification'
 import { ApiKeyInput, Badge, Button, EmptyState, Modal, ScrollArea, SwitchToggle, TextInput, Tooltip } from '@/components/sk'
 import { copyToClipboard } from '@/lib/clipboard'
-import { getDriverMode } from '@/lib/git/driver'
+import { getDriverMode, getGitDriver } from '@/lib/git/driver'
 import { extractProjectRemotes, getRemoteCloudType, hasSavedRemote, projectOpenTarget, projectSource, remoteIdentity, type ResolvedRemoteSource } from '@/lib/git/project-access'
 import { addTemporaryRepo, parseRemoteUrl, removeTemporaryRepo, type TemporaryRepo, useTemporaryRepos } from '@/lib/git/temporary-store'
 import type { GitProjectHost, GitProjectView } from '@/lib/git/types'
@@ -64,6 +66,7 @@ type Props = {
   onSetProjectLabel?: (id: string, label: string) => Promise<string>
   onRemoveProject?: (id: string) => Promise<string>
   onMoveProject: (id: string, group: string, beforeId?: string) => Promise<string>
+  onRefreshProjects?: () => Promise<void> | void
   /** Bump to open the project search field (Cmd+F from the switcher). */
   searchRequest?: number
 }
@@ -98,6 +101,7 @@ export function GitProjectMenu({
   onSetProjectLabel,
   onRemoveProject,
   onMoveProject,
+  onRefreshProjects,
   searchRequest = 0,
 }: Props) {
   const t = useT()
@@ -105,6 +109,8 @@ export function GitProjectMenu({
   const [query, setQuery] = useState('')
   const [openGroups, setOpenGroups] = useGitUiPref('projectMenu.openGroups', { 工作项目: true, 个人项目: true } as Record<string, boolean>, isRecordBoolean)
   const [remoteOpen, setRemoteOpen] = useState(false)
+  const [bindingRemoteProject, setBindingRemoteProject] = useState<GitProjectView | null>(null)
+  const [bindRemoteBusy, setBindRemoteBusy] = useState(false)
   const [folderOpen, setFolderOpen] = useState(false)
   const [folderName, setFolderName] = useState('')
   const [cloneTarget, setCloneTarget] = useState<GitProjectView | null>(null)
@@ -1228,7 +1234,19 @@ export function GitProjectMenu({
                                   </button>
                                 </Tooltip>
                               ) : (
-                                <span className="size-6 shrink-0" aria-hidden="true" />
+                                <Tooltip content={t('git.project.noRemoteBind') || '未配置远端 · 点击绑定/添加远程服务'}>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setBindingRemoteProject(project)
+                                    }}
+                                    className="flex size-6 cursor-pointer items-center justify-center rounded text-ink-soft/60 transition-colors hover:bg-[var(--overlay-08)] hover:text-accent"
+                                    aria-label={t('git.project.noRemoteBind') || '绑定/添加远程服务'}
+                                  >
+                                    <LuCloudOff className="size-3.5 text-ink-soft/60 hover:text-accent transition-colors" aria-hidden="true" />
+                                  </button>
+                                </Tooltip>
                               )}
 
                               {/* 2. Remote Cloud Icon Slot */}
@@ -1281,7 +1299,19 @@ export function GitProjectMenu({
                                   </button>
                                 </Tooltip>
                               ) : (
-                                <span className="size-6 shrink-0" aria-hidden="true" />
+                                <Tooltip content={t('git.project.noRemoteBind') || '未配置远端 · 点击绑定/添加远程服务'}>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setBindingRemoteProject(project)
+                                    }}
+                                    className="flex size-6 cursor-pointer items-center justify-center rounded text-ink-soft/60 transition-colors hover:bg-[var(--overlay-08)] hover:text-accent"
+                                    aria-label={t('git.project.noRemoteBind') || '绑定/添加远程服务'}
+                                  >
+                                    <LuCloudOff className="size-3.5 text-ink-soft/60 hover:text-accent transition-colors" aria-hidden="true" />
+                                  </button>
+                                </Tooltip>
                               )}
                             </div>
                           </div>
@@ -1577,6 +1607,32 @@ export function GitProjectMenu({
           </p>
         ) : null}
       </Modal>
+      {bindingRemoteProject && (
+        <AddRemoteModal
+          open={Boolean(bindingRemoteProject)}
+          busy={bindRemoteBusy}
+          onClose={() => setBindingRemoteProject(null)}
+          onSubmit={async (name, pullUrl, pushUrl) => {
+            setBindRemoteBusy(true)
+            try {
+              const repo = bindingRemoteProject.localPath || bindingRemoteProject.id
+              const driver = getGitDriver()
+              const res = await driver.addRemote(repo, name, pullUrl, pushUrl)
+              if (!res.ok) throw new Error(res.message || '添加远程源失败')
+              notify.success(t('git.operations.remoteAdded', { name }) || `成功添加远程源 ${name}`)
+              setBindingRemoteProject(null)
+              await onRefreshProjects?.()
+              if (repo === currentPath || remoteIdentity(repo) === remoteIdentity(currentPath)) {
+                onOpen(currentPath)
+              }
+            } catch (err) {
+              notify.error(err instanceof Error ? err.message : '添加远程源失败')
+            } finally {
+              setBindRemoteBusy(false)
+            }
+          }}
+        />
+      )}
     </div>
   )
 }

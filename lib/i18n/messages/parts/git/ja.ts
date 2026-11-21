@@ -284,6 +284,7 @@ export const gitJa: GitMessages = {
     removeTemporary: '一時リストから削除',
     openRemoteTemporary: '公開リポジトリを一時モードで開く',
     remoteUrlPlaceholder: 'プロジェクトを検索または Git URL を貼り付け',
+    noRemoteBind: 'リモート未設定 · クリックして連携/追加',
   },
   status: {
     add: '追加',

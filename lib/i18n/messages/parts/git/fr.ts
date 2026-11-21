@@ -286,6 +286,7 @@ export const gitFr: GitMessages = {
     removeTemporary: 'Retirer des favoris temporaires',
     openRemoteTemporary: 'Ouvrir le dépôt public en mode temporaire',
     remoteUrlPlaceholder: 'Rechercher des projets ou coller l’URL Git',
+    noRemoteBind: 'Aucun distant configuré · Cliquer pour lier/ajouter',
   },
   status: {
     add: 'Ajouté',

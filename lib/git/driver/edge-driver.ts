@@ -18,7 +18,7 @@ import {
   saveEdgeRemoteProject,
   setEdgeProjectLabel,
 } from '@/lib/git/indexeddb-handles'
-import { remoteIdentity, uniqueLocalProject } from '@/lib/git/project-access'
+import { isPrivateRemote, remoteIdentity, uniqueLocalProject } from '@/lib/git/project-access'
 import { listRemoteGroup } from '@/lib/git/remote-groups'
 import { parseRemoteUrl } from '@/lib/git/temporary-store'
 import type { GitCommit, GitCommitChanges, GitLogView, GitProjectCatalog, GitProjectHost, GitProjectView, GitRemoteBranch, GitRemoteSource, GitWorktree } from '@/lib/git/types'
@@ -215,27 +215,72 @@ export class EdgeGitDriver implements IGitDriver {
         .map((r) => ({
           name: r.remote,
           url: r.url!,
-          isPrivate: false,
+          isPrivate: isPrivateRemote(r.url!),
         }))
     } catch {
       return []
     }
   }
 
-  async getRemoteUrl(_repo: string, _remote: string): Promise<string> {
-    return ''
+  async getRemoteUrl(repo: string, remote: string): Promise<string> {
+    try {
+      const reader = await this.repository(repo)
+      const { fs } = reader
+      const rawRemotes = await git.listRemotes({ fs, dir: '/' })
+      const found = rawRemotes.find((r) => r.remote === remote)
+      return found?.url || ''
+    } catch {
+      return ''
+    }
   }
 
-  async setRemoteUrl(_repo: string, _remote: string, _url: string): Promise<{ ok: boolean; message: string }> {
-    throw new Error('浏览器 Edge 模式暂不支持修改远程源，请在本地模式使用')
+  async addRemote(repo: string, name: string, url: string, _pushUrl?: string): Promise<{ ok: boolean; message: string }> {
+    try {
+      const reader = await this.repository(repo)
+      const { fs } = reader
+      await git.addRemote({ fs, dir: '/', remote: name, url, force: true })
+      return { ok: true, message: `成功添加远程源 ${name}` }
+    } catch (err) {
+      return { ok: false, message: err instanceof Error ? err.message : '添加远程源失败' }
+    }
   }
 
-  async renameRemote(_repo: string, _oldName: string, _newName: string): Promise<{ ok: boolean; message: string }> {
-    throw new Error('浏览器 Edge 模式暂不支持重命名远程源，请在本地模式使用')
+  async setRemoteUrl(repo: string, remote: string, url: string): Promise<{ ok: boolean; message: string }> {
+    try {
+      const reader = await this.repository(repo)
+      const { fs } = reader
+      await git.deleteRemote({ fs, dir: '/', remote }).catch(() => {})
+      await git.addRemote({ fs, dir: '/', remote, url, force: true })
+      return { ok: true, message: `成功更新远程源 ${remote}` }
+    } catch (err) {
+      return { ok: false, message: err instanceof Error ? err.message : '更新远程源失败' }
+    }
   }
 
-  async removeRemote(_repo: string, _remote: string): Promise<{ ok: boolean; message: string }> {
-    throw new Error('浏览器 Edge 模式暂不支持删除远程源，请在本地模式使用')
+  async renameRemote(repo: string, oldName: string, newName: string): Promise<{ ok: boolean; message: string }> {
+    try {
+      const reader = await this.repository(repo)
+      const { fs } = reader
+      const remotes = await git.listRemotes({ fs, dir: '/' })
+      const target = remotes.find((r) => r.remote === oldName)
+      if (!target?.url) throw new Error(`未找到远程源 ${oldName}`)
+      await git.deleteRemote({ fs, dir: '/', remote: oldName })
+      await git.addRemote({ fs, dir: '/', remote: newName, url: target.url, force: true })
+      return { ok: true, message: `远程源已重命名为 ${newName}` }
+    } catch (err) {
+      return { ok: false, message: err instanceof Error ? err.message : '重命名远程源失败' }
+    }
+  }
+
+  async removeRemote(repo: string, remote: string): Promise<{ ok: boolean; message: string }> {
+    try {
+      const reader = await this.repository(repo)
+      const { fs } = reader
+      await git.deleteRemote({ fs, dir: '/', remote })
+      return { ok: true, message: `成功删除远程源 ${remote}` }
+    } catch (err) {
+      return { ok: false, message: err instanceof Error ? err.message : '删除远程源失败' }
+    }
   }
 
   async stash(_repo: string, _options: GitStashOptions): Promise<{ ok: boolean; message: string }> {
@@ -336,11 +381,31 @@ export class EdgeGitDriver implements IGitDriver {
           } catch {
             // ignore
           }
+          let upstream = ''
+          let ahead: number | undefined
+          let behind: number | undefined
+          try {
+            const remoteCfg = await git.getConfig({ fs, dir: '/', path: `branch.${name}.remote` })
+            const mergeCfg = await git.getConfig({ fs, dir: '/', path: `branch.${name}.merge` })
+            if (remoteCfg && mergeCfg && typeof remoteCfg === 'string' && typeof mergeCfg === 'string') {
+              const mergeBranch = mergeCfg.replace(/^refs\/heads\//, '')
+              upstream = `${remoteCfg}/${mergeBranch}`
+              const remoteTip = await git.resolveRef({ fs, dir: '/', ref: `refs/remotes/${upstream}` }).catch(() => '')
+              if (tip && remoteTip && tip === remoteTip) {
+                ahead = 0
+                behind = 0
+              }
+            }
+          } catch {
+            // ignore
+          }
           return {
             name,
             current: name === currentBranch,
             tip,
-            upstream: '',
+            upstream,
+            ahead,
+            behind,
           }
         })
       )
@@ -380,7 +445,7 @@ export class EdgeGitDriver implements IGitDriver {
             remoteSources.push({
               name: r.remote,
               url: r.url,
-              isPrivate: false,
+              isPrivate: isPrivateRemote(r.url),
             })
             if (!remoteUrl || r.remote === 'origin') {
               remoteUrl = r.url
@@ -410,6 +475,35 @@ export class EdgeGitDriver implements IGitDriver {
         }
       } catch {
         // ignore
+      }
+
+      // 4b. Stashes
+      let stashes: GitLogView['stashes'] = []
+      try {
+        const stashLog = (await fs.promises.readFile('/.git/logs/refs/stash', 'utf8').catch(() => '')) as string
+        if (stashLog) {
+          const lines = stashLog.trim().split('\n').filter(Boolean)
+          stashes = lines
+            .map((line, idx) => {
+              const [header, ...rest] = line.split('\t')
+              const subject = rest.join('\t')
+              const parts = header.trim().split(' ')
+              const hash = parts[1] || ''
+              const timestamp = parts[parts.length - 2]
+              const date = timestamp ? new Date(parseInt(timestamp, 10) * 1000).toISOString() : new Date().toISOString()
+              const reverseIndex = lines.length - 1 - idx
+              return {
+                name: `stash@{${reverseIndex}}`,
+                hash,
+                base: '',
+                date,
+                subject: subject || `WIP on ${currentBranch}`,
+              }
+            })
+            .reverse()
+        }
+      } catch {
+        stashes = []
       }
 
       // 5. Commits
@@ -455,6 +549,15 @@ export class EdgeGitDriver implements IGitDriver {
             const list = branchTips.get(t.tip) || []
             list.push(`tag: ${t.name}`)
             branchTips.set(t.tip, list)
+          }
+        }
+        for (const r of remotes) {
+          if (r.tip) {
+            const list = branchTips.get(r.tip) || []
+            if (!list.includes(r.name)) {
+              list.push(r.name)
+              branchTips.set(r.tip, list)
+            }
           }
         }
 
@@ -510,7 +613,7 @@ export class EdgeGitDriver implements IGitDriver {
         remotes,
         remoteSources,
         tags,
-        stashes: [],
+        stashes,
         worktrees: [],
         submodules: [],
         commits,

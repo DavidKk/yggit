@@ -489,6 +489,19 @@ export class LocalGitDriver implements IGitDriver {
     return { ok: true, message: data.message || '重命名成功' }
   }
 
+  async addRemote(repo: string, name: string, url: string, pushUrl?: string): Promise<{ ok: boolean; message: string }> {
+    const res = await fetch('/api/git/remote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ repo, action: 'add', name, url, pushUrl }),
+    })
+    const data = (await res.json()) as { ok?: boolean; message?: string; error?: string }
+    if (!res.ok || data.ok === false) {
+      throw new Error(readApiErrorMessage(data, '添加远程源失败'))
+    }
+    return { ok: true, message: data.message || `成功添加远程源 ${name}` }
+  }
+
   async removeRemote(repo: string, remote: string): Promise<{ ok: boolean; message: string }> {
     const res = await fetch('/api/git/remote', {
       method: 'POST',

@@ -292,6 +292,7 @@ export const gitZh: GitMessages = {
     removeTemporary: '从临时列表移除',
     openRemoteTemporary: '以临时模式打开公开仓库',
     remoteUrlPlaceholder: '搜索项目或粘贴 Git 仓库 URL (https://...)',
+    noRemoteBind: '未配置远端 · 点击绑定/添加远程服务',
   },
   status: {
     add: '新增',

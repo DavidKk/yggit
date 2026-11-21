@@ -292,6 +292,7 @@ export const gitEn: GitMessages = {
     removeTemporary: 'Remove from temporary list',
     openRemoteTemporary: 'Open public repository in temporary mode',
     remoteUrlPlaceholder: 'Search projects or paste Git URL (https://...)',
+    noRemoteBind: 'No remote configured · Click to bind/add remote service',
   },
   status: {
     add: 'Added',

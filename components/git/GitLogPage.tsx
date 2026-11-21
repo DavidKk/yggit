@@ -322,6 +322,11 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
   const viewRef = useRef(view)
   viewRef.current = view
 
+  const selectedHashRef = useRef(selectedHash)
+  selectedHashRef.current = selectedHash
+  const selectedFileRef = useRef(selectedFile)
+  selectedFileRef.current = selectedFile
+
   const silentRefreshingRef = useRef(false)
   const silentRefresh = useCallback(async () => {
     if (silentRefreshingRef.current || busy) return
@@ -354,12 +359,29 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
       setHasMore(next.hasMore)
       setHasPrev(Boolean(next.hasPrev))
       setStartIndex(next.startIndex ?? 0)
+
+      const worktreeClean = !next.worktree || next.worktree.files === 0
+      const isWorktree = selectedHashRef.current === GIT_WORKTREE_HASH || (!selectedHashRef.current && Boolean(viewRef.current?.worktree))
+      if (worktreeClean && isWorktree) {
+        if (selectedFileRef.current) {
+          setSelectedFile('')
+          setSelectedStatus('')
+          setConflictViewActive(false)
+        }
+        const currentBranchName = next.head || next.branch || 'main'
+        const currentBranchObj = next.branches.find((b) => b.name === currentBranchName || b.current)
+        const headHash = currentBranchObj?.tip || next.commits.find((c) => c.refs.some((r) => r.includes(currentBranchName)))?.hash || next.commits[0]?.hash || ''
+        if (headHash) {
+          setSelectedHash(headHash)
+          setSelection({ kind: 'local', name: currentBranchName })
+        }
+      }
     } catch {
       // Keep background revalidation non-intrusive
     } finally {
       silentRefreshingRef.current = false
     }
-  }, [busy])
+  }, [busy, setSelection])
 
   const lastFetchTimeRef = useRef<number>(0)
   const isFetchingRef = useRef<boolean>(false)
@@ -555,6 +577,22 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
     (files: GitFileChange[]) => {
       setCommitFiles(files)
       if (selectedIsWorktree) {
+        if (files.length === 0) {
+          setSelectedFile('')
+          setSelectedStatus('')
+          setConflictViewActive(false)
+          const currentBranchName = viewRef.current?.head || viewRef.current?.branch || 'main'
+          const currentBranchObj = viewRef.current?.branches.find((b) => b.name === currentBranchName || b.current)
+          const headHash = currentBranchObj?.tip || commits.find((c) => c.refs.some((r) => r.includes(currentBranchName)))?.hash || commits[0]?.hash || ''
+          if (headHash) {
+            setSelectedHash(headHash)
+            setSelection({ kind: 'local', name: currentBranchName })
+          }
+        } else if (selectedFile && !files.some((f) => f.path === selectedFile)) {
+          setSelectedFile('')
+          setSelectedStatus('')
+          setConflictViewActive(false)
+        }
         setView((prev) => {
           if (!prev) return prev
           if (files.length === 0) {
@@ -583,14 +621,13 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
         })
       }
     },
-    [selectedIsWorktree]
+    [selectedIsWorktree, selectedFile, commits, setSelection]
   )
   const sidebarWidthRef = useRef(sidebarWidth)
   const treeWidthRef = useRef(treeWidth)
   const selectedRef = useRef(!!selected)
-  const selectedFileRef = useRef(!!selectedFile)
   selectedRef.current = !!selected
-  selectedFileRef.current = !!selectedFile
+  selectedFileRef.current = selectedFile
   const prefsReady = useGitUiReady()
   // Avoid SSR inline defaults overwriting GitUiBootScript vars before hydrate.
   const frameStyle = (
@@ -1293,6 +1330,7 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                 onSetProjectLabel={setProjectLabel}
                 onRemoveProject={removeProject}
                 onMoveProject={moveProject}
+                onRefreshProjects={refreshProjects}
               />
             </div>
             {view?.repo ? (
@@ -1362,6 +1400,7 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                 onSetProjectLabel={setProjectLabel}
                 onRemoveProject={removeProject}
                 onMoveProject={moveProject}
+                onRefreshProjects={refreshProjects}
               />
             </div>
             {view?.repo ? (

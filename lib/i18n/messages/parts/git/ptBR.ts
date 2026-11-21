@@ -284,6 +284,7 @@ export const gitPtBR: GitMessages = {
     removeTemporary: 'Remover da lista temporária',
     openRemoteTemporary: 'Abrir repositório público em modo temporário',
     remoteUrlPlaceholder: 'Buscar projetos ou colar URL do Git',
+    noRemoteBind: 'Nenhum remoto configurado · Clique para vincular/adicionar',
   },
   status: {
     add: 'Adicionado',
