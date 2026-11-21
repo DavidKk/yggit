@@ -82,7 +82,7 @@ export interface GitFetchOptions {
 }
 
 export interface GitStashOptions {
-  action: 'save' | 'pop' | 'apply' | 'drop'
+  action: 'save' | 'pop' | 'apply' | 'drop' | 'edit'
   message?: string
   index?: number
   paths?: string[]
@@ -300,6 +300,31 @@ export interface IGitDriver {
    * Add a new worktree
    */
   addWorktree?(repo: string, path: string, branch?: string): Promise<{ ok: boolean; message: string }>
+
+  /**
+   * Create a git tag
+   */
+  createTag?(repo: string, tag: string, options?: { target?: string; message?: string }): Promise<{ ok: boolean; message: string }>
+
+  /**
+   * Delete a local or remote git tag
+   */
+  deleteTag?(repo: string, tag: string, options?: { remote?: string }): Promise<{ ok: boolean; message: string }>
+
+  /**
+   * Restore a file from a specific commit
+   */
+  restoreFile?(repo: string, commitHash: string, filePath: string): Promise<{ ok: boolean; message: string }>
+
+  /**
+   * Reset current branch to a commit target
+   */
+  reset?(repo: string, target: string, mode?: 'soft' | 'mixed' | 'hard'): Promise<{ ok: boolean; message: string }>
+
+  /**
+   * Revert a specific commit
+   */
+  revert?(repo: string, commit: string): Promise<{ ok: boolean; message: string }>
 
   /**
    * Read blame information per line for a file

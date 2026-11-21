@@ -8,7 +8,6 @@ import { BrandLogo } from '@/components/BrandLogo'
 import { measurePanelFit } from '@/components/git/fitColumn'
 import { CreateBranchModal, RenameBranchModal } from '@/components/git/GitBranchModal'
 import { GitCommitPanel } from '@/components/git/GitCommitPanel'
-import { GitConflict3WayDiff } from '@/components/git/GitConflict3WayDiff'
 import { GitDebug } from '@/components/git/GitDebug'
 import { GitFileDiff } from '@/components/git/GitFileDiff'
 import { GIT_FIND_EVENT, useGitFindShortcut } from '@/components/git/gitFind'
@@ -1372,30 +1371,17 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
           </EmptyState>
         ) : (
           <div ref={frameRef} className="flex min-h-0 flex-1 overflow-hidden" style={frameStyle}>
-            {selected && conflictViewActive ? (
-              <GitConflict3WayDiff
-                repo={view.repo}
-                commit={selected}
-                commits={commits}
-                conflict={conflicts[selected.hash]}
-                selectedPath={selectedFile}
-                onSelectPath={(path) => {
-                  setSelectedFile(path)
-                  setSelectedStatus('M')
-                }}
-                onSwitchToDiff={() => setConflictViewActive(false)}
-                onClose={() => {
-                  setConflictViewActive(false)
-                  setSelectedFile('')
-                  setSelectedStatus('')
-                }}
-              />
-            ) : selected && selectedFile ? (
+            {selected && (selectedFile || (conflictViewActive && conflicts[selected.hash])) ? (
               <GitFileDiff
                 repo={view.repo}
                 hash={selected.hash}
-                path={selectedFile}
+                path={selectedFile || conflicts[selected.hash]?.conflictFiles?.[0] || ''}
                 status={selectedStatus}
+                commit={selected}
+                commits={commits}
+                conflict={conflicts[selected.hash]}
+                isConflictActive={conflictViewActive}
+                onToggleConflict={(active) => setConflictViewActive(active)}
                 fileIndex={currentFileIndex >= 0 ? currentFileIndex : undefined}
                 fileCount={commitFiles.length > 0 ? commitFiles.length : undefined}
                 onPrevFile={commitFiles.length > 1 ? handlePrevFile : undefined}
@@ -1406,6 +1392,7 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                 )}
                 onOpenConflictView={() => handleOpenConflictView(selected.hash, selectedFile)}
                 onClose={() => {
+                  setConflictViewActive(false)
                   setSelectedFile('')
                   setSelectedStatus('')
                 }}

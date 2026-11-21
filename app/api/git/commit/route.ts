@@ -4,11 +4,16 @@ import {
   gitCommit,
   gitCreateFile,
   gitCreatePatch,
+  gitCreateTag,
   gitDeleteFile,
+  gitDeleteTag,
   gitDiscard,
   gitGetLastCommitMessage,
   gitIgnorePattern,
   gitRedoCommit,
+  gitReset,
+  gitRestoreFile,
+  gitRevert,
   gitStage,
   gitStash,
   gitUndoLastCommit,
@@ -55,6 +60,11 @@ export const POST = defineApiRoute('post:/api/git/commit', async ({ request }) =
     path?: unknown
     pattern?: unknown
     relativePath?: unknown
+    hash?: unknown
+    tag?: unknown
+    target?: unknown
+    remote?: unknown
+    mode?: unknown
   } | null
 
   const repo = String(body?.repo || '').trim()
@@ -108,6 +118,46 @@ export const POST = defineApiRoute('post:/api/git/commit', async ({ request }) =
       return apiOk(res)
     }
 
+    if (action === 'restore-file') {
+      const hash = String(body?.hash || '').trim()
+      const filePath = String(body?.path || '').trim()
+      if (!hash || !filePath) return apiBadRequest('缺少 hash 或 path')
+      const res = await gitRestoreFile(repo, hash, filePath)
+      return apiOk(res)
+    }
+
+    if (action === 'create-tag') {
+      const tag = String(body?.tag || '').trim()
+      if (!tag) return apiBadRequest('缺少 tag')
+      const target = typeof body?.target === 'string' ? body.target : undefined
+      const message = typeof body?.message === 'string' ? body.message : undefined
+      const res = await gitCreateTag(repo, tag, target, message)
+      return apiOk(res)
+    }
+
+    if (action === 'delete-tag') {
+      const tag = String(body?.tag || '').trim()
+      if (!tag) return apiBadRequest('缺少 tag')
+      const remote = typeof body?.remote === 'string' ? body.remote : undefined
+      const res = await gitDeleteTag(repo, tag, { remote })
+      return apiOk(res)
+    }
+
+    if (action === 'reset') {
+      const target = String(body?.target || body?.hash || '').trim()
+      const mode = String(body?.mode || 'mixed').trim() as 'soft' | 'mixed' | 'hard'
+      if (!target) return apiBadRequest('缺少目标提交')
+      const res = await gitReset(repo, target, mode)
+      return apiOk(res)
+    }
+
+    if (action === 'revert') {
+      const commit = String(body?.hash || body?.target || '').trim()
+      if (!commit) return apiBadRequest('缺少目标提交')
+      const res = await gitRevert(repo, commit)
+      return apiOk(res)
+    }
+
     if (action === 'stage') {
       return await gitStage(repo, files, all)
     }
@@ -133,7 +183,7 @@ export const POST = defineApiRoute('post:/api/git/commit', async ({ request }) =
     }
 
     if (action === 'stash') {
-      const stashAction = String(body?.stashAction || 'save') as 'save' | 'pop' | 'apply' | 'drop'
+      const stashAction = String(body?.stashAction || 'save') as 'save' | 'pop' | 'apply' | 'drop' | 'edit'
       return await gitStash(repo, {
         action: stashAction,
         message: typeof body?.message === 'string' ? body.message : undefined,

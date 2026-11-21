@@ -438,6 +438,9 @@ export type GitMessages = {
     applyStashAction?: string
     popStashAction?: string
     deleteStashAction?: string
+    editStashMessageAction?: string
+    hideStashAction?: string
+    editStashPrompt?: string
     pullSelectMode?: string
     pullDefaultModeDesc?: string
     pullFastForwardDesc?: string

@@ -441,7 +441,7 @@ export async function gitFetch(repoInput: string, options?: { remote?: string; a
 
 export async function gitStash(
   repoInput: string,
-  options: { action: 'save' | 'pop' | 'apply' | 'drop'; message?: string; index?: number; paths?: string[] }
+  options: { action: 'save' | 'pop' | 'apply' | 'drop' | 'edit'; message?: string; index?: number; paths?: string[] }
 ): Promise<{ ok: boolean; message: string }> {
   const repo = await resolveGitRepo(repoInput)
   const stashRef = options.index != null ? `stash@{${options.index}}` : undefined
@@ -477,6 +477,17 @@ export async function gitStash(
     if (stashRef) args.push(stashRef)
     const { stdout, stderr } = await runGit(repo, args)
     return { ok: true, message: cleanGitMessage(stdout || stderr, '已删除暂存') }
+  }
+
+  if (options.action === 'edit') {
+    if (!options.message?.trim()) throw new Error('暂存信息不能为空')
+    const ref = stashRef || 'stash@{0}'
+    const { stdout: commitSha } = await runGit(repo, ['rev-parse', ref])
+    const cleanSha = commitSha.trim()
+    await runGit(repo, ['stash', 'store', '-m', options.message.trim(), cleanSha])
+    const oldIdx = (options.index ?? 0) + 1
+    await runGit(repo, ['stash', 'drop', `stash@{${oldIdx}}`])
+    return { ok: true, message: '已更新暂存说明' }
   }
 
   throw new Error(`未知的暂存操作: ${String(options.action)}`)
@@ -551,4 +562,46 @@ export async function gitAddWorktree(repoInput: string, worktreePath: string, br
   if (branch) args.push(branch)
   const { stdout, stderr } = await runGit(repo, args)
   return { ok: true, message: stdout || stderr || `已创建工作树 ${worktreePath}` }
+}
+
+export async function gitCreateTag(repoInput: string, tag: string, target?: string, message?: string): Promise<{ ok: boolean; message: string }> {
+  const repo = await resolveGitRepo(repoInput)
+  const args = ['tag']
+  if (message) {
+    args.push('-a', tag, '-m', message)
+  } else {
+    args.push(tag)
+  }
+  if (target) args.push(target)
+  const { stdout, stderr } = await runGit(repo, args)
+  return { ok: true, message: stdout || stderr || `已创建标签 ${tag}` }
+}
+
+export async function gitDeleteTag(repoInput: string, tag: string, options?: { remote?: string }): Promise<{ ok: boolean; message: string }> {
+  const repo = await resolveGitRepo(repoInput)
+  if (options?.remote) {
+    const { stdout, stderr } = await runGit(repo, ['push', options.remote, '--delete', tag])
+    return { ok: true, message: stdout || stderr || `已删除远程标签 ${options.remote}/${tag}` }
+  }
+  const { stdout, stderr } = await runGit(repo, ['tag', '-d', tag])
+  return { ok: true, message: stdout || stderr || `已删除本地标签 ${tag}` }
+}
+
+export async function gitRestoreFile(repoInput: string, commitHash: string, filePath: string): Promise<{ ok: boolean; message: string }> {
+  const repo = await resolveGitRepo(repoInput)
+  const { stdout, stderr } = await runGit(repo, ['checkout', commitHash, '--', filePath])
+  return { ok: true, message: stdout || stderr || `已从提交 ${commitHash.slice(0, 7)} 恢复 ${filePath}` }
+}
+
+export async function gitReset(repoInput: string, target: string, mode: 'soft' | 'mixed' | 'hard' = 'mixed'): Promise<{ ok: boolean; message: string }> {
+  const repo = await resolveGitRepo(repoInput)
+  const flag = mode === 'soft' ? '--soft' : mode === 'hard' ? '--hard' : '--mixed'
+  const { stdout, stderr } = await runGit(repo, ['reset', flag, target])
+  return { ok: true, message: stdout || stderr || `已重置到 ${target} (${mode})` }
+}
+
+export async function gitRevert(repoInput: string, commit: string): Promise<{ ok: boolean; message: string }> {
+  const repo = await resolveGitRepo(repoInput)
+  const { stdout, stderr } = await runGit(repo, ['revert', '--no-edit', commit])
+  return { ok: true, message: stdout || stderr || `已撤销提交 ${commit.slice(0, 7)}` }
 }

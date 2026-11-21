@@ -12,7 +12,6 @@ import {
   LuFileCode,
   LuFilePlus,
   LuFileText,
-  LuFolder,
   LuFolderOpen,
   LuFolderTree,
   LuGitCommitHorizontal,
@@ -23,7 +22,6 @@ import {
   LuRows2,
   LuSettings,
   LuSparkles,
-  LuTrash2,
   LuTriangleAlert,
   LuUndo2,
   LuX,
@@ -1117,24 +1115,6 @@ export function GitCommitPanel({ repo, commit, width, title, conflictFiles, conf
     }
   }
 
-  const handleDeleteFile = async (filePath: string) => {
-    const ok = await confirm({
-      title: '删除文件',
-      description: `确定删除文件 ${filePath} 吗？此操作将从磁盘中移除文件。`,
-      confirmLabel: '确定删除',
-      confirmVariant: 'fail',
-    })
-    if (!ok) return
-    try {
-      const driver = getGitDriver()
-      const res = await driver.deleteFile(repo, filePath)
-      notify.success(res.message || `已删除文件 ${filePath}`)
-      await reloadDiff()
-    } catch (e) {
-      notify.error(e instanceof Error ? e.message : '删除文件失败')
-    }
-  }
-
   // AI commit message composer
   const handleAiCompose = () => {
     const list = stagedFiles.length > 0 ? stagedFiles : unstagedFiles
@@ -1213,90 +1193,56 @@ export function GitCommitPanel({ repo, commit, width, title, conflictFiles, conf
       })
     }
 
-    items.push({
-      key: 'file-history',
-      label: 'File History',
-      icon: <LuHistory className="size-3.5 text-accent" />,
-      dividerBefore: items.length > 0,
-      onSelect: () => onSelect(filePath, status || 'M'),
-    })
-    items.push({
-      key: 'file-blame',
-      label: 'File Blame',
-      icon: <LuPencil className="size-3.5 text-ink-soft" />,
-      onSelect: () => onSelect(filePath, status || 'M'),
-    })
-
-    items.push({
-      key: 'open-vscode',
-      label: 'Open in VS Code',
-      icon: <LuFileCode className="size-3.5 text-accent" />,
-      dividerBefore: true,
-      onSelect: () => {
-        window.open(`vscode://file/${absPath}`)
-      },
-    })
-    items.push({
-      key: 'open-default',
-      label: 'Open file in default program',
-      icon: <LuFolderOpen className="size-3.5 text-ink-soft" />,
-      onSelect: async () => {
-        try {
-          await fetch('/api/reveal', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ path: absPath, reveal: false }),
-          })
-        } catch {
-          // ignore
+    if (!isWorktree) {
+      items.push(
+        {
+          key: 'file-history',
+          label: 'File History',
+          icon: <LuHistory className="size-3.5 text-accent" />,
+          onSelect: () => onSelect(filePath, status || 'M'),
+        },
+        {
+          key: 'file-blame',
+          label: 'File Blame',
+          icon: <LuPencil className="size-3.5 text-ink-soft" />,
+          onSelect: () => onSelect(filePath, status || 'M'),
+        },
+        {
+          key: 'open-external-diff',
+          label: 'Open in external diff tool',
+          icon: <LuFileCode className="size-3.5 text-accent" />,
+          dividerBefore: true,
+          onSelect: () => {
+            window.open(`vscode://file/${absPath}`)
+          },
+        },
+        {
+          key: 'copy-relative',
+          label: 'Copy file path',
+          icon: <LuCopy className="size-3.5 text-ink-soft" />,
+          dividerBefore: true,
+          onSelect: () => void navigator.clipboard?.writeText(filePath),
+        },
+        {
+          key: 'restore-file',
+          label: 'Restore file from this commit',
+          icon: <LuUndo2 className="size-3.5 text-warn" />,
+          dividerBefore: true,
+          onSelect: async () => {
+            if (!repo || !commit?.hash) return
+            try {
+              const driver = getGitDriver()
+              await driver.restoreFile?.(repo, commit.hash, filePath)
+              notify.success(`已从提交 ${commit.short || commit.hash.slice(0, 7)} 恢复文件 ${filePath}`)
+              await reloadDiff()
+              await onRefresh?.()
+            } catch (err) {
+              notify.error(err instanceof Error ? err.message : '恢复文件失败')
+            }
+          },
         }
-      },
-    })
-    items.push({
-      key: 'show-finder',
-      label: 'Show in Finder',
-      icon: <LuFolder className="size-3.5 text-ink-soft" />,
-      onSelect: async () => {
-        try {
-          await fetch('/api/reveal', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ path: absPath, reveal: true }),
-          })
-        } catch {
-          // ignore
-        }
-      },
-    })
-
-    items.push({
-      key: 'copy-relative',
-      label: 'Copy file path',
-      icon: <LuCopy className="size-3.5" />,
-      dividerBefore: true,
-      onSelect: () => void navigator.clipboard?.writeText(filePath),
-    })
-    items.push({
-      key: 'create-patch',
-      label: 'Create patch from file changes',
-      icon: <LuFileText className="size-3.5 text-accent" />,
-      onSelect: () => void handleCreatePatch(filePath),
-    })
-
-    items.push({
-      key: 'edit-file',
-      label: 'Edit file',
-      icon: <LuPencil className="size-3.5" />,
-      dividerBefore: true,
-      onSelect: () => onSelect(filePath, status || 'M'),
-    })
-    items.push({
-      key: 'delete-file',
-      label: 'Delete file',
-      icon: <LuTrash2 className="size-3.5 text-fail" />,
-      danger: true,
-      onSelect: () => void handleDeleteFile(filePath),
-    })
+      )
+    }
 
     setContextMenu({
       anchor: { x: e.clientX, y: e.clientY },
@@ -1354,47 +1300,72 @@ export function GitCommitPanel({ repo, commit, width, title, conflictFiles, conf
         icon: <LuFileText className="size-3.5 text-accent" />,
         onSelect: () => void handleCreatePatch(folderPath),
       })
-    }
-
-    items.push({
-      key: 'open-folder',
-      label: t('git.operations.openFolder') || 'Open folder',
-      icon: <LuFolderOpen className="size-3.5 text-accent" />,
-      dividerBefore: items.length > 0,
-      onSelect: async () => {
-        try {
-          await fetch('/api/reveal', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ path: absPath, reveal: false }),
-          })
-        } catch {
-          // ignore
+      items.push({
+        key: 'open-folder',
+        label: t('git.operations.openFolder') || 'Open folder',
+        icon: <LuFolderOpen className="size-3.5 text-accent" />,
+        dividerBefore: true,
+        onSelect: async () => {
+          try {
+            await fetch('/api/reveal', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ path: absPath, reveal: false }),
+            })
+          } catch {
+            toggleFolder(folderPath)
+          }
+        },
+      })
+      items.push({
+        key: 'create-file-in-folder',
+        label: t('git.operations.createFileInFolder') || 'Create a file in this folder',
+        icon: <LuFilePlus className="size-3.5 text-ok" />,
+        onSelect: () => {
+          setNewFileDialog({ folderPath, fileName: '' })
+        },
+      })
+      items.push({
+        key: 'copy-folder-path',
+        label: t('git.operations.copyFolderPath') || 'Copy folder path',
+        icon: <LuCopy className="size-3.5" />,
+        dividerBefore: true,
+        onSelect: () => void navigator.clipboard?.writeText(folderPath),
+      })
+      items.push({
+        key: 'toggle-folder',
+        label: isOpen ? t('git.operations.collapseFolder') || 'Collapse folder' : t('git.operations.expandFolder') || 'Expand folder',
+        icon: isOpen ? <LuChevronDown className="size-3.5" /> : <LuChevronRight className="size-3.5" />,
+        onSelect: () => toggleFolder(folderPath),
+      })
+    } else {
+      items.push(
+        {
+          key: 'open-folder',
+          label: 'Open folder',
+          icon: <LuFolderOpen className="size-3.5 text-accent" />,
+          onSelect: async () => {
+            try {
+              await fetch('/api/reveal', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path: absPath, reveal: false }),
+              })
+            } catch {
+              toggleFolder(folderPath)
+            }
+          },
+        },
+        {
+          key: 'create-file-in-folder',
+          label: 'Create a file in this folder',
+          icon: <LuFilePlus className="size-3.5 text-ok" />,
+          onSelect: () => {
+            setNewFileDialog({ folderPath, fileName: '' })
+          },
         }
-      },
-    })
-    items.push({
-      key: 'create-file-in-folder',
-      label: t('git.operations.createFileInFolder') || 'Create a file in this folder',
-      icon: <LuFilePlus className="size-3.5 text-ok" />,
-      onSelect: () => {
-        setNewFileDialog({ folderPath, fileName: '' })
-      },
-    })
-
-    items.push({
-      key: 'copy-folder-path',
-      label: t('git.operations.copyFolderPath') || 'Copy folder path',
-      icon: <LuCopy className="size-3.5" />,
-      dividerBefore: true,
-      onSelect: () => void navigator.clipboard?.writeText(folderPath),
-    })
-    items.push({
-      key: 'toggle-folder',
-      label: isOpen ? t('git.operations.collapseFolder') || 'Collapse folder' : t('git.operations.expandFolder') || 'Expand folder',
-      icon: isOpen ? <LuChevronDown className="size-3.5" /> : <LuChevronRight className="size-3.5" />,
-      onSelect: () => toggleFolder(folderPath),
-    })
+      )
+    }
 
     setContextMenu({
       anchor: { x: e.clientX, y: e.clientY },

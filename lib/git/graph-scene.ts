@@ -8,12 +8,12 @@ export const DOT = 22
 export const MERGE_DOT = 12
 
 const LANE_COLOR = [
-  'var(--wt-primary, var(--accent))',
+  'var(--focus-contrast, #3b82f6)',
   'var(--wt-git-merge, var(--wt-merge, #d946ef))',
   'var(--wt-git-modified, var(--wt-modified, #eab308))',
   'var(--wt-secondary, #0ea5e9)',
   'var(--fail)',
-  'color-mix(in oklab, var(--wt-primary, var(--accent)) 55%, var(--wt-git-merge, #d946ef))',
+  'color-mix(in oklab, var(--focus-contrast, #3b82f6) 55%, var(--wt-git-merge, #d946ef))',
   'color-mix(in oklab, var(--wt-git-modified, #eab308) 55%, var(--fail))',
   'color-mix(in oklab, var(--wt-secondary, #0ea5e9) 40%, var(--ink))',
 ]

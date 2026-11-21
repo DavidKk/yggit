@@ -52,7 +52,7 @@ export function GitSearchDropdown({ value, onChange, placeholder, label, descrip
   const inputRef = useRef<HTMLInputElement>(null)
   const listboxId = useId()
   const findShortcut = useGitFindShortcutLabel()
-  const tooltip = description ? `${label} · ${description} (${findShortcut})` : `${label} (${findShortcut})`
+  const tooltip = description && description !== label ? `${description} (${findShortcut})` : `${label} (${findShortcut})`
   const active = open || (activeWhenQuery && value.trim().length > 0)
   const panelStyle = useFloatingPanel({
     open,

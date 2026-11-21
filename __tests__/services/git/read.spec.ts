@@ -10,6 +10,7 @@ jest.mock('@/services/git/projects', () => ({
   originUrl: jest.fn(async () => ''),
   rememberLocalProject: jest.fn(async () => undefined),
   writeLastOpenedRepo: jest.fn(),
+  getProjectRemotes: jest.fn(async () => []),
 }))
 jest.mock('@/services/git/marks', () => ({
   readBranchMarks: jest.fn(() => ({})),

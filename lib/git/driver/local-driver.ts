@@ -702,4 +702,69 @@ export class LocalGitDriver implements IGitDriver {
     }
     return { ok: true, message: data.message || `已添加工作树 ${path}` }
   }
+
+  async createTag(repo: string, tag: string, options?: { target?: string; message?: string }): Promise<{ ok: boolean; message: string }> {
+    const res = await fetch('/api/git/commit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'create-tag', repo, tag, target: options?.target, message: options?.message }),
+    })
+    const data = (await res.json().catch(() => ({}))) as { ok?: boolean; message?: string }
+    if (!res.ok || data.ok === false) {
+      throw new Error(data.message || '创建标签失败')
+    }
+    return { ok: true, message: data.message || `已创建标签 ${tag}` }
+  }
+
+  async deleteTag(repo: string, tag: string, options?: { remote?: string }): Promise<{ ok: boolean; message: string }> {
+    const res = await fetch('/api/git/commit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'delete-tag', repo, tag, remote: options?.remote }),
+    })
+    const data = (await res.json().catch(() => ({}))) as { ok?: boolean; message?: string }
+    if (!res.ok || data.ok === false) {
+      throw new Error(data.message || '删除标签失败')
+    }
+    return { ok: true, message: data.message || `已删除标签 ${tag}` }
+  }
+
+  async restoreFile(repo: string, commitHash: string, filePath: string): Promise<{ ok: boolean; message: string }> {
+    const res = await fetch('/api/git/commit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'restore-file', repo, hash: commitHash, path: filePath }),
+    })
+    const data = (await res.json().catch(() => ({}))) as { ok?: boolean; message?: string }
+    if (!res.ok || data.ok === false) {
+      throw new Error(data.message || '恢复文件失败')
+    }
+    return { ok: true, message: data.message || `已恢复文件 ${filePath}` }
+  }
+
+  async reset(repo: string, target: string, mode: 'soft' | 'mixed' | 'hard' = 'mixed'): Promise<{ ok: boolean; message: string }> {
+    const res = await fetch('/api/git/commit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'reset', repo, target, mode }),
+    })
+    const data = (await res.json().catch(() => ({}))) as { ok?: boolean; message?: string }
+    if (!res.ok || data.ok === false) {
+      throw new Error(data.message || '重置失败')
+    }
+    return { ok: true, message: data.message || `已重置到 ${target} (${mode})` }
+  }
+
+  async revert(repo: string, commit: string): Promise<{ ok: boolean; message: string }> {
+    const res = await fetch('/api/git/commit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'revert', repo, hash: commit }),
+    })
+    const data = (await res.json().catch(() => ({}))) as { ok?: boolean; message?: string }
+    if (!res.ok || data.ok === false) {
+      throw new Error(data.message || '撤销提交失败')
+    }
+    return { ok: true, message: data.message || `已撤销提交 ${commit.slice(0, 7)}` }
+  }
 }

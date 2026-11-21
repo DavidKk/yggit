@@ -1,7 +1,7 @@
 'use client'
 
 import { type CSSProperties, Fragment, memo, type ReactNode, type Ref, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { LuCopy, LuHash, LuInbox, LuText, LuTriangleAlert } from 'react-icons/lu'
+import { LuArchive, LuArchiveRestore, LuCopy, LuEyeOff, LuHash, LuInbox, LuPencil, LuText, LuTrash2, LuTriangleAlert } from 'react-icons/lu'
 
 import { AnnotationBadge } from '@/components/git/agent/spotlight/AnnotationBadge'
 import { CommitStatusBadge } from '@/components/git/CommitStatusBadge'
@@ -22,7 +22,7 @@ import { formatCommitAgo, formatCommitDateDivider } from '@/lib/git/format-commi
 import { COL, DOT, graphScene, isHighlightedStroke, laneColor, PAD, ROW, type Stroke, xAt } from '@/lib/git/graph-scene'
 import { getBranchCommitHashes } from '@/lib/git/topology'
 import { GIT_WORKTREE_HASH, type GitCommit, type GitStash, gitStashAsCommit, type GitWorktree } from '@/lib/git/types'
-import { isPositiveNumber, useGitUiPref, useGitUiReady } from '@/lib/git/ui-prefs'
+import { isPositiveNumber, repoPrefKey, useGitUiPref, useGitUiReady } from '@/lib/git/ui-prefs'
 import { cn } from '@/lib/utils'
 
 const BADGE_H = DOT
@@ -162,10 +162,10 @@ const GraphDefs = memo(function GraphDefs({
       <style>{`
         @keyframes wt-head-breathe {
           0%, 100% {
-            box-shadow: inset 0 0 0 1.5px var(--wt-primary, #3cd2a8), 0 0 0 1px var(--panel), 0 0 3px var(--wt-primary-glow, #b8ffea);
+            box-shadow: inset 0 0 0 1.5px var(--node-tint, var(--accent, #3b82f6)), 0 0 0 1px var(--panel), 0 0 3px color-mix(in oklab, var(--node-tint, var(--accent, #3b82f6)) 50%, transparent);
           }
           50% {
-            box-shadow: inset 0 0 0 2px var(--wt-primary, #3cd2a8), 0 0 0 1px var(--panel), 0 0 4.5px var(--wt-primary-glow, #b8ffea);
+            box-shadow: inset 0 0 0 2px var(--node-tint, var(--accent, #3b82f6)), 0 0 0 1px var(--panel), 0 0 5px color-mix(in oklab, var(--node-tint, var(--accent, #3b82f6)) 80%, white);
           }
         }
       `}</style>
@@ -437,31 +437,89 @@ function GitGraphComponent({
     },
   ]
 
-  const stashContextItems = (stash: GitStash): FloatingMenuItem[] => [
-    {
-      key: 'subject',
-      label: t('git.graph.copyStashSubject'),
-      icon: <LuText className="size-3.5 shrink-0" aria-hidden />,
-      onSelect: () => void copyValue(stash.subject || stash.name),
-      group: t('git.operations.groupCopy') || '复制',
-    },
-    {
-      key: 'name',
-      label: `${t('git.graph.copyStashName')} (${stash.name})`,
-      icon: <LuCopy className="size-3.5 shrink-0" aria-hidden />,
-      onSelect: () => void copyValue(stash.name),
-      group: t('git.operations.groupCopy') || '复制',
-    },
-    {
-      key: 'base',
-      label: t('git.graph.copyStashBase'),
-      icon: <LuHash className="size-3.5 shrink-0" aria-hidden />,
-      onSelect: () => void copyValue(stash.base),
-      group: t('git.operations.groupCopy') || '复制',
-    },
-  ]
+  const handleStashAction = async (action: 'apply' | 'pop' | 'drop' | 'edit', index: number, message?: string) => {
+    if (!repo) return
+    try {
+      const driver = getGitDriver()
+      const res = await driver.stash(repo, { action, index, message })
+      notify.success(res.message || '操作成功')
+      await onRefresh?.()
+    } catch (err) {
+      notify.error(err instanceof Error ? err.message : '操作失败')
+    }
+  }
 
-  const scene = useMemo(() => graphScene(commits, worktree, stashes), [commits, worktree, stashes])
+  const stashContextItems = (stash: GitStash): FloatingMenuItem[] => {
+    const idx = Number(stash.name.match(/\d+/)?.[0] ?? 0)
+    return [
+      {
+        key: 'apply-stash',
+        label: t('git.operations.applyStashAction', { stash: stash.name }) || `应用暂存 (${stash.name})`,
+        icon: <LuArchive className="size-3.5 shrink-0 text-accent" aria-hidden />,
+        onSelect: () => void handleStashAction('apply', idx),
+      },
+      {
+        key: 'pop-stash',
+        label: t('git.operations.popStashAction', { stash: stash.name }) || `弹出暂存 (${stash.name})`,
+        icon: <LuArchiveRestore className="size-3.5 shrink-0 text-ok" aria-hidden />,
+        onSelect: () => void handleStashAction('pop', idx),
+      },
+      {
+        key: 'drop-stash',
+        label: t('git.operations.deleteStashAction', { stash: stash.name }) || `删除暂存 (${stash.name})`,
+        icon: <LuTrash2 className="size-3.5 shrink-0 text-fail" aria-hidden />,
+        danger: true,
+        onSelect: () => void handleStashAction('drop', idx),
+      },
+      {
+        key: 'edit-stash-message',
+        label: t('git.operations.editStashMessageAction') || '编辑暂存说明…',
+        icon: <LuPencil className="size-3.5 shrink-0 text-ink-soft" aria-hidden />,
+        dividerBefore: true,
+        onSelect: () => {
+          const msg = window.prompt(t('git.operations.editStashPrompt') || '请输入新的暂存说明：', stash.subject || '')
+          if (msg && msg.trim()) void handleStashAction('edit', idx, msg.trim())
+        },
+      },
+      {
+        key: 'hide-stash',
+        label: t('git.operations.hideStashAction') || '隐藏暂存',
+        icon: <LuEyeOff className="size-3.5 shrink-0 text-ink-soft" aria-hidden />,
+        dividerBefore: true,
+        onSelect: () => setHiddenStashes((prev) => (prev.includes(stash.name) ? prev.filter((s) => s !== stash.name) : [...prev, stash.name])),
+      },
+      {
+        key: 'copy-stash-group',
+        label: t('git.operations.groupCopy') || '复制',
+        icon: <LuCopy className="size-3.5 shrink-0 text-ink-soft" aria-hidden />,
+        dividerBefore: true,
+        children: [
+          {
+            key: 'subject',
+            label: t('git.graph.copyStashSubject'),
+            icon: <LuText className="size-3.5 shrink-0" aria-hidden />,
+            onSelect: () => void copyValue(stash.subject || stash.name),
+          },
+          {
+            key: 'name',
+            label: `${t('git.graph.copyStashName')} (${stash.name})`,
+            icon: <LuCopy className="size-3.5 shrink-0" aria-hidden />,
+            onSelect: () => void copyValue(stash.name),
+          },
+          {
+            key: 'base',
+            label: t('git.graph.copyStashBase'),
+            icon: <LuHash className="size-3.5 shrink-0" aria-hidden />,
+            onSelect: () => void copyValue(stash.base),
+          },
+        ],
+      },
+    ]
+  }
+
+  const [hiddenStashes, setHiddenStashes] = useGitUiPref(repo ? repoPrefKey(repo, 'hiddenStashes') : 'git.hiddenStashes.none', [] as string[], Array.isArray)
+  const visibleStashes = useMemo(() => stashes.filter((s) => !hiddenStashes.includes(s.name)), [stashes, hiddenStashes])
+  const scene = useMemo(() => graphScene(commits, worktree, visibleStashes), [commits, worktree, visibleStashes])
   const { points, headIndex } = scene
   const contentWidth = PAD + scene.laneCount * COL
   const [branchWidth, setBranchWidth] = useGitUiPref('graph.branchWidth', BRANCH_DEFAULT, isPositiveNumber)
@@ -1200,7 +1258,7 @@ function GitGraphComponent({
                   })}
               </svg>
               {scene.stashMarks.map((mark) => {
-                const stash = stashes.find((item) => item.hash === mark.hash)
+                const stash = visibleStashes.find((item) => item.hash === mark.hash)
                 if (!stash) return null
                 const tint = mark.color || 'var(--accent)'
                 const isSelected = selectedHash === stash.hash
@@ -1275,14 +1333,8 @@ function GitGraphComponent({
                             width: MERGE_NODE_DOT,
                             height: MERGE_NODE_DOT,
                             background: 'var(--panel)',
-                            border: isConflictedMerge ? '1.5px solid var(--warn, #f59e0b)' : `1.5px solid ${tint}`,
-                            boxShadow: isConflictedMerge
-                              ? isSelected
-                                ? '0 0 0 2px var(--panel), 0 0 0 4px var(--warn, #f59e0b), 0 0 10px var(--warn, #f59e0b)'
-                                : '0 0 0 1px var(--panel), 0 0 6px var(--warn, #f59e0b)'
-                              : isSelected
-                                ? `0 0 0 2px var(--panel), 0 0 0 4px ${tint}, 0 0 10px ${tint}`
-                                : `0 0 3px color-mix(in oklab, ${tint} 30%, transparent)`,
+                            border: `1.5px solid ${tint}`,
+                            boxShadow: isSelected ? `0 0 0 2px var(--panel), 0 0 0 4px ${tint}, 0 0 10px ${tint}` : `0 0 3px color-mix(in oklab, ${tint} 30%, transparent)`,
                           }
                         : {
                             left: nodeX,
@@ -1293,9 +1345,10 @@ function GitGraphComponent({
                             boxShadow: isSelected
                               ? `inset 0 0 0 1.5px ${tint}, 0 0 0 2px var(--panel), 0 0 0 4px ${tint}, 0 0 8px ${tint}`
                               : isHead
-                                ? 'inset 0 0 0 1.5px var(--wt-primary, #3cd2a8), 0 0 0 1px var(--panel), 0 0 4px var(--wt-primary-glow, #b8ffea)'
+                                ? `inset 0 0 0 1.5px ${tint}, 0 0 0 1px var(--panel), 0 0 4px color-mix(in oklab, ${tint} 60%, white)`
                                 : `inset 0 0 0 1.5px ${tint}`,
                             animation: isHead && !isSelected ? 'wt-head-breathe 2.8s ease-in-out infinite' : undefined,
+                            ['--node-tint' as any]: tint,
                           }
                     }
                     title={`${commit.short || commit.hash.slice(0, 7)} · ${commit.author} (${commit.date})\n${commit.subject}${
@@ -1342,17 +1395,13 @@ function GitGraphComponent({
                     }}
                   >
                     {isMerge ? (
-                      isConflictedMerge ? (
-                        <LuTriangleAlert className="size-2 text-warn shrink-0" aria-label="Merge conflict" />
-                      ) : (
-                        <span className="size-1 rounded-full shrink-0" style={{ background: 'var(--wt-git-merge, var(--wt-merge, #d946ef))' }} aria-hidden />
-                      )
+                      <span className="size-1 rounded-full shrink-0" style={{ background: 'var(--wt-git-merge, var(--wt-merge, #d946ef))' }} aria-hidden />
                     ) : (
                       <>
                         {initials(commit.author)}
                         {isTagged && (
                           <span
-                            className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full border border-panel bg-[var(--wt-primary,#3cd2a8)] shadow-[0_0_3px_var(--wt-primary-glow,#b8ffea)]"
+                            className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full border border-panel bg-[var(--focus-contrast,#3b82f6)] shadow-[0_0_3px_color-mix(in_oklab,var(--focus-contrast,#3b82f6)_60%,transparent)]"
                             title="Tag"
                             aria-hidden
                           />

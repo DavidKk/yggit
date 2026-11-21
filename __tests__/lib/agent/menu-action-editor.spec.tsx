@@ -7,7 +7,8 @@ import { AgentMenuActionEditor } from '@/components/git/agent/settings/AgentMenu
 import { CONTEXT_MENU_STORAGE_KEY, DEFAULT_CONTEXT_MENU_CONFIG } from '@/lib/git/context-menu-config'
 
 const mockPush = jest.fn()
-jest.mock('next/navigation', () => ({ useRouter: () => ({ push: mockPush }) }))
+const mockReplace = jest.fn()
+jest.mock('next/navigation', () => ({ useRouter: () => ({ push: mockPush, replace: mockReplace }) }))
 jest.mock('@/components/i18n/LocaleProvider', () => ({ useT: () => (key: string) => key, useLocaleCode: () => 'en' }))
 
 it('saves edited description and prompt while preserving the disabled state', async () => {
@@ -39,7 +40,7 @@ it('saves edited description and prompt while preserving the disabled state', as
     await act(async () => host.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })))
     const saved = JSON.parse(localStorage.getItem(CONTEXT_MENU_STORAGE_KEY)!)
     expect(saved.agentActions).toEqual([{ id: 'custom-test', label: 'Review', description: 'Concise description', prompt: 'Review this branch', enabled: false }])
-    expect(mockPush).toHaveBeenCalledWith('/settings/menus')
+    expect(mockReplace).toHaveBeenCalledWith('/settings/menus')
   } finally {
     await act(async () => root.unmount())
     host.remove()
@@ -72,7 +73,7 @@ it('keeps an action on cancel and removes it only after editor confirmation', as
     await act(async () => button('gitAgent.deleteAction').click())
     await act(async () => document.querySelector<HTMLButtonElement>('[data-modal-initial="confirm"]')!.click())
     expect(JSON.parse(localStorage.getItem(CONTEXT_MENU_STORAGE_KEY)!).agentActions).toEqual([])
-    expect(mockPush).toHaveBeenCalledWith('/settings/menus')
+    expect(mockReplace).toHaveBeenCalledWith('/settings/menus')
   } finally {
     await act(async () => root.unmount())
     host.remove()

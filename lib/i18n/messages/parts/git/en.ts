@@ -103,7 +103,7 @@ export const gitEn: GitMessages = {
     },
     search: {
       branch: 'Search branches',
-      remote: 'Search remote branches',
+      remote: 'Search remotes',
       stash: 'Search stash',
       tag: 'Search tags',
       worktree: 'Search worktrees',
@@ -458,6 +458,9 @@ export const gitEn: GitMessages = {
     applyStashAction: 'Apply Stash ({stash})',
     popStashAction: 'Pop Stash ({stash})',
     deleteStashAction: 'Delete Stash ({stash})',
+    editStashMessageAction: 'Edit stash message…',
+    hideStashAction: 'Hide',
+    editStashPrompt: 'Enter new stash message:',
     pullSelectMode: 'Select Default Pull Mode',
     pullDefaultModeDesc: 'Select default sync action when clicking Pull',
     pullFastForwardDesc: 'Pull only when fast-forward is possible',

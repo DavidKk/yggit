@@ -73,13 +73,18 @@ export function GitTokenSpans({
   diffRanges?: Array<[number, number]>
   diffKind?: 'add' | 'del'
 }) {
-  const hasTokens = Boolean(tokens && tokens.length > 0)
   const highlightClass =
     diffKind === 'add'
-      ? cn('bg-[color-mix(in_oklab,var(--ok)_40%,transparent)] rounded-xs font-semibold px-0.5', !hasTokens && 'text-ok')
+      ? cn(
+          'inline-block rounded-[3px] px-1 py-0.5 font-medium leading-tight select-text align-baseline',
+          'bg-[#a7f3d0] text-[#064e3b] border border-[#6ee7b7]/70 shadow-xs dark:bg-[#065f46]/85 dark:text-[#a7f3d0] dark:border-[#059669]/60'
+        )
       : diffKind === 'del'
-        ? cn('bg-[color-mix(in_oklab,var(--fail)_40%,transparent)] rounded-xs font-semibold px-0.5', !hasTokens && 'text-fail')
-        : 'bg-accent/30 rounded-xs px-0.5'
+        ? cn(
+            'inline-block rounded-[3px] px-1 py-0.5 font-medium leading-tight select-text align-baseline',
+            'bg-[#fecdd3] text-[#881337] border border-[#fda4af]/70 shadow-xs dark:bg-[#881337]/80 dark:text-[#fecdd3] dark:border-[#9f1239]/60'
+          )
+        : 'bg-accent/30 rounded-[3px] px-0.5'
 
   if (!tokens || tokens.length === 0) {
     if (!diffRanges || diffRanges.length === 0) {

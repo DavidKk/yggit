@@ -253,8 +253,8 @@ export function GitCodePane({
                   onMouseEnter={() => setHoveredLineIndex(index)}
                   className={cn(
                     'group/coderow relative flex w-full min-w-full transition-colors leading-5 items-start',
-                    row.kind === 'add' && 'bg-[color-mix(in_oklab,var(--ok)_12%,transparent)]',
-                    row.kind === 'del' && 'bg-[color-mix(in_oklab,var(--fail)_12%,transparent)]',
+                    row.kind === 'add' && 'bg-[#ecfdf5]/85 text-[#064e3b] dark:bg-[#064e3b]/22 dark:text-ink border-l-2 border-emerald-500/70',
+                    row.kind === 'del' && 'bg-[#fff1f2]/85 text-[#881337] dark:bg-[#881337]/22 dark:text-ink border-l-2 border-rose-500/70',
                     active && 'bg-accent/20 ring-1 ring-inset ring-accent',
                     targetLine === index && targetSequence !== undefined && 'bg-warn/15 ring-1 ring-inset ring-warn',
                     isAgentLine && 'bg-violet-500/20 ring-1 ring-inset ring-violet-500 border-l-2 border-violet-500 text-violet-100',
@@ -294,7 +294,7 @@ export function GitCodePane({
                   {blame && !isAgentLine && (
                     <span
                       className={cn(
-                        'ml-6 pl-1 pr-3 text-[11px] text-ink-soft/75 select-none font-sans shrink-0 pointer-events-none truncate italic self-start leading-5 transition-opacity duration-150',
+                        'ml-4 pl-1 pr-3 text-[11px] text-ink-soft/75 select-none font-sans shrink-0 max-w-[45%] pointer-events-none truncate italic self-start leading-5 transition-opacity duration-150',
                         isHovered ? 'opacity-100' : 'opacity-0 group-hover/coderow:opacity-100'
                       )}
                       title={`${blame.author} (${blame.hash.slice(0, 7)}): ${blame.summary}`}
@@ -336,9 +336,9 @@ export function GitCodePane({
                     data-code-line={index}
                     onMouseEnter={() => setHoveredLineIndex(index)}
                     className={cn(
-                      'group/coderow relative flex h-5 w-full min-w-full whitespace-pre transition-colors leading-5 items-center',
-                      row.kind === 'add' && 'bg-[color-mix(in_oklab,var(--ok)_12%,transparent)]',
-                      row.kind === 'del' && 'bg-[color-mix(in_oklab,var(--fail)_12%,transparent)]',
+                      'group/coderow relative flex h-5 min-w-full w-max whitespace-pre transition-colors leading-5 items-center',
+                      row.kind === 'add' && 'bg-[#ecfdf5]/85 text-[#064e3b] dark:bg-[#064e3b]/22 dark:text-ink border-l-2 border-emerald-500/70',
+                      row.kind === 'del' && 'bg-[#fff1f2]/85 text-[#881337] dark:bg-[#881337]/22 dark:text-ink border-l-2 border-rose-500/70',
                       active && 'bg-accent/20 ring-1 ring-accent ring-inset',
                       targetLine === index && targetSequence !== undefined && 'bg-warn/15 ring-1 ring-inset ring-warn',
                       isAgentLine && 'bg-violet-500/20 ring-1 ring-inset ring-violet-500 border-l-2 border-violet-500 text-violet-100',
