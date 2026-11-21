@@ -8,11 +8,12 @@ import {
   LuCodeXml,
   LuColumns2,
   LuEye,
+  LuFileClock,
   LuFileCode,
   LuFileText,
+  LuFingerprint,
   LuGitCompareArrows,
   LuGitMerge,
-  LuHistory,
   LuListTree,
   LuPencil,
   LuRows3,
@@ -1053,7 +1054,7 @@ export function GitFileDiff({
           {onOpenFileHistory ? (
             <Tooltip content={t('git.operations.fileHistory') || 'File History'}>
               <Button variant="plain" size="mini" onClick={() => onOpenFileHistory(path)} aria-label={t('git.operations.fileHistory')}>
-                <LuHistory className="size-3.5 text-accent" />
+                <LuFileClock className="size-3.5 text-accent" />
               </Button>
             </Tooltip>
           ) : null}
@@ -1062,7 +1063,7 @@ export function GitFileDiff({
           {onOpenFileBlame ? (
             <Tooltip content={t('git.operations.fileBlame') || 'File Blame'}>
               <Button variant="plain" size="mini" onClick={() => onOpenFileBlame(path)} aria-label={t('git.operations.fileBlame')}>
-                <LuPencil className="size-3.5 text-ink-soft" />
+                <LuFingerprint className="size-3.5 text-accent" />
               </Button>
             </Tooltip>
           ) : null}

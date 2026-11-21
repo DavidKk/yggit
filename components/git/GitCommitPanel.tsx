@@ -9,9 +9,11 @@ import {
   LuChevronsUpDown,
   LuColumns2,
   LuCopy,
+  LuFileClock,
   LuFileCode,
   LuFilePlus,
   LuFileText,
+  LuFingerprint,
   LuFolderOpen,
   LuFolderTree,
   LuGitCommitHorizontal,
@@ -1208,49 +1210,56 @@ export function GitCommitPanel({
       })
     }
 
-    if (!isWorktree) {
+    // File history & blame available whenever file is tracked (or viewing commit)
+    if (!isWorktree || status !== '?') {
       items.push(
         {
           key: 'file-history',
           label: t('git.operations.fileHistory') || 'File History',
-          icon: <LuHistory className="size-3.5 text-accent" />,
+          icon: <LuFileClock className="size-3.5 text-accent" />,
+          dividerBefore: isWorktree,
           onSelect: () => (onOpenFileHistory ? onOpenFileHistory(filePath) : onSelect(filePath, status || 'M')),
         },
         {
           key: 'file-blame',
           label: t('git.operations.fileBlame') || 'File Blame',
-          icon: <LuPencil className="size-3.5 text-ink-soft" />,
+          icon: <LuFingerprint className="size-3.5 text-accent" />,
           onSelect: () => (onOpenFileBlame ? onOpenFileBlame(filePath) : onSelect(filePath, status || 'M')),
-        },
-        {
-          key: 'copy-relative',
-          label: t('git.operations.copyFilePath') || 'Copy file path',
-          icon: <LuCopy className="size-3.5 text-ink-soft" />,
-          dividerBefore: true,
-          onSelect: () => void navigator.clipboard?.writeText(filePath),
-        },
-        {
-          key: 'restore-file',
-          label: t('git.operations.restoreFileFromCommit') || 'Restore file from this commit',
-          icon: <LuUndo2 className="size-3.5 text-warn" />,
-          dividerBefore: true,
-          onSelect: async () => {
-            if (!repo || !commit?.hash) return
-            try {
-              const driver = getGitDriver()
-              await driver.restoreFile?.(repo, commit.hash, filePath)
-              notify.success(
-                t('git.operations.restoreFileSuccess', { hash: commit.short || commit.hash.slice(0, 7), path: filePath }) ||
-                  `已从提交 ${commit.short || commit.hash.slice(0, 7)} 恢复文件 ${filePath}`
-              )
-              await reloadDiff()
-              await onRefresh?.()
-            } catch (err) {
-              notify.error(err instanceof Error ? err.message : t('git.operations.restoreFileFail') || '恢复文件失败')
-            }
-          },
         }
       )
+    }
+
+    // Copy file path is universally available
+    items.push({
+      key: 'copy-relative',
+      label: t('git.operations.copyFilePath') || 'Copy file path',
+      icon: <LuCopy className="size-3.5 text-ink-soft" />,
+      dividerBefore: true,
+      onSelect: () => void navigator.clipboard?.writeText(filePath),
+    })
+
+    if (!isWorktree) {
+      items.push({
+        key: 'restore-file',
+        label: t('git.operations.restoreFileFromCommit') || 'Restore file from this commit',
+        icon: <LuUndo2 className="size-3.5 text-warn" />,
+        dividerBefore: true,
+        onSelect: async () => {
+          if (!repo || !commit?.hash) return
+          try {
+            const driver = getGitDriver()
+            await driver.restoreFile?.(repo, commit.hash, filePath)
+            notify.success(
+              t('git.operations.restoreFileSuccess', { hash: commit.short || commit.hash.slice(0, 7), path: filePath }) ||
+                `已从提交 ${commit.short || commit.hash.slice(0, 7)} 恢复文件 ${filePath}`
+            )
+            await reloadDiff()
+            await onRefresh?.()
+          } catch (err) {
+            notify.error(err instanceof Error ? err.message : t('git.operations.restoreFileFail') || '恢复文件失败')
+          }
+        },
+      })
     }
 
     setContextMenu({

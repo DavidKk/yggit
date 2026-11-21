@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { LuChevronsUpDown, LuFolderGit2, LuHistory, LuPencil, LuSettings, LuX } from 'react-icons/lu'
+import { LuChevronsUpDown, LuFileClock, LuFingerprint, LuFolderGit2, LuSettings, LuX } from 'react-icons/lu'
 
 import { BrandLogo } from '@/components/BrandLogo'
 import { measurePanelFit } from '@/components/git/fitColumn'
@@ -1495,9 +1495,9 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                 <header className="flex h-10 shrink-0 items-center justify-between border-b border-line bg-panel px-3">
                   <div className="flex min-w-0 items-center gap-2">
                     {filePanel.type === 'history' ? (
-                      <LuHistory className="size-4 shrink-0 text-accent" aria-hidden />
+                      <LuFileClock className="size-4 shrink-0 text-accent" aria-hidden />
                     ) : (
-                      <LuPencil className="size-4 shrink-0 text-accent" aria-hidden />
+                      <LuFingerprint className="size-4 shrink-0 text-accent" aria-hidden />
                     )}
                     <h2 className="m-0 min-w-0 truncate text-xs font-semibold text-ink" title={filePanel.path}>
                       {filePanel.path.split('/').pop() || filePanel.path}
@@ -1513,8 +1513,8 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                       value={filePanel.type}
                       onChange={(val) => setFilePanel((prev) => (prev ? { ...prev, type: val as 'history' | 'blame' } : null))}
                       items={[
-                        { id: 'history', label: t('git.operations.fileHistory') || 'File History', icon: <LuHistory className="size-3.5" /> },
-                        { id: 'blame', label: t('git.operations.fileBlame') || 'File Blame', icon: <LuPencil className="size-3.5" /> },
+                        { id: 'history', label: t('git.operations.fileHistory') || 'File History', icon: <LuFileClock className="size-3.5" /> },
+                        { id: 'blame', label: t('git.operations.fileBlame') || 'File Blame', icon: <LuFingerprint className="size-3.5" /> },
                       ]}
                     />
                     <Button variant="plain" size="mini" aria-label={t('common.close')} onClick={() => setFilePanel(null)}>
