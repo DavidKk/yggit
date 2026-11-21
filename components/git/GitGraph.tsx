@@ -83,6 +83,11 @@ type Props = {
   onSelectWorktree?: () => void
   onOpenConflictView?: (hash: string, file?: string) => void
   onCheckoutBranch?: (branch: string, isRemote?: boolean) => Promise<void> | void
+  onPushBranch?: (branch: string) => Promise<void> | void
+  onPullBranch?: (branch: string) => Promise<void> | void
+  onCreateBranch?: (branch: string, startPoint?: string) => Promise<void> | void
+  onDeleteBranch?: (branch: string) => Promise<void> | void
+  onRenameBranch?: (oldName: string) => Promise<void> | void
   onRefresh?: () => Promise<void> | void
   currentBranch?: string
   soloBranch?: string | null
@@ -267,6 +272,11 @@ function GitGraphComponent({
   onSelectWorktree,
   onOpenConflictView,
   onCheckoutBranch,
+  onPushBranch,
+  onPullBranch,
+  onCreateBranch,
+  onDeleteBranch,
+  onRenameBranch,
   onRefresh,
   currentBranch,
   soloBranch,
@@ -379,6 +389,11 @@ function GitGraphComponent({
           void agent.sendMessage(`帮我跳转到 ${branch}`)
         }
       },
+      onPushBranch,
+      onPullBranch,
+      onCreateBranch,
+      onDeleteBranch,
+      onRenameBranch,
       onAgentPrompt: (prompt) => {
         if (agent) {
           agent.setDockMode('dock-right')
@@ -1047,6 +1062,11 @@ function GitGraphComponent({
                             onBranchHoverEnd={handleBranchPointerLeave}
                             onSelectCommit={onSelect}
                             onCheckoutBranch={onCheckoutBranch}
+                            onPushBranch={onPushBranch}
+                            onPullBranch={onPullBranch}
+                            onCreateBranch={onCreateBranch}
+                            onDeleteBranch={onDeleteBranch}
+                            onRenameBranch={onRenameBranch}
                             soloBranch={soloBranch}
                             onSoloBranch={onSoloBranch}
                           />

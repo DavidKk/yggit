@@ -898,6 +898,133 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
     [view, notification]
   )
 
+  const handlePushBranch = useCallback(
+    async (branchName: string) => {
+      if (!view?.repo) return
+      setBusy(true)
+      setProgressStage(`正在推送分支 ${branchName}...`)
+      try {
+        const driver = getGitDriver()
+        const res = await driver.push(view.repo, { branch: branchName, setUpstream: true })
+        if (res.ok) {
+          notification.success(res.message || '推送成功')
+          await loadRef.current(view.repo)
+        } else {
+          notification.error(res.message || '推送失败')
+        }
+      } catch (err) {
+        notification.error(err instanceof Error ? err.message : '推送失败')
+      } finally {
+        setBusy(false)
+        setProgressStage('')
+      }
+    },
+    [view, notification]
+  )
+
+  const handlePullBranch = useCallback(
+    async (branchName: string) => {
+      if (!view?.repo) return
+      setBusy(true)
+      setProgressStage(`正在拉取分支 ${branchName}...`)
+      try {
+        const driver = getGitDriver()
+        const res = await driver.pull(view.repo, { branch: branchName })
+        if (res.ok) {
+          notification.success(res.message || '拉取成功')
+          await loadRef.current(view.repo)
+        } else {
+          notification.error(res.message || '拉取失败')
+        }
+      } catch (err) {
+        notification.error(err instanceof Error ? err.message : '拉取失败')
+      } finally {
+        setBusy(false)
+        setProgressStage('')
+      }
+    },
+    [view, notification]
+  )
+
+  const handleDeleteBranch = useCallback(
+    async (branchName: string) => {
+      if (!view?.repo) return
+      const confirmed = window.confirm(`确定要删除分支 "${branchName}" 吗？`)
+      if (!confirmed) return
+      setBusy(true)
+      setProgressStage(`正在删除分支 ${branchName}...`)
+      try {
+        const driver = getGitDriver()
+        const res = await driver.deleteBranch(view.repo, branchName)
+        if (res.ok) {
+          notification.success(res.message || '已删除分支')
+          await loadRef.current(view.repo)
+        } else {
+          notification.error(res.message || '删除失败')
+        }
+      } catch (err) {
+        notification.error(err instanceof Error ? err.message : '删除失败')
+      } finally {
+        setBusy(false)
+        setProgressStage('')
+      }
+    },
+    [view, notification]
+  )
+
+  const handleRenameBranch = useCallback(
+    async (oldName: string) => {
+      if (!view?.repo) return
+      const newName = window.prompt(`请输入分支 "${oldName}" 的新名称：`, oldName)
+      if (!newName || !newName.trim() || newName.trim() === oldName) return
+      setBusy(true)
+      setProgressStage(`正在重命名分支...`)
+      try {
+        const driver = getGitDriver()
+        const res = await driver.renameBranch(view.repo, oldName, newName.trim())
+        if (res.ok) {
+          notification.success(res.message || '重命名成功')
+          await loadRef.current(view.repo)
+        } else {
+          notification.error(res.message || '重命名失败')
+        }
+      } catch (err) {
+        notification.error(err instanceof Error ? err.message : '重命名失败')
+      } finally {
+        setBusy(false)
+        setProgressStage('')
+      }
+    },
+    [view, notification]
+  )
+
+  const handleCreateBranch = useCallback(
+    async (branchNameOrStart?: string, startPoint?: string) => {
+      if (!view?.repo) return
+      const name = window.prompt('请输入新分支名称：')
+      if (!name || !name.trim()) return
+      setBusy(true)
+      setProgressStage(`正在创建分支 ${name.trim()}...`)
+      try {
+        const driver = getGitDriver()
+        const start = startPoint || (branchNameOrStart && !branchNameOrStart.includes(' ') ? branchNameOrStart : undefined)
+        const res = await driver.createBranch(view.repo, name.trim(), start)
+        if (res.ok) {
+          notification.success(res.message || `已创建分支 ${name.trim()}`)
+          await loadRef.current(view.repo)
+        } else {
+          notification.error(res.message || '创建分支失败')
+        }
+      } catch (err) {
+        notification.error(err instanceof Error ? err.message : '创建分支失败')
+      } finally {
+        setBusy(false)
+        setProgressStage('')
+      }
+    },
+    [view, notification]
+  )
+
   async function chooseFolder() {
     setError('')
     if (getDriverMode() === 'edge') {
@@ -1373,6 +1500,11 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                   onOpenRepo={(repo) => void load(repo)}
                   onAddWorktree={handleAddWorktree}
                   onCheckoutBranch={handleCheckoutBranch}
+                  onCreateBranch={handleCreateBranch}
+                  onDeleteBranch={handleDeleteBranch}
+                  onRenameBranch={handleRenameBranch}
+                  onPushBranch={handlePushBranch}
+                  onPullBranch={handlePullBranch}
                   onBranchHoverStart={handleBranchHoverStart}
                   onBranchHoverEnd={handleBranchHoverEnd}
                   onRefresh={silentRefresh}
@@ -1434,6 +1566,11 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                       }}
                       onOpenConflictView={handleOpenConflictView}
                       onCheckoutBranch={handleCheckoutBranch}
+                      onCreateBranch={handleCreateBranch}
+                      onDeleteBranch={handleDeleteBranch}
+                      onRenameBranch={handleRenameBranch}
+                      onPushBranch={handlePushBranch}
+                      onPullBranch={handlePullBranch}
                       onPage={onPage}
                       onPagePrepend={handlePagePrepend}
                       onRefresh={silentRefresh}

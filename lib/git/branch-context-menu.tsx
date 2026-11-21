@@ -297,8 +297,11 @@ export function buildBranchContextMenu({
       label: branchName ? tr('git.operations.pushBranchAction', `推送分支 ${branchName}`, { branch: branchName }) : tr('git.operations.pushTooltipAction', '推送此分支 (Push)'),
       icon: <LuArrowUpFromLine className="size-4 shrink-0 text-accent" />,
       onSelect: () => {
-        if (branchName && onPushBranch) {
-          onPushBranch(branchName)
+        const b = cleanBranch || branchName
+        if (b && onPushBranch) {
+          onPushBranch(b)
+        } else if (b) {
+          onNotify?.('error', tr('git.operations.pushFailed', '无法执行推送：未配置处理函数'))
         }
       },
     },
@@ -309,8 +312,11 @@ export function buildBranchContextMenu({
         : tr('git.operations.pullBranchAction', '拉取此分支 (Pull)', { branch: '' }),
       icon: <LuArrowDownToLine className="size-4 shrink-0 text-ok" />,
       onSelect: () => {
-        if (branchName && onPullBranch) {
-          onPullBranch(branchName)
+        const b = cleanBranch || branchName
+        if (b && onPullBranch) {
+          onPullBranch(b)
+        } else if (b) {
+          onNotify?.('error', tr('git.operations.pullFailed', '无法执行拉取：未配置处理函数'))
         }
       },
     },

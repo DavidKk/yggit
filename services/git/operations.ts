@@ -325,6 +325,35 @@ export async function gitGetLastCommitMessage(repoInput: string): Promise<{ summ
   }
 }
 
+async function getTargetRemote(repo: string, branch?: string, explicitRemote?: string): Promise<string> {
+  if (explicitRemote?.trim()) return explicitRemote.trim()
+  if (branch?.trim()) {
+    try {
+      const cfg = await runGit(repo, ['config', `branch.${branch.trim()}.remote`])
+      const r = cfg.stdout.trim()
+      if (r) return r
+    } catch {
+      // ignore
+    }
+  }
+  let list: string[] = []
+  try {
+    const remotesRes = await runGit(repo, ['remote'])
+    list = remotesRes.stdout
+      .trim()
+      .split(/\r?\n/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+  } catch {
+    list = []
+  }
+  if (list.length === 0) {
+    throw new Error('当前仓库未配置任何远程仓库 (Remote)，请先关联远程地址后再执行推送/拉取')
+  }
+  if (list.includes('origin')) return 'origin'
+  return list[0]
+}
+
 export async function gitPush(
   repoInput: string,
   options?: { remote?: string; branch?: string; setUpstream?: boolean; force?: boolean }
@@ -336,26 +365,36 @@ export async function gitPush(
     args.push('--force-with-lease')
   }
 
-  // Check if current branch has an upstream
-  let hasUpstream = false
   let currentBranch = ''
   try {
     const branchRes = await runGit(repo, ['symbolic-ref', '--short', 'HEAD'])
     currentBranch = branchRes.stdout.trim()
-    await runGit(repo, ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}'])
-    hasUpstream = true
   } catch {
-    hasUpstream = false
+    currentBranch = ''
   }
 
-  const targetRemote = options?.remote || 'origin'
-  const targetBranch = options?.branch || currentBranch
+  const targetBranch = options?.branch?.trim() || currentBranch
+  const targetRemote = await getTargetRemote(repo, targetBranch, options?.remote)
 
-  if (!hasUpstream || options?.setUpstream) {
-    args.push('-u', targetRemote, targetBranch)
-  } else {
-    if (options?.remote) args.push(options.remote)
-    if (options?.branch) args.push(options.branch)
+  // Check if target branch has an upstream
+  let hasUpstream = false
+  if (targetBranch) {
+    try {
+      await runGit(repo, ['rev-parse', '--abbrev-ref', '--symbolic-full-name', `${targetBranch}@{u}`])
+      hasUpstream = true
+    } catch {
+      hasUpstream = false
+    }
+  }
+
+  if (targetBranch) {
+    if (!hasUpstream || options?.setUpstream) {
+      args.push('-u', targetRemote, targetBranch)
+    } else {
+      args.push(targetRemote, targetBranch)
+    }
+  } else if (targetRemote) {
+    args.push(targetRemote)
   }
 
   const { stdout, stderr } = await runGit(repo, args)
@@ -370,8 +409,15 @@ export async function gitPull(repoInput: string, options?: { remote?: string; br
   } else if (options?.ffOnly) {
     args.push('--ff-only')
   }
-  if (options?.remote) args.push(options.remote)
-  if (options?.branch) args.push(options.branch)
+
+  const targetBranch = options?.branch?.trim()
+  const targetRemote = await getTargetRemote(repo, targetBranch, options?.remote)
+
+  if (targetBranch) {
+    args.push(targetRemote, targetBranch)
+  } else if (options?.remote) {
+    args.push(targetRemote)
+  }
 
   const { stdout, stderr } = await runGit(repo, args)
   return { ok: true, message: cleanGitMessage(stdout || stderr, '拉取成功') }

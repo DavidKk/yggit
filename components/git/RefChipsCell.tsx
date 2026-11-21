@@ -56,6 +56,11 @@ export function RefChipsCell({
   onBranchHoverEnd,
   onSelectCommit,
   onCheckoutBranch,
+  onPushBranch,
+  onPullBranch,
+  onCreateBranch,
+  onDeleteBranch,
+  onRenameBranch,
   soloBranch,
   onSoloBranch,
 }: {
@@ -68,6 +73,11 @@ export function RefChipsCell({
   onBranchHoverEnd?: () => void
   onSelectCommit?: (commit: GitCommit) => void
   onCheckoutBranch?: (branch: string, isRemote?: boolean) => Promise<void> | void
+  onPushBranch?: (branch: string) => Promise<void> | void
+  onPullBranch?: (branch: string) => Promise<void> | void
+  onCreateBranch?: (branch: string, startPoint?: string) => Promise<void> | void
+  onDeleteBranch?: (branch: string) => Promise<void> | void
+  onRenameBranch?: (oldName: string) => Promise<void> | void
   soloBranch?: string | null
   onSoloBranch?: (branch: string | null) => void
 }) {
@@ -181,6 +191,11 @@ export function RefChipsCell({
           void agent.sendMessage(`帮我跳转到 ${branch}`)
         }
       },
+      onPushBranch,
+      onPullBranch,
+      onCreateBranch,
+      onDeleteBranch,
+      onRenameBranch,
       onAgentPrompt: (prompt) => {
         if (agent) {
           agent.setDockMode('dock-right')

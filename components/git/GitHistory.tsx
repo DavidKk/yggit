@@ -36,6 +36,11 @@ type Props = {
   onSelect?: (commit: GitCommit) => void
   onSelectWorktree?: () => void
   onCheckoutBranch?: (branch: string, isRemote?: boolean) => void
+  onPushBranch?: (branch: string) => Promise<void> | void
+  onPullBranch?: (branch: string) => Promise<void> | void
+  onCreateBranch?: (branch: string, startPoint?: string) => Promise<void> | void
+  onDeleteBranch?: (branch: string) => Promise<void> | void
+  onRenameBranch?: (oldName: string) => Promise<void> | void
   onOpenConflictView?: (hash: string, file?: string) => void
   onPage: (scope: string, commits: GitCommit[], hasMore: boolean) => void
   onPagePrepend?: (commits: GitCommit[], hasPrev: boolean, startIndex: number) => void
@@ -94,6 +99,11 @@ export function GitHistory({
   onSelect,
   onSelectWorktree,
   onCheckoutBranch,
+  onPushBranch,
+  onPullBranch,
+  onCreateBranch,
+  onDeleteBranch,
+  onRenameBranch,
   onOpenConflictView,
   onPage,
   onPagePrepend,
@@ -409,6 +419,11 @@ export function GitHistory({
         onSelect={onSelect}
         onSelectWorktree={onSelectWorktree}
         onCheckoutBranch={onCheckoutBranch}
+        onPushBranch={onPushBranch}
+        onPullBranch={onPullBranch}
+        onCreateBranch={onCreateBranch}
+        onDeleteBranch={onDeleteBranch}
+        onRenameBranch={onRenameBranch}
         onOpenConflictView={onOpenConflictView}
         onRefresh={onRefresh}
         currentBranch={currentBranch}
