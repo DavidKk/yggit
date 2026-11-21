@@ -326,6 +326,8 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
   selectedHashRef.current = selectedHash
   const selectedFileRef = useRef(selectedFile)
   selectedFileRef.current = selectedFile
+  const filePanelRef = useRef(filePanel)
+  filePanelRef.current = filePanel
 
   const silentRefreshingRef = useRef(false)
   const silentRefresh = useCallback(async () => {
@@ -710,6 +712,12 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
       if (event.defaultPrevented) return
 
       if (menuOpen) return
+
+      if (filePanelRef.current) {
+        event.preventDefault()
+        setFilePanel(null)
+        return
+      }
 
       if (selectedFileRef.current) {
         event.preventDefault()
@@ -1482,7 +1490,65 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
           </EmptyState>
         ) : (
           <div ref={frameRef} className="relative flex min-h-0 flex-1 overflow-hidden" style={frameStyle}>
-            {selected && (selectedFile || (conflictViewActive && conflicts[selected.hash])) ? (
+            {filePanel ? (
+              <section className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-canvas">
+                <header className="flex h-10 shrink-0 items-center justify-between border-b border-line bg-panel px-3">
+                  <div className="flex min-w-0 items-center gap-2">
+                    {filePanel.type === 'history' ? (
+                      <LuHistory className="size-4 shrink-0 text-accent" aria-hidden />
+                    ) : (
+                      <LuPencil className="size-4 shrink-0 text-accent" aria-hidden />
+                    )}
+                    <h2 className="m-0 min-w-0 truncate text-xs font-semibold text-ink" title={filePanel.path}>
+                      {filePanel.path.split('/').pop() || filePanel.path}
+                    </h2>
+                    <span className="hidden truncate text-[11px] text-ink-soft md:inline" title={filePanel.path}>
+                      ({filePanel.path})
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <SegmentedNav
+                      aria-label={t('git.operations.filePanelTitle') || 'File Details'}
+                      size="mini"
+                      value={filePanel.type}
+                      onChange={(val) => setFilePanel((prev) => (prev ? { ...prev, type: val as 'history' | 'blame' } : null))}
+                      items={[
+                        { id: 'history', label: t('git.operations.fileHistory') || 'File History', icon: <LuHistory className="size-3.5" /> },
+                        { id: 'blame', label: t('git.operations.fileBlame') || 'File Blame', icon: <LuPencil className="size-3.5" /> },
+                      ]}
+                    />
+                    <Button variant="plain" size="mini" aria-label={t('common.close')} onClick={() => setFilePanel(null)}>
+                      <LuX className="size-3.5" aria-hidden />
+                    </Button>
+                  </div>
+                </header>
+                <div className="flex min-h-0 flex-1 overflow-hidden">
+                  {filePanel.type === 'history' ? (
+                    <GitFileHistoryView
+                      repo={view.repo}
+                      path={filePanel.path}
+                      currentHash={filePanel.hash || selected?.hash}
+                      onLocateCommit={(commitHash) => {
+                        setSelectedHash(commitHash)
+                        setFocusRequest({ hash: commitHash })
+                        setFilePanel(null)
+                      }}
+                    />
+                  ) : (
+                    <GitFileBlameView
+                      repo={view.repo}
+                      path={filePanel.path}
+                      hash={filePanel.hash || selected?.hash}
+                      onLocateCommit={(commitHash) => {
+                        setSelectedHash(commitHash)
+                        setFocusRequest({ hash: commitHash })
+                        setFilePanel(null)
+                      }}
+                    />
+                  )}
+                </div>
+              </section>
+            ) : selected && (selectedFile || (conflictViewActive && conflicts[selected.hash])) ? (
               <GitFileDiff
                 repo={view.repo}
                 hash={selected.hash}
@@ -1690,65 +1756,6 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                 />
               </>
             ) : null}
-            {filePanel && (
-              <div className="absolute inset-y-0 right-0 z-40 flex w-full max-w-4xl flex-col border-l border-line bg-canvas shadow-2xl animate-in slide-in-from-right duration-200">
-                <header className="flex h-10 shrink-0 items-center justify-between border-b border-line bg-panel px-3">
-                  <div className="flex min-w-0 items-center gap-2">
-                    {filePanel.type === 'history' ? (
-                      <LuHistory className="size-4 shrink-0 text-accent" aria-hidden />
-                    ) : (
-                      <LuPencil className="size-4 shrink-0 text-accent" aria-hidden />
-                    )}
-                    <h3 className="m-0 min-w-0 truncate text-xs font-semibold text-ink" title={filePanel.path}>
-                      {filePanel.path.split('/').pop() || filePanel.path}
-                    </h3>
-                    <span className="hidden truncate text-[11px] text-ink-soft md:inline" title={filePanel.path}>
-                      ({filePanel.path})
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <SegmentedNav
-                      aria-label={t('git.operations.filePanelTitle') || 'File Details'}
-                      size="mini"
-                      value={filePanel.type}
-                      onChange={(val) => setFilePanel((prev) => (prev ? { ...prev, type: val as 'history' | 'blame' } : null))}
-                      items={[
-                        { id: 'history', label: t('git.operations.fileHistory') || 'File History', icon: <LuHistory className="size-3.5" /> },
-                        { id: 'blame', label: t('git.operations.fileBlame') || 'File Blame', icon: <LuPencil className="size-3.5" /> },
-                      ]}
-                    />
-                    <Button variant="plain" size="mini" aria-label={t('common.close')} onClick={() => setFilePanel(null)}>
-                      <LuX className="size-3.5" aria-hidden />
-                    </Button>
-                  </div>
-                </header>
-                <div className="flex min-h-0 flex-1 overflow-hidden">
-                  {filePanel.type === 'history' ? (
-                    <GitFileHistoryView
-                      repo={view.repo}
-                      path={filePanel.path}
-                      currentHash={filePanel.hash || selected?.hash}
-                      onLocateCommit={(commitHash) => {
-                        setSelectedHash(commitHash)
-                        setFocusRequest({ hash: commitHash })
-                        setFilePanel(null)
-                      }}
-                    />
-                  ) : (
-                    <GitFileBlameView
-                      repo={view.repo}
-                      path={filePanel.path}
-                      hash={filePanel.hash || selected?.hash}
-                      onLocateCommit={(commitHash) => {
-                        setSelectedHash(commitHash)
-                        setFocusRequest({ hash: commitHash })
-                        setFilePanel(null)
-                      }}
-                    />
-                  )}
-                </div>
-              </div>
-            )}
           </div>
         )}
 

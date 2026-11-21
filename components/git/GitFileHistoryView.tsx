@@ -168,7 +168,7 @@ export function GitFileHistoryView({
   return (
     <div className="flex min-h-0 flex-1 overflow-hidden bg-canvas">
       {/* Left Pane: Commit History List */}
-      <aside className="flex w-80 shrink-0 flex-col border-r border-line bg-panel/60">
+      <aside className="flex w-80 md:w-96 shrink-0 flex-col border-r border-line bg-panel">
         {/* Search / Filter header */}
         <div className="border-b border-line p-2">
           <div className="relative flex items-center">
@@ -251,7 +251,7 @@ export function GitFileHistoryView({
       </aside>
 
       {/* Right Pane: Selected Commit Diff */}
-      <section className="flex flex-1 flex-col overflow-hidden min-w-0 bg-panel">
+      <section className="flex flex-1 flex-col overflow-hidden min-w-0 bg-canvas">
         {selectedCommit ? (
           <header className="flex shrink-0 items-center justify-between border-b border-line bg-canvas/40 px-3 py-2 text-xs">
             <div className="flex min-w-0 items-center gap-2">
