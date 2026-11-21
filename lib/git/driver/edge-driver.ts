@@ -804,6 +804,43 @@ export class EdgeGitDriver implements IGitDriver {
     return {}
   }
 
+  async readFileHistory(options: { repo: string; path: string; ref?: string; limit?: number }): Promise<{ commits: GitCommit[] }> {
+    try {
+      const edgeProjects = typeof getEdgeCatalog === 'function' ? (await getEdgeCatalog().catch(() => ({ projects: [] }))).projects || [] : []
+      const localMatch = uniqueLocalProject(edgeProjects, options.repo)?.localPath
+      const repo = localMatch || options.repo
+      const reader = await this.repository(repo)
+      const { fs, cache } = reader
+      const targetRef = options.ref && options.ref !== 'WORKTREE' ? options.ref : 'HEAD'
+      const limit = options.limit && options.limit > 0 ? Math.min(options.limit, 500) : 100
+
+      const rawCommits = await git.log({
+        fs,
+        cache,
+        dir: '/',
+        filepath: options.path,
+        ref: targetRef,
+        depth: limit,
+      })
+
+      const commits: GitCommit[] = rawCommits.map((c) => {
+        const oid = c.oid
+        return {
+          hash: oid,
+          short: oid.slice(0, 7),
+          parents: c.commit.parent || [],
+          author: c.commit.author?.name || 'Unknown',
+          date: c.commit.author?.timestamp ? new Date(c.commit.author.timestamp * 1000).toISOString() : new Date().toISOString(),
+          subject: (c.commit.message || '').split('\n')[0] || '',
+          refs: [],
+        }
+      })
+      return { commits }
+    } catch {
+      return { commits: [] }
+    }
+  }
+
   async addWorktree(_repo: string, _path: string, _branch?: string): Promise<{ ok: boolean; message: string }> {
     throw new Error('浏览器 Edge 模式暂不支持 Worktree，请在本地模式使用')
   }

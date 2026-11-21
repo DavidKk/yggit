@@ -26,7 +26,7 @@ import { useT } from '@/components/i18n/LocaleProvider'
 import { LocaleSwitcher } from '@/components/i18n/LocaleSwitcher'
 import { useInWorkspaceHeader, WorkspaceHeaderSlot } from '@/components/layout/WorkspaceHeaderContext'
 import { useNotification } from '@/components/notification/useNotification'
-import { Button, EmptyState, SegmentedNav, Spinner, Tooltip } from '@/components/sk'
+import { Button, EmptyState, Spinner, Tooltip } from '@/components/sk'
 import { dropdownTriggerClass } from '@/components/sk/dropdownMenu'
 import { ThemeSwitcher } from '@/components/theme/ThemeSwitcher'
 import { useOptionalAgent } from '@/lib/agent/agent-context'
@@ -1506,18 +1506,19 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                       ({filePanel.path})
                     </span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <SegmentedNav
-                      aria-label={t('git.operations.filePanelTitle') || 'File Details'}
-                      size="mini"
-                      value={filePanel.type}
-                      onChange={(val) => setFilePanel((prev) => (prev ? { ...prev, type: val as 'history' | 'blame' } : null))}
-                      items={[
-                        { id: 'history', label: t('git.operations.fileHistory') || 'File History', icon: <LuFileClock className="size-3.5" /> },
-                        { id: 'blame', label: t('git.operations.fileBlame') || 'File Blame', icon: <LuFingerprint className="size-3.5" /> },
-                      ]}
-                    />
-                    <Button variant="plain" size="mini" aria-label={t('common.close')} onClick={() => setFilePanel(null)}>
+                  <div className="flex items-center gap-1">
+                    <Tooltip content={filePanel.type === 'history' ? t('git.operations.fileBlame') || '文件追溯 (Blame)' : t('git.operations.fileHistory') || '文件历史'}>
+                      <Button
+                        variant="plain"
+                        size="icon"
+                        className="size-7 text-ink-soft hover:enabled:bg-[var(--overlay-08)] hover:enabled:text-ink cursor-pointer"
+                        aria-label={filePanel.type === 'history' ? t('git.operations.fileBlame') || 'File Blame' : t('git.operations.fileHistory') || 'File History'}
+                        onClick={() => setFilePanel((prev) => (prev ? { ...prev, type: prev.type === 'history' ? 'blame' : 'history' } : null))}
+                      >
+                        {filePanel.type === 'history' ? <LuFingerprint className="size-3.5 text-ink-soft hover:text-accent" /> : <LuFileClock className="size-3.5 text-accent" />}
+                      </Button>
+                    </Tooltip>
+                    <Button variant="plain" size="icon" className="size-7" aria-label={t('common.close')} onClick={() => setFilePanel(null)}>
                       <LuX className="size-3.5" aria-hidden />
                     </Button>
                   </div>

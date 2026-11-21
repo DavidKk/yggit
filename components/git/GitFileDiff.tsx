@@ -18,6 +18,7 @@ import {
   LuPencil,
   LuRows3,
   LuSearch,
+  LuUser,
   LuWrapText,
   LuX,
 } from 'react-icons/lu'
@@ -42,7 +43,7 @@ import type { GitBlameLine } from '@/lib/git/driver/types'
 import { formatCommitAgo } from '@/lib/git/format-commit-ago'
 import { computeIntraDiff } from '@/lib/git/intra-diff'
 import { analyzeMergeTopology } from '@/lib/git/topology'
-import type { GitCommit, GitCommitChanges } from '@/lib/git/types'
+import { GIT_WORKTREE_HASH, type GitCommit, type GitCommitChanges } from '@/lib/git/types'
 import { useGitUiPref } from '@/lib/git/ui-prefs'
 import { cn } from '@/lib/utils'
 
@@ -951,6 +952,15 @@ export function GitFileDiff({
           ) : (
             <CountMarks counts={counts} />
           )}
+          {commit && commit.hash !== GIT_WORKTREE_HASH && commit.author ? (
+            <span
+              className="hidden md:inline-flex items-center gap-1 shrink-0 text-ink-soft text-[11px] font-normal border-l border-line pl-2"
+              title={`${commit.author} (${commit.short || commit.hash.slice(0, 7)}) · ${commit.date}`}
+            >
+              <LuUser className="size-3 text-ink-soft" />
+              <span className="truncate max-w-[120px]">{commit.author}</span>
+            </span>
+          ) : null}
         </div>
         <div className="justify-self-center flex items-center gap-2">
           {conflictActive ? (

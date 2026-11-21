@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { LuCornerDownRight } from 'react-icons/lu'
+import { LuCornerDownRight, LuUser } from 'react-icons/lu'
 
 import { GitDiffCodeText, useGitLineTokens } from '@/components/git/GitHighlightedCode'
 import { useLocaleCode, useT } from '@/components/i18n/LocaleProvider'
@@ -114,8 +114,8 @@ export function GitFileBlameView({
                   {/* Blame Metadata Gutter */}
                   <div
                     className={cn(
-                      'flex w-64 shrink-0 items-center justify-between gap-1.5 px-2 font-mono transition-opacity',
-                      isSameAsPrevCommit && !isHovered ? 'opacity-40 group-hover/blamerow:opacity-100' : 'opacity-90'
+                      'flex w-72 shrink-0 items-center justify-between gap-1.5 px-2 font-mono transition-opacity',
+                      isSameAsPrevCommit && !isHovered ? 'opacity-55 group-hover/blamerow:opacity-100' : 'opacity-90'
                     )}
                     title={blame ? `${blame.hash.slice(0, 8)} (${blame.author}): ${blame.summary}\n${blame.date}` : undefined}
                   >
@@ -130,8 +130,11 @@ export function GitFileBlameView({
                           >
                             {blame.hash.slice(0, 7)}
                           </button>
-                          <span className="truncate max-w-[85px] text-ink-soft" title={blame.author}>
-                            {blame.author}
+                          <span className="flex items-center gap-1 min-w-0 text-ink-soft group-hover/blamerow:text-ink">
+                            <LuUser className="size-2.5 shrink-0 text-ink-soft/70" />
+                            <span className="truncate max-w-[110px]" title={blame.author}>
+                              {blame.author}
+                            </span>
                           </span>
                         </div>
                         <div className="flex items-center gap-1 shrink-0">

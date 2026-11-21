@@ -31,7 +31,7 @@ jest.mock('@/components/git/RefChipsCell', () => ({
 jest.mock('@/lib/git/driver', () => ({ getGitDriver: jest.fn() }))
 jest.mock('@/components/i18n/LocaleProvider', () => {
   const t = (key: string, params?: { count?: number }) => (params?.count === undefined ? key : `${key}:${params.count}`)
-  return { useT: () => t }
+  return { useT: () => t, useLocaleCode: () => 'zh' }
 })
 jest.mock('@/components/sk', () => ({
   Button: ({

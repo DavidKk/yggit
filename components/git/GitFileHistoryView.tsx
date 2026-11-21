@@ -211,36 +211,41 @@ export function GitFileHistoryView({
                     key={c.hash}
                     onClick={() => setSelectedHash(c.hash)}
                     className={cn(
-                      'group relative flex cursor-pointer flex-col justify-center gap-0.5 rounded-md px-2 py-1.5 transition-colors select-none',
+                      'group relative flex cursor-pointer flex-col justify-center gap-1 rounded-md px-2.5 py-1.5 transition-colors select-none',
                       isSelected ? 'bg-accent/15 text-ink shadow-xs ring-1 ring-accent/30' : 'text-ink-soft hover:bg-[var(--overlay-08)] hover:text-ink'
                     )}
                   >
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="font-mono text-[11px] font-semibold text-accent shrink-0">{c.short || c.hash.slice(0, 7)}</span>
-                      <span className="truncate text-xs font-medium text-ink min-w-0 flex-1 leading-snug" title={c.subject}>
-                        {c.subject}
-                      </span>
-                      <Tooltip content={t('git.diff.locateInGraph') || '在提交图中定位'}>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            onLocateCommit?.(c.hash)
-                          }}
-                          className="shrink-0 opacity-0 group-hover:opacity-100 p-0.5 rounded text-ink-soft hover:text-accent hover:bg-accent/15 cursor-pointer transition-opacity"
-                          aria-label="在提交图中定位"
-                        >
-                          <LuCornerDownRight className="size-3" />
-                        </button>
-                      </Tooltip>
+                    {/* Line 1: Hash, Committer Author, Relative Time & Locate */}
+                    <div className="flex items-center justify-between gap-1.5 min-w-0">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="font-mono text-[11px] font-semibold text-accent shrink-0">{c.short || c.hash.slice(0, 7)}</span>
+                        <span className="flex items-center gap-1 text-[11px] font-medium text-ink min-w-0 truncate" title={c.author}>
+                          <LuUser className="size-3 shrink-0 text-ink-soft" />
+                          <span className="truncate max-w-[120px]">{c.author || 'Unknown'}</span>
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <span className="text-[10px] text-ink-soft/80">{formatCommitAgo(c.date, locale)}</span>
+                        <Tooltip content={t('git.diff.locateInGraph') || '在提交图中定位'}>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onLocateCommit?.(c.hash)
+                            }}
+                            className="shrink-0 opacity-0 group-hover:opacity-100 p-0.5 rounded text-ink-soft hover:text-accent hover:bg-accent/15 cursor-pointer transition-opacity"
+                            aria-label={t('git.diff.locateInGraph') || '在提交图中定位'}
+                          >
+                            <LuCornerDownRight className="size-3" />
+                          </button>
+                        </Tooltip>
+                      </div>
                     </div>
 
-                    <div className="flex items-center justify-between text-[10.5px] text-ink-soft/80 leading-none">
-                      <span className="truncate max-w-[150px]" title={c.author}>
-                        {c.author}
-                      </span>
-                      <span className="shrink-0 text-[10px] text-ink-soft/70">{formatCommitAgo(c.date, locale)}</span>
-                    </div>
+                    {/* Line 2: Commit Subject */}
+                    <p className="m-0 truncate text-xs text-ink/90 font-normal leading-snug" title={c.subject}>
+                      {c.subject}
+                    </p>
                   </li>
                 )
               })}
@@ -267,14 +272,14 @@ export function GitFileHistoryView({
               </h3>
             </div>
             <div className="flex shrink-0 items-center gap-2 text-[11px] text-ink-soft">
-              <span className="flex items-center gap-1">
-                <LuUser className="size-3" />
-                {selectedCommit.author}
+              <span className="flex items-center gap-1 font-medium text-ink">
+                <LuUser className="size-3.5 text-accent" />
+                <span>{selectedCommit.author || 'Unknown'}</span>
               </span>
               <span>·</span>
               <span className="flex items-center gap-1">
-                <LuClock className="size-3" />
-                {formatCommitAgo(selectedCommit.date, locale)}
+                <LuClock className="size-3 text-ink-soft" />
+                <span>{formatCommitAgo(selectedCommit.date, locale)}</span>
               </span>
               <Tooltip content={t('git.diff.locateInGraph') || '在提交图中定位'}>
                 <Button variant="plain" size="mini" onClick={() => onLocateCommit?.(selectedCommit.hash)} className="ml-1">
