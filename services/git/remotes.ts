@@ -53,12 +53,33 @@ export async function gitRemoveRemote(repo: string, remote: string): Promise<{ o
 
 /**
  * Adds a new remote: git remote add <name> <url>
+ * If pushUrl is provided and distinct, configures push URL: git remote set-url --push <name> <pushUrl>
  */
-export async function gitAddRemote(repo: string, name: string, url: string): Promise<{ ok: boolean; message: string }> {
+export async function gitAddRemote(repo: string, name: string, pullUrl: string, pushUrl?: string): Promise<{ ok: boolean; message: string }> {
   try {
-    await execFileAsync('git', ['-C', repo, 'remote', 'add', name.trim(), url.trim()], { timeout: 8000, encoding: 'utf8' })
-    return { ok: true, message: `已成功添加远程源 ${name}` }
+    const trimmedName = name.trim()
+    const trimmedPull = pullUrl.trim()
+    await execFileAsync('git', ['-C', repo, 'remote', 'add', trimmedName, trimmedPull], { timeout: 8000, encoding: 'utf8' })
+    if (pushUrl && pushUrl.trim() && pushUrl.trim() !== trimmedPull) {
+      await execFileAsync('git', ['-C', repo, 'remote', 'set-url', '--push', trimmedName, pushUrl.trim()], { timeout: 8000, encoding: 'utf8' })
+    }
+    return { ok: true, message: `已成功添加远程源 ${trimmedName}` }
   } catch (error) {
     throw new Error(error instanceof Error ? error.message : `添加远程源 ${name} 失败`)
+  }
+}
+
+/**
+ * Sets the upstream tracking branch for a local branch:
+ * git branch --set-upstream-to=<upstream> <branch>
+ */
+export async function gitSetUpstream(repo: string, branch: string, upstream: string): Promise<{ ok: boolean; message: string }> {
+  try {
+    const trimmedBranch = branch.trim()
+    const trimmedUpstream = upstream.trim()
+    await execFileAsync('git', ['-C', repo, 'branch', `--set-upstream-to=${trimmedUpstream}`, trimmedBranch], { timeout: 8000, encoding: 'utf8' })
+    return { ok: true, message: `已成功将 ${trimmedBranch} 的上游设置为 ${trimmedUpstream}` }
+  } catch (error) {
+    throw new Error(error instanceof Error ? error.message : `设置上游分支失败`)
   }
 }

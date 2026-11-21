@@ -243,7 +243,7 @@ export async function readGitLog(input?: { repo?: string; branch?: string; ref?:
   let projectRemotes: Awaited<ReturnType<typeof getProjectRemotes>> = []
   try {
     ;[branchText, remoteText, tagText, stashText, worktreeText, submoduleText, page, status, origin, projectRemotes] = await Promise.all([
-      git(repo, ['for-each-ref', 'refs/heads', '--format=%(refname:short)%00%(upstream:short)%00%(HEAD)%00%(objectname)']),
+      git(repo, ['for-each-ref', 'refs/heads', '--format=%(refname:short)%00%(upstream:short)%00%(HEAD)%00%(objectname)%00%(upstream:track,nobracket)']),
       gitOptional(repo, ['for-each-ref', 'refs/remotes', '--format=%(refname:short)%00%(objectname)']),
       gitOptional(repo, ['for-each-ref', 'refs/tags', '--sort=-creatordate', '--format=%(refname:short)%00%(*objectname)%00%(objectname)']),
       gitOptional(repo, ['stash', 'list', '--format=%gd%x1f%H%x1f%P%x1f%cI%x1f%s']),

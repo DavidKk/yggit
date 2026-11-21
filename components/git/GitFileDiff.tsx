@@ -358,7 +358,7 @@ function SplitRows({
     [pairs]
   )
   return (
-    <div className="grid min-h-0 flex-1 grid-cols-2 divide-x divide-line">
+    <div className="grid min-h-0 flex-1 grid-cols-2 gap-2 bg-paper p-2">
       <GitCodePane
         label={t('git.diff.before')}
         path={path}

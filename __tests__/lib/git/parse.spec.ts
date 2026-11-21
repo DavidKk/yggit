@@ -19,8 +19,23 @@ describe('git log parse', () => {
   it('reads local branches', () => {
     const raw = ['main', 'origin/main', '*', 'abc'].join('\0') + '\n' + ['feature', '', '', 'def'].join('\0') + '\n'
     expect(parseGitBranches(raw)).toEqual([
-      { name: 'main', upstream: 'origin/main', current: true, tip: 'abc' },
-      { name: 'feature', upstream: '', current: false, tip: 'def' },
+      { name: 'main', upstream: 'origin/main', current: true, tip: 'abc', ahead: undefined, behind: undefined, gone: undefined },
+      { name: 'feature', upstream: '', current: false, tip: 'def', ahead: undefined, behind: undefined, gone: undefined },
+    ])
+  })
+
+  it('parses ahead, behind, and gone tracking states', () => {
+    const raw =
+      ['main', 'origin/main', '*', 'abc', 'ahead 114, behind 23'].join('\0') +
+      '\n' +
+      ['feature', 'origin/feature', '', 'def', 'gone'].join('\0') +
+      '\n' +
+      ['dev', 'origin/dev', '', 'ghi', 'ahead 5'].join('\0') +
+      '\n'
+    expect(parseGitBranches(raw)).toEqual([
+      { name: 'main', upstream: 'origin/main', current: true, tip: 'abc', ahead: 114, behind: 23, gone: undefined },
+      { name: 'feature', upstream: 'origin/feature', current: false, tip: 'def', ahead: undefined, behind: undefined, gone: true },
+      { name: 'dev', upstream: 'origin/dev', current: false, tip: 'ghi', ahead: 5, behind: undefined, gone: undefined },
     ])
   })
 

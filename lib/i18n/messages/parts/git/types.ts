@@ -418,6 +418,7 @@ export type GitMessages = {
     exitSolo?: string
     exitSoloTip?: string
     soloActiveHint?: string
+    soloBadge?: string
     checkoutBranchAction?: string
     currentBranchLabel?: string
     checkoutRemoteBranch?: string
@@ -510,5 +511,30 @@ export type GitMessages = {
     deleteFolderBranchesPartialFail?: string
     confirmDeleteCount?: string
     branchesToBeDeleted?: string
+    remotePullUrlRequired?: string
+    remotePullUrlLabel?: string
+    remotePushUrlLabel?: string
+    sameAsPullHint?: string
+    addRemoteTitle?: string
+    addRemoteDesc?: string
+    addRemoteBtn?: string
+    addingRemote?: string
+    remoteAdded?: string
+    setUpstreamTitle?: string
+    setUpstreamDesc?: string
+    upstreamLabel?: string
+    upstreamRequired?: string
+    setUpstreamBtn?: string
+    settingUpstream?: string
+    upstreamSet?: string
+    setUpstream?: string
+    setUpstreamAction?: string
+    setUpstreamShort?: string
+    resetToCommit?: string
+    revertCommit?: string
+    createAnnotatedTag?: string
+    compareWorkdir?: string
+    pinBranch?: string
+    hideBranch?: string
   }
 }

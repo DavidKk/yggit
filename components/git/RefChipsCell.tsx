@@ -243,7 +243,6 @@ export function RefChipsCell({
           if (commit && onSelectCommit) {
             onSelectCommit(commit)
           }
-          openDropdown()
         }}
         onDoubleClick={(event) => {
           event.stopPropagation()
@@ -258,7 +257,6 @@ export function RefChipsCell({
           if (commit && onSelectCommit) {
             onSelectCommit(commit)
           }
-          openDropdown()
         }}
         onContextMenu={(event) => {
           event.preventDefault()
@@ -307,8 +305,9 @@ export function RefChipsCell({
                   className="flex h-[22px] items-center cursor-pointer"
                   onClick={(e) => {
                     e.stopPropagation()
-                    const rect = e.currentTarget.getBoundingClientRect()
-                    setContextMenu({ chip, anchor: { x: rect.left, y: rect.bottom + 2 } })
+                    if (commit && onSelectCommit) {
+                      onSelectCommit(commit)
+                    }
                   }}
                   onContextMenu={(e) => {
                     e.preventDefault()

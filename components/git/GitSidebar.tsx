@@ -34,7 +34,7 @@ import {
   LuUser,
 } from 'react-icons/lu'
 
-import { EditRemoteModal } from '@/components/git/GitRemoteModal'
+import { AddRemoteModal, EditRemoteModal, SetUpstreamModal } from '@/components/git/GitRemoteModal'
 import { GitSearchDropdown } from '@/components/git/GitSearchDropdown'
 import { FloatingMenu, type FloatingMenuItem } from '@/components/git/RefChipsCell'
 import { handleTreeExpandKey, handleTreeParentKey } from '@/components/git/treeExpandKey'
@@ -103,6 +103,9 @@ type BranchItem = {
   current?: boolean
   title?: string
   tip?: string
+  ahead?: number
+  behind?: number
+  upstream?: string
 }
 
 type BranchNode = {
@@ -303,6 +306,51 @@ export function GitSidebar({
       setEditRemoteBusy(false)
     }
   }
+
+  const [addRemoteOpen, setAddRemoteOpen] = useState(false)
+  const [addRemoteBusy, setAddRemoteBusy] = useState(false)
+  const [setUpstreamBranch, setSetUpstreamBranch] = useState<string | null>(null)
+  const [setUpstreamBusy, setSetUpstreamBusy] = useState(false)
+
+  const handleAddRemote = async (name: string, pullUrl: string, pushUrl: string) => {
+    setAddRemoteBusy(true)
+    try {
+      const res = await fetch('/api/git/remote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ repo: view.repo, action: 'add', name, url: pullUrl, pushUrl }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.ok) throw new Error(data.message || data.error || '添加远程源失败')
+      notify.success(t('git.operations.remoteAdded', { name }) || `成功添加远程源 ${name}`)
+      setAddRemoteOpen(false)
+      await onRefresh?.()
+    } catch (err) {
+      notify.error(err instanceof Error ? err.message : '添加远程源失败')
+    } finally {
+      setAddRemoteBusy(false)
+    }
+  }
+
+  const handleSetUpstream = async (branch: string, upstream: string) => {
+    setSetUpstreamBusy(true)
+    try {
+      const res = await fetch('/api/git/remote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ repo: view.repo, action: 'setUpstream', branch, upstream }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.ok) throw new Error(data.message || data.error || '设置上游分支失败')
+      notify.success(t('git.operations.upstreamSet', { branch, upstream }) || `已成功设置 ${branch} 的上游为 ${upstream}`)
+      setSetUpstreamBranch(null)
+      await onRefresh?.()
+    } catch (err) {
+      notify.error(err instanceof Error ? err.message : '设置上游分支失败')
+    } finally {
+      setSetUpstreamBusy(false)
+    }
+  }
   const [openRaw, setOpen] = useGitUiPref(repoPrefKey(view.repo, 'sections'), SECTION_DEFAULT, isSectionMap)
   const open = sectionsOf(openRaw)
   const [openRemotes, setOpenRemotes] = useGitUiPref(repoPrefKey(view.repo, 'remotes'), {} as Record<string, boolean>, isRecordBoolean)
@@ -354,6 +402,9 @@ export function GitSidebar({
             path: branch.name,
             current: branch.current,
             tip: branch.tip,
+            ahead: branch.ahead,
+            behind: branch.behind,
+            upstream: branch.upstream,
           }))
       ),
     [localNeedle, view.branches]
@@ -574,7 +625,7 @@ export function GitSidebar({
     if (onSoloBranch) {
       actionItems.push({
         key: 'solo-branch',
-        label: isSolo ? t('git.operations.unsoloBranch') || '退出 SOLO' : t('git.operations.soloBranch') || 'SOLO 分支',
+        label: isSolo ? t('git.operations.unsoloBranch') || '取消只看' : t('git.operations.soloBranch') || '只看此分支',
         icon: isSolo ? <LuEyeOff className="size-3.5 shrink-0 text-accent" /> : <LuEye className="size-3.5 shrink-0 text-accent" />,
         checked: isSolo,
         dividerBefore: true,
@@ -1107,6 +1158,7 @@ export function GitSidebar({
               onContextMenu={handleBranchContextMenu}
               onFolderContextMenu={handleFolderContextMenu}
               onCheckoutBranch={onCheckoutBranch}
+              onSetUpstream={(b) => setSetUpstreamBranch(b)}
               soloBranch={soloBranch}
               parentId={row.parentId}
               onBranchHoverStart={onBranchHoverStart}
@@ -1170,7 +1222,7 @@ export function GitSidebar({
                   </span>
                   {soloRemote === group.source ? (
                     <Badge tone="accent" size="mini" dot={false} className="shrink-0 select-none">
-                      SOLO
+                      {t('git.operations.soloBadge') || '只看'}
                     </Badge>
                   ) : hiddenRemotes?.includes(group.source) ? (
                     <span className="shrink-0 text-ink-soft/70 text-[10px] flex items-center gap-0.5" title="已隐藏此远程分支">
@@ -1416,6 +1468,21 @@ export function GitSidebar({
                       {section.expand.allOpen ? <LuChevronsDownUp className="size-3.5" aria-hidden /> : <LuChevronsUpDown className="size-3.5" aria-hidden />}
                     </Button>
                   ) : null}
+                  {section.id === 'remote' && (
+                    <Button
+                      variant="plain"
+                      size="icon"
+                      className="size-6 shrink-0 text-ink-soft hover:enabled:bg-[var(--overlay-08)]"
+                      aria-label={t('git.operations.addRemoteTitle') || '添加远程源'}
+                      tooltip={t('git.operations.addRemoteTitle') || '添加远程源'}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setAddRemoteOpen(true)
+                      }}
+                    >
+                      <LuPlus className="size-3.5" aria-hidden />
+                    </Button>
+                  )}
                   {section.id === 'worktree' && !isEdge && onAddWorktree ? (
                     <Button
                       variant="plain"
@@ -1544,6 +1611,17 @@ export function GitSidebar({
         onClose={() => setEditRemoteState({ open: false, remote: '', url: '' })}
         onSubmit={handleSaveRemote}
       />
+      <AddRemoteModal open={addRemoteOpen} busy={addRemoteBusy} onClose={() => setAddRemoteOpen(false)} onSubmit={handleAddRemote} />
+      {setUpstreamBranch && (
+        <SetUpstreamModal
+          open={Boolean(setUpstreamBranch)}
+          branch={setUpstreamBranch}
+          availableRemotes={view.remotes.map((r) => r.remote)}
+          busy={setUpstreamBusy}
+          onClose={() => setSetUpstreamBranch(null)}
+          onSubmit={handleSetUpstream}
+        />
+      )}
     </aside>
   )
 }
@@ -1560,6 +1638,7 @@ function BranchTree({
   onContextMenu,
   onFolderContextMenu,
   onCheckoutBranch,
+  onSetUpstream,
   soloBranch,
   idPrefix = kind,
   parentId,
@@ -1578,6 +1657,7 @@ function BranchTree({
   onContextMenu?: (e: React.MouseEvent, item: BranchItem, kind: 'local' | 'remote') => void
   onFolderContextMenu?: (e: React.MouseEvent, node: BranchNode, kind: 'local' | 'remote', folderId: string, expanded: boolean) => void
   onCheckoutBranch?: (branch: string, isRemote?: boolean) => Promise<void> | void
+  onSetUpstream?: (branch: string) => void
   soloBranch?: string | null
   idPrefix?: string
   parentId?: string
@@ -1610,6 +1690,11 @@ function BranchTree({
               depth={depth}
               parentId={parentId}
               notice={Boolean(probe)}
+              ahead={node.item.ahead}
+              behind={node.item.behind}
+              upstream={node.item.upstream}
+              kind={kind}
+              onSetUpstream={onSetUpstream ? () => onSetUpstream(node.item!.name) : undefined}
               onClick={() => onSelect({ kind, name: node.item!.name })}
               onDoubleClick={() => onCheckoutBranch?.(node.item!.name, kind === 'remote')}
               onContextMenu={(e) => onContextMenu?.(e, node.item!, kind)}
@@ -1682,7 +1767,36 @@ function BranchTree({
               </span>
               {node.item ? (
                 <div className="ml-auto flex shrink-0 items-center gap-1.5 pl-1">
-                  {soloBranch === node.item.name ? <span className="rounded bg-accent/20 px-1 py-0.2 text-[10px] font-semibold text-accent select-none">SOLO</span> : null}
+                  {kind === 'local' && (
+                    <>
+                      {node.item.ahead !== undefined && node.item.ahead > 0 && (
+                        <span className="font-mono text-[11px] text-ink-soft select-none flex items-center gap-0.5" title={`领先远程 ${node.item.ahead} 个提交`}>
+                          {node.item.ahead > 99 ? '99+' : node.item.ahead} ↑
+                        </span>
+                      )}
+                      {node.item.behind !== undefined && node.item.behind > 0 && (
+                        <span className="font-mono text-[11px] text-ink-soft select-none flex items-center gap-0.5" title={`落后远程 ${node.item.behind} 个提交`}>
+                          {node.item.behind > 99 ? '99+' : node.item.behind} ↓
+                        </span>
+                      )}
+                      {!node.item.upstream && onSetUpstream && (
+                        <button
+                          type="button"
+                          title={t('git.operations.setUpstream') || '设置上游远程分支'}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onSetUpstream(node.item!.name)
+                          }}
+                          className="opacity-0 group-hover/folder:opacity-100 hover:text-accent rounded px-1 text-[11px] text-ink-soft select-none transition-opacity flex items-center gap-0.5 cursor-pointer"
+                        >
+                          <LuCloud className="size-3 shrink-0" />
+                        </button>
+                      )}
+                    </>
+                  )}
+                  {soloBranch === node.item.name ? (
+                    <span className="rounded bg-accent/20 px-1 py-0.2 text-[10px] font-semibold text-accent select-none">{t('git.operations.soloBadge') || '只看'}</span>
+                  ) : null}
                   <LuCheck
                     className={cn('size-3 shrink-0 text-accent select-none transition-opacity duration-150', node.item.current ? 'opacity-100' : 'pointer-events-none opacity-0')}
                     aria-hidden
@@ -1706,6 +1820,11 @@ function Row({
   depth = 0,
   parentId,
   notice,
+  ahead,
+  behind,
+  upstream,
+  kind,
+  onSetUpstream,
   onClick,
   onDoubleClick,
   onContextMenu,
@@ -1720,6 +1839,11 @@ function Row({
   depth?: number
   parentId?: string
   notice?: boolean
+  ahead?: number
+  behind?: number
+  upstream?: string
+  kind?: 'local' | 'remote'
+  onSetUpstream?: () => void
   onClick: () => void
   onDoubleClick?: () => void
   onContextMenu?: (e: React.MouseEvent) => void
@@ -1763,7 +1887,34 @@ function Row({
         {label}
       </span>
       <div className="ml-auto flex shrink-0 items-center gap-1.5 pl-2">
-        {isSolo ? <span className="rounded bg-accent/20 px-1 py-0.2 text-[10px] font-semibold text-accent select-none">SOLO</span> : null}
+        {kind === 'local' && (
+          <>
+            {ahead !== undefined && ahead > 0 && (
+              <span className="font-mono text-[11px] text-ink-soft select-none flex items-center gap-0.5" title={`领先远程 ${ahead} 个提交`}>
+                {ahead > 99 ? '99+' : ahead} ↑
+              </span>
+            )}
+            {behind !== undefined && behind > 0 && (
+              <span className="font-mono text-[11px] text-ink-soft select-none flex items-center gap-0.5" title={`落后远程 ${behind} 个提交`}>
+                {behind > 99 ? '99+' : behind} ↓
+              </span>
+            )}
+            {!upstream && onSetUpstream && (
+              <button
+                type="button"
+                title={t('git.operations.setUpstream') || '设置上游远程分支'}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onSetUpstream()
+                }}
+                className="opacity-0 group-hover/row:opacity-100 hover:text-accent rounded px-1 text-[11px] text-ink-soft select-none transition-opacity flex items-center gap-0.5 cursor-pointer"
+              >
+                <LuCloud className="size-3 shrink-0" />
+              </button>
+            )}
+          </>
+        )}
+        {isSolo ? <span className="rounded bg-accent/20 px-1 py-0.2 text-[10px] font-semibold text-accent select-none">{t('git.operations.soloBadge') || '只看'}</span> : null}
         {notice ? <span className="size-1.5 shrink-0 rounded-full bg-accent select-none" aria-label={t('git.sidebar.remoteNewAria')} /> : null}
         <LuCheck
           className={cn('size-3.5 shrink-0 text-accent select-none transition-opacity duration-150', current ? 'opacity-100' : 'pointer-events-none opacity-0')}

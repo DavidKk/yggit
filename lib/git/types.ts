@@ -8,6 +8,9 @@ export type GitBranch = {
   upstream: string
   current: boolean
   tip: string
+  ahead?: number
+  behind?: number
+  gone?: boolean
 }
 
 export type GitCommit = {

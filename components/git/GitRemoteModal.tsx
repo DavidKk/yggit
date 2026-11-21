@@ -105,3 +105,193 @@ export function EditRemoteModal({ open, remote, initialUrl = '', busy = false, o
     </Modal>
   )
 }
+
+interface AddRemoteModalProps {
+  open: boolean
+  busy?: boolean
+  onClose: () => void
+  onSubmit: (name: string, pullUrl: string, pushUrl: string) => Promise<void> | void
+}
+
+export function AddRemoteModal({ open, busy = false, onClose, onSubmit }: AddRemoteModalProps) {
+  const t = useT()
+  const [name, setName] = useState('')
+  const [pullUrl, setPullUrl] = useState('')
+  const [pushUrl, setPushUrl] = useState('')
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (open) {
+      setName('origin')
+      setPullUrl('')
+      setPushUrl('')
+      setError('')
+    }
+  }, [open])
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const trimmedName = name.trim()
+    const trimmedPull = pullUrl.trim()
+    const trimmedPush = pushUrl.trim() || trimmedPull
+
+    if (!trimmedName) {
+      setError(t('git.operations.remoteNameRequired') || '远程源名称不能为空')
+      return
+    }
+    if (/\s/.test(trimmedName)) {
+      setError(t('git.operations.remoteNameInvalid') || '远程源名称不能包含空格')
+      return
+    }
+    if (!trimmedPull) {
+      setError(t('git.operations.remotePullUrlRequired') || '拉取地址 (PULL URL) 不能为空')
+      return
+    }
+
+    setError('')
+    await onSubmit(trimmedName, trimmedPull, trimmedPush)
+    onClose()
+  }
+
+  return (
+    <Modal
+      open={open}
+      title={t('git.operations.addRemoteTitle') || '添加远程源'}
+      description={t('git.operations.addRemoteDesc') || '配置新的远程仓库名称、拉取地址与推送地址'}
+      onClose={onClose}
+      busy={busy}
+    >
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4 py-2">
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-medium text-ink" htmlFor="add-remote-name-input">
+            {t('git.operations.remoteNameLabel') || '远程源名称'}
+          </label>
+          <TextInput
+            id="add-remote-name-input"
+            autoFocus
+            placeholder="origin"
+            value={name}
+            onChange={(e) => {
+              setName(e.target.value)
+              if (error) setError('')
+            }}
+          />
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-medium text-ink" htmlFor="add-remote-pull-url-input">
+            {t('git.operations.remotePullUrlLabel') || 'PULL 地址 (拉取)'}
+          </label>
+          <TextInput
+            id="add-remote-pull-url-input"
+            value={pullUrl}
+            placeholder="https://... 或 git@..."
+            onChange={(e) => {
+              setPullUrl(e.target.value)
+              if (error) setError('')
+            }}
+          />
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-medium text-ink" htmlFor="add-remote-push-url-input">
+            {t('git.operations.remotePushUrlLabel') || 'PUSH 地址 (推送)'}
+            <span className="ml-1 font-normal text-ink-soft">({t('git.operations.sameAsPullHint') || '选填，留空则与拉取地址相同'})</span>
+          </label>
+          <TextInput
+            id="add-remote-push-url-input"
+            value={pushUrl}
+            placeholder={pullUrl || 'https://... 或 git@...'}
+            onChange={(e) => {
+              setPushUrl(e.target.value)
+              if (error) setError('')
+            }}
+          />
+          {error ? <span className="text-xs text-fail">{error}</span> : null}
+        </div>
+
+        <div className="mt-2 flex justify-end gap-2">
+          <Button variant="plain" type="button" onClick={onClose} disabled={busy}>
+            {t('common.cancel') || '取消'}
+          </Button>
+          <Button variant="accent" type="submit" disabled={busy || !name.trim() || !pullUrl.trim()}>
+            {busy ? t('git.operations.addingRemote') || '正在添加…' : t('git.operations.addRemoteBtn') || '添加远程源'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+interface SetUpstreamModalProps {
+  open: boolean
+  branch: string
+  availableRemotes?: string[]
+  busy?: boolean
+  onClose: () => void
+  onSubmit: (branch: string, upstream: string) => Promise<void> | void
+}
+
+export function SetUpstreamModal({ open, branch, availableRemotes = [], busy = false, onClose, onSubmit }: SetUpstreamModalProps) {
+  const t = useT()
+  const [upstream, setUpstream] = useState('')
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (open) {
+      const defaultRemote = availableRemotes[0] || 'origin'
+      setUpstream(`${defaultRemote}/${branch}`)
+      setError('')
+    }
+  }, [open, branch, availableRemotes])
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const trimmed = upstream.trim()
+    if (!trimmed) {
+      setError(t('git.operations.upstreamRequired') || '上游分支不能为空')
+      return
+    }
+    setError('')
+    await onSubmit(branch, trimmed)
+    onClose()
+  }
+
+  return (
+    <Modal
+      open={open}
+      title={t('git.operations.setUpstreamTitle') || '设置上游远程分支'}
+      description={(t('git.operations.setUpstreamDesc') || '为本地分支 {branch} 关联对应的远程跟踪分支').replace('{branch}', branch)}
+      onClose={onClose}
+      busy={busy}
+    >
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4 py-2">
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-medium text-ink" htmlFor="set-upstream-input">
+            {t('git.operations.upstreamLabel') || '远程分支 (Upstream)'}
+          </label>
+          <TextInput
+            id="set-upstream-input"
+            autoFocus
+            value={upstream}
+            placeholder="origin/main"
+            onChange={(e) => {
+              setUpstream(e.target.value)
+              if (error) setError('')
+            }}
+          />
+          {error ? <span className="text-xs text-fail">{error}</span> : null}
+        </div>
+
+        <div className="mt-2 flex justify-end gap-2">
+          <Button variant="plain" type="button" onClick={onClose} disabled={busy}>
+            {t('common.cancel') || '取消'}
+          </Button>
+          <Button variant="accent" type="submit" disabled={busy || !upstream.trim()}>
+            {busy ? t('git.operations.settingUpstream') || '正在关联…' : t('git.operations.setUpstreamBtn') || '确认关联'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  )
+}

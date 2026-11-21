@@ -170,7 +170,7 @@ describe('branch context menu & config', () => {
 
       const soloItem = items.find((i) => i.key === 'solo-branch')
       expect(soloItem).toBeDefined()
-      expect(soloItem?.label).toBe('SOLO 分支')
+      expect(soloItem?.label).toBe('只看此分支')
       expect(soloItem?.checked).toBe(false)
 
       soloItem?.onSelect?.()
@@ -188,7 +188,7 @@ describe('branch context menu & config', () => {
 
       const activeSoloItem = activeItems.find((i) => i.key === 'solo-branch')
       expect(activeSoloItem).toBeDefined()
-      expect(activeSoloItem?.label).toBe('退出 SOLO')
+      expect(activeSoloItem?.label).toBe('取消只看')
       expect(activeSoloItem?.checked).toBe(true)
 
       activeSoloItem?.onSelect?.()

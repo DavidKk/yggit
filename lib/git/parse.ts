@@ -27,15 +27,33 @@ export function parseGitLog(raw: string): GitCommit[] {
     .filter((commit) => commit.hash.length > 0)
 }
 
-/** `git for-each-ref --format=%(refname:short)%00%(upstream:short)%00%(HEAD)%00%(objectname)` */
+/** `git for-each-ref --format=%(refname:short)%00%(upstream:short)%00%(HEAD)%00%(objectname)%00%(upstream:track,nobracket)` */
 export function parseGitBranches(raw: string): GitBranch[] {
   return raw
     .split('\n')
     .map((line) => line.trim())
     .filter(Boolean)
     .map((line) => {
-      const [name = '', upstream = '', head = '', tip = ''] = line.split('\0')
-      return { name, upstream, current: head === '*', tip }
+      const [name = '', upstream = '', head = '', tip = '', track = ''] = line.split('\0')
+      let ahead: number | undefined
+      let behind: number | undefined
+      let gone: boolean | undefined
+      if (track) {
+        const aheadMatch = track.match(/ahead (\d+)/)
+        if (aheadMatch) ahead = parseInt(aheadMatch[1], 10)
+        const behindMatch = track.match(/behind (\d+)/)
+        if (behindMatch) behind = parseInt(behindMatch[1], 10)
+        if (track.includes('gone')) gone = true
+      }
+      return {
+        name,
+        upstream,
+        current: head === '*',
+        tip,
+        ahead,
+        behind,
+        gone,
+      }
     })
     .filter((branch) => branch.name.length > 0)
 }

@@ -239,7 +239,7 @@ function PlainLines({
             {blame && (
               <span
                 className={cn(
-                  'ml-auto pl-6 pr-3 text-[11px] text-ink-soft/75 select-none font-sans shrink-0 pointer-events-none truncate italic transition-opacity duration-150',
+                  'ml-6 pl-1 pr-3 text-[11px] text-ink-soft/75 select-none font-sans shrink-0 pointer-events-none truncate italic transition-opacity duration-150',
                   isHovered ? 'opacity-100' : 'opacity-0 group-hover/coderow:opacity-100'
                 )}
                 title={`${blame.author} (${blame.hash.slice(0, 7)}): ${blame.summary}`}
@@ -304,7 +304,7 @@ export function GitHighlightedCode({ content, path, searchNeedle, activeIndex, b
             {blame && (
               <span
                 className={cn(
-                  'ml-auto pl-6 pr-3 text-[11px] text-ink-soft/75 select-none font-sans shrink-0 pointer-events-none truncate italic transition-opacity duration-150',
+                  'ml-6 pl-1 pr-3 text-[11px] text-ink-soft/75 select-none font-sans shrink-0 pointer-events-none truncate italic transition-opacity duration-150',
                   isHovered ? 'opacity-100' : 'opacity-0 group-hover/coderow:opacity-100'
                 )}
                 title={`${blame.author} (${blame.hash.slice(0, 7)}): ${blame.summary}`}

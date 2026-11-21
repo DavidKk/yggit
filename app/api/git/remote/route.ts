@@ -1,7 +1,7 @@
 import { defineApiRoute } from '@/initializer/controller'
 import { apiBadRequest } from '@/initializer/response'
 import { getProjectRemotes } from '@/services/git/projects'
-import { gitAddRemote, gitGetRemoteUrl, gitRemoveRemote, gitRenameRemote, gitSetRemoteUrl } from '@/services/git/remotes'
+import { gitAddRemote, gitGetRemoteUrl, gitRemoveRemote, gitRenameRemote, gitSetRemoteUrl, gitSetUpstream } from '@/services/git/remotes'
 
 export const runtime = 'nodejs'
 
@@ -25,8 +25,11 @@ export const POST = defineApiRoute('post:/api/git/remote', async ({ request }) =
     action?: unknown
     remote?: unknown
     url?: unknown
+    pushUrl?: unknown
     newName?: unknown
     name?: unknown
+    branch?: unknown
+    upstream?: unknown
   } | null
 
   const repo = String(body?.repo || '').trim()
@@ -53,8 +56,15 @@ export const POST = defineApiRoute('post:/api/git/remote', async ({ request }) =
     if (action === 'add') {
       const name = String(body?.name || remote).trim()
       const url = String(body?.url || '').trim()
+      const pushUrl = String(body?.pushUrl || '').trim()
       if (!name || !url) return apiBadRequest('缺少远程源名称或 URL')
-      return await gitAddRemote(repo, name, url)
+      return await gitAddRemote(repo, name, url, pushUrl)
+    }
+    if (action === 'setUpstream') {
+      const branch = String(body?.branch || '').trim()
+      const upstream = String(body?.upstream || '').trim()
+      if (!branch || !upstream) return apiBadRequest('缺少本地分支或上游分支名')
+      return await gitSetUpstream(repo, branch, upstream)
     }
     return apiBadRequest(`未知的远程源操作: ${action}`)
   } catch (error) {

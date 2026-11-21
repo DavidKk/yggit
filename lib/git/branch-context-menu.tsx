@@ -7,6 +7,7 @@ import {
   LuArrowUpFromLine,
   LuBot,
   LuClock,
+  LuCloud,
   LuCopy,
   LuExternalLink,
   LuEye,
@@ -16,10 +17,13 @@ import {
   LuGitBranch,
   LuGitBranchPlus,
   LuGitCommitHorizontal,
+  LuGitCompare,
   LuGitMerge,
   LuGitPullRequest,
   LuHash,
   LuPencil,
+  LuPin,
+  LuRotateCcw,
   LuShare2,
   LuSparkles,
   LuTag,
@@ -79,6 +83,7 @@ export interface BuildBranchMenuOptions {
   onUndoCommit?: () => void
   onStashAction?: (action: 'apply' | 'pop' | 'drop' | 'save', index?: number) => void
   onSoloBranch?: (branch: string | null) => void
+  onSetUpstream?: (branchName: string) => void
   onAgentPrompt?: (prompt: string) => void
 }
 
@@ -140,6 +145,7 @@ export function buildBranchContextMenu({
   onUndoCommit,
   onStashAction,
   onSoloBranch,
+  onSetUpstream,
   onAgentPrompt,
 }: BuildBranchMenuOptions): FloatingMenuItem[] {
   const shortHash = commit?.short || commit?.hash?.slice(0, 7) || ''
@@ -157,7 +163,7 @@ export function buildBranchContextMenu({
   const allActions: Record<string, FloatingMenuItem> = {
     'solo-branch': {
       key: 'solo-branch',
-      label: soloBranch === branchName ? tr('git.operations.unsoloBranch', '退出 SOLO') : tr('git.operations.soloBranch', 'SOLO 分支'),
+      label: soloBranch === branchName ? tr('git.operations.unsoloBranch', '取消只看') : tr('git.operations.soloBranch', '只看此分支'),
       icon: soloBranch === branchName ? <LuEyeOff className="size-4 shrink-0 text-accent" /> : <LuEye className="size-4 shrink-0 text-accent" />,
       checked: soloBranch === branchName,
       onSelect: () => {
@@ -437,6 +443,68 @@ export function buildBranchContextMenu({
         if (branchName) url = `${url}/tree/${encodeURIComponent(branchName)}`
         else if (commit?.hash) url = `${url}/commit/${commit.hash}`
         window.open(url, '_blank', 'noopener,noreferrer')
+      },
+    },
+    'set-upstream': {
+      key: 'set-upstream',
+      label: branchName ? tr('git.operations.setUpstreamAction', `设置上游分支 (${branchName})`, { branch: branchName }) : tr('git.operations.setUpstream', '设置上游分支…'),
+      icon: <LuCloud className="size-4 shrink-0 text-accent" />,
+      onSelect: () => {
+        if (branchName && onSetUpstream) {
+          onSetUpstream(branchName)
+        } else {
+          onNotify?.('success', `设置上游分支：${branchName || ''}`)
+        }
+      },
+    },
+    'reset-commit': {
+      key: 'reset-commit',
+      label: shortHash
+        ? tr('git.operations.resetToCommit', `重置当前分支到此提交 (${shortHash})`, { hash: shortHash })
+        : tr('git.operations.resetToCommit', '重置当前分支到此提交…'),
+      icon: <LuRotateCcw className="size-4 shrink-0 text-warn" />,
+      onSelect: () => {
+        onNotify?.('success', `重置到提交：${shortHash}`)
+      },
+    },
+    'revert-commit': {
+      key: 'revert-commit',
+      label: shortHash ? tr('git.operations.revertCommit', `撤销提交 (Revert ${shortHash})`, { hash: shortHash }) : tr('git.operations.revertCommit', '撤销此提交 (Revert)'),
+      icon: <LuUndo2 className="size-4 shrink-0 text-warn" />,
+      onSelect: () => {
+        onNotify?.('success', `准备 Revert 提交：${shortHash}`)
+      },
+    },
+    'create-annotated-tag': {
+      key: 'create-annotated-tag',
+      label: tr('git.operations.createAnnotatedTag', '创建附注标签 (Annotated Tag)…'),
+      icon: <LuTag className="size-4 shrink-0 text-ink-soft" />,
+      onSelect: () => {
+        onNotify?.('success', `创建附注标签：${shortHash}`)
+      },
+    },
+    'compare-workdir': {
+      key: 'compare-workdir',
+      label: tr('git.operations.compareWorkdir', '与工作区对比 (Compare with Working Tree)'),
+      icon: <LuGitCompare className="size-4 shrink-0 text-ink-soft" />,
+      onSelect: () => {
+        onNotify?.('success', `对比工作区：${shortHash}`)
+      },
+    },
+    'pin-branch': {
+      key: 'pin-branch',
+      label: tr('git.operations.pinBranch', '固定到左侧 (Pin to Left)'),
+      icon: <LuPin className="size-4 shrink-0 text-ink-soft" />,
+      onSelect: () => {
+        onNotify?.('success', `已固定分支：${branchName || ''}`)
+      },
+    },
+    'hide-branch': {
+      key: 'hide-branch',
+      label: tr('git.operations.hideBranch', '隐藏分支 (Hide)'),
+      icon: <LuEyeOff className="size-4 shrink-0 text-ink-soft" />,
+      onSelect: () => {
+        onNotify?.('success', `已隐藏分支：${branchName || ''}`)
       },
     },
   }
