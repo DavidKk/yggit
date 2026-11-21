@@ -126,12 +126,16 @@ const GraphDefs = memo(function GraphDefs({
   points,
   commitRow,
   remoteNames,
+  checkedOut,
+  headIndex,
 }: {
   strokes: Stroke[]
   commits: GitCommit[]
   points: ReturnType<typeof graphScene>['points']
   commitRow: number[]
   remoteNames: string[]
+  checkedOut?: Set<string>
+  headIndex?: number | null
 }) {
   return (
     <defs>
@@ -165,12 +169,12 @@ const GraphDefs = memo(function GraphDefs({
         const isMerge = commit.parents.length > 1
         const x = xAt(point.lane) - (isMerge ? MERGE_NODE_DOT : NODE_DOT) / 2
         if (x <= 0) return null
-        const isHead = chips.some((chip) => chip.kind === 'head')
+        const isHead = chips.some((chip) => chip.kind === 'head' || (checkedOut && checkedOut.has(chip.name))) || (chips.length > 0 && index === headIndex)
         const color = laneColor(point.color)
         return (
           <linearGradient key={`lead-grad-${commit.hash}`} id={`wt-lead-${commit.hash}`} gradientUnits="userSpaceOnUse" x1={0} y1={y} x2={x} y2={y}>
-            <stop offset="0%" stopColor={color} stopOpacity={isHead ? 0.35 : 0.08} />
-            <stop offset="100%" stopColor={color} stopOpacity={isHead ? 1 : 0.65} />
+            <stop offset="0%" stopColor={color} stopOpacity={isHead ? 0.35 : 0.15} />
+            <stop offset="100%" stopColor={color} stopOpacity={isHead ? 1 : 0.75} />
           </linearGradient>
         )
       })}
@@ -1121,7 +1125,15 @@ function GitGraphComponent({
           >
             <div className="relative" style={{ width: contentWidth, height: scene.height + 24 }}>
               <svg className="pointer-events-none absolute inset-0 overflow-visible" width={contentWidth} height={scene.height + 24} aria-hidden>
-                <GraphDefs strokes={scene.strokes} commits={commits} points={points} commitRow={scene.commitRow} remoteNames={remoteNames} />
+                <GraphDefs
+                  strokes={scene.strokes}
+                  commits={commits}
+                  points={points}
+                  commitRow={scene.commitRow}
+                  remoteNames={remoteNames}
+                  checkedOut={checkedOut}
+                  headIndex={headIndex}
+                />
                 <GraphStrokes strokes={scene.strokes} lineageHashes={lineageHashes} spotlightHashes={spotlightHashes} />
                 {commits.map((commit, index) => {
                   const chips = refChips(commit.refs, remoteNames)
@@ -1135,7 +1147,7 @@ function GitGraphComponent({
                   const isMerge = commit.parents.length > 1
                   const x = xAt(point.lane) - (isMerge ? MERGE_NODE_DOT : NODE_DOT) / 2
                   if (x <= 0) return null
-                  const isHead = chips.some((chip) => chip.kind === 'head')
+                  const isHead = chips.some((chip) => chip.kind === 'head' || checkedOut.has(chip.name)) || (chips.length > 0 && index === headIndex)
                   const color = laneColor(point.color)
                   return (
                     <line
@@ -1145,9 +1157,8 @@ function GitGraphComponent({
                       x2={x}
                       y2={y}
                       stroke={chips.length > 0 ? `url(#wt-lead-${commit.hash})` : color}
-                      strokeWidth={isHead ? 2 : 1.5}
-                      strokeDasharray={isHead ? undefined : '2 3'}
-                      strokeOpacity={chips.length > 0 ? 1 : 0.65}
+                      strokeWidth={isHead ? 2 : 1}
+                      strokeOpacity={chips.length > 0 ? (isHead ? 1 : 0.45) : isHead ? 0.85 : 0.3}
                       strokeLinecap="round"
                     />
                   )
