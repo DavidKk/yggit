@@ -27,6 +27,8 @@ Welcome to the Yggit documentation repository. Yggit is a high-performance, orga
 - [Yggit Workdesk Virtual Teammate PRD](prd/yggit-workdesk-virtual-teammate.md) - Product requirements for the local-first Git virtual teammate, 4-category adaptive board, aggregated work cards, and deep Git evidence linking.
 - [Yggit Workdesk UX Specification](ux/yggit-workdesk-ux.md) - Interaction and visual design specifications for the 4-column adaptive board, compact task cards, split-pane evidence viewer, and bottom Agent pill integration.
 - [Yggit Workdesk Technical Architecture](technical/yggit-workdesk-architecture.md) - Technical specification for the dual-mode deterministic detection pipeline, 4-tier domain models, fingerprint deduplication, and Portable Check sharing protocol.
+- [Smart Project Categorization & Governance PRD](prd/yggit-project-categorization-and-governance.md) - Product requirements for automated detection of bloated project folders, Agent-driven architecture-aware categorization, and safe batch grouping execution.
+- [Smart Project Categorization & Governance Technical Architecture](technical/yggit-project-categorization-and-governance.md) - Technical specification for the organization hygiene detector, four-tier taxonomy pipeline, project-organizer Agent Skill, and dual-mode transactional catalog updates.
 
 - [Theme Persistence & Hydration](technical/theme-hydration.md) - Cookie preference, system theme resolution, and consistent SSR/client initialization.
 
