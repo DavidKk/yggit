@@ -3,8 +3,8 @@
 import React from 'react'
 
 import { WorkspaceHeaderSlot } from '@/components/layout/WorkspaceHeaderContext'
+import { WorkdeskBoard } from '@/components/workdesk/WorkdeskBoard'
 import { WorkdeskHeaderSwitcher } from '@/components/workdesk/WorkdeskHeaderSwitcher'
-import { WorkdeskTaskDetailView } from '@/components/workdesk/WorkdeskTaskDetailView'
 
 interface Props {
   params: Promise<{ taskId: string }>
@@ -19,7 +19,7 @@ export default function WorkdeskTaskPage({ params }: Props) {
         <WorkdeskHeaderSwitcher />
       </WorkspaceHeaderSlot>
       <div className="flex h-full w-full min-h-0 flex-1 flex-col overflow-hidden bg-paper select-text">
-        <WorkdeskTaskDetailView taskId={decodeURIComponent(taskId)} />
+        <WorkdeskBoard initialActiveTaskId={decodeURIComponent(taskId)} />
       </div>
     </>
   )

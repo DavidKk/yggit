@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { LuChevronUp, LuCircleCheck, LuFlag, LuGitBranch, LuGitMerge, LuUndo2 } from 'react-icons/lu'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { LuChevronRight, LuChevronUp, LuCircleCheck, LuFlag, LuGitBranch, LuGitMerge, LuUndo2 } from 'react-icons/lu'
 
 import { useT } from '@/components/i18n/LocaleProvider'
 import type { MessageKey } from '@/lib/i18n'
@@ -52,20 +52,6 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
   const [draggingCardId, setDraggingCardId] = useState<string | null>(null)
   const [dragOverLaneId, setDragOverLaneId] = useState<string | null>(null)
 
-  // Listen to popstate for browser back/forward navigation
-  useEffect(() => {
-    const handlePopState = () => {
-      const match = window.location.pathname.match(/\/workdesk\/tasks\/([^/]+)/)
-      if (match) {
-        setActiveTaskId(decodeURIComponent(match[1]))
-      } else {
-        setActiveTaskId(null)
-      }
-    }
-    window.addEventListener('popstate', handlePopState)
-    return () => window.removeEventListener('popstate', handlePopState)
-  }, [])
-
   const handleSelectCard = (cardId: string, element?: HTMLElement) => {
     if (element && containerRef.current) {
       const containerRect = containerRef.current.getBoundingClientRect()
@@ -110,8 +96,22 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
     }
   }
 
-  const handleCollapseCard = () => {
-    const originRect = activeTaskId ? cardOriginMapRef.current[activeTaskId] : null
+  const handleCollapseCard = useCallback(() => {
+    let originRect = activeTaskId ? cardOriginMapRef.current[activeTaskId] : null
+    if (!originRect && activeTaskId && containerRef.current) {
+      const cardEl = containerRef.current.querySelector<HTMLElement>(`[data-testid="workdesk-card-wrapper-${activeTaskId}"]`)
+      if (cardEl) {
+        const cRect = containerRef.current.getBoundingClientRect()
+        const elRect = cardEl.getBoundingClientRect()
+        originRect = {
+          left: elRect.left - cRect.left,
+          top: elRect.top - cRect.top,
+          width: elRect.width,
+          height: elRect.height,
+        }
+      }
+    }
+
     if (originRect && activeTaskId) {
       const cardId = activeTaskId
       setTransition({
@@ -119,7 +119,6 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
         startRect: originRect,
         phase: 'collapsing-start',
       })
-      setActiveTaskId(null)
 
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -128,6 +127,7 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
       })
 
       setTimeout(() => {
+        setActiveTaskId(null)
         setTransition(null)
         if (typeof window !== 'undefined') {
           window.history.pushState(null, '', '/git')
@@ -140,7 +140,21 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
     if (typeof window !== 'undefined') {
       window.history.pushState(null, '', '/git')
     }
-  }
+  }, [activeTaskId])
+
+  // Listen to popstate for browser back/forward navigation
+  useEffect(() => {
+    const handlePopState = () => {
+      const match = window.location.pathname.match(/\/workdesk\/tasks\/([^/]+)/)
+      if (match) {
+        setActiveTaskId(decodeURIComponent(match[1]))
+      } else {
+        handleCollapseCard()
+      }
+    }
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [handleCollapseCard])
 
   // Card Drag-and-Drop between lanes
   const handleCardDragStart = (e: React.DragEvent, cardId: string) => {
@@ -227,26 +241,26 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
     {
       id: 'branch',
       titleKey: 'branch',
-      icon: <LuGitBranch className="size-3.5 text-[#079b85]" aria-hidden="true" />,
-      badgeColor: 'text-[#079b85]',
+      icon: <LuGitBranch className="size-3.5 text-ink-muted" aria-hidden="true" />,
+      badgeColor: 'text-ink-muted',
     },
     {
       id: 'merge',
       titleKey: 'merge',
-      icon: <LuGitMerge className="size-3.5 text-[#5878aa]" aria-hidden="true" />,
-      badgeColor: 'text-[#5878aa]',
+      icon: <LuGitMerge className="size-3.5 text-ink-muted" aria-hidden="true" />,
+      badgeColor: 'text-ink-muted',
     },
     {
       id: 'standard',
       titleKey: 'standard',
-      icon: <LuFlag className="size-3.5 text-[#a6751c]" aria-hidden="true" />,
-      badgeColor: 'text-[#a6751c]',
+      icon: <LuFlag className="size-3.5 text-ink-muted" aria-hidden="true" />,
+      badgeColor: 'text-ink-muted',
     },
     {
       id: 'review',
       titleKey: 'review',
-      icon: <LuCircleCheck className="size-3.5 text-[#4a8e7e]" aria-hidden="true" />,
-      badgeColor: 'text-[#4a8e7e]',
+      icon: <LuCircleCheck className="size-3.5 text-ink-muted" aria-hidden="true" />,
+      badgeColor: 'text-ink-muted',
     },
   ]
 
@@ -279,110 +293,126 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
               className="pointer-events-none flex min-h-[58px] items-center justify-between gap-3 rounded-xl border border-line bg-panel p-2.5 shadow-md dark:border-line dark:bg-panel"
             >
               <div className="flex min-w-0 flex-1 items-center gap-2.5">
-                <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-[#eef5f2] dark:bg-emerald-950/40">{resolveCardIcon(c.iconName, c.categoryId)}</div>
+                <div className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-line/60 bg-panel-2/90 dark:bg-panel-2/60">
+                  {resolveCardIcon(c.iconName, c.categoryId)}
+                </div>
                 <div className="flex min-w-0 flex-1 flex-col justify-center text-left">
                   <span className="line-clamp-2 text-xs font-semibold leading-tight text-ink">{title}</span>
                   <span className="mt-0.5 text-[11px] leading-none text-ink-muted">{c.scope}</span>
                 </div>
               </div>
               <div className="flex shrink-0 items-center text-ink-soft">
-                <LuChevronUp className="size-3.5" aria-hidden="true" />
+                {isTarget ? <LuChevronUp className="size-3.5" aria-hidden="true" /> : <LuChevronRight className="size-3.5" aria-hidden="true" />}
               </div>
             </div>
           )
         })()}
 
-      {/* Expanded Detail View */}
-      {activeTaskId && !transition && (
-        <div className="relative flex min-h-0 flex-1 overflow-hidden">
-          <WorkdeskTaskDetailView taskId={activeTaskId} initialCard={activeCard} initialItems={Object.values(itemsMap)} onCollapse={handleCollapseCard} />
-        </div>
-      )}
+      {/* 4-Lane Board (Positioned as absolute inset-0 underneath so layout never jumps) */}
+      <div
+        className={cn(
+          'absolute inset-0 flex flex-col overflow-y-auto px-4 pt-4 pb-20 sm:px-6 sm:pb-24 lg:px-8 lg:pb-24 transition-opacity duration-200',
+          activeTaskId && (!transition || transition.phase === 'collapsing-start') ? 'pointer-events-none opacity-0 invisible' : 'opacity-100 visible',
+          transition?.phase === 'moving' && 'pointer-events-none opacity-0',
+          transition?.phase === 'lifting' && 'pointer-events-none opacity-40',
+          transition?.phase === 'collapsing' && 'opacity-100',
+          !activeTaskId && !transition && 'opacity-100'
+        )}
+      >
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:gap-4">
+          {lanes.map((lane) => {
+            const laneCards = visibleCards.filter((c) => c.categoryId === lane.id)
+            const laneTitle = t(`workdesk.lane.${lane.titleKey}`)
+            const totalTasks = laneCards.reduce((acc, c) => acc + (c.itemIds?.length ?? 1), 0)
+            const displayBadge = totalTasks > 99 ? '99+' : totalTasks
 
-      {/* 4-Lane Board (Hidden or fading out when activeTaskId or during transition) */}
-      {!activeTaskId && (
-        <div
-          className={cn(
-            'relative flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pt-4 pb-20 sm:px-6 sm:pb-24 lg:px-8 lg:pb-24 transition-all duration-200',
-            transition && 'pointer-events-none scale-[0.98] opacity-0'
-          )}
-        >
-          <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:gap-4">
-            {lanes.map((lane) => {
-              const laneCards = visibleCards.filter((c) => c.categoryId === lane.id)
-              const laneTitle = t(`workdesk.lane.${lane.titleKey}`)
-              const totalTasks = laneCards.reduce((acc, c) => acc + (c.itemIds?.length ?? 1), 0)
-              const displayBadge = totalTasks > 99 ? '99+' : totalTasks
-
-              return (
-                <div
-                  key={lane.id}
-                  onDragOver={(e) => handleLaneDragOver(e, lane.id)}
-                  onDragLeave={handleLaneDragLeave}
-                  onDrop={(e) => handleLaneDrop(e, lane.id)}
-                  className={cn(
-                    'flex min-h-[160px] flex-col rounded-xl border border-line/60 bg-panel-2/40 p-2.5 transition-all duration-150 dark:bg-panel-2/20',
-                    dragOverLaneId === lane.id && 'ring-2 ring-accent/40 bg-accent/5 border-accent/60'
-                  )}
-                >
-                  {/* Lane Header */}
-                  <div className="mb-2.5 flex items-center justify-between px-1">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      {lane.icon}
-                      <span className="text-xs font-bold text-ink">{laneTitle}</span>
-                      <span
-                        className={cn(
-                          'inline-flex min-w-[20px] items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none transition-colors border',
-                          totalTasks > 0
-                            ? 'border-accent/30 bg-accent/10 text-accent dark:border-emerald-700/50 dark:bg-emerald-950/50 dark:text-emerald-400'
-                            : 'border-line/60 bg-panel-2 text-ink-muted'
-                        )}
-                        title={`共有 ${totalTasks} 项待处理工作`}
-                        aria-label={`${laneTitle}: ${displayBadge}`}
-                      >
-                        {displayBadge}
-                      </span>
-                    </div>
+            return (
+              <div
+                key={lane.id}
+                onDragOver={(e) => handleLaneDragOver(e, lane.id)}
+                onDragLeave={handleLaneDragLeave}
+                onDrop={(e) => handleLaneDrop(e, lane.id)}
+                className={cn(
+                  'flex min-h-[160px] flex-col rounded-xl border border-line/60 bg-panel-2/40 p-2.5 transition-all duration-150 dark:bg-panel-2/20',
+                  dragOverLaneId === lane.id && 'ring-2 ring-accent/40 bg-accent/5 border-accent/60'
+                )}
+              >
+                {/* Lane Header */}
+                <div className="mb-2.5 flex items-center justify-between px-1">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    {lane.icon}
+                    <span className="text-xs font-bold text-ink">{laneTitle}</span>
+                    <span
+                      className={cn(
+                        'inline-flex min-w-[20px] items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none transition-colors border',
+                        totalTasks > 0
+                          ? 'border-line/70 bg-panel-2 text-ink-muted dark:border-line/50 dark:bg-panel-2 dark:text-ink-muted'
+                          : 'border-line/40 bg-panel-2/50 text-ink-soft'
+                      )}
+                      title={`共有 ${totalTasks} 项待处理工作`}
+                      aria-label={`${laneTitle}: ${displayBadge}`}
+                    >
+                      {displayBadge}
+                    </span>
                   </div>
+                </div>
 
-                  {/* Cards List in Lane */}
-                  <div className="flex flex-1 flex-col gap-2">
-                    {laneCards.length > 0 ? (
-                      laneCards.map((card) => (
+                {/* Cards List in Lane */}
+                <div className="flex flex-1 flex-col gap-2">
+                  {laneCards.length > 0 ? (
+                    laneCards.map((card) => {
+                      const isTransitioning = transition?.cardId === card.id
+                      return (
                         <div
                           key={card.id}
                           draggable={!transition}
                           onDragStart={(e) => handleCardDragStart(e, card.id)}
                           onDragEnd={handleCardDragEnd}
-                          className={cn('transition-all duration-150', draggingCardId === card.id ? 'opacity-40 scale-[0.98] cursor-grabbing' : 'cursor-grab')}
+                          className={cn(
+                            'transition-all duration-150',
+                            draggingCardId === card.id ? 'opacity-40 scale-[0.98] cursor-grabbing' : 'cursor-grab',
+                            isTransitioning && 'invisible'
+                          )}
                         >
                           <WorkdeskCard key={card.id} card={card} onSelect={handleSelectCard} />
                         </div>
-                      ))
-                    ) : (
-                      <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-line/40 py-6 text-center">
-                        <span className="text-[11px] text-ink-soft">无待办任务</span>
-                      </div>
-                    )}
-                  </div>
+                      )
+                    })
+                  ) : (
+                    <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-line/40 py-6 text-center">
+                      <span className="text-[11px] text-ink-soft">无待办任务</span>
+                    </div>
+                  )}
                 </div>
-              )
-            })}
-          </div>
+              </div>
+            )
+          })}
+        </div>
 
-          {/* Undo Toast for dismissed cards */}
-          {undoToast && (
-            <div className="fixed bottom-20 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-full border border-line bg-panel px-4 py-2 shadow-lg">
-              <span className="text-xs text-ink">{t('workdesk.status.dismissed')}</span>
-              <button
-                onClick={() => handleUndoDismiss(undoToast.cardId)}
-                className="flex items-center gap-1 text-xs font-semibold text-accent hover:underline focus-visible:outline-hidden"
-              >
-                <LuUndo2 className="size-3.5" aria-hidden="true" />
-                {t('workdesk.action.undoDismiss')}
-              </button>
-            </div>
+        {/* Undo Toast for dismissed cards */}
+        {undoToast && (
+          <div className="fixed bottom-20 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-full border border-line bg-panel px-4 py-2 shadow-lg">
+            <span className="text-xs text-ink">{t('workdesk.status.dismissed')}</span>
+            <button
+              onClick={() => handleUndoDismiss(undoToast.cardId)}
+              className="flex items-center gap-1 text-xs font-semibold text-accent hover:underline focus-visible:outline-hidden"
+            >
+              <LuUndo2 className="size-3.5" aria-hidden="true" />
+              {t('workdesk.action.undoDismiss')}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Expanded Detail View (Absolute inset-0 on top of the board) */}
+      {activeTaskId && (
+        <div
+          className={cn(
+            'absolute inset-0 flex flex-col overflow-hidden bg-paper z-20 transition-opacity duration-200',
+            transition?.phase === 'collapsing' ? 'pointer-events-none opacity-0' : 'opacity-100'
           )}
+        >
+          <WorkdeskTaskDetailView taskId={activeTaskId} initialCard={activeCard} initialItems={Object.values(itemsMap)} onCollapse={handleCollapseCard} />
         </div>
       )}
     </div>

@@ -26,25 +26,25 @@ export const CARD_I18N_MAP: Record<string, string> = {
 }
 
 export function resolveCardIcon(iconName: string, categoryId: string) {
-  const iconClass = 'size-4 shrink-0'
-  if (iconName === 'LuRefreshCw') return <LuRefreshCw className={cn(iconClass, 'text-[#079b85]')} />
-  if (iconName === 'LuGitFork') return <LuGitFork className={cn(iconClass, 'text-[#079b85]')} />
-  if (iconName === 'LuGitMerge') return <LuGitMerge className={cn(iconClass, 'text-[#5878aa]')} />
-  if (iconName === 'LuFlag') return <LuFlag className={cn(iconClass, 'text-[#a6751c]')} />
-  if (iconName === 'LuFolderTree') return <LuFolderTree className={cn(iconClass, 'text-[#a6751c]')} />
-  if (iconName === 'LuCheckCircle' || iconName === 'LuCircleCheck') return <LuCircleCheck className={cn(iconClass, 'text-[#4a8e7e]')} />
+  const iconClass = 'size-4 shrink-0 text-accent/80 transition-colors group-hover:text-accent dark:text-accent/90'
+  if (iconName === 'LuRefreshCw') return <LuRefreshCw className={iconClass} />
+  if (iconName === 'LuGitFork') return <LuGitFork className={iconClass} />
+  if (iconName === 'LuGitMerge') return <LuGitMerge className={iconClass} />
+  if (iconName === 'LuFlag') return <LuFlag className={iconClass} />
+  if (iconName === 'LuFolderTree') return <LuFolderTree className={iconClass} />
+  if (iconName === 'LuCheckCircle' || iconName === 'LuCircleCheck') return <LuCircleCheck className={iconClass} />
 
   switch (categoryId) {
     case 'branch':
-      return <LuGitBranch className={cn(iconClass, 'text-[#079b85]')} />
+      return <LuGitBranch className={iconClass} />
     case 'merge':
-      return <LuGitMerge className={cn(iconClass, 'text-[#5878aa]')} />
+      return <LuGitMerge className={iconClass} />
     case 'standard':
-      return <LuFlag className={cn(iconClass, 'text-[#a6751c]')} />
+      return <LuFlag className={iconClass} />
     case 'review':
-      return <LuCircleCheck className={cn(iconClass, 'text-[#4a8e7e]')} />
+      return <LuCircleCheck className={iconClass} />
     default:
-      return <LuGitBranch className={cn(iconClass, 'text-accent')} />
+      return <LuGitBranch className={iconClass} />
   }
 }
 
@@ -115,8 +115,8 @@ export function WorkdeskCard({ card, className, noWrapperMargin = false, onSelec
           {/* Capsule icon container */}
           <div
             className={cn(
-              'flex size-7 shrink-0 items-center justify-center rounded-lg bg-[#eef5f2] transition-colors',
-              'group-hover:bg-[#e2f1ec] dark:bg-emerald-950/40 dark:group-hover:bg-emerald-900/50'
+              'flex size-7 shrink-0 items-center justify-center rounded-lg border border-line/60 bg-panel-2/90 transition-colors',
+              'group-hover:border-accent/30 group-hover:bg-accent/10 dark:bg-panel-2/60 dark:group-hover:bg-emerald-950/40'
             )}
             aria-hidden="true"
           >

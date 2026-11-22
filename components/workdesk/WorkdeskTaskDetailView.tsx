@@ -361,8 +361,8 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
               <div className="flex min-w-0 flex-1 items-center gap-2.5">
                 <div
                   className={cn(
-                    'flex size-7 shrink-0 items-center justify-center rounded-lg bg-[#eef5f2] transition-colors',
-                    'group-hover:bg-[#e2f1ec] dark:bg-emerald-950/40 dark:group-hover:bg-emerald-900/50'
+                    'flex size-7 shrink-0 items-center justify-center rounded-lg border border-line/60 bg-panel-2/90 transition-colors',
+                    'group-hover:border-accent/30 group-hover:bg-accent/10 dark:bg-panel-2/60 dark:group-hover:bg-emerald-950/40'
                   )}
                   aria-hidden="true"
                 >
