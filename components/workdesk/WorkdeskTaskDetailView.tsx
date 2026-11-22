@@ -143,7 +143,7 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
     return (
       <div className="flex flex-1 flex-col items-center justify-center p-8 text-center">
         <p className="text-sm text-ink-muted">未找到该工作任务或任务已失效</p>
-        <Link href="/workdesk" className="mt-4">
+        <Link href="/git" className="mt-4">
           <Button size="sm">
             <LuArrowLeft className="mr-1.5 size-3.5" aria-hidden="true" />
             {t('workdesk.action.back')}
@@ -185,7 +185,7 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
     <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
       {/* Topline Navigation */}
       <div className="flex h-11 shrink-0 items-center justify-between border-b border-line bg-panel px-4">
-        <Link href="/workdesk" className="flex items-center gap-1.5 text-xs font-medium text-ink hover:text-accent focus-visible:outline-hidden">
+        <Link href="/git" className="flex items-center gap-1.5 text-xs font-medium text-ink hover:text-accent focus-visible:outline-hidden">
           <LuArrowLeft className="size-3.5" aria-hidden="true" />
           <span>{t('workdesk.action.back')}</span>
         </Link>

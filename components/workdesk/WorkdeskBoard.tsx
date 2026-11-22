@@ -100,7 +100,7 @@ export function WorkdeskBoard({ initialCards = [] }: WorkdeskBoardProps) {
   ]
 
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-4 sm:px-6 lg:px-8">
+    <div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pt-4 pb-20 sm:px-6 sm:pb-24 lg:px-8 lg:pb-24">
       {/* 4-Lane Adaptive Board */}
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:gap-4">
         {lanes.map((lane) => {

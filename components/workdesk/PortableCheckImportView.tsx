@@ -94,7 +94,7 @@ export function PortableCheckImportView() {
       {/* Top Header */}
       <div className="mb-6 flex items-center justify-between border-b border-line pb-4">
         <div className="flex items-center gap-3">
-          <Link href="/workdesk">
+          <Link href="/git">
             <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
               <LuArrowLeft className="size-4" aria-hidden="true" />
             </Button>

@@ -28,7 +28,7 @@ export function WorkspaceHeader() {
     }
   }, [pathname])
 
-  const homeHref = pathname.startsWith('/workdesk') ? '/workdesk' : pathname.startsWith('/git') ? '/git' : isSettings ? getLastGitUrl() : '/'
+  const homeHref = pathname.startsWith('/git') || pathname.startsWith('/workdesk') ? '/git' : isSettings ? getLastGitUrl() : '/'
 
   return (
     <header className="flex h-11 shrink-0 items-center gap-3 border-b border-line bg-panel-2/60 px-3 py-1.5">

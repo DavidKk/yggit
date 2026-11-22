@@ -3,6 +3,7 @@
 import { type DragEvent, type RefObject, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { AiOutlineCloudSync } from 'react-icons/ai'
 import {
+  LuCheck,
   LuChevronDown,
   LuChevronRight,
   LuClock3,
@@ -10,6 +11,7 @@ import {
   LuCloudOff,
   LuCopy,
   LuExternalLink,
+  LuFlag,
   LuFolder,
   LuFolderGit2,
   LuGithub,
@@ -863,6 +865,29 @@ export function GitProjectMenu({
           />
         </div>
       </div>
+      {/* 工作台入口 (Workdesk Entry) */}
+      {!query && (
+        <div className="border-b border-line p-1">
+          <button
+            type="button"
+            data-workdesk-entry="true"
+            onClick={() => {
+              onClose()
+              onOpen('')
+            }}
+            className={cn(
+              'flex h-8 w-full items-center justify-between rounded-lg px-2.5 text-xs font-semibold transition-colors cursor-pointer',
+              !currentPath ? 'bg-emerald-500/10 text-accent dark:bg-emerald-950/40' : 'text-ink hover:bg-panel-2'
+            )}
+          >
+            <div className="flex items-center gap-2">
+              <LuFlag className="size-3.5 text-accent" aria-hidden="true" />
+              <span>{t('workdesk.topbarTitle') || '工作台'}</span>
+            </div>
+            {!currentPath && <LuCheck className="size-3.5 text-accent" aria-hidden="true" />}
+          </button>
+        </div>
+      )}
       {parsedRemoteInput ? (
         <div className="border-b border-line bg-[color-mix(in_oklab,var(--accent)_12%,transparent)] p-1.5">
           <Button
