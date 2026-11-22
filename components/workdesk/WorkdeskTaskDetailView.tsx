@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   LuArrowLeft,
   LuChevronUp,
@@ -136,12 +136,58 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
     }
   }, [card, activeItem])
 
-  const handleSelectItem = (itemId: string) => {
-    setActiveItemId(itemId)
-    router.replace(`/workdesk/tasks/${encodeURIComponent(taskId)}/items/${encodeURIComponent(itemId)}`, {
-      scroll: false,
+  // Cascade card dealing animation on initial open
+  const [isDealing, setIsDealing] = useState(true)
+  const [isGathering, setIsGathering] = useState(false)
+  const [draggingItemId, setDraggingItemId] = useState<string | null>(null)
+  const [dragOverItemId, setDragOverItemId] = useState<string | null>(null)
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsDealing(false)
+    }, 450)
+    return () => clearTimeout(timer)
+  }, [])
+
+  // Listen to popstate for browser back/forward item navigation
+  useEffect(() => {
+    const handlePopState = () => {
+      const match = window.location.pathname.match(/\/workdesk\/tasks\/[^/]+\/items\/([^/]+)/)
+      if (match) {
+        setActiveItemId(decodeURIComponent(match[1]))
+      }
+    }
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
+
+  // Switch item smoothly without triggering Next.js route reload or remounting layout
+  const handleSelectItem = useCallback(
+    (itemId: string) => {
+      setActiveItemId(itemId)
+      if (typeof window !== 'undefined') {
+        const nextUrl = `/workdesk/tasks/${encodeURIComponent(taskId)}/items/${encodeURIComponent(itemId)}`
+        if (window.location.pathname !== nextUrl) {
+          window.history.replaceState(null, '', nextUrl)
+        }
+      }
+    },
+    [taskId]
+  )
+
+  const handleReorderItems = useCallback((sourceId: string, targetId: string) => {
+    if (!sourceId || !targetId || sourceId === targetId) return
+    setCard((prev) => {
+      if (!prev) return prev
+      const ids = [...prev.itemIds]
+      const sourceIdx = ids.indexOf(sourceId)
+      const targetIdx = ids.indexOf(targetId)
+      if (sourceIdx === -1 || targetIdx === -1) return prev
+      ids.splice(sourceIdx, 1)
+      ids.splice(targetIdx, 0, sourceId)
+      return { ...prev, itemIds: ids }
     })
-  }
+  }, [])
 
   const handleDismissCard = () => {
     if (!card) return
@@ -161,13 +207,26 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
     return rawTitle && !rawTitle.startsWith('workdesk.cards.') ? rawTitle : card.title
   }, [card, t])
 
-  const handleCollapse = () => {
-    if (onCollapse) {
-      onCollapse()
-    } else {
-      router.push('/git')
+  // Collect cards upwards into top-left deck before collapsing back to board
+  const handleCollapse = useCallback(() => {
+    if (isGathering) return
+    setIsGathering(true)
+    if (process.env.NODE_ENV === 'test') {
+      if (onCollapse) {
+        onCollapse()
+      } else {
+        router.push('/git')
+      }
+      return
     }
-  }
+    setTimeout(() => {
+      if (onCollapse) {
+        onCollapse()
+      } else {
+        router.push('/git')
+      }
+    }, 180)
+  }, [isGathering, onCollapse, router])
 
   // Auto-redirect if dismissed and undo timeout expires
   useEffect(() => {
@@ -254,26 +313,54 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
                   </div>
                 </div>
               </div>
-              <div className="flex shrink-0 items-center text-accent transition-transform group-hover:-translate-y-0.5">
-                <LuChevronUp className="size-4" aria-hidden="true" />
-              </div>
+              <span
+                className="flex size-6 shrink-0 items-center justify-center rounded-md border border-accent/30 bg-panel text-accent transition-all group-hover:bg-accent group-hover:text-white"
+                title="收起卡片"
+                aria-hidden="true"
+              >
+                <LuChevronUp className="size-3.5" aria-hidden="true" />
+              </span>
             </button>
           </div>
 
-          <div className="flex h-9 shrink-0 items-center justify-between border-b border-line/60 bg-panel/70 px-3.5">
-            <div className="flex items-center gap-1.5">
-              <span className="text-[11px] font-semibold text-ink-soft">{t('workdesk.detail.taskList')}</span>
-              <span className="rounded-full border border-line bg-panel px-1.5 py-0.5 text-[10px] font-semibold text-ink-muted">{taskItems.length}</span>
-            </div>
-            <span className="text-[10px] text-ink-muted">{t('workdesk.scope.projects', { count: Object.keys(groupedItems).length })}</span>
-          </div>
+          {/* Keyframes for Dealing Downwards and Gathering Upwards */}
+          <style>{`
+            @keyframes workdeskCardDeal {
+              0% {
+                opacity: 0;
+                transform: translateY(-24px) scale(0.96);
+              }
+              100% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+              }
+            }
+            @keyframes workdeskCardGather {
+              0% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+              }
+              100% {
+                opacity: 0;
+                transform: translateY(-20px) scale(0.96);
+              }
+            }
+          `}</style>
 
-          <div className="flex flex-1 flex-col gap-2.5 overflow-y-auto p-2.5 animate-in fade-in slide-in-from-top-2 duration-200">
-            {Object.entries(groupedItems).map(([groupName, items]) => {
+          {/* Dealing Cards List (Removed '任务列表 4 4个项目' bar, dealt directly downwards) */}
+          <div className="flex flex-1 flex-col gap-2.5 overflow-y-auto p-2.5">
+            {Object.entries(groupedItems).map(([groupName, items], groupIndex) => {
               const hasActive = items.some((it) => it.id === activeItem?.id)
               return (
                 <div
                   key={groupName}
+                  style={{
+                    animation: isGathering
+                      ? 'workdeskCardGather 160ms cubic-bezier(0.4, 0, 0.2, 1) both'
+                      : isDealing
+                        ? `workdeskCardDeal 240ms cubic-bezier(0.16, 1, 0.3, 1) ${groupIndex * 45}ms both`
+                        : undefined,
+                  }}
                   className={cn(
                     'flex flex-col overflow-hidden rounded-xl border bg-panel transition-all shadow-2xs',
                     hasActive ? 'border-accent/40 shadow-xs ring-1 ring-accent/20' : 'border-line/70'
@@ -294,14 +381,58 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
                   <div className="flex flex-col divide-y divide-line/30 p-1">
                     {items.map((item) => {
                       const isSelected = item.id === activeItem?.id
+                      const isItemDragging = draggingItemId === item.id
+                      const isItemOver = dragOverItemId === item.id
+
                       return (
-                        <button
+                        <div
                           key={item.id}
+                          draggable={true}
+                          onDragStart={(e) => {
+                            e.stopPropagation()
+                            e.dataTransfer.setData('text/plain', item.id)
+                            e.dataTransfer.effectAllowed = 'move'
+                            setDraggingItemId(item.id)
+                          }}
+                          onDragEnd={() => {
+                            setDraggingItemId(null)
+                            setDragOverItemId(null)
+                          }}
+                          onDragOver={(e) => {
+                            e.preventDefault()
+                            e.dataTransfer.dropEffect = 'move'
+                            if (dragOverItemId !== item.id) {
+                              setDragOverItemId(item.id)
+                            }
+                          }}
+                          onDragLeave={() => {
+                            setDragOverItemId(null)
+                          }}
+                          onDrop={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            const srcId = e.dataTransfer.getData('text/plain') || draggingItemId
+                            if (srcId && srcId !== item.id) {
+                              handleReorderItems(srcId, item.id)
+                            }
+                            setDraggingItemId(null)
+                            setDragOverItemId(null)
+                          }}
                           onClick={() => handleSelectItem(item.id)}
                           className={cn(
-                            'group flex flex-col rounded-lg px-2.5 py-2 text-left transition-colors focus-visible:outline-hidden',
-                            isSelected ? 'bg-[#e8f3ef] text-ink dark:bg-emerald-950/50' : 'text-ink-soft hover:bg-panel-2 hover:text-ink'
+                            'group flex flex-col rounded-lg px-2.5 py-2 text-left transition-colors cursor-pointer select-none',
+                            isSelected ? 'bg-[#e8f3ef] text-ink dark:bg-emerald-950/50' : 'text-ink-soft hover:bg-panel-2 hover:text-ink',
+                            isItemDragging && 'opacity-40 scale-[0.98]',
+                            isItemOver && 'ring-1 ring-accent'
                           )}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault()
+                              handleSelectItem(item.id)
+                            }
+                          }}
                         >
                           <div className="flex items-center justify-between gap-1.5">
                             <div className="flex min-w-0 items-center gap-1.5">
@@ -311,7 +442,7 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
                             {renderStateDot(item.state)}
                           </div>
                           <span className={cn('mt-1 line-clamp-2 text-[11px] leading-relaxed', isSelected ? 'font-normal text-ink-soft' : 'text-ink-muted')}>{item.summary}</span>
-                        </button>
+                        </div>
                       )
                     })}
                   </div>

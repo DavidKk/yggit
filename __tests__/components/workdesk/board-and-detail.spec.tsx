@@ -155,9 +155,16 @@ describe('Workdesk Components', () => {
     // Standalone dismiss button
     expect(host.textContent).toContain('workdesk.action.dismiss')
 
+    // Middle strip removed: no redundant "taskList" header strip
+    expect(host.textContent).not.toContain('workdesk.detail.taskList')
+
     // Left List
     expect(host.textContent).toContain('Main App')
     expect(host.textContent).toContain('main')
+
+    // Task items are draggable
+    const itemEl = host.querySelector('[draggable="true"]')
+    expect(itemEl).not.toBeNull()
 
     // Right Evidence Cards
     expect(host.textContent).toContain('Main App · main')
@@ -175,6 +182,46 @@ describe('Workdesk Components', () => {
     // Navigable File link
     const fileLink = host.querySelector('a[href*="file=src%2Findex.ts"]')
     expect(fileLink).not.toBeNull()
+  })
+
+  it('switches items in WorkdeskTaskDetailView updating browser URL via replaceState without router navigation', () => {
+    const replaceStateSpy = jest.spyOn(window.history, 'replaceState')
+    const item2: WorkItem = {
+      ...sampleItem,
+      id: 'item2',
+      name: 'feature/login',
+      summary: '需要合并到默认分支',
+    }
+    const cardWith2Items: WorkCard = {
+      ...sampleCard,
+      itemIds: ['item1', 'item2'],
+    }
+
+    act(() => {
+      root.render(<WorkdeskTaskDetailView taskId="sync-default-branches" initialCard={cardWith2Items} initialItems={[sampleItem, item2]} initialItemId="item1" />)
+    })
+
+    const buttons = host.querySelectorAll('div[role="button"]')
+    const targetItem = Array.from(buttons).find((btn) => btn.textContent?.includes('feature/login')) as HTMLElement | undefined
+    expect(targetItem).toBeDefined()
+
+    act(() => {
+      targetItem?.click()
+    })
+
+    expect(replaceStateSpy).toHaveBeenCalledWith(null, '', expect.stringContaining('/workdesk/tasks/sync-default-branches/items/item2'))
+    expect(mockReplace).not.toHaveBeenCalled()
+    expect(host.textContent).toContain('需要合并到默认分支')
+    replaceStateSpy.mockRestore()
+  })
+
+  it('supports dragging cards on WorkdeskBoard', () => {
+    act(() => {
+      root.render(<WorkdeskBoard initialCards={[sampleCard]} initialLastChecked={Date.now()} />)
+    })
+
+    const draggableCard = host.querySelector('[draggable="true"]')
+    expect(draggableCard).not.toBeNull()
   })
 
   it('supports onCollapse callback when top-left card is clicked in WorkdeskTaskDetailView', () => {

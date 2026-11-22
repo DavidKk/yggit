@@ -48,6 +48,8 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
   const [undoToast, setUndoToast] = useState<{ cardId: string; cardTitle: string } | null>(null)
   const [activeTaskId, setActiveTaskId] = useState<string | null>(initialActiveTaskId || null)
   const [transition, setTransition] = useState<TransitionState | null>(null)
+  const [draggingCardId, setDraggingCardId] = useState<string | null>(null)
+  const [dragOverLaneId, setDragOverLaneId] = useState<string | null>(null)
 
   // Listen to popstate for browser back/forward navigation
   useEffect(() => {
@@ -137,6 +139,41 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
     if (typeof window !== 'undefined') {
       window.history.pushState(null, '', '/git')
     }
+  }
+
+  // Card Drag-and-Drop between lanes
+  const handleCardDragStart = (e: React.DragEvent, cardId: string) => {
+    e.dataTransfer.setData('text/plain', cardId)
+    e.dataTransfer.effectAllowed = 'move'
+    setDraggingCardId(cardId)
+  }
+
+  const handleCardDragEnd = () => {
+    setDraggingCardId(null)
+    setDragOverLaneId(null)
+  }
+
+  const handleLaneDragOver = (e: React.DragEvent, laneId: string) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    if (dragOverLaneId !== laneId) {
+      setDragOverLaneId(laneId)
+    }
+  }
+
+  const handleLaneDragLeave = (e: React.DragEvent) => {
+    if (e.currentTarget.contains(e.relatedTarget as Node)) return
+    setDragOverLaneId(null)
+  }
+
+  const handleLaneDrop = (e: React.DragEvent, laneId: string) => {
+    e.preventDefault()
+    const cardId = e.dataTransfer.getData('text/plain') || draggingCardId
+    if (cardId) {
+      setCards((prev) => prev.map((c) => (c.id === cardId ? { ...c, categoryId: laneId, updatedAt: Date.now() } : c)))
+    }
+    setDraggingCardId(null)
+    setDragOverLaneId(null)
   }
 
   // Listen to engine updates and start background timer
@@ -267,7 +304,16 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
               const laneTitle = t(`workdesk.lane.${lane.titleKey}`)
 
               return (
-                <div key={lane.id} className="flex min-h-[160px] flex-col rounded-xl border border-line/60 bg-panel-2/40 p-2.5 dark:bg-panel-2/20">
+                <div
+                  key={lane.id}
+                  onDragOver={(e) => handleLaneDragOver(e, lane.id)}
+                  onDragLeave={handleLaneDragLeave}
+                  onDrop={(e) => handleLaneDrop(e, lane.id)}
+                  className={cn(
+                    'flex min-h-[160px] flex-col rounded-xl border border-line/60 bg-panel-2/40 p-2.5 transition-all duration-150 dark:bg-panel-2/20',
+                    dragOverLaneId === lane.id && 'ring-2 ring-accent/40 bg-accent/5 border-accent/60'
+                  )}
+                >
                   {/* Lane Header */}
                   <div className="mb-2.5 flex items-center justify-between px-1">
                     <div className="flex items-center gap-1.5">
@@ -280,7 +326,17 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
                   {/* Cards List in Lane */}
                   <div className="flex flex-1 flex-col gap-2">
                     {laneCards.length > 0 ? (
-                      laneCards.map((card) => <WorkdeskCard key={card.id} card={card} onSelect={handleSelectCard} />)
+                      laneCards.map((card) => (
+                        <div
+                          key={card.id}
+                          draggable={!transition}
+                          onDragStart={(e) => handleCardDragStart(e, card.id)}
+                          onDragEnd={handleCardDragEnd}
+                          className={cn('transition-all duration-150', draggingCardId === card.id ? 'opacity-40 scale-[0.98] cursor-grabbing' : 'cursor-grab')}
+                        >
+                          <WorkdeskCard key={card.id} card={card} onSelect={handleSelectCard} />
+                        </div>
+                      ))
                     ) : (
                       <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-line/40 py-6 text-center">
                         <span className="text-[11px] text-ink-soft">无待办任务</span>
