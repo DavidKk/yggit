@@ -1,16 +1,17 @@
 'use client'
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { LuChevronRight, LuChevronUp, LuCircleCheck, LuFlag, LuGitBranch, LuGitMerge, LuUndo2 } from 'react-icons/lu'
+import { LuChevronUp, LuCircleCheck, LuFlag, LuFolderGit2, LuGitBranch, LuGitFork, LuGitMerge, LuTrash2, LuUndo2 } from 'react-icons/lu'
 
 import { useT } from '@/components/i18n/LocaleProvider'
+import { Badge, Tooltip } from '@/components/sk'
 import type { MessageKey } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 import { workdeskEngine } from '@/lib/workdesk/engine'
-import { undoDismissCard } from '@/lib/workdesk/storage'
+import { dismissCard, undoDismissCard } from '@/lib/workdesk/storage'
 import type { WorkCard, WorkItem } from '@/lib/workdesk/types'
 
-import { CARD_I18N_MAP, resolveCardIcon, WorkdeskCard } from './WorkdeskCard'
+import { CARD_I18N_MAP, WorkdeskCard } from './WorkdeskCard'
 import { WorkdeskTaskDetailView } from './WorkdeskTaskDetailView'
 
 interface WorkdeskBoardProps {
@@ -51,6 +52,7 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
   const [transition, setTransition] = useState<TransitionState | null>(null)
   const [draggingCardId, setDraggingCardId] = useState<string | null>(null)
   const [dragOverLaneId, setDragOverLaneId] = useState<string | null>(null)
+  const [isOverTrash, setIsOverTrash] = useState(false)
 
   const handleSelectCard = (cardId: string, element?: HTMLElement) => {
     if (element && containerRef.current) {
@@ -158,8 +160,10 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
 
   // Card Drag-and-Drop between lanes
   const handleCardDragStart = (e: React.DragEvent, cardId: string) => {
-    e.dataTransfer.setData('text/plain', cardId)
-    e.dataTransfer.effectAllowed = 'move'
+    if (e.dataTransfer) {
+      e.dataTransfer.setData('text/plain', cardId)
+      e.dataTransfer.effectAllowed = 'move'
+    }
     setDraggingCardId(cardId)
   }
 
@@ -218,11 +222,30 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
     }
   }, [])
 
-  const handleUndoDismiss = (cardId: string) => {
+  const handleDismissCard = useCallback(
+    (cardId: string) => {
+      const cardToDismiss = cards.find((c) => c.id === cardId)
+      dismissCard(cardId)
+      setCards((prev) => prev.filter((c) => c.id !== cardId))
+      setUndoToast({
+        cardId,
+        cardTitle: cardToDismiss?.title || cardId,
+      })
+    },
+    [cards]
+  )
+
+  const handleUndoDismiss = useCallback((cardId: string) => {
     undoDismissCard(cardId)
     setUndoToast(null)
-    workdeskEngine.scan().catch(() => {})
-  }
+    workdeskEngine
+      .scan()
+      .then((scanned) => {
+        setCards(scanned.cards)
+        setItemsMap(scanned.items)
+      })
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     if (!undoToast) return
@@ -279,6 +302,21 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
           const isTarget = transition.phase === 'moving' || transition.phase === 'collapsing-start'
           const targetWidth = typeof window !== 'undefined' ? (window.innerWidth >= 1024 ? 332 : window.innerWidth >= 640 ? 300 : 268) : 300
 
+          const parsedCount = parseInt(c.scope.match(/(\d+)\s*个项目/)?.[1] || c.scope.match(/(\d+)/)?.[1] || '1', 10)
+          const projectCount = c.projectCount !== undefined ? c.projectCount : parsedCount
+          const displayProjectCount = projectCount > 99 ? '99+' : projectCount
+
+          const worktreeMatch = c.scope.match(/(\d+)\s*Worktrees/i)
+          const branchMatch = c.scope.match(/(\d+)\s*个分支/i) || c.scope.match(/(\d+)\s*分支/i)
+          const extraCount = worktreeMatch
+            ? parseInt(worktreeMatch[1], 10)
+            : branchMatch
+              ? parseInt(branchMatch[1], 10)
+              : c.itemIds && c.itemIds.length > 0 && c.id.includes('branch')
+                ? c.itemIds.length
+                : null
+          const isWorktree = Boolean(worktreeMatch)
+
           return (
             <div
               style={{
@@ -290,25 +328,33 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
                 zIndex: 50,
                 transition: transition.phase === 'moving' || transition.phase === 'collapsing' ? 'all 350ms cubic-bezier(0.2, 0.8, 0.2, 1)' : 'none',
               }}
-              className="pointer-events-none flex min-h-[58px] items-center justify-between gap-3 rounded-xl border border-line bg-panel p-2.5 shadow-md dark:border-line dark:bg-panel"
+              className="pointer-events-none flex min-h-[58px] flex-col justify-center rounded-xl border border-line bg-panel p-2.5 shadow-md dark:border-line dark:bg-panel"
             >
-              <div className="flex min-w-0 flex-1 items-center gap-2.5">
-                <div className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-line/60 bg-panel-2/90 dark:bg-panel-2/60">
-                  {resolveCardIcon(c.iconName, c.categoryId)}
-                </div>
-                <div className="flex min-w-0 flex-1 flex-col justify-center text-left">
-                  <span className="line-clamp-2 text-xs font-semibold leading-tight text-ink">{title}</span>
-                  <span className="mt-0.5 text-[11px] leading-none text-ink-muted">{c.scope}</span>
-                </div>
+              <div className="flex w-full items-start justify-between gap-2">
+                <span className="line-clamp-2 text-xs font-semibold leading-snug text-ink">{title}</span>
+                {isTarget && (
+                  <div className="flex shrink-0 items-center text-ink-soft">
+                    <LuChevronUp className="size-3.5" aria-hidden="true" />
+                  </div>
+                )}
               </div>
-              <div className="flex shrink-0 items-center text-ink-soft">
-                {isTarget ? <LuChevronUp className="size-3.5" aria-hidden="true" /> : <LuChevronRight className="size-3.5" aria-hidden="true" />}
+              <div className="mt-2 flex items-center gap-3 text-[11px] font-medium text-ink-muted">
+                <span className="inline-flex items-center gap-1">
+                  <LuFolderGit2 className="size-3 text-ink-muted" aria-hidden="true" />
+                  <span>{displayProjectCount}</span>
+                </span>
+                {extraCount !== null && (
+                  <span className="inline-flex items-center gap-1">
+                    {isWorktree ? <LuGitFork className="size-3 text-ink-muted" aria-hidden="true" /> : <LuGitBranch className="size-3 text-ink-muted" aria-hidden="true" />}
+                    <span>{extraCount > 99 ? '99+' : extraCount}</span>
+                  </span>
+                )}
               </div>
             </div>
           )
         })()}
 
-      {/* 4-Lane Board (Positioned as absolute inset-0 underneath so layout never jumps) */}
+      {/* Single-Column Board on the Left (Positioned as absolute inset-0 underneath so layout never jumps) */}
       <div
         className={cn(
           'absolute inset-0 flex flex-col overflow-y-auto px-4 pt-4 pb-20 sm:px-6 sm:pb-24 lg:px-8 lg:pb-24 transition-opacity duration-200',
@@ -319,7 +365,41 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
           !activeTaskId && !transition && 'opacity-100'
         )}
       >
-        <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:gap-4">
+        <div className="flex w-full max-w-[352px] flex-col gap-4">
+          {/* Drag Drop Trash Bin at the Top */}
+          {draggingCardId && (
+            <div
+              onDragOver={(e) => {
+                e.preventDefault()
+                e.dataTransfer.dropEffect = 'move'
+                if (!isOverTrash) setIsOverTrash(true)
+              }}
+              onDragLeave={(e) => {
+                if (e.currentTarget.contains(e.relatedTarget as Node)) return
+                setIsOverTrash(false)
+              }}
+              onDrop={(e) => {
+                e.preventDefault()
+                const cardId = e.dataTransfer.getData('text/plain') || draggingCardId
+                if (cardId) {
+                  handleDismissCard(cardId)
+                }
+                setIsOverTrash(false)
+                setDraggingCardId(null)
+              }}
+              className={cn(
+                'flex h-14 w-full shrink-0 items-center justify-center gap-2 rounded-xl border border-dashed text-xs font-semibold transition-all duration-200 select-none animate-in fade-in slide-in-from-top-2 duration-150',
+                isOverTrash
+                  ? 'border-red-500 bg-red-500/10 text-red-600 shadow-md scale-[1.02] dark:border-red-500 dark:bg-red-950/40 dark:text-red-400'
+                  : 'border-line bg-panel-2/70 text-ink-muted hover:border-red-400/80 hover:bg-red-500/5 hover:text-red-500'
+              )}
+              data-testid="workdesk-trash-dropzone"
+            >
+              <LuTrash2 className={cn('size-4 transition-transform duration-150', isOverTrash ? 'scale-125 text-red-500' : 'text-ink-muted')} />
+              <span>{isOverTrash ? '松开以丢弃此卡片' : '拖拽到此处丢弃任务'}</span>
+            </div>
+          )}
+
           {lanes.map((lane) => {
             const laneCards = visibleCards.filter((c) => c.categoryId === lane.id)
             const laneTitle = t(`workdesk.lane.${lane.titleKey}`)
@@ -333,32 +413,27 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
                 onDragLeave={handleLaneDragLeave}
                 onDrop={(e) => handleLaneDrop(e, lane.id)}
                 className={cn(
-                  'flex min-h-[160px] flex-col rounded-xl border border-line/60 bg-panel-2/40 p-2.5 transition-all duration-150 dark:bg-panel-2/20',
+                  'flex flex-col rounded-xl border border-line/60 bg-panel-2/40 p-2.5 transition-all duration-150 dark:bg-panel-2/20',
                   dragOverLaneId === lane.id && 'ring-2 ring-accent/40 bg-accent/5 border-accent/60'
                 )}
               >
                 {/* Lane Header */}
                 <div className="mb-2.5 flex items-center justify-between px-1">
                   <div className="flex items-center gap-1.5 min-w-0">
-                    {lane.icon}
-                    <span className="text-xs font-bold text-ink">{laneTitle}</span>
-                    <span
-                      className={cn(
-                        'inline-flex min-w-[20px] items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none transition-colors border',
-                        totalTasks > 0
-                          ? 'border-line/70 bg-panel-2 text-ink-muted dark:border-line/50 dark:bg-panel-2 dark:text-ink-muted'
-                          : 'border-line/40 bg-panel-2/50 text-ink-soft'
-                      )}
-                      title={`共有 ${totalTasks} 项待处理工作`}
-                      aria-label={`${laneTitle}: ${displayBadge}`}
-                    >
-                      {displayBadge}
-                    </span>
+                    <Tooltip content={laneTitle} placement="top">
+                      <span className="flex items-center text-ink-muted">{lane.icon}</span>
+                    </Tooltip>
+                    <span className="text-xs font-semibold text-ink">{laneTitle}</span>
+                    <Tooltip content={`共有 ${totalTasks} 项待处理工作`} placement="top">
+                      <Badge tone="neutral" size="mini" dot={false} className="shrink-0 font-medium">
+                        {displayBadge}
+                      </Badge>
+                    </Tooltip>
                   </div>
                 </div>
 
                 {/* Cards List in Lane */}
-                <div className="flex flex-1 flex-col gap-2">
+                <div className="flex flex-col gap-2">
                   {laneCards.length > 0 ? (
                     laneCards.map((card) => {
                       const isTransitioning = transition?.cardId === card.id
@@ -379,7 +454,7 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
                       )
                     })
                   ) : (
-                    <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-line/40 py-6 text-center">
+                    <div className="flex items-center justify-center rounded-lg border border-dashed border-line/40 py-4 text-center">
                       <span className="text-[11px] text-ink-soft">无待办任务</span>
                     </div>
                   )}
@@ -391,14 +466,15 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
 
         {/* Undo Toast for dismissed cards */}
         {undoToast && (
-          <div className="fixed bottom-20 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-full border border-line bg-panel px-4 py-2 shadow-lg">
-            <span className="text-xs text-ink">{t('workdesk.status.dismissed')}</span>
+          <div className="fixed bottom-20 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-full border border-line bg-panel px-4 py-2 shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-200">
+            <span className="text-xs text-ink">已丢弃任务【{undoToast.cardTitle}】</span>
             <button
+              type="button"
               onClick={() => handleUndoDismiss(undoToast.cardId)}
-              className="flex items-center gap-1 text-xs font-semibold text-accent hover:underline focus-visible:outline-hidden"
+              className="flex items-center gap-1 text-xs font-semibold text-accent hover:underline focus-visible:outline-hidden cursor-pointer"
             >
               <LuUndo2 className="size-3.5" aria-hidden="true" />
-              {t('workdesk.action.undoDismiss')}
+              {t('workdesk.action.undoDismiss') || '撤销'}
             </button>
           </div>
         )}

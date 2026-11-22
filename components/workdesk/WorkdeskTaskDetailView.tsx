@@ -13,21 +13,20 @@ import {
   LuFolderTree,
   LuGitBranch,
   LuGitCommitHorizontal,
+  LuGitFork,
   LuInfo,
   LuTrash2,
   LuUndo2,
 } from 'react-icons/lu'
 
 import { useT } from '@/components/i18n/LocaleProvider'
-import { Badge, Button } from '@/components/sk'
+import { Badge, Button, Tooltip } from '@/components/sk'
 import { setWorkdeskContext } from '@/lib/agent/workdesk-context'
 import type { MessageKey } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 import { workdeskEngine } from '@/lib/workdesk/engine'
 import { dismissCard, undoDismissCard } from '@/lib/workdesk/storage'
 import type { WorkCard, WorkItem } from '@/lib/workdesk/types'
-
-import { resolveCardIcon } from './WorkdeskCard'
 
 const CARD_I18N_MAP: Record<string, string> = {
   'sync-default-branches': 'syncDefaultBranches',
@@ -222,6 +221,44 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
     return rawTitle && !rawTitle.startsWith('workdesk.cards.') ? rawTitle : card.title
   }, [card, t])
 
+  const parsedCount = parseInt(card?.scope.match(/(\d+)\s*个项目/)?.[1] || card?.scope.match(/(\d+)/)?.[1] || '1', 10)
+  const projectCount = card?.projectCount !== undefined ? card.projectCount : parsedCount
+  const displayProjectCount = projectCount > 99 ? '99+' : projectCount
+
+  const extraMeta = useMemo(() => {
+    if (!card) return null
+    const worktreeMatch = card.scope.match(/(\d+)\s*Worktrees/i)
+    if (worktreeMatch) {
+      const count = parseInt(worktreeMatch[1], 10)
+      return {
+        icon: <LuGitFork className="size-3 text-ink-muted" aria-hidden="true" />,
+        display: count > 99 ? '99+' : count,
+        title: `${count} Worktrees`,
+      }
+    }
+
+    const branchMatch = card.scope.match(/(\d+)\s*个分支/i) || card.scope.match(/(\d+)\s*分支/i)
+    if (branchMatch) {
+      const count = parseInt(branchMatch[1], 10)
+      return {
+        icon: <LuGitBranch className="size-3 text-ink-muted" aria-hidden="true" />,
+        display: count > 99 ? '99+' : count,
+        title: `${count} 个分支`,
+      }
+    }
+
+    if (card.itemIds && card.itemIds.length > 0 && card.id.includes('branch')) {
+      const count = card.itemIds.length
+      return {
+        icon: <LuGitBranch className="size-3 text-ink-muted" aria-hidden="true" />,
+        display: count > 99 ? '99+' : count,
+        title: `${count} 个分支`,
+      }
+    }
+
+    return null
+  }, [card])
+
   const handleSendToAgent = useCallback(
     (item?: WorkItem) => {
       const target = item || activeItem
@@ -235,10 +272,17 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
 
 请分析具体情况并给出处理建议或执行方案。`
 
+      const refTitle = target.repoAlias ? `${cardTitle} · ${target.repoAlias}` : cardTitle
+
       if (typeof window !== 'undefined') {
         window.dispatchEvent(
           new CustomEvent('yggit:agent_open', {
-            detail: { prompt },
+            detail: {
+              reference: {
+                title: refTitle,
+                prompt,
+              },
+            },
           })
         )
       }
@@ -351,30 +395,35 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
               type="button"
               onClick={handleCollapse}
               className={cn(
-                'group relative flex min-h-[58px] w-full cursor-pointer items-center justify-between gap-3 rounded-xl border border-line bg-panel p-2.5 shadow-xs transition-all duration-150',
+                'group relative flex min-h-[58px] w-full cursor-pointer flex-col justify-center rounded-xl border border-line bg-panel p-2.5 shadow-xs transition-all duration-150',
                 'hover:border-[#b5ddd4] hover:bg-[#f8fcfa] hover:shadow-sm dark:hover:border-emerald-700/50 dark:hover:bg-emerald-950/20',
                 'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent/40'
               )}
               title={t('workdesk.action.back')}
               aria-label={`${cardTitle} - ${t('workdesk.action.back')}`}
             >
-              <div className="flex min-w-0 flex-1 items-center gap-2.5">
-                <div
-                  className={cn(
-                    'flex size-7 shrink-0 items-center justify-center rounded-lg border border-line/60 bg-panel-2/90 transition-colors',
-                    'group-hover:border-accent/30 group-hover:bg-accent/10 dark:bg-panel-2/60 dark:group-hover:bg-emerald-950/40'
-                  )}
-                  aria-hidden="true"
-                >
-                  {resolveCardIcon(card.iconName, card.categoryId)}
-                </div>
-                <div className="flex min-w-0 flex-1 flex-col justify-center text-left">
-                  <span className="line-clamp-2 text-xs font-semibold leading-tight text-ink transition-colors group-hover:text-ink-vivid">{cardTitle}</span>
-                  <span className="mt-0.5 text-[11px] leading-none text-ink-muted">{card.scope}</span>
+              <div className="flex w-full items-start justify-between gap-2">
+                <span className="line-clamp-2 text-xs font-semibold leading-snug text-ink transition-colors group-hover:text-ink-vivid">{cardTitle}</span>
+                <div className="flex shrink-0 items-center text-ink-soft transition-transform group-hover:-translate-y-0.5 group-hover:text-ink">
+                  <LuChevronUp className="size-3.5" aria-hidden="true" />
                 </div>
               </div>
-              <div className="flex shrink-0 items-center text-ink-soft transition-transform group-hover:-translate-y-0.5 group-hover:text-ink">
-                <LuChevronUp className="size-3.5" aria-hidden="true" />
+              <div className="mt-2 flex items-center gap-3 text-[11px] font-medium text-ink-muted">
+                <Tooltip content={`涉及 ${projectCount} 个项目`} placement="top">
+                  <span className="inline-flex items-center gap-1 cursor-default">
+                    <LuFolderGit2 className="size-3 text-ink-muted" aria-hidden="true" />
+                    <span>{displayProjectCount}</span>
+                    <span className="sr-only">{projectCount} 个项目</span>
+                  </span>
+                </Tooltip>
+                {extraMeta && (
+                  <Tooltip content={extraMeta.title} placement="top">
+                    <span className="inline-flex items-center gap-1 cursor-default">
+                      {extraMeta.icon}
+                      <span>{extraMeta.display}</span>
+                    </span>
+                  </Tooltip>
+                )}
               </div>
             </button>
           </div>
@@ -471,42 +520,34 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
                   }}
                   aria-label={`${item.repoAlias ? `${item.repoAlias} · ${item.name}` : item.name} - ${item.summary}`}
                 >
-                  <div className="flex min-w-0 flex-1 items-center gap-2.5">
-                    {/* Capsule icon container */}
-                    <div
-                      className={cn(
-                        'flex size-7 shrink-0 items-center justify-center rounded-lg bg-[#eef5f2] transition-colors',
-                        'group-hover:bg-[#e2f1ec] dark:bg-emerald-950/40 dark:group-hover:bg-emerald-900/50'
-                      )}
-                      aria-hidden="true"
-                    >
-                      {resolveCardIcon(card.iconName, card.categoryId)}
-                    </div>
-
-                    {/* Title and Summary */}
-                    <div className="flex min-w-0 flex-1 flex-col justify-center text-left">
-                      <span className="line-clamp-1 text-xs font-semibold leading-tight text-ink transition-colors group-hover:text-ink-vivid">
-                        {item.repoAlias ? `${item.repoAlias} · ${item.name}` : item.name}
-                      </span>
-                      <span className="mt-0.5 line-clamp-1 text-[11px] leading-none text-ink-muted">{item.summary}</span>
-                    </div>
+                  <div className="flex min-w-0 flex-1 flex-col justify-center text-left">
+                    <span className="line-clamp-1 text-xs font-semibold leading-tight text-ink transition-colors group-hover:text-ink-vivid">
+                      {item.repoAlias ? `${item.repoAlias} · ${item.name}` : item.name}
+                    </span>
+                    <span className="mt-1 line-clamp-1 text-[11px] leading-none text-ink-muted">{item.summary}</span>
                   </div>
 
                   {/* Right Status Dot & Agent Quick Action */}
                   <div className="flex shrink-0 items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleSendToAgent(item)
-                      }}
-                      className="flex size-5 items-center justify-center rounded-md text-ink-muted opacity-0 group-hover:opacity-100 hover:bg-accent/15 hover:text-accent transition-all duration-150"
-                      title={t('workdesk.action.sendToAgent')}
-                      aria-label={t('workdesk.action.sendToAgent')}
+                    <Tooltip content="引用到 Git Agent" placement="top">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleSendToAgent(item)
+                        }}
+                        className="flex size-5 items-center justify-center rounded-md text-ink-muted opacity-0 group-hover:opacity-100 hover:bg-accent/15 hover:text-accent transition-all duration-150 cursor-pointer"
+                        aria-label="引用到 Git Agent"
+                      >
+                        <LuBot className="size-3" aria-hidden="true" />
+                      </button>
+                    </Tooltip>
+                    <Tooltip
+                      content={item.state === 'safe' ? '状态正常 / 可快速合并' : item.state === 'warn' ? '需关注 / 存在分支分叉或未同步' : '待处理异常 / 需人工介入'}
+                      placement="top"
                     >
-                      <LuBot className="size-3" aria-hidden="true" />
-                    </button>
-                    {renderStateDot(item.state)}
+                      <span className="inline-flex items-center cursor-default">{renderStateDot(item.state)}</span>
+                    </Tooltip>
                   </div>
                 </div>
               )

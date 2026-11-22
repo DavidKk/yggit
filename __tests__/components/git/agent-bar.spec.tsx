@@ -630,4 +630,38 @@ describe('GitAgentBar', () => {
     // Verify setDockMode was called with 'dock-right'
     expect(setDockModeMock).toHaveBeenCalledWith('dock-right')
   })
+
+  it('opens and displays reference citation tag when yggit:agent_open event is dispatched with reference', () => {
+    act(() => {
+      root.render(
+        <AgentProvider>
+          <GitAgentBar />
+        </AgentProvider>
+      )
+    })
+
+    act(() => {
+      window.dispatchEvent(
+        new CustomEvent('yggit:agent_open', {
+          detail: {
+            reference: {
+              title: '同步默认分支',
+              prompt: '请协助处理工作台任务',
+            },
+          },
+        })
+      )
+      jest.advanceTimersByTime(450)
+    })
+
+    expect(host.textContent).toContain('同步默认分支')
+    const removeRefBtn = host.querySelector('button[aria-label="移除引用"]') as HTMLButtonElement | null
+    expect(removeRefBtn).not.toBeNull()
+
+    // Clicking remove clears citation
+    act(() => {
+      removeRefBtn?.click()
+    })
+    expect(host.textContent).not.toContain('同步默认分支')
+  })
 })

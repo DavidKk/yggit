@@ -1,10 +1,11 @@
 'use client'
 
 import Link from 'next/link'
-import React from 'react'
-import { LuBot, LuChevronRight, LuCircleCheck, LuFlag, LuFolderTree, LuGitBranch, LuGitFork, LuGitMerge, LuRefreshCw } from 'react-icons/lu'
+import React, { useMemo } from 'react'
+import { LuBot, LuFolderGit2, LuGitBranch, LuGitFork } from 'react-icons/lu'
 
 import { useT } from '@/components/i18n/LocaleProvider'
+import { Tooltip } from '@/components/sk'
 import type { MessageKey } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 import type { WorkCard } from '@/lib/workdesk/types'
@@ -25,29 +26,6 @@ export const CARD_I18N_MAP: Record<string, string> = {
   'review-pending-commits': 'reviewPendingCommits',
 }
 
-export function resolveCardIcon(iconName: string, categoryId: string) {
-  const iconClass = 'size-4 shrink-0 text-accent/80 transition-colors group-hover:text-accent dark:text-accent/90'
-  if (iconName === 'LuRefreshCw') return <LuRefreshCw className={iconClass} />
-  if (iconName === 'LuGitFork') return <LuGitFork className={iconClass} />
-  if (iconName === 'LuGitMerge') return <LuGitMerge className={iconClass} />
-  if (iconName === 'LuFlag') return <LuFlag className={iconClass} />
-  if (iconName === 'LuFolderTree') return <LuFolderTree className={iconClass} />
-  if (iconName === 'LuCheckCircle' || iconName === 'LuCircleCheck') return <LuCircleCheck className={iconClass} />
-
-  switch (categoryId) {
-    case 'branch':
-      return <LuGitBranch className={iconClass} />
-    case 'merge':
-      return <LuGitMerge className={iconClass} />
-    case 'standard':
-      return <LuFlag className={iconClass} />
-    case 'review':
-      return <LuCircleCheck className={iconClass} />
-    default:
-      return <LuGitBranch className={iconClass} />
-  }
-}
-
 export function WorkdeskCard({ card, className, noWrapperMargin = false, onSelect }: WorkdeskCardProps) {
   const t = useT()
 
@@ -55,13 +33,47 @@ export function WorkdeskCard({ card, className, noWrapperMargin = false, onSelec
   const rawTitle = i18nKey ? t(`workdesk.cards.${i18nKey}.title` as MessageKey) : undefined
   const title = rawTitle && !rawTitle.startsWith('workdesk.cards.') ? rawTitle : card.title
 
-  const parsedCount = parseInt(card.scope.match(/(\d+)/)?.[1] || '1', 10)
+  const parsedCount = parseInt(card.scope.match(/(\d+)\s*个项目/)?.[1] || card.scope.match(/(\d+)/)?.[1] || '1', 10)
   const projectCount = card.projectCount !== undefined ? card.projectCount : parsedCount
+  const displayProjectCount = projectCount > 99 ? '99+' : projectCount
   const isMultiple = projectCount > 1
+
+  const extraMeta = useMemo(() => {
+    const worktreeMatch = card.scope.match(/(\d+)\s*Worktrees/i)
+    if (worktreeMatch) {
+      const count = parseInt(worktreeMatch[1], 10)
+      return {
+        icon: <LuGitFork className="size-3 text-ink-muted" aria-hidden="true" />,
+        display: count > 99 ? '99+' : count,
+        title: `${count} Worktrees`,
+      }
+    }
+
+    const branchMatch = card.scope.match(/(\d+)\s*个分支/i) || card.scope.match(/(\d+)\s*分支/i)
+    if (branchMatch) {
+      const count = parseInt(branchMatch[1], 10)
+      return {
+        icon: <LuGitBranch className="size-3 text-ink-muted" aria-hidden="true" />,
+        display: count > 99 ? '99+' : count,
+        title: `${count} 个分支`,
+      }
+    }
+
+    if (card.itemIds && card.itemIds.length > 0 && card.id.includes('branch')) {
+      const count = card.itemIds.length
+      return {
+        icon: <LuGitBranch className="size-3 text-ink-muted" aria-hidden="true" />,
+        display: count > 99 ? '99+' : count,
+        title: `${count} 个分支`,
+      }
+    }
+
+    return null
+  }, [card.scope, card.id, card.itemIds])
 
   return (
     <div
-      className={cn('group/stack relative transition-all duration-200 select-none', !noWrapperMargin && (isMultiple ? 'mb-2 pb-0.5' : 'mb-1'))}
+      className={cn('group/stack relative transition-all duration-200 select-none', !noWrapperMargin && (isMultiple ? 'mb-2.5 pb-0.5' : 'mb-1'))}
       data-testid={`workdesk-card-wrapper-${card.id}`}
       data-stacked={isMultiple ? 'true' : 'false'}
     >
@@ -93,7 +105,7 @@ export function WorkdeskCard({ card, className, noWrapperMargin = false, onSelec
         </>
       )}
 
-      {/* Main Foreground Card */}
+      {/* Main Foreground Card (Clean layout without front icon, without right chevron) */}
       <Link
         href={`/workdesk/tasks/${encodeURIComponent(card.id)}`}
         onClick={(e) => {
@@ -103,7 +115,7 @@ export function WorkdeskCard({ card, className, noWrapperMargin = false, onSelec
           }
         }}
         className={cn(
-          'group relative z-10 flex min-h-[58px] cursor-pointer items-center justify-between gap-3 rounded-xl border border-line bg-panel p-2.5 shadow-xs transition-all duration-150',
+          'group relative z-10 flex min-h-[58px] cursor-pointer flex-col justify-center rounded-xl border border-line bg-panel p-2.5 shadow-xs transition-all duration-150',
           'hover:border-[#b5ddd4] hover:bg-[#f8fcfa] hover:shadow-sm dark:hover:border-emerald-700/50 dark:hover:bg-emerald-950/20',
           'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent/40',
           className
@@ -111,46 +123,54 @@ export function WorkdeskCard({ card, className, noWrapperMargin = false, onSelec
         role="button"
         aria-label={`${title} - ${card.scope}`}
       >
-        <div className="flex min-w-0 flex-1 items-center gap-2.5">
-          {/* Capsule icon container */}
-          <div
-            className={cn(
-              'flex size-7 shrink-0 items-center justify-center rounded-lg border border-line/60 bg-panel-2/90 transition-colors',
-              'group-hover:border-accent/30 group-hover:bg-accent/10 dark:bg-panel-2/60 dark:group-hover:bg-emerald-950/40'
-            )}
-            aria-hidden="true"
-          >
-            {resolveCardIcon(card.iconName, card.categoryId)}
-          </div>
-
-          {/* Title and Scope */}
-          <div className="flex min-w-0 flex-1 flex-col justify-center">
-            <span className="line-clamp-2 text-xs font-semibold leading-tight text-ink transition-colors group-hover:text-ink-vivid">{title}</span>
-            <span className="mt-0.5 text-[11px] leading-none text-ink-muted">{card.scope}</span>
-          </div>
+        {/* Top row: Title + Quick Quote to Agent */}
+        <div className="flex w-full items-start justify-between gap-2">
+          <span className="line-clamp-2 text-xs font-semibold leading-snug text-ink transition-colors group-hover:text-ink-vivid">{title}</span>
+          <Tooltip content="引用到 Git Agent" placement="top">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                const prompt = `请协助分析并处理工作台任务【${title}】（涉及 ${card.scope}）。`
+                if (typeof window !== 'undefined') {
+                  window.dispatchEvent(
+                    new CustomEvent('yggit:agent_open', {
+                      detail: {
+                        reference: {
+                          title,
+                          prompt,
+                        },
+                      },
+                    })
+                  )
+                }
+              }}
+              className="flex size-6 shrink-0 items-center justify-center rounded-md text-ink-muted opacity-0 group-hover:opacity-100 hover:bg-accent/15 hover:text-accent transition-all duration-150 cursor-pointer"
+              aria-label="引用到 Git Agent"
+            >
+              <LuBot className="size-3.5" aria-hidden="true" />
+            </button>
+          </Tooltip>
         </div>
 
-        {/* Right action area: Agent quick quote button & chevron */}
-        <div className="flex shrink-0 items-center gap-1">
-          <button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              const prompt = `请协助分析并处理工作台任务【${title}】（涉及 ${card.scope}）。`
-              if (typeof window !== 'undefined') {
-                window.dispatchEvent(new CustomEvent('yggit:agent_open', { detail: { prompt } }))
-              }
-            }}
-            className="flex size-6 items-center justify-center rounded-md text-ink-muted opacity-0 group-hover:opacity-100 hover:bg-accent/15 hover:text-accent transition-all duration-150"
-            title="快速引用到 Git Agent"
-            aria-label="快速引用到 Git Agent"
-          >
-            <LuBot className="size-3.5" aria-hidden="true" />
-          </button>
-          <div className="flex shrink-0 items-center text-ink-soft transition-transform group-hover:translate-x-0.5 group-hover:text-ink">
-            <LuChevronRight className="size-3.5" aria-hidden="true" />
-          </div>
+        {/* Bottom row: Meta stats with icon + number (>99 formatted as 99+) with Tooltips */}
+        <div className="mt-2 flex items-center gap-3 text-[11px] font-medium text-ink-muted">
+          <Tooltip content={`涉及 ${projectCount} 个项目`} placement="top">
+            <span className="inline-flex items-center gap-1 cursor-default">
+              <LuFolderGit2 className="size-3 text-ink-muted" aria-hidden="true" />
+              <span>{displayProjectCount}</span>
+              <span className="sr-only">{projectCount} 个项目</span>
+            </span>
+          </Tooltip>
+          {extraMeta && (
+            <Tooltip content={extraMeta.title} placement="top">
+              <span className="inline-flex items-center gap-1 cursor-default">
+                {extraMeta.icon}
+                <span>{extraMeta.display}</span>
+              </span>
+            </Tooltip>
+          )}
         </div>
       </Link>
     </div>

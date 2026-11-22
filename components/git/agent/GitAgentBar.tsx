@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { LuBot, LuSend, LuSparkles } from 'react-icons/lu'
+import { LuBot, LuSend, LuSparkles, LuX } from 'react-icons/lu'
 
 import { useT } from '@/components/i18n/LocaleProvider'
 import { Spinner, Tooltip } from '@/components/sk'
@@ -35,6 +35,7 @@ export function GitAgentBar({ repoPath, className }: Props) {
   const { sendMessage, isProcessing, messages, dockMode, setDockMode, config, modelFilter } = useAgent()
 
   const [input, setInput] = useState('')
+  const [reference, setReference] = useState<{ title: string; prompt?: string } | null>(null)
   const isModelBlocked = !isModelAllowed(config.model, modelFilter)
   const [expanded, setExpanded] = useState(false)
   const [displayText, setDisplayText] = useState('')
@@ -206,9 +207,14 @@ export function GitAgentBar({ repoPath, className }: Props) {
 
   useEffect(() => {
     const handleOpen = (e: Event) => {
-      const detail = (e as CustomEvent<{ prompt?: string }>).detail
+      const detail = (e as CustomEvent<{ prompt?: string; reference?: { title: string; prompt?: string } }>).detail
       openBar()
-      if (detail?.prompt) {
+      if (detail?.reference) {
+        setReference(detail.reference)
+        setTimeout(() => {
+          inputRef.current?.focus()
+        }, 450)
+      } else if (detail?.prompt) {
         setInput(detail.prompt)
         setTimeout(() => {
           inputRef.current?.focus()
@@ -332,7 +338,7 @@ export function GitAgentBar({ repoPath, className }: Props) {
       const isInsideCard = Boolean(containerRef.current?.contains(target))
 
       if (!isInsideForm && !isInsideCard) {
-        if (!input.trim() && !isProcessing) {
+        if (!input.trim() && !reference && !isProcessing) {
           if (quickCardOpen) {
             handleCollapseCard('close')
           } else {
@@ -343,7 +349,7 @@ export function GitAgentBar({ repoPath, className }: Props) {
     }
     document.addEventListener('pointerdown', handleClickOutside)
     return () => document.removeEventListener('pointerdown', handleClickOutside)
-  }, [expanded, quickCardOpen, input, isProcessing, closeBar, isClosing, isCollapsingCard, handleCollapseCard])
+  }, [expanded, quickCardOpen, input, reference, isProcessing, closeBar, isClosing, isCollapsingCard, handleCollapseCard])
 
   // Auto-open quick card when processing starts if not docked
   useEffect(() => {
@@ -355,11 +361,21 @@ export function GitAgentBar({ repoPath, className }: Props) {
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault()
     const trimmed = input.trim()
-    if (!trimmed || isProcessing || isModelBlocked) return
+    if ((!trimmed && !reference) || isProcessing || isModelBlocked) return
+
+    let finalPrompt = trimmed
+    if (reference) {
+      if (trimmed) {
+        finalPrompt = `${reference.prompt || reference.title}\n\n用户附加提问: ${trimmed}`
+      } else {
+        finalPrompt = reference.prompt || reference.title
+      }
+    }
 
     setInput('')
+    setReference(null)
     setQuickCardOpen(true)
-    await sendMessage(trimmed, repoPath)
+    await sendMessage(finalPrompt, repoPath)
   }
 
   // Pointer drag event handlers specifically attached to the Robot Icon handle
@@ -642,12 +658,35 @@ export function GitAgentBar({ repoPath, className }: Props) {
               : 'opacity-0 -translate-x-2 pointer-events-none transition-[opacity,transform] duration-150 ease-in'
           )}
         >
+          {/* Reference Citation Chip */}
+          {reference && (
+            <span
+              className="flex max-w-[160px] shrink-0 items-center gap-1 rounded-full border border-accent/40 bg-accent/10 px-2 py-0.5 text-[11px] font-medium text-accent animate-in fade-in zoom-in-95 duration-150"
+              title={reference.title}
+            >
+              <LuBot className="size-3 shrink-0 text-accent" aria-hidden="true" />
+              <span className="truncate">{reference.title}</span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setReference(null)
+                }}
+                className="ml-0.5 rounded-full p-0.5 text-accent/70 hover:bg-accent/20 hover:text-accent focus:outline-none cursor-pointer"
+                title="移除引用"
+                aria-label="移除引用"
+              >
+                <LuX className="size-2.5" />
+              </button>
+            </span>
+          )}
+
           <input
             ref={inputRef}
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={t('gitAgent.barPlaceholder')}
+            placeholder={reference ? '向 Git Agent 追问或直接按回车发送...' : t('gitAgent.barPlaceholder')}
             className="min-w-0 flex-1 bg-transparent px-1 text-xs text-ink placeholder:text-ink-soft/60 focus:outline-none"
             tabIndex={contentVisible ? 0 : -1}
           />
@@ -687,10 +726,10 @@ export function GitAgentBar({ repoPath, className }: Props) {
             <span className="inline-flex">
               <button
                 type="submit"
-                disabled={!input.trim() || isProcessing || isModelBlocked}
+                disabled={(!input.trim() && !reference) || isProcessing || isModelBlocked}
                 className={cn(
                   'flex size-7 shrink-0 items-center justify-center rounded-full transition-all',
-                  input.trim() && !isProcessing && !isModelBlocked
+                  (input.trim() || reference) && !isProcessing && !isModelBlocked
                     ? 'bg-accent text-accent-ink shadow-xs hover:brightness-110 active:scale-95 cursor-pointer'
                     : 'bg-[var(--overlay-06)] text-ink-soft/40 cursor-not-allowed opacity-50'
                 )}

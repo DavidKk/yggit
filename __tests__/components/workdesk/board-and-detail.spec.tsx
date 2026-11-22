@@ -41,7 +41,7 @@ jest.mock('@/components/i18n/LocaleProvider', () => ({
 
 jest.mock('@/components/sk', () => ({
   Button: (props: React.ComponentProps<'button'>) => <button type="button" {...props} />,
-  Badge: ({ children, ...rest }: React.ComponentProps<'span'>) => <span {...rest}>{children}</span>,
+  Badge: ({ children, dot: _d, tone: _t, size: _s, loading: _l, ...rest }: any) => <span {...rest}>{children}</span>,
   Tooltip: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }))
 
@@ -108,6 +108,24 @@ describe('Workdesk Components', () => {
     expect(wrapper?.getAttribute('data-stacked')).toBe('true')
     expect(host.querySelector('[data-testid="card-stack-layer-bottom"]')).not.toBeNull()
     expect(host.querySelector('[data-testid="card-stack-layer-middle"]')).not.toBeNull()
+
+    // No right chevron arrow
+    expect(host.querySelector('svg.lucide-chevron-right')).toBeNull()
+  })
+
+  it('formats large project counts and branch counts as 99+ on WorkdeskCard', () => {
+    const hugeCard: WorkCard = {
+      ...sampleCard,
+      id: 'huge-task',
+      scope: '140 个项目 · 120 Worktrees',
+      projectCount: 140,
+    }
+
+    act(() => {
+      root.render(<WorkdeskCard card={hugeCard} />)
+    })
+
+    expect(host.textContent).toContain('99+')
   })
 
   it('renders WorkdeskCard as a single flat card when only 1 project is affected', () => {
@@ -143,6 +161,9 @@ describe('Workdesk Components', () => {
     expect(host.textContent).toContain('workdesk.lane.merge')
     expect(host.textContent).toContain('workdesk.lane.standard')
     expect(host.textContent).toContain('workdesk.lane.review')
+
+    // Single column container
+    expect(host.querySelector('.max-w-\\[352px\\]')).not.toBeNull()
 
     // 99+ badge for large tasks
     expect(host.textContent).toContain('99+')
@@ -268,5 +289,83 @@ describe('Workdesk Components', () => {
     })
 
     expect(host.textContent).toContain('同步默认分支')
+  })
+
+  it('dispatches yggit:agent_open with reference structure when Git Agent button is clicked', () => {
+    const dispatchSpy = jest.spyOn(window, 'dispatchEvent')
+    act(() => {
+      root.render(<WorkdeskCard card={sampleCard} />)
+    })
+
+    const agentBtn = host.querySelector('button[aria-label="引用到 Git Agent"]') as HTMLButtonElement | null
+    expect(agentBtn).not.toBeNull()
+
+    act(() => {
+      agentBtn?.click()
+    })
+
+    expect(dispatchSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'yggit:agent_open',
+        detail: expect.objectContaining({
+          reference: expect.objectContaining({
+            title: '同步默认分支',
+          }),
+        }),
+      })
+    )
+    dispatchSpy.mockRestore()
+  })
+
+  it('shows trash dropzone on card drag and supports discarding and undoing cards', () => {
+    act(() => {
+      root.render(<WorkdeskBoard initialCards={[sampleCard]} />)
+    })
+
+    // Initially no trash dropzone
+    expect(host.querySelector('[data-testid="workdesk-trash-dropzone"]')).toBeNull()
+
+    // Start drag on card
+    const draggableCard = host.querySelector('[draggable="true"]') as HTMLElement | null
+    expect(draggableCard).not.toBeNull()
+
+    const dataTransfer = {
+      setData: jest.fn(),
+      getData: jest.fn().mockReturnValue('sync-default-branches'),
+      effectAllowed: '',
+      dropEffect: '',
+    }
+
+    act(() => {
+      const event = new Event('dragstart', { bubbles: true })
+      Object.defineProperty(event, 'dataTransfer', {
+        value: dataTransfer,
+      })
+      draggableCard?.dispatchEvent(event)
+    })
+
+    // Trash dropzone appears
+    const trashZone = host.querySelector('[data-testid="workdesk-trash-dropzone"]') as HTMLElement | null
+    expect(trashZone).not.toBeNull()
+    expect(trashZone?.textContent).toContain('拖拽到此处丢弃任务')
+
+    // Drop onto trash zone
+    act(() => {
+      const dropEvent = new Event('drop', { bubbles: true })
+      Object.defineProperty(dropEvent, 'dataTransfer', {
+        value: dataTransfer,
+      })
+      trashZone?.dispatchEvent(dropEvent)
+    })
+
+    // Undo toast appears
+    expect(host.textContent).toContain('已丢弃任务')
+    expect(host.textContent).toContain('workdesk.action.undoDismiss')
+
+    // Click undo
+    const undoBtn = host.querySelector('button') as HTMLButtonElement | null
+    act(() => {
+      undoBtn?.click()
+    })
   })
 })
