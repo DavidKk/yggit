@@ -308,7 +308,7 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
       } else {
         router.push('/git')
       }
-    }, 180)
+    }, 220)
   }, [isGathering, onCollapse, router])
 
   // Auto-redirect if dismissed and undo timeout expires
@@ -432,22 +432,22 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
           <style>{`
             @keyframes workdeskCardDeal {
               0% {
-                opacity: 0.6;
-                transform: translateY(-10px);
+                opacity: 0;
+                transform: translateY(-14px) scale(0.97);
               }
               100% {
                 opacity: 1;
-                transform: translateY(0);
+                transform: translateY(0) scale(1);
               }
             }
             @keyframes workdeskCardGather {
               0% {
                 opacity: 1;
-                transform: translateY(0);
+                transform: translateY(0) scale(1);
               }
               100% {
-                opacity: 0.5;
-                transform: translateY(-10px);
+                opacity: 0;
+                transform: translateY(-24px) scale(0.92);
               }
             }
           `}</style>
@@ -496,7 +496,7 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
                   onClick={() => handleSelectItem(item.id)}
                   style={{
                     animation: isGathering
-                      ? 'workdeskCardGather 160ms cubic-bezier(0.4, 0, 0.2, 1) both'
+                      ? `workdeskCardGather 180ms cubic-bezier(0.4, 0, 0.2, 1) ${Math.min(itemIndex, 5) * 10}ms both`
                       : isDealing
                         ? `workdeskCardDeal 240ms cubic-bezier(0.16, 1, 0.3, 1) ${Math.min(itemIndex, 8) * 35}ms both`
                         : undefined,
@@ -556,7 +556,12 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
         </div>
 
         {/* Right Column: Evidence Details */}
-        <div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto bg-panel-2/20 p-5 lg:p-7">
+        <div
+          className={cn(
+            'relative flex min-h-0 flex-1 flex-col overflow-y-auto bg-panel-2/20 p-5 lg:p-7 transition-opacity duration-200',
+            isGathering ? 'pointer-events-none opacity-0' : 'opacity-100'
+          )}
+        >
           {/* Top Header of Right Column */}
           <div className="mb-4 flex max-w-3xl items-center justify-between">
             <span className="text-[10px] font-bold uppercase tracking-wider text-ink-muted">Git Workdesk</span>

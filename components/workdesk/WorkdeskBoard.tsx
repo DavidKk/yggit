@@ -485,8 +485,8 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
       {activeTaskId && (
         <div
           className={cn(
-            'absolute inset-0 flex flex-col overflow-hidden bg-paper z-20 transition-opacity duration-200',
-            transition?.phase === 'collapsing' ? 'pointer-events-none opacity-0' : 'opacity-100'
+            'absolute inset-0 flex flex-col overflow-hidden bg-paper z-20',
+            transition && (transition.phase === 'collapsing-start' || transition.phase === 'collapsing') ? 'pointer-events-none opacity-0 invisible' : 'opacity-100 visible'
           )}
         >
           <WorkdeskTaskDetailView taskId={activeTaskId} initialCard={activeCard} initialItems={Object.values(itemsMap)} onCollapse={handleCollapseCard} />
