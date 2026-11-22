@@ -64,6 +64,7 @@ export interface WorkdeskMessages {
     refresh: string
     importRecipe: string
     exportRecipe: string
+    sendToAgent: string
   }
   evidence: {
     title: string

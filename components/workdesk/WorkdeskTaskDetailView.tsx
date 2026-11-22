@@ -5,10 +5,10 @@ import { useRouter } from 'next/navigation'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   LuArrowLeft,
+  LuBot,
   LuChevronUp,
   LuExternalLink,
   LuFileCode,
-  LuFolder,
   LuFolderGit2,
   LuFolderTree,
   LuGitBranch,
@@ -117,17 +117,6 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
     return card.itemIds.map((id) => itemsMap[id]).filter(Boolean)
   }, [card, itemsMap])
 
-  // Group task items by repoAlias
-  const groupedItems = useMemo(() => {
-    const groups: Record<string, WorkItem[]> = {}
-    for (const item of taskItems) {
-      const groupKey = item.repoAlias || item.repoId
-      if (!groups[groupKey]) groups[groupKey] = []
-      groups[groupKey].push(item)
-    }
-    return groups
-  }, [taskItems])
-
   // Ensure an active item is selected
   useEffect(() => {
     if (taskItems.length > 0) {
@@ -232,6 +221,30 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
     const rawTitle = i18nKey ? t(`workdesk.cards.${i18nKey}.title` as MessageKey) : undefined
     return rawTitle && !rawTitle.startsWith('workdesk.cards.') ? rawTitle : card.title
   }, [card, t])
+
+  const handleSendToAgent = useCallback(
+    (item?: WorkItem) => {
+      const target = item || activeItem
+      if (!target || !card) return
+      const commitEvidence = target.commit ? `\n- 关联提交: ${target.commit}` : ''
+      const pathEvidence = target.paths && target.paths.length > 0 ? `\n- 关联路径: ${target.paths.join(', ')}` : ''
+      const prompt = `请协助处理工作台任务【${cardTitle}】：
+- 目标项目: ${target.repoAlias || target.repoId}
+- 目标分支: ${target.name}
+- 诊断结论: ${target.summary}${commitEvidence}${pathEvidence}
+
+请分析具体情况并给出处理建议或执行方案。`
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('yggit:agent_open', {
+            detail: { prompt },
+          })
+        )
+      }
+    },
+    [activeItem, card, cardTitle]
+  )
 
   // Collect cards upwards into top-left deck before collapsing back to board
   const handleCollapse = useCallback(() => {
@@ -370,124 +383,130 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
           <style>{`
             @keyframes workdeskCardDeal {
               0% {
-                opacity: 0;
-                transform: translateY(-24px) scale(0.96);
+                opacity: 0.6;
+                transform: translateY(-10px);
               }
               100% {
                 opacity: 1;
-                transform: translateY(0) scale(1);
+                transform: translateY(0);
               }
             }
             @keyframes workdeskCardGather {
               0% {
                 opacity: 1;
-                transform: translateY(0) scale(1);
+                transform: translateY(0);
               }
               100% {
-                opacity: 0;
-                transform: translateY(-20px) scale(0.96);
+                opacity: 0.5;
+                transform: translateY(-10px);
               }
             }
           `}</style>
 
           {/* Dealing Cards List (Directly below top card) */}
           <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto p-2.5">
-            {Object.entries(groupedItems).map(([groupName, items], groupIndex) => {
-              const hasActive = items.some((it) => it.id === activeItem?.id)
+            {taskItems.map((item, itemIndex) => {
+              const isSelected = item.id === activeItem?.id
+              const isItemDragging = draggingItemId === item.id
+              const isItemOver = dragOverItemId === item.id
+
               return (
                 <div
-                  key={groupName}
+                  key={item.id}
+                  draggable={true}
+                  onDragStart={(e) => {
+                    e.stopPropagation()
+                    e.dataTransfer.setData('text/plain', item.id)
+                    e.dataTransfer.effectAllowed = 'move'
+                    setDraggingItemId(item.id)
+                  }}
+                  onDragEnd={() => {
+                    setDraggingItemId(null)
+                    setDragOverItemId(null)
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault()
+                    e.dataTransfer.dropEffect = 'move'
+                    if (dragOverItemId !== item.id) {
+                      setDragOverItemId(item.id)
+                    }
+                  }}
+                  onDragLeave={() => {
+                    setDragOverItemId(null)
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    const srcId = e.dataTransfer.getData('text/plain') || draggingItemId
+                    if (srcId && srcId !== item.id) {
+                      handleReorderItems(srcId, item.id)
+                    }
+                    setDraggingItemId(null)
+                    setDragOverItemId(null)
+                  }}
+                  onClick={() => handleSelectItem(item.id)}
                   style={{
                     animation: isGathering
                       ? 'workdeskCardGather 160ms cubic-bezier(0.4, 0, 0.2, 1) both'
                       : isDealing
-                        ? `workdeskCardDeal 240ms cubic-bezier(0.16, 1, 0.3, 1) ${Math.min(groupIndex, 8) * 35}ms both`
+                        ? `workdeskCardDeal 240ms cubic-bezier(0.16, 1, 0.3, 1) ${Math.min(itemIndex, 8) * 35}ms both`
                         : undefined,
                   }}
                   className={cn(
-                    'flex shrink-0 flex-col overflow-hidden rounded-xl border bg-panel transition-all shadow-2xs',
-                    hasActive ? 'border-accent/40 shadow-xs ring-1 ring-accent/20' : 'border-line/70'
+                    'group relative flex min-h-[58px] w-full cursor-pointer items-center justify-between gap-3 rounded-xl border p-2.5 shadow-xs transition-all duration-150 select-none shrink-0',
+                    isSelected
+                      ? 'border-[#b5ddd4] bg-[#f8fcfa] shadow-xs dark:border-emerald-700/60 dark:bg-emerald-950/30'
+                      : 'border-line bg-panel hover:border-[#b5ddd4] hover:bg-[#f8fcfa] hover:shadow-sm dark:hover:border-emerald-700/50 dark:hover:bg-emerald-950/20',
+                    isItemDragging && 'opacity-40 scale-[0.98]',
+                    isItemOver && 'ring-1 ring-accent',
+                    'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent/40'
                   )}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      handleSelectItem(item.id)
+                    }
+                  }}
+                  aria-label={`${item.repoAlias ? `${item.repoAlias} · ${item.name}` : item.name} - ${item.summary}`}
                 >
-                  {/* Project Header */}
-                  <div className="flex items-center justify-between border-b border-line/40 bg-panel-2/50 px-2.5 py-1.5">
-                    <div className="flex min-w-0 items-center gap-1.5">
-                      <LuFolder className="size-3.5 shrink-0 text-accent" aria-hidden="true" />
-                      <span className="truncate text-xs font-semibold text-ink" title={groupName}>
-                        {groupName}
-                      </span>
+                  <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                    {/* Capsule icon container */}
+                    <div
+                      className={cn(
+                        'flex size-7 shrink-0 items-center justify-center rounded-lg bg-[#eef5f2] transition-colors',
+                        'group-hover:bg-[#e2f1ec] dark:bg-emerald-950/40 dark:group-hover:bg-emerald-900/50'
+                      )}
+                      aria-hidden="true"
+                    >
+                      {resolveCardIcon(card.iconName, card.categoryId)}
                     </div>
-                    <span className="shrink-0 rounded border border-line/50 bg-panel px-1.5 py-0.5 text-[10px] font-medium text-ink-muted">{items.length}</span>
+
+                    {/* Title and Summary */}
+                    <div className="flex min-w-0 flex-1 flex-col justify-center text-left">
+                      <span className="line-clamp-1 text-xs font-semibold leading-tight text-ink transition-colors group-hover:text-ink-vivid">
+                        {item.repoAlias ? `${item.repoAlias} · ${item.name}` : item.name}
+                      </span>
+                      <span className="mt-0.5 line-clamp-1 text-[11px] leading-none text-ink-muted">{item.summary}</span>
+                    </div>
                   </div>
 
-                  {/* Issues under this Project */}
-                  <div className="flex flex-col divide-y divide-line/30 p-1">
-                    {items.map((item) => {
-                      const isSelected = item.id === activeItem?.id
-                      const isItemDragging = draggingItemId === item.id
-                      const isItemOver = dragOverItemId === item.id
-
-                      return (
-                        <div
-                          key={item.id}
-                          draggable={true}
-                          onDragStart={(e) => {
-                            e.stopPropagation()
-                            e.dataTransfer.setData('text/plain', item.id)
-                            e.dataTransfer.effectAllowed = 'move'
-                            setDraggingItemId(item.id)
-                          }}
-                          onDragEnd={() => {
-                            setDraggingItemId(null)
-                            setDragOverItemId(null)
-                          }}
-                          onDragOver={(e) => {
-                            e.preventDefault()
-                            e.dataTransfer.dropEffect = 'move'
-                            if (dragOverItemId !== item.id) {
-                              setDragOverItemId(item.id)
-                            }
-                          }}
-                          onDragLeave={() => {
-                            setDragOverItemId(null)
-                          }}
-                          onDrop={(e) => {
-                            e.preventDefault()
-                            e.stopPropagation()
-                            const srcId = e.dataTransfer.getData('text/plain') || draggingItemId
-                            if (srcId && srcId !== item.id) {
-                              handleReorderItems(srcId, item.id)
-                            }
-                            setDraggingItemId(null)
-                            setDragOverItemId(null)
-                          }}
-                          onClick={() => handleSelectItem(item.id)}
-                          className={cn(
-                            'group flex flex-col rounded-lg px-2.5 py-2 text-left transition-colors cursor-pointer select-none',
-                            isSelected ? 'bg-[#e8f3ef] text-ink dark:bg-emerald-950/50' : 'text-ink-soft hover:bg-panel-2 hover:text-ink',
-                            isItemDragging && 'opacity-40 scale-[0.98]',
-                            isItemOver && 'ring-1 ring-accent'
-                          )}
-                          role="button"
-                          tabIndex={0}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault()
-                              handleSelectItem(item.id)
-                            }
-                          }}
-                        >
-                          <div className="flex items-center justify-between gap-1.5">
-                            <div className="flex min-w-0 items-center gap-1.5">
-                              <LuGitBranch className={cn('size-3 shrink-0', isSelected ? 'text-accent' : 'text-ink-muted')} aria-hidden="true" />
-                              <span className={cn('truncate font-mono text-xs', isSelected ? 'font-bold text-ink' : 'font-medium')}>{item.name}</span>
-                            </div>
-                            {renderStateDot(item.state)}
-                          </div>
-                          <span className={cn('mt-1 line-clamp-2 text-[11px] leading-relaxed', isSelected ? 'font-normal text-ink-soft' : 'text-ink-muted')}>{item.summary}</span>
-                        </div>
-                      )
-                    })}
+                  {/* Right Status Dot & Agent Quick Action */}
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleSendToAgent(item)
+                      }}
+                      className="flex size-5 items-center justify-center rounded-md text-ink-muted opacity-0 group-hover:opacity-100 hover:bg-accent/15 hover:text-accent transition-all duration-150"
+                      title={t('workdesk.action.sendToAgent')}
+                      aria-label={t('workdesk.action.sendToAgent')}
+                    >
+                      <LuBot className="size-3" aria-hidden="true" />
+                    </button>
+                    {renderStateDot(item.state)}
                   </div>
                 </div>
               )
@@ -500,16 +519,28 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
           {/* Top Header of Right Column */}
           <div className="mb-4 flex max-w-3xl items-center justify-between">
             <span className="text-[10px] font-bold uppercase tracking-wider text-ink-muted">Git Workdesk</span>
-            <Button
-              size="sm"
-              variant="default"
-              onClick={handleDismissCard}
-              className="h-7 gap-1.5 px-2.5 text-xs text-ink-soft hover:border-red-300 hover:text-red-600 dark:hover:border-red-800 dark:hover:text-red-400"
-              title={t('workdesk.action.dismiss')}
-            >
-              <LuTrash2 className="size-3.5" aria-hidden="true" />
-              <span>{t('workdesk.action.dismiss')}</span>
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="default"
+                onClick={() => handleSendToAgent()}
+                className="h-7 gap-1.5 px-2.5 text-xs text-accent hover:border-accent/40 hover:bg-accent/10"
+                title={t('workdesk.action.sendToAgent')}
+              >
+                <LuBot className="size-3.5" aria-hidden="true" />
+                <span>{t('workdesk.action.sendToAgent')}</span>
+              </Button>
+              <Button
+                size="sm"
+                variant="default"
+                onClick={handleDismissCard}
+                className="h-7 gap-1.5 px-2.5 text-xs text-ink-soft hover:border-red-300 hover:text-red-600 dark:hover:border-red-800 dark:hover:text-red-400"
+                title={t('workdesk.action.dismiss')}
+              >
+                <LuTrash2 className="size-3.5" aria-hidden="true" />
+                <span>{t('workdesk.action.dismiss')}</span>
+              </Button>
+            </div>
           </div>
 
           {activeItem ? (
@@ -563,6 +594,20 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
                 </div>
 
                 <div className="rounded-lg border border-line/60 bg-panel-2/40 p-3.5 text-xs font-medium leading-relaxed text-ink">{activeItem.summary}</div>
+
+                {/* Agent Assist Quick Action */}
+                {card.id !== 'standard-project-organization' && (
+                  <div className="flex flex-col gap-3 rounded-lg border border-[#b5ddd4] bg-[#f4faf7] p-3 sm:flex-row sm:items-center sm:justify-between dark:border-emerald-800/40 dark:bg-emerald-950/20">
+                    <div className="flex min-w-0 flex-1 flex-col pr-3">
+                      <span className="text-xs font-semibold text-ink">由 Git Agent 协助处理此任务</span>
+                      <span className="mt-0.5 text-[11px] text-ink-muted">一键将项目诊断与分支状态带入 Agent 进行自动化合并、变基或规范整理</span>
+                    </div>
+                    <Button size="sm" className="shrink-0 gap-1.5" onClick={() => handleSendToAgent()}>
+                      <LuBot className="size-3.5" aria-hidden="true" />
+                      <span>{t('workdesk.action.sendToAgent')}</span>
+                    </Button>
+                  </div>
+                )}
 
                 {/* Organization Hygiene Special Action Button */}
                 {card.id === 'standard-project-organization' && (

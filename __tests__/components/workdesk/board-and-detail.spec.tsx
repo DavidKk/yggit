@@ -92,7 +92,7 @@ describe('Workdesk Components', () => {
     paths: ['src/index.ts'],
   }
 
-  it('renders WorkdeskCard with title, scope, and target link with uniform card styling', () => {
+  it('renders WorkdeskCard with title, scope, target link, and stacked deck layers for multiple projects', () => {
     act(() => {
       root.render(<WorkdeskCard card={sampleCard} />)
     })
@@ -103,12 +103,14 @@ describe('Workdesk Components', () => {
     expect(link).not.toBeNull()
     expect(link?.getAttribute('href')).toBe('/workdesk/tasks/sync-default-branches')
 
-    // Clean uniform card structure without pseudo-deck underlayers
-    expect(host.querySelector('[data-testid="card-stack-layer-bottom"]')).toBeNull()
-    expect(host.querySelector('[data-testid="card-stack-layer-middle"]')).toBeNull()
+    // Multiple projects: stacked card deck
+    const wrapper = host.querySelector('[data-testid="workdesk-card-wrapper-sync-default-branches"]')
+    expect(wrapper?.getAttribute('data-stacked')).toBe('true')
+    expect(host.querySelector('[data-testid="card-stack-layer-bottom"]')).not.toBeNull()
+    expect(host.querySelector('[data-testid="card-stack-layer-middle"]')).not.toBeNull()
   })
 
-  it('renders WorkdeskCard consistently regardless of project count', () => {
+  it('renders WorkdeskCard as a single flat card when only 1 project is affected', () => {
     const singleProjectCard: WorkCard = {
       ...sampleCard,
       id: 'single-repo-task',
@@ -122,14 +124,18 @@ describe('Workdesk Components', () => {
 
     expect(host.textContent).toContain('1 个项目')
     const wrapper = host.querySelector('[data-testid="workdesk-card-wrapper-single-repo-task"]')
-    expect(wrapper).not.toBeNull()
+    expect(wrapper?.getAttribute('data-stacked')).toBe('false')
     expect(host.querySelector('[data-testid="card-stack-layer-bottom"]')).toBeNull()
     expect(host.querySelector('[data-testid="card-stack-layer-middle"]')).toBeNull()
   })
 
-  it('renders WorkdeskBoard with 4 lanes and populated cards', () => {
+  it('renders WorkdeskBoard with 4 lanes and 99+ badge for large task counts', () => {
+    const largeCard: WorkCard = {
+      ...sampleCard,
+      itemIds: Array.from({ length: 120 }, (_, i) => `item_${i}`),
+    }
     act(() => {
-      root.render(<WorkdeskBoard initialCards={[sampleCard]} initialLastChecked={Date.now()} />)
+      root.render(<WorkdeskBoard initialCards={[largeCard]} initialLastChecked={Date.now()} />)
     })
 
     // Check lane headings
@@ -137,6 +143,9 @@ describe('Workdesk Components', () => {
     expect(host.textContent).toContain('workdesk.lane.merge')
     expect(host.textContent).toContain('workdesk.lane.standard')
     expect(host.textContent).toContain('workdesk.lane.review')
+
+    // 99+ badge for large tasks
+    expect(host.textContent).toContain('99+')
 
     // Check presence of the card
     expect(host.textContent).toContain('同步默认分支')
@@ -150,8 +159,9 @@ describe('Workdesk Components', () => {
     // Topline
     expect(host.querySelector('button[aria-label*="workdesk.action.back"]')).not.toBeNull()
     expect(host.textContent).toContain('Git Workdesk')
-    // Standalone dismiss button
+    // Standalone dismiss button and Git Agent quick quote button
     expect(host.textContent).toContain('workdesk.action.dismiss')
+    expect(host.textContent).toContain('workdesk.action.sendToAgent')
 
     // Middle strip removed: no redundant "taskList" header strip
     expect(host.textContent).not.toContain('workdesk.detail.taskList')

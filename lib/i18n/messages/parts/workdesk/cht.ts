@@ -67,6 +67,7 @@ export const workdeskCht: { workdesk: WorkdeskMessages } = {
       refresh: '重新整理',
       importRecipe: '匯入檢查方案',
       exportRecipe: '匯出檢查方案',
+      sendToAgent: '引用到 Git Agent',
     },
     evidence: {
       title: '相關 Git 內容 (點擊直接定位)',

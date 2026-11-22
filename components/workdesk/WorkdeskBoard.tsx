@@ -8,7 +8,7 @@ import type { MessageKey } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 import { workdeskEngine } from '@/lib/workdesk/engine'
 import { undoDismissCard } from '@/lib/workdesk/storage'
-import type { WorkCard } from '@/lib/workdesk/types'
+import type { WorkCard, WorkItem } from '@/lib/workdesk/types'
 
 import { CARD_I18N_MAP, resolveCardIcon, WorkdeskCard } from './WorkdeskCard'
 import { WorkdeskTaskDetailView } from './WorkdeskTaskDetailView'
@@ -45,6 +45,7 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
   const cardOriginMapRef = useRef<Record<string, CardRect>>({})
 
   const [cards, setCards] = useState<WorkCard[]>(initialCards)
+  const [itemsMap, setItemsMap] = useState<Record<string, WorkItem>>({})
   const [undoToast, setUndoToast] = useState<{ cardId: string; cardTitle: string } | null>(null)
   const [activeTaskId, setActiveTaskId] = useState<string | null>(initialActiveTaskId || null)
   const [transition, setTransition] = useState<TransitionState | null>(null)
@@ -181,15 +182,21 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
     workdeskEngine.loadInitial().then((cached) => {
       if (cached) {
         setCards(cached.cards)
+        setItemsMap(cached.items)
+      }
+      // Only scan if no cache exists or cache is older than 5 minutes
+      const isStale = !cached || Date.now() - (cached.lastChecked || 0) > 5 * 60 * 1000
+      if (isStale) {
+        workdeskEngine.scan().catch(() => {})
       }
     })
 
     const unsubscribe = workdeskEngine.subscribe((result) => {
       setCards(result.cards)
+      setItemsMap(result.items)
     })
 
     workdeskEngine.startTimer()
-    workdeskEngine.scan().catch(() => {})
 
     return () => {
       unsubscribe()
@@ -287,8 +294,8 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
 
       {/* Expanded Detail View */}
       {activeTaskId && !transition && (
-        <div className="relative flex min-h-0 flex-1 overflow-hidden animate-in fade-in duration-200">
-          <WorkdeskTaskDetailView taskId={activeTaskId} initialCard={activeCard} onCollapse={handleCollapseCard} />
+        <div className="relative flex min-h-0 flex-1 overflow-hidden">
+          <WorkdeskTaskDetailView taskId={activeTaskId} initialCard={activeCard} initialItems={Object.values(itemsMap)} onCollapse={handleCollapseCard} />
         </div>
       )}
 
@@ -304,6 +311,8 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
             {lanes.map((lane) => {
               const laneCards = visibleCards.filter((c) => c.categoryId === lane.id)
               const laneTitle = t(`workdesk.lane.${lane.titleKey}`)
+              const totalTasks = laneCards.reduce((acc, c) => acc + (c.itemIds?.length ?? 1), 0)
+              const displayBadge = totalTasks > 99 ? '99+' : totalTasks
 
               return (
                 <div
@@ -318,11 +327,22 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
                 >
                   {/* Lane Header */}
                   <div className="mb-2.5 flex items-center justify-between px-1">
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 min-w-0">
                       {lane.icon}
                       <span className="text-xs font-bold text-ink">{laneTitle}</span>
+                      <span
+                        className={cn(
+                          'inline-flex min-w-[20px] items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none transition-colors border',
+                          totalTasks > 0
+                            ? 'border-accent/30 bg-accent/10 text-accent dark:border-emerald-700/50 dark:bg-emerald-950/50 dark:text-emerald-400'
+                            : 'border-line/60 bg-panel-2 text-ink-muted'
+                        )}
+                        title={`共有 ${totalTasks} 项待处理工作`}
+                        aria-label={`${laneTitle}: ${displayBadge}`}
+                      >
+                        {displayBadge}
+                      </span>
                     </div>
-                    <span className={cn('text-[11px] font-semibold text-ink-muted', laneCards.length > 0 && lane.badgeColor)}>{laneCards.length}</span>
                   </div>
 
                   {/* Cards List in Lane */}

@@ -67,6 +67,7 @@ export const workdeskEn: { workdesk: WorkdeskMessages } = {
       refresh: 'Refresh',
       importRecipe: 'Import check recipe',
       exportRecipe: 'Export check recipe',
+      sendToAgent: 'Quote in Git Agent',
     },
     evidence: {
       title: 'Related Git evidence (click to navigate)',
