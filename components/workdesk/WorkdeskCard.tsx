@@ -61,32 +61,32 @@ export function WorkdeskCard({ card, className, noWrapperMargin = false, onSelec
 
   return (
     <div
-      className={cn('group/stack relative transition-all duration-200 select-none', !noWrapperMargin && (isMultiple ? 'mb-3 pb-1' : 'mb-1'))}
+      className={cn('group/stack relative transition-all duration-200 select-none', !noWrapperMargin && (isMultiple ? 'mb-2 pb-0.5' : 'mb-1'))}
       data-testid={`workdesk-card-wrapper-${card.id}`}
       data-stacked={isMultiple ? 'true' : 'false'}
     >
-      {/* Visual metaphor for multiple projects: casually stacked card deck with organic slight tilt */}
+      {/* Visual metaphor for multiple projects: pure white card deck with subtle corner peeking out */}
       {isMultiple && (
         <>
-          {/* Deepest underlayer (layer 3, tilted slightly left) */}
+          {/* Deepest underlayer (layer 3, subtle second white corner peek) */}
           <div
             data-testid="card-stack-layer-bottom"
             className={cn(
-              'absolute inset-0 rounded-xl border border-line/60 bg-panel-2/70 shadow-2xs transition-all duration-200 pointer-events-none origin-center',
-              '-rotate-2 -translate-x-1 translate-y-1.5',
-              'group-hover/stack:-rotate-3 group-hover/stack:-translate-x-1.5 group-hover/stack:translate-y-2',
-              'dark:border-line/40 dark:bg-panel-2/50'
+              'absolute inset-0 rounded-xl border border-line/60 bg-panel shadow-2xs transition-all duration-200 pointer-events-none origin-top-left',
+              'translate-x-1.5 translate-y-1.5 rotate-[1.2deg]',
+              'group-hover/stack:translate-x-2 group-hover/stack:translate-y-2 group-hover/stack:rotate-[1.8deg]',
+              'dark:border-line/40 dark:bg-panel'
             )}
             aria-hidden="true"
           />
-          {/* Middle underlayer (layer 2, tilted slightly right) */}
+          {/* Middle underlayer (layer 2, crisp white corner peek) */}
           <div
             data-testid="card-stack-layer-middle"
             className={cn(
-              'absolute inset-0 rounded-xl border border-line/80 bg-panel shadow-2xs transition-all duration-200 pointer-events-none origin-center',
-              'rotate-1 translate-x-1 translate-y-0.5',
-              'group-hover/stack:rotate-2 group-hover/stack:translate-x-1.5 group-hover/stack:translate-y-1',
-              'dark:border-line/60 dark:bg-panel-2/70'
+              'absolute inset-0 rounded-xl border border-line/80 bg-panel shadow-2xs transition-all duration-200 pointer-events-none origin-top-left',
+              'translate-x-1 translate-y-1 rotate-[0.6deg]',
+              'group-hover/stack:translate-x-1.5 group-hover/stack:translate-y-1.5 group-hover/stack:rotate-[1deg]',
+              'dark:border-line/60 dark:bg-panel'
             )}
             aria-hidden="true"
           />
