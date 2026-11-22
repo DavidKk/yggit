@@ -58,6 +58,7 @@ export interface WorkCard {
   title: string
   summary: string
   scope: string // e.g. "5 个项目"
+  projectCount?: number // Explicit count of affected projects (1 = single flat card, >1 = stacked card deck)
   iconName: string // react-icons identifier
   categoryId: 'branch' | 'merge' | 'standard' | 'review' | string
   categorySource: 'rule' | 'agent' | 'user'

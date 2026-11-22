@@ -92,7 +92,7 @@ describe('Workdesk Components', () => {
     paths: ['src/index.ts'],
   }
 
-  it('renders WorkdeskCard with title, scope, and target link', () => {
+  it('renders WorkdeskCard with title, scope, target link, and stacked deck layers for multiple projects', () => {
     act(() => {
       root.render(<WorkdeskCard card={sampleCard} />)
     })
@@ -102,6 +102,31 @@ describe('Workdesk Components', () => {
     const link = host.querySelector('a')
     expect(link).not.toBeNull()
     expect(link?.getAttribute('href')).toBe('/workdesk/tasks/sync-default-branches')
+
+    // Multiple projects: stacked card deck
+    const wrapper = host.querySelector('[data-testid="workdesk-card-wrapper-sync-default-branches"]')
+    expect(wrapper?.getAttribute('data-stacked')).toBe('true')
+    expect(host.querySelector('[data-testid="card-stack-layer-bottom"]')).not.toBeNull()
+    expect(host.querySelector('[data-testid="card-stack-layer-middle"]')).not.toBeNull()
+  })
+
+  it('renders WorkdeskCard as a single flat card when only 1 project is affected', () => {
+    const singleProjectCard: WorkCard = {
+      ...sampleCard,
+      id: 'single-repo-task',
+      scope: '1 个项目',
+      projectCount: 1,
+    }
+
+    act(() => {
+      root.render(<WorkdeskCard card={singleProjectCard} />)
+    })
+
+    expect(host.textContent).toContain('1 个项目')
+    const wrapper = host.querySelector('[data-testid="workdesk-card-wrapper-single-repo-task"]')
+    expect(wrapper?.getAttribute('data-stacked')).toBe('false')
+    expect(host.querySelector('[data-testid="card-stack-layer-bottom"]')).toBeNull()
+    expect(host.querySelector('[data-testid="card-stack-layer-middle"]')).toBeNull()
   })
 
   it('renders WorkdeskBoard with 4 lanes and populated cards', () => {
