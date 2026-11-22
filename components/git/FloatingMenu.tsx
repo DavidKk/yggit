@@ -146,7 +146,7 @@ export function FloatingMenu({ anchor, ariaLabel, color, onClose, children, item
         className={cn(
           variant === 'overlay'
             ? 'absolute z-[100] min-w-48 max-w-[min(24rem,calc(100vw-16px))] max-h-[min(240px,calc(100vh-16px))] overflow-y-auto rounded-lg bg-panel p-0 shadow-lg outline-none'
-            : 'fixed z-[100] w-[236px] min-w-[220px] max-w-[min(260px,calc(100vw-16px))] max-h-[min(480px,calc(100vh-16px))] overflow-y-auto overflow-x-visible rounded-xl border border-line/80 bg-panel/95 p-1.5 shadow-2xl backdrop-blur-md outline-none animate-in fade-in zoom-in-95 duration-100'
+            : 'fixed z-[100] w-[236px] min-w-[220px] max-w-[min(260px,calc(100vw-16px))] max-h-[min(480px,calc(100vh-16px))] overflow-y-auto overflow-x-visible rounded-xl border border-line bg-panel p-1.5 shadow-2xl outline-none animate-in fade-in zoom-in-95 duration-100'
         )}
         style={{
           left: position.x,
@@ -333,7 +333,7 @@ function FloatingSubmenu({
       role="menu"
       data-git-floating-submenu=""
       className={cn(
-        'fixed z-[110] w-[236px] min-w-[220px] max-w-[min(260px,calc(100vw-16px))] overflow-hidden rounded-xl border border-line/80 bg-panel/95 p-1.5 shadow-2xl backdrop-blur-md outline-none animate-in fade-in zoom-in-95 duration-100',
+        'fixed z-[110] w-[236px] min-w-[220px] max-w-[min(260px,calc(100vw-16px))] overflow-hidden rounded-xl border border-line bg-panel p-1.5 shadow-2xl outline-none animate-in fade-in zoom-in-95 duration-100',
         fitsRight
           ? 'before:absolute before:-left-3 before:top-0 before:bottom-0 before:w-4 before:content-[""]'
           : 'before:absolute before:-right-3 before:top-0 before:bottom-0 before:w-4 before:content-[""]'

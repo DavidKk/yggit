@@ -108,7 +108,7 @@ export function PortableCheckImportView() {
 
       {/* Recipe Input when not loaded from hash */}
       {!recipe && (
-        <div className="mx-auto flex w-full max-w-xl flex-col gap-4 rounded-xl border border-line bg-panel-1 p-5 shadow-xs">
+        <div className="mx-auto flex w-full max-w-xl flex-col gap-4 rounded-xl border border-line bg-panel p-5 shadow-xs">
           <span className="text-xs font-semibold text-ink">粘贴检查方案链接或载荷代码</span>
           <TextInput placeholder="#data=... 或粘贴 Base64 载荷" value={rawInput} onChange={(e) => setRawInput(e.target.value)} className="font-mono text-xs" />
           {error && <span className="text-xs text-red-500">{error}</span>}
@@ -138,7 +138,7 @@ export function PortableCheckImportView() {
           {/* Repositories Matrix List */}
           <div className="flex flex-col gap-2.5">
             <span className="text-xs font-semibold text-ink-muted">配方仓库匹配列表</span>
-            <div className="flex flex-col divide-y divide-line rounded-xl border border-line bg-panel-1">
+            <div className="flex flex-col divide-y divide-line rounded-xl border border-line bg-panel">
               {matchResults.map((result, idx) => (
                 <div key={idx} className="flex items-center justify-between gap-4 p-3.5">
                   <div className="flex min-w-0 flex-1 flex-col">

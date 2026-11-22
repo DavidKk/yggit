@@ -38,7 +38,7 @@ export function AnnotationBadge({ target, className }: Props) {
         aria-label={`Agent Annotation: ${target.role} (${target.evidenceGrade})`}
         className={cn(
           'inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider border transition-transform hover:scale-105 active:scale-95',
-          gradeColors[target.evidenceGrade] || 'bg-muted/30 text-muted-foreground border-border/40'
+          gradeColors[target.evidenceGrade] || 'bg-panel-2 text-ink-muted border-line'
         )}
       >
         <span>{roleLabels[target.role] || target.role}</span>

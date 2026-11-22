@@ -40,7 +40,7 @@ export function WorkdeskHeaderSwitcher() {
       <button
         onClick={() => setOpen(!open)}
         className={cn(
-          'flex h-7 items-center gap-1.5 rounded-lg border border-line bg-panel-1 px-2.5 text-xs font-semibold text-accent shadow-2xs transition-colors',
+          'flex h-7 items-center gap-1.5 rounded-lg border border-line bg-panel px-2.5 text-xs font-semibold text-accent shadow-2xs transition-colors',
           'hover:bg-panel-2 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent/40'
         )}
         aria-expanded={open}
@@ -52,7 +52,7 @@ export function WorkdeskHeaderSwitcher() {
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 z-50 mt-1 w-56 rounded-xl border border-line bg-panel-1 p-1 shadow-lg dark:bg-panel-2">
+        <div className="absolute top-full left-0 z-50 mt-1 w-56 rounded-xl border border-line bg-panel p-1 shadow-lg">
           {/* Active Workdesk Selection */}
           <Link
             href="/workdesk"
@@ -78,7 +78,7 @@ export function WorkdeskHeaderSwitcher() {
                       key={proj.id}
                       href={target ? `/git/${encodeURIComponent(target)}` : '/git'}
                       onClick={() => setOpen(false)}
-                      className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-ink transition-colors hover:bg-panel-2 dark:hover:bg-panel-1"
+                      className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-ink transition-colors hover:bg-panel-2 dark:hover:bg-panel-2"
                     >
                       <LuFolderGit2 className="size-3.5 text-ink-muted" aria-hidden="true" />
                       <span className="truncate">{proj.label || proj.name}</span>

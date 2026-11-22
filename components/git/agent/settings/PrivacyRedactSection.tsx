@@ -59,7 +59,7 @@ export function PrivacyRedactSection() {
             <span>脱敏引擎已激活：敏感实体将在出站请求时自动掩盖，并在模型流式返回时实时解密。</span>
           </div>
         ) : (
-          <div className="flex items-center gap-2 rounded-md border border-line bg-muted/20 p-3 text-xs text-ink-soft">
+          <div className="flex items-center gap-2 rounded-md border border-line bg-panel-2/60 p-3 text-xs text-ink-soft">
             <span>脱敏引擎已停用：发送给大模型的内容将包含原始上下文，适合私有化自部署环境。</span>
           </div>
         )}

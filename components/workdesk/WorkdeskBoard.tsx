@@ -1,11 +1,9 @@
 'use client'
 
-import Link from 'next/link'
 import React, { useEffect, useMemo, useState } from 'react'
-import { LuCircleCheck, LuDownload, LuFlag, LuGitBranch, LuGitMerge, LuRefreshCw, LuUndo2 } from 'react-icons/lu'
+import { LuCircleCheck, LuFlag, LuGitBranch, LuGitMerge, LuUndo2 } from 'react-icons/lu'
 
 import { useT } from '@/components/i18n/LocaleProvider'
-import { Button } from '@/components/sk'
 import { cn } from '@/lib/utils'
 import { workdeskEngine } from '@/lib/workdesk/engine'
 import { undoDismissCard } from '@/lib/workdesk/storage'
@@ -25,19 +23,10 @@ interface LaneConfig {
   badgeColor: string
 }
 
-export function WorkdeskBoard({ initialCards = [], initialLastChecked = 0 }: WorkdeskBoardProps) {
+export function WorkdeskBoard({ initialCards = [] }: WorkdeskBoardProps) {
   const t = useT()
   const [cards, setCards] = useState<WorkCard[]>(initialCards)
-  const [lastChecked, setLastChecked] = useState<number>(initialLastChecked)
-  const [currentTime, setCurrentTime] = useState<number>(0)
-  const [isRefreshing, setIsRefreshing] = useState(false)
   const [undoToast, setUndoToast] = useState<{ cardId: string; cardTitle: string } | null>(null)
-
-  useEffect(() => {
-    setCurrentTime(Date.now())
-    const interval = setInterval(() => setCurrentTime(Date.now()), 60000)
-    return () => clearInterval(interval)
-  }, [])
 
   // Listen to engine updates and start background timer
   useEffect(() => {
@@ -45,14 +34,11 @@ export function WorkdeskBoard({ initialCards = [], initialLastChecked = 0 }: Wor
     workdeskEngine.loadInitial().then((cached) => {
       if (cached) {
         setCards(cached.cards)
-        setLastChecked(cached.lastChecked)
       }
     })
 
     const unsubscribe = workdeskEngine.subscribe((result) => {
       setCards(result.cards)
-      setLastChecked(result.lastChecked)
-      setIsRefreshing(false)
     })
 
     workdeskEngine.startTimer()
@@ -65,15 +51,6 @@ export function WorkdeskBoard({ initialCards = [], initialLastChecked = 0 }: Wor
       workdeskEngine.stopTimer()
     }
   }, [])
-
-  const handleRefresh = async () => {
-    setIsRefreshing(true)
-    try {
-      await workdeskEngine.scan()
-    } finally {
-      setIsRefreshing(false)
-    }
-  }
 
   const handleUndoDismiss = (cardId: string) => {
     undoDismissCard(cardId)
@@ -122,37 +99,8 @@ export function WorkdeskBoard({ initialCards = [], initialLastChecked = 0 }: Wor
     },
   ]
 
-  const formatLastChecked = (timeMs: number, nowMs: number) => {
-    if (!timeMs || !nowMs) return t('workdesk.justNow')
-    const diffMins = Math.floor((nowMs - timeMs) / (60 * 1000))
-    if (diffMins <= 0) return t('workdesk.justNow')
-    return t('workdesk.minutesAgo', { minutes: diffMins })
-  }
-
   return (
     <div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-4 sm:px-6 lg:px-8">
-      {/* Top Bar Status & Actions */}
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
-        <div className="flex items-center gap-2 text-xs text-ink-muted">
-          <span className="inline-block size-2 rounded-full bg-emerald-500" aria-hidden="true" />
-          <span>{t('workdesk.lastChecked', { time: formatLastChecked(lastChecked, currentTime) })}</span>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Link href="/import">
-            <Button size="sm" className="h-7 text-xs">
-              <LuDownload className="mr-1.5 size-3.5" aria-hidden="true" />
-              {t('workdesk.action.importRecipe')}
-            </Button>
-          </Link>
-
-          <Button size="sm" className="h-7 text-xs" onClick={handleRefresh} disabled={isRefreshing}>
-            <LuRefreshCw className={cn('mr-1.5 size-3.5', isRefreshing && 'animate-spin text-accent')} aria-hidden="true" />
-            {t('workdesk.action.refresh')}
-          </Button>
-        </div>
-      </div>
-
       {/* 4-Lane Adaptive Board */}
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:gap-4">
         {lanes.map((lane) => {
@@ -185,20 +133,9 @@ export function WorkdeskBoard({ initialCards = [], initialLastChecked = 0 }: Wor
         })}
       </div>
 
-      {/* Empty State when no visible cards across entire board */}
-      {visibleCards.length === 0 && (
-        <div className="mt-8 flex flex-col items-center justify-center py-12 text-center">
-          <div className="mb-3 flex size-12 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-            <LuCircleCheck className="size-6" aria-hidden="true" />
-          </div>
-          <h3 className="text-sm font-semibold text-ink">{t('workdesk.emptyTitle')}</h3>
-          <p className="mt-1 max-w-sm text-xs text-ink-muted">{t('workdesk.emptyDesc')}</p>
-        </div>
-      )}
-
       {/* Undo Toast for dismissed cards */}
       {undoToast && (
-        <div className="fixed bottom-20 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-full border border-line bg-panel-1 px-4 py-2 shadow-lg dark:bg-panel-2">
+        <div className="fixed bottom-20 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-full border border-line bg-panel px-4 py-2 shadow-lg">
           <span className="text-xs text-ink">{t('workdesk.status.dismissed')}</span>
           <button
             onClick={() => handleUndoDismiss(undoToast.cardId)}

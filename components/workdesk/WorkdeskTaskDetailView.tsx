@@ -184,7 +184,7 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
   return (
     <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
       {/* Topline Navigation */}
-      <div className="flex h-11 shrink-0 items-center justify-between border-b border-line bg-panel-1/80 px-4">
+      <div className="flex h-11 shrink-0 items-center justify-between border-b border-line bg-panel px-4">
         <Link href="/workdesk" className="flex items-center gap-1.5 text-xs font-medium text-ink hover:text-accent focus-visible:outline-hidden">
           <LuArrowLeft className="size-3.5" aria-hidden="true" />
           <span>{t('workdesk.action.back')}</span>
@@ -214,7 +214,7 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
                         onClick={() => handleSelectItem(item.id)}
                         className={cn(
                           'flex flex-col rounded-lg px-2.5 py-1.5 text-left transition-colors focus-visible:outline-hidden',
-                          isSelected ? 'bg-[#e8f3ef] text-ink dark:bg-emerald-950/40' : 'hover:bg-panel-1/70 text-ink-soft hover:text-ink'
+                          isSelected ? 'bg-[#e8f3ef] text-ink dark:bg-emerald-950/40' : 'hover:bg-panel-2 text-ink-soft hover:text-ink'
                         )}
                       >
                         <div className="flex items-center justify-between gap-1.5">
@@ -232,7 +232,7 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
         </div>
 
         {/* Right Column: Evidence Details */}
-        <div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto bg-panel-1 p-5 lg:p-7">
+        <div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto bg-panel p-5 lg:p-7">
           {activeItem ? (
             <div className="flex max-w-2xl flex-col gap-5">
               {/* Header */}
@@ -261,7 +261,7 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
                   {activeItem.commit && (
                     <Link
                       href={`/git/${encodeURIComponent(activeItem.repoId)}/commit/${activeItem.commit}`}
-                      className="group flex items-center justify-between gap-3 rounded-lg border border-line bg-panel-1 p-2.5 transition-colors hover:border-accent hover:bg-panel-2/60 focus-visible:outline-hidden"
+                      className="group flex items-center justify-between gap-3 rounded-lg border border-line bg-panel p-2.5 transition-colors hover:border-accent hover:bg-panel-2/60 focus-visible:outline-hidden"
                     >
                       <div className="flex items-center gap-2 text-xs">
                         <LuGitCommitHorizontal className="size-4 text-accent" aria-hidden="true" />
@@ -278,7 +278,7 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
                         <Link
                           key={filePath}
                           href={`/git/${encodeURIComponent(activeItem.repoId)}/commit/${activeItem.commit || 'HEAD'}?file=${encodeURIComponent(filePath)}`}
-                          className="group flex items-center justify-between gap-3 rounded-lg border border-line bg-panel-1 p-2.5 transition-colors hover:border-accent hover:bg-panel-2/60 focus-visible:outline-hidden"
+                          className="group flex items-center justify-between gap-3 rounded-lg border border-line bg-panel p-2.5 transition-colors hover:border-accent hover:bg-panel-2/60 focus-visible:outline-hidden"
                         >
                           <div className="flex items-center gap-2 text-xs">
                             <LuFileCode className="size-4 text-accent" aria-hidden="true" />
@@ -306,7 +306,7 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
                   </Button>
 
                   {showMoreMenu && (
-                    <div className="absolute right-0 bottom-full mb-1 w-44 rounded-lg border border-line bg-panel-1 p-1 shadow-lg dark:bg-panel-2">
+                    <div className="absolute right-0 bottom-full mb-1 w-44 rounded-lg border border-line bg-panel p-1 shadow-lg">
                       <button
                         onClick={handleDismissCard}
                         className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
@@ -327,7 +327,7 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
 
       {/* 10-Second Undo Toast */}
       {undoToast && (
-        <div className="fixed bottom-20 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-full border border-line bg-panel-1 px-4 py-2 shadow-lg dark:bg-panel-2">
+        <div className="fixed bottom-20 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-full border border-line bg-panel px-4 py-2 shadow-lg">
           <span className="text-xs text-ink">{t('workdesk.status.dismissed')}</span>
           <button
             onClick={() => handleUndoDismiss(undoToast.cardId)}

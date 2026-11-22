@@ -5,8 +5,7 @@ export const dropdownTriggerClass = [
   'data-[popup-open]:bg-[var(--overlay-06)] data-[popup-open]:text-ink',
 ].join(' ')
 
-export const dropdownPopupClass =
-  'min-w-[10rem] rounded-md border border-[var(--overlay-10)] bg-[color-mix(in_oklab,var(--panel-2)_92%,var(--ink)_4%)] p-1 shadow-[var(--shadow-menu)] outline-none backdrop-blur-md'
+export const dropdownPopupClass = 'min-w-[10rem] rounded-md border border-line bg-panel p-1 shadow-lg outline-none'
 
 export const dropdownItemClass =
   'flex cursor-pointer items-center justify-between gap-3 rounded-[0.25rem] px-3 py-2 text-[0.8125rem] whitespace-nowrap text-ink outline-none data-[checked]:text-accent data-[highlighted]:bg-[var(--overlay-08)]'

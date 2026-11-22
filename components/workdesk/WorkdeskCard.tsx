@@ -39,7 +39,7 @@ export function WorkdeskCard({ card, className }: WorkdeskCardProps) {
     <Link
       href={`/workdesk/tasks/${encodeURIComponent(card.id)}`}
       className={cn(
-        'group relative flex min-h-[58px] cursor-pointer items-center justify-between gap-3 rounded-xl border border-line bg-panel-1 p-2.5 shadow-xs transition-all duration-150',
+        'group relative flex min-h-[58px] cursor-pointer items-center justify-between gap-3 rounded-xl border border-line bg-panel p-2.5 shadow-xs transition-all duration-150',
         'hover:border-[#b5ddd4] hover:bg-[#f8fcfa] hover:shadow-sm dark:hover:border-emerald-700/50 dark:hover:bg-emerald-950/20',
         'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent/40',
         className
