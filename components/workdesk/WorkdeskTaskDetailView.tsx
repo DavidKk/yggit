@@ -3,21 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import {
-  LuArrowLeft,
-  LuBot,
-  LuChevronUp,
-  LuExternalLink,
-  LuFileCode,
-  LuFolderGit2,
-  LuFolderTree,
-  LuGitBranch,
-  LuGitCommitHorizontal,
-  LuGitFork,
-  LuInfo,
-  LuTrash2,
-  LuUndo2,
-} from 'react-icons/lu'
+import { LuArrowLeft, LuBot, LuChevronUp, LuExternalLink, LuFileCode, LuFolderGit2, LuFolderTree, LuGitBranch, LuGitCommitHorizontal, LuGitFork, LuInfo } from 'react-icons/lu'
 
 import { useT } from '@/components/i18n/LocaleProvider'
 import { Badge, Button, Tooltip } from '@/components/sk'
@@ -25,7 +11,6 @@ import { setWorkdeskContext } from '@/lib/agent/workdesk-context'
 import type { MessageKey } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 import { workdeskEngine } from '@/lib/workdesk/engine'
-import { dismissCard, undoDismissCard } from '@/lib/workdesk/storage'
 import type { WorkCard, WorkItem } from '@/lib/workdesk/types'
 
 const CARD_I18N_MAP: Record<string, string> = {
@@ -59,7 +44,6 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
     return map
   })
   const [activeItemId, setActiveItemId] = useState<string>(initialItemId || '')
-  const [undoToast, setUndoToast] = useState<{ cardId: string } | null>(null)
 
   // Listen to engine updates
   useEffect(() => {
@@ -203,17 +187,6 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
     })
   }, [])
 
-  const handleDismissCard = () => {
-    if (!card) return
-    dismissCard(card.id)
-    setUndoToast({ cardId: card.id })
-  }
-
-  const handleUndoDismiss = (cardId: string) => {
-    undoDismissCard(cardId)
-    setUndoToast(null)
-  }
-
   const cardTitle = useMemo(() => {
     if (!card) return ''
     const i18nKey = CARD_I18N_MAP[card.id]
@@ -310,15 +283,6 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
       }
     }, 220)
   }, [isGathering, onCollapse, router])
-
-  // Auto-redirect if dismissed and undo timeout expires
-  useEffect(() => {
-    if (!undoToast) return
-    const timer = setTimeout(() => {
-      router.push('/workdesk')
-    }, 10000)
-    return () => clearTimeout(timer)
-  }, [undoToast, router])
 
   if (!card) {
     if (isLoading) {
@@ -562,33 +526,6 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
             isGathering ? 'pointer-events-none opacity-0' : 'opacity-100'
           )}
         >
-          {/* Top Header of Right Column */}
-          <div className="mb-4 flex max-w-3xl items-center justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-ink-muted">Git Workdesk</span>
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="default"
-                onClick={() => handleSendToAgent()}
-                className="h-7 gap-1.5 px-2.5 text-xs text-accent hover:border-accent/40 hover:bg-accent/10"
-                title={t('workdesk.action.sendToAgent')}
-              >
-                <LuBot className="size-3.5" aria-hidden="true" />
-                <span>{t('workdesk.action.sendToAgent')}</span>
-              </Button>
-              <Button
-                size="sm"
-                variant="default"
-                onClick={handleDismissCard}
-                className="h-7 gap-1.5 px-2.5 text-xs text-ink-soft hover:border-red-300 hover:text-red-600 dark:hover:border-red-800 dark:hover:text-red-400"
-                title={t('workdesk.action.dismiss')}
-              >
-                <LuTrash2 className="size-3.5" aria-hidden="true" />
-                <span>{t('workdesk.action.dismiss')}</span>
-              </Button>
-            </div>
-          </div>
-
           {activeItem ? (
             <div className="flex max-w-3xl flex-col gap-4">
               {/* Card 1: 关联项目与目标分支 (Project & Target Ref) */}
@@ -739,20 +676,6 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
           )}
         </div>
       </div>
-
-      {/* 10-Second Undo Toast */}
-      {undoToast && (
-        <div className="fixed bottom-20 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-full border border-line bg-panel px-4 py-2 shadow-lg">
-          <span className="text-xs text-ink">{t('workdesk.status.dismissed')}</span>
-          <button
-            onClick={() => handleUndoDismiss(undoToast.cardId)}
-            className="flex items-center gap-1 text-xs font-semibold text-accent hover:underline focus-visible:outline-hidden"
-          >
-            <LuUndo2 className="size-3.5" aria-hidden="true" />
-            {t('workdesk.action.undoDismiss')}
-          </button>
-        </div>
-      )}
     </div>
   )
 }

@@ -179,10 +179,9 @@ describe('Workdesk Components', () => {
 
     // Topline
     expect(host.querySelector('button[aria-label*="workdesk.action.back"]')).not.toBeNull()
-    expect(host.textContent).toContain('Git Workdesk')
-    // Standalone dismiss button and Git Agent quick quote button
-    expect(host.textContent).toContain('workdesk.action.dismiss')
-    expect(host.textContent).toContain('workdesk.action.sendToAgent')
+
+    // Redundant top header strip removed
+    expect(host.textContent).not.toContain('Git Workdesk')
 
     // Middle strip removed: no redundant "taskList" header strip
     expect(host.textContent).not.toContain('workdesk.detail.taskList')
@@ -273,7 +272,7 @@ describe('Workdesk Components', () => {
     })
 
     expect(host.textContent).toContain('同步默认分支')
-    expect(host.textContent).toContain('workdesk.action.dismiss')
+    expect(host.querySelector('button[aria-label*="workdesk.action.back"]')).not.toBeNull()
   })
 
   it('triggers card selection and transition when card in WorkdeskBoard is clicked', () => {
