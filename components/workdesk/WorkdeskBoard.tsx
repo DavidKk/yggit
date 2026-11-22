@@ -10,10 +10,12 @@ import { undoDismissCard } from '@/lib/workdesk/storage'
 import type { WorkCard } from '@/lib/workdesk/types'
 
 import { WorkdeskCard } from './WorkdeskCard'
+import { WorkdeskTaskDetailView } from './WorkdeskTaskDetailView'
 
 interface WorkdeskBoardProps {
   initialCards?: WorkCard[]
   initialLastChecked?: number
+  initialActiveTaskId?: string
 }
 
 interface LaneConfig {
@@ -23,10 +25,39 @@ interface LaneConfig {
   badgeColor: string
 }
 
-export function WorkdeskBoard({ initialCards = [] }: WorkdeskBoardProps) {
+export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: WorkdeskBoardProps) {
   const t = useT()
   const [cards, setCards] = useState<WorkCard[]>(initialCards)
   const [undoToast, setUndoToast] = useState<{ cardId: string; cardTitle: string } | null>(null)
+  const [activeTaskId, setActiveTaskId] = useState<string | null>(initialActiveTaskId || null)
+
+  // Listen to popstate for browser back/forward navigation
+  useEffect(() => {
+    const handlePopState = () => {
+      const match = window.location.pathname.match(/\/workdesk\/tasks\/([^/]+)/)
+      if (match) {
+        setActiveTaskId(decodeURIComponent(match[1]))
+      } else {
+        setActiveTaskId(null)
+      }
+    }
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
+
+  const handleSelectCard = (cardId: string) => {
+    setActiveTaskId(cardId)
+    if (typeof window !== 'undefined') {
+      window.history.pushState(null, '', `/workdesk/tasks/${encodeURIComponent(cardId)}`)
+    }
+  }
+
+  const handleCollapseCard = () => {
+    setActiveTaskId(null)
+    if (typeof window !== 'undefined') {
+      window.history.pushState(null, '', '/git')
+    }
+  }
 
   // Listen to engine updates and start background timer
   useEffect(() => {
@@ -99,6 +130,15 @@ export function WorkdeskBoard({ initialCards = [] }: WorkdeskBoardProps) {
     },
   ]
 
+  if (activeTaskId) {
+    const activeCard = cards.find((c) => c.id === activeTaskId)
+    return (
+      <div className="relative flex min-h-0 flex-1 overflow-hidden animate-in fade-in duration-200">
+        <WorkdeskTaskDetailView taskId={activeTaskId} initialCard={activeCard} onCollapse={handleCollapseCard} />
+      </div>
+    )
+  }
+
   return (
     <div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pt-4 pb-20 sm:px-6 sm:pb-24 lg:px-8 lg:pb-24">
       {/* 4-Lane Adaptive Board */}
@@ -121,7 +161,7 @@ export function WorkdeskBoard({ initialCards = [] }: WorkdeskBoardProps) {
               {/* Cards List in Lane */}
               <div className="flex flex-1 flex-col gap-2">
                 {laneCards.length > 0 ? (
-                  laneCards.map((card) => <WorkdeskCard key={card.id} card={card} />)
+                  laneCards.map((card) => <WorkdeskCard key={card.id} card={card} onSelect={handleSelectCard} />)
                 ) : (
                   <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-line/40 py-6 text-center">
                     <span className="text-[11px] text-ink-soft">无待办任务</span>

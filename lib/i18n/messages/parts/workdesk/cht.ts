@@ -83,6 +83,15 @@ export const workdeskCht: { workdesk: WorkdeskMessages } = {
       badge: 'Git Agent',
       syncPlanConfirm: '批次快進計劃已就緒，請核對待執行的項目列表',
     },
+    detail: {
+      taskList: '任務列表',
+      targetProject: '關聯專案',
+      targetBranch: '目標分支',
+      diagnosisDesc: '根據本地與遠端分支狀態自動檢測得出的診斷分析',
+      evidenceDesc: '可直接點擊導航至具體的提交記錄或檔案差異比對',
+      openRepo: '進入專案',
+      selectPrompt: '請在左側選擇要查看的子任務',
+    },
     import: {
       title: '匯入同事的檢查方案',
       subtitle: '可攜式檢查配方 (Portable Check) 驗證與本地匹配',

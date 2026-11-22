@@ -83,6 +83,15 @@ export const workdeskEn: { workdesk: WorkdeskMessages } = {
       badge: 'Git Agent',
       syncPlanConfirm: 'Fast-forward plan prepared. Please review the repositories to be updated.',
     },
+    detail: {
+      taskList: 'Tasks',
+      targetProject: 'Repository',
+      targetBranch: 'Target Branch',
+      diagnosisDesc: 'Automated diagnostic analysis based on local and remote branch state',
+      evidenceDesc: 'Click to navigate directly to commit history or file diffs',
+      openRepo: 'Open Repo',
+      selectPrompt: 'Please select a task item from the left',
+    },
     import: {
       title: 'Import Team Check Recipe',
       subtitle: 'Portable Check recipe validation and local matching',

@@ -80,6 +80,15 @@ export interface WorkdeskMessages {
     badge: string
     syncPlanConfirm: string
   }
+  detail: {
+    taskList: string
+    targetProject: string
+    targetBranch: string
+    diagnosisDesc: string
+    evidenceDesc: string
+    openRepo: string
+    selectPrompt: string
+  }
   import: {
     title: string
     subtitle: string

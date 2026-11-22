@@ -127,14 +127,21 @@ describe('Workdesk Components', () => {
     // Topline
     expect(host.textContent).toContain('workdesk.action.back')
     expect(host.textContent).toContain('Git Workdesk')
+    // Standalone dismiss button
+    expect(host.textContent).toContain('workdesk.action.dismiss')
 
     // Left List
     expect(host.textContent).toContain('Main App')
     expect(host.textContent).toContain('main')
 
-    // Right Evidence
+    // Right Evidence Cards
     expect(host.textContent).toContain('Main App · main')
     expect(host.textContent).toContain('远程领先，可安全快进')
+    expect(host.textContent).toContain('workdesk.detail.targetProject')
+    expect(host.textContent).toContain('workdesk.detail.targetBranch')
+
+    // Verified removed prompt
+    expect(host.textContent).not.toContain('workdesk.agent.prompt')
 
     // Navigable Commit link
     const commitLink = host.querySelector('a[href*="/git/repo-1/commit/a1b2c3d4e5f6"]')
@@ -143,5 +150,28 @@ describe('Workdesk Components', () => {
     // Navigable File link
     const fileLink = host.querySelector('a[href*="file=src%2Findex.ts"]')
     expect(fileLink).not.toBeNull()
+  })
+
+  it('supports onCollapse callback when top-left card is clicked in WorkdeskTaskDetailView', () => {
+    const handleCollapse = jest.fn()
+    act(() => {
+      root.render(<WorkdeskTaskDetailView taskId="sync-default-branches" initialCard={sampleCard} initialItems={[sampleItem]} initialItemId="item1" onCollapse={handleCollapse} />)
+    })
+
+    const collapseBtn = host.querySelector('button[aria-label*="workdesk.action.back"]') as HTMLButtonElement | null
+    expect(collapseBtn).not.toBeNull()
+    act(() => {
+      collapseBtn?.click()
+    })
+    expect(handleCollapse).toHaveBeenCalledTimes(1)
+  })
+
+  it('renders expanded task detail inside WorkdeskBoard when initialActiveTaskId is provided', () => {
+    act(() => {
+      root.render(<WorkdeskBoard initialCards={[sampleCard]} initialActiveTaskId="sync-default-branches" />)
+    })
+
+    expect(host.textContent).toContain('同步默认分支')
+    expect(host.textContent).toContain('workdesk.action.dismiss')
   })
 })

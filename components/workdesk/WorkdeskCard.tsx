@@ -12,6 +12,7 @@ import type { WorkCard } from '@/lib/workdesk/types'
 interface WorkdeskCardProps {
   card: WorkCard
   className?: string
+  onSelect?: (cardId: string) => void
 }
 
 const CARD_I18N_MAP: Record<string, string> = {
@@ -23,7 +24,7 @@ const CARD_I18N_MAP: Record<string, string> = {
   'review-pending-commits': 'reviewPendingCommits',
 }
 
-function resolveCardIcon(iconName: string, categoryId: string) {
+export function resolveCardIcon(iconName: string, categoryId: string) {
   const iconClass = 'size-4 shrink-0'
   if (iconName === 'LuRefreshCw') return <LuRefreshCw className={cn(iconClass, 'text-[#079b85]')} />
   if (iconName === 'LuGitFork') return <LuGitFork className={cn(iconClass, 'text-[#079b85]')} />
@@ -46,7 +47,7 @@ function resolveCardIcon(iconName: string, categoryId: string) {
   }
 }
 
-export function WorkdeskCard({ card, className }: WorkdeskCardProps) {
+export function WorkdeskCard({ card, className, onSelect }: WorkdeskCardProps) {
   const t = useT()
 
   const i18nKey = CARD_I18N_MAP[card.id]
@@ -56,6 +57,12 @@ export function WorkdeskCard({ card, className }: WorkdeskCardProps) {
   return (
     <Link
       href={`/workdesk/tasks/${encodeURIComponent(card.id)}`}
+      onClick={(e) => {
+        if (onSelect) {
+          e.preventDefault()
+          onSelect(card.id)
+        }
+      }}
       className={cn(
         'group relative flex min-h-[58px] cursor-pointer items-center justify-between gap-3 rounded-xl border border-line bg-panel p-2.5 shadow-xs transition-all duration-150',
         'hover:border-[#b5ddd4] hover:bg-[#f8fcfa] hover:shadow-sm dark:hover:border-emerald-700/50 dark:hover:bg-emerald-950/20',

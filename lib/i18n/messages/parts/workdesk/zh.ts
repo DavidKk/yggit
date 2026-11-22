@@ -83,6 +83,15 @@ export const workdeskZh: { workdesk: WorkdeskMessages } = {
       badge: 'Git Agent',
       syncPlanConfirm: '批量快进计划已就绪，请核对待执行的项目列表',
     },
+    detail: {
+      taskList: '任务列表',
+      targetProject: '关联项目',
+      targetBranch: '目标分支',
+      diagnosisDesc: '根据本地与远端分支状态自动检测得出的诊断分析',
+      evidenceDesc: '可直接点击导航至具体的提交记录或文件差异比对',
+      openRepo: '进入项目',
+      selectPrompt: '请在左侧选择要查看的子任务',
+    },
     import: {
       title: '导入同事的检查方案',
       subtitle: '便携检查配方 (Portable Check) 验证与本地匹配',
