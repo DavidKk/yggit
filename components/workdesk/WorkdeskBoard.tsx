@@ -354,7 +354,7 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
           )
         })()}
 
-      {/* Single-Column Board on the Left (Positioned as absolute inset-0 underneath so layout never jumps) */}
+      {/* 4 Equal-Width Horizontal Lanes Board (Positioned as absolute inset-0 underneath so layout never jumps) */}
       <div
         className={cn(
           'absolute inset-0 flex flex-col overflow-y-auto px-4 pt-4 pb-20 sm:px-6 sm:pb-24 lg:px-8 lg:pb-24 transition-opacity duration-200',
@@ -365,41 +365,42 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
           !activeTaskId && !transition && 'opacity-100'
         )}
       >
-        <div className="flex w-full max-w-[352px] flex-col gap-4">
-          {/* Drag Drop Trash Bin at the Top */}
-          {draggingCardId && (
-            <div
-              onDragOver={(e) => {
-                e.preventDefault()
-                e.dataTransfer.dropEffect = 'move'
-                if (!isOverTrash) setIsOverTrash(true)
-              }}
-              onDragLeave={(e) => {
-                if (e.currentTarget.contains(e.relatedTarget as Node)) return
-                setIsOverTrash(false)
-              }}
-              onDrop={(e) => {
-                e.preventDefault()
-                const cardId = e.dataTransfer.getData('text/plain') || draggingCardId
-                if (cardId) {
-                  handleDismissCard(cardId)
-                }
-                setIsOverTrash(false)
-                setDraggingCardId(null)
-              }}
-              className={cn(
-                'flex h-14 w-full shrink-0 items-center justify-center gap-2 rounded-xl border border-dashed text-xs font-semibold transition-all duration-200 select-none animate-in fade-in slide-in-from-top-2 duration-150',
-                isOverTrash
-                  ? 'border-red-500 bg-red-500/10 text-red-600 shadow-md scale-[1.02] dark:border-red-500 dark:bg-red-950/40 dark:text-red-400'
-                  : 'border-line bg-panel-2/70 text-ink-muted hover:border-red-400/80 hover:bg-red-500/5 hover:text-red-500'
-              )}
-              data-testid="workdesk-trash-dropzone"
-            >
-              <LuTrash2 className={cn('size-4 transition-transform duration-150', isOverTrash ? 'scale-125 text-red-500' : 'text-ink-muted')} />
-              <span>{isOverTrash ? '松开以丢弃此卡片' : '拖拽到此处丢弃任务'}</span>
-            </div>
-          )}
+        {/* Drag Drop Trash Bin at the Top */}
+        {draggingCardId && (
+          <div
+            onDragOver={(e) => {
+              e.preventDefault()
+              e.dataTransfer.dropEffect = 'move'
+              if (!isOverTrash) setIsOverTrash(true)
+            }}
+            onDragLeave={(e) => {
+              if (e.currentTarget.contains(e.relatedTarget as Node)) return
+              setIsOverTrash(false)
+            }}
+            onDrop={(e) => {
+              e.preventDefault()
+              const cardId = e.dataTransfer.getData('text/plain') || draggingCardId
+              if (cardId) {
+                handleDismissCard(cardId)
+              }
+              setIsOverTrash(false)
+              setDraggingCardId(null)
+            }}
+            className={cn(
+              'mb-3 flex h-14 w-full shrink-0 items-center justify-center gap-2 rounded-xl border border-dashed text-xs font-semibold transition-all duration-200 select-none animate-in fade-in slide-in-from-top-2 duration-150',
+              isOverTrash
+                ? 'border-red-500 bg-red-500/10 text-red-600 shadow-md scale-[1.01] dark:border-red-500 dark:bg-red-950/40 dark:text-red-400'
+                : 'border-line bg-panel-2/70 text-ink-muted hover:border-red-400/80 hover:bg-red-500/5 hover:text-red-500'
+            )}
+            data-testid="workdesk-trash-dropzone"
+          >
+            <LuTrash2 className={cn('size-4 transition-transform duration-150', isOverTrash ? 'scale-125 text-red-500' : 'text-ink-muted')} />
+            <span>{isOverTrash ? '松开以丢弃此卡片' : '拖拽到此处丢弃任务'}</span>
+          </div>
+        )}
 
+        {/* 4 Equal-Width Horizontal Columns */}
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:gap-4">
           {lanes.map((lane) => {
             const laneCards = visibleCards.filter((c) => c.categoryId === lane.id)
             const laneTitle = t(`workdesk.lane.${lane.titleKey}`)
@@ -413,7 +414,7 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
                 onDragLeave={handleLaneDragLeave}
                 onDrop={(e) => handleLaneDrop(e, lane.id)}
                 className={cn(
-                  'flex flex-col rounded-xl border border-line/60 bg-panel-2/40 p-2.5 transition-all duration-150 dark:bg-panel-2/20',
+                  'flex min-h-[160px] flex-col rounded-xl border border-line/60 bg-panel-2/40 p-2.5 transition-all duration-150 dark:bg-panel-2/20',
                   dragOverLaneId === lane.id && 'ring-2 ring-accent/40 bg-accent/5 border-accent/60'
                 )}
               >

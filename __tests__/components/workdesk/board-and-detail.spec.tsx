@@ -162,8 +162,8 @@ describe('Workdesk Components', () => {
     expect(host.textContent).toContain('workdesk.lane.standard')
     expect(host.textContent).toContain('workdesk.lane.review')
 
-    // Single column container
-    expect(host.querySelector('.max-w-\\[352px\\]')).not.toBeNull()
+    // 4 equal-width horizontal columns
+    expect(host.querySelector('.lg\\:grid-cols-4')).not.toBeNull()
 
     // 99+ badge for large tasks
     expect(host.textContent).toContain('99+')
