@@ -1491,7 +1491,7 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
         ) : (
           <div ref={frameRef} className="relative flex min-h-0 flex-1 overflow-hidden" style={frameStyle}>
             {filePanel ? (
-              <section className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-canvas">
+              <section className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-paper">
                 <header className="flex h-10 shrink-0 items-center justify-between border-b border-line bg-panel px-3">
                   <div className="flex min-w-0 items-center gap-2">
                     {filePanel.type === 'history' ? (
@@ -1777,7 +1777,7 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
             role="status"
             aria-live="polite"
             aria-label={t('git.page.switchingProject')}
-            className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-canvas/60 backdrop-blur-xs select-none cursor-wait transition-opacity duration-200"
+            className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-paper/60 backdrop-blur-xs select-none cursor-wait transition-opacity duration-200"
             onClick={(e) => {
               e.preventDefault()
               e.stopPropagation()

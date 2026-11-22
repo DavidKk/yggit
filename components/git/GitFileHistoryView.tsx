@@ -169,7 +169,7 @@ export function GitFileHistoryView({
   }, [])
 
   return (
-    <div className="flex min-h-0 flex-1 overflow-hidden bg-canvas">
+    <div className="flex min-h-0 flex-1 overflow-hidden bg-paper">
       {/* Left Pane: Commit History List */}
       <aside className="flex w-72 md:w-80 shrink-0 flex-col border-r border-line bg-panel">
         {/* Search / Filter header */}
@@ -181,7 +181,7 @@ export function GitFileHistoryView({
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
               placeholder={t('git.diff.searchHistoryPlaceholder') || '搜索历史提交…'}
-              className="h-6 w-full rounded border border-line bg-canvas/80 pl-7 pr-6 text-xs text-ink placeholder:text-ink-soft/60 focus:border-accent focus:outline-hidden"
+              className="h-6 w-full rounded border border-line bg-panel px-2 pl-7 pr-6 text-xs text-ink placeholder:text-ink-soft/60 focus:border-accent focus:outline-hidden"
             />
             {filter ? (
               <button type="button" onClick={() => setFilter('')} className="absolute right-1.5 text-ink-soft hover:text-ink cursor-pointer" aria-label={t('common.clear')}>
@@ -243,9 +243,9 @@ export function GitFileHistoryView({
       </aside>
 
       {/* Right Pane: Selected Commit Diff */}
-      <section className="flex flex-1 flex-col overflow-hidden min-w-0 bg-canvas">
+      <section className="flex flex-1 flex-col overflow-hidden min-w-0 bg-paper">
         {selectedCommit ? (
-          <header className="flex h-9 shrink-0 items-center justify-between border-b border-line bg-panel/40 px-3 text-xs">
+          <header className="flex h-9 shrink-0 items-center justify-between border-b border-line bg-panel px-3 text-xs">
             <div className="flex min-w-0 items-center gap-2">
               <span className="flex items-center gap-1 font-mono font-semibold text-accent">
                 <LuGitCommitVertical className="size-3.5" />
@@ -301,7 +301,7 @@ export function GitFileHistoryView({
                 const lineCounter = hunks.slice(0, hIdx).reduce((acc, h) => acc + h.lines.length, 0)
                 return (
                   <div key={hIdx} className="mb-2">
-                    <div className="bg-canvas/80 px-2 py-0.5 text-[11px] text-accent select-none font-semibold">{hunk.header}</div>
+                    <div className="bg-panel-2/80 px-2 py-0.5 text-[11px] text-accent select-none font-semibold">{hunk.header}</div>
                     {hunk.lines.map((line, lIdx) => {
                       const tokenIdx = lineCounter + lIdx
                       const lineTokens = tokens?.[tokenIdx]

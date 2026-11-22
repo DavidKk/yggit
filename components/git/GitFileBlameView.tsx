@@ -104,12 +104,12 @@ export function GitFileBlameView({
                 onMouseLeave={() => setHoveredLine(null)}
                 className={cn(
                   'group/blamerow flex leading-5 transition-colors items-start',
-                  isHovered ? 'bg-[color-mix(in_oklab,var(--ink)_5%,transparent)]' : 'hover:bg-canvas/50',
+                  isHovered ? 'bg-[color-mix(in_oklab,var(--ink)_5%,transparent)]' : 'hover:bg-panel-2/50',
                   isLineMatch && 'bg-accent/15'
                 )}
               >
                 {/* Blame Gutter Column */}
-                <div className="flex shrink-0 items-center border-r border-line bg-canvas/30 text-[11px] select-none font-sans">
+                <div className="flex shrink-0 items-center border-r border-line bg-panel/40 text-[11px] select-none font-sans">
                   {/* Line Number */}
                   <span className="w-12 shrink-0 pr-2.5 text-right font-mono text-ink-soft/75">{lineNo}</span>
 

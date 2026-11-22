@@ -1234,19 +1234,7 @@ export function GitProjectMenu({
                                   </button>
                                 </Tooltip>
                               ) : (
-                                <Tooltip content={t('git.project.noRemoteBind') || '未配置远端 · 点击绑定/添加远程服务'}>
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      setBindingRemoteProject(project)
-                                    }}
-                                    className="flex size-6 cursor-pointer items-center justify-center rounded text-ink-soft/60 transition-colors hover:bg-[var(--overlay-08)] hover:text-accent"
-                                    aria-label={t('git.project.noRemoteBind') || '绑定/添加远程服务'}
-                                  >
-                                    <LuCloudOff className="size-3.5 text-ink-soft/60 hover:text-accent transition-colors" aria-hidden="true" />
-                                  </button>
-                                </Tooltip>
+                                <span className="size-6 shrink-0" aria-hidden="true" />
                               )}
 
                               {/* 2. Remote Cloud Icon Slot */}
