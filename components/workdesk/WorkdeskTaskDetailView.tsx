@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { LuArrowLeft, LuBot, LuChevronUp, LuExternalLink, LuFileCode, LuFolderGit2, LuFolderTree, LuGitBranch, LuGitCommitHorizontal, LuGitFork, LuInfo } from 'react-icons/lu'
+import { LuArrowLeft, LuBot, LuChevronUp, LuExternalLink, LuFileCode, LuFolderGit2, LuFolderTree, LuGitBranch, LuGitCommitHorizontal, LuGitFork } from 'react-icons/lu'
 
 import { useT } from '@/components/i18n/LocaleProvider'
 import { Badge, Button, Tooltip } from '@/components/sk'
@@ -20,6 +20,68 @@ const CARD_I18N_MAP: Record<string, string> = {
   'standard-repo-hygiene': 'standardRepoHygiene',
   'standard-project-organization': 'standardProjectOrganization',
   'review-pending-commits': 'reviewPendingCommits',
+}
+
+interface CrAnalysis {
+  cause: string
+  risk: string
+  suggestion: string
+}
+
+function getCrAnalysis(cardId: string, _item: WorkItem): CrAnalysis {
+  if (cardId === 'merge-diverged-branches' || cardId.includes('merge')) {
+    return {
+      cause: '本地分支存在未推送的提交，同时远端主分支已被他人合并推进，导致两端基于不同的提交基线产生了分叉。',
+      risk: '若直接强制推送会导致远端他人提交丢失；若长期搁置不合流，代码差异与潜在冲突面积将持续扩大，增加后续合并回归难度。',
+      suggestion: '建议拉取远端最新提交后执行变基 (git rebase) 或合并 (git merge)，解决潜在冲突并在验证通过后推送到远端。',
+    }
+  }
+
+  if (cardId === 'sync-default-branches' || cardId.includes('sync')) {
+    return {
+      cause: '远端默认分支已有团队新功能或热修复代码合并入库，本地默认分支当前落后于远端。',
+      risk: '在陈旧的主分支基线上切出新分支开发，可能导致基于已废弃代码开发，后续提 PR 时会产生不必要的大量基线冲突。',
+      suggestion: '建议在当前默认分支上执行安全快进拉取 (git pull --ff-only) 同步至最新状态。',
+    }
+  }
+
+  if (cardId === 'worktree-parallel-dev' || cardId.includes('worktree')) {
+    return {
+      cause: '先前为并行处理多需求或紧急补丁建立了独立 Worktree 工作树，在任务结束后未被及时注销或收拢。',
+      risk: '多工作树持续占用磁盘空间与 Git 内部分支锁；长时间闲置容易导致在过期工作目录中误改代码或误提变更。',
+      suggestion: '建议检查各个独立工作树的代码交付状态，若已合并上线请及时注销移除，保持工作区干净清爽。',
+    }
+  }
+
+  if (cardId === 'standard-repo-hygiene' || cardId.includes('hygiene') || cardId.includes('standard')) {
+    return {
+      cause: '当前分支命名未遵循团队约定的规范格式（如缺少 feature/、hotfix/、bugfix/ 前缀或工单 ID）。',
+      risk: '非标准命名会导致 CI/CD 自动化构建、发布流水线或敏捷看板无法自动关联追踪任务，增加发布管理和代码审计成本。',
+      suggestion: '建议按照团队研发规范将分支重命名为标准格式（例如 feature/JZY-xxx）。',
+    }
+  }
+
+  if (cardId === 'standard-project-organization' || cardId.includes('organization')) {
+    return {
+      cause: '单一分组或根目录下累积了过多仓库，缺乏按业务域、微服务或 SDK 的分层分类。',
+      risk: '团队多仓库并行协作时检索成本高，批量更新或检查时缺乏清晰边界，容易引发误操作或权限混乱。',
+      suggestion: '建议使用 Git Agent 按业务模块或应用形态进行智能分类分组治理。',
+    }
+  }
+
+  if (cardId === 'code-review-pending-push' || cardId.includes('review') || cardId.includes('push')) {
+    return {
+      cause: '本地已生成新提交或存在已暂存变更，但尚未同步推送至远端托管平台。',
+      risk: '未推送的代码仅存在于本地机器，存在单点丢失风险；其他协作者无法感知你当前的开发进展，可能引发重复开发。',
+      suggestion: '建议复核改动提交记录与文件差异，确认无误后及时推送到对应远端分支。',
+    }
+  }
+
+  return {
+    cause: '检测到本地工作区或分支状态与预期的协同规范存在偏差。',
+    risk: '未及时处理可能在后续集成构建或团队协作时产生阻碍。',
+    suggestion: '请参考检查结论进行复核并执行相应同步或合流操作。',
+  }
 }
 
 interface WorkdeskTaskDetailViewProps {
@@ -350,7 +412,7 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
   return (
     <div className="relative flex min-h-0 flex-1 overflow-hidden">
       {/* Main Split Layout: Left List + Right Evidence */}
-      <div className="flex min-h-0 flex-1 divide-x divide-line">
+      <div className="flex min-h-0 flex-1">
         {/* Left Column: Task Navigation List */}
         <div className="flex w-72 shrink-0 flex-col overflow-hidden border-r border-line bg-panel-2/30 sm:w-80 lg:w-88">
           {/* Top-Left Card (Exact same card style, click to collapse back) */}
@@ -417,7 +479,7 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
           `}</style>
 
           {/* Dealing Cards List (Directly below top card) */}
-          <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto p-2.5">
+          <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto p-2.5 pb-20">
             {taskItems.map((item, itemIndex) => {
               const isSelected = item.id === activeItem?.id
               const isItemDragging = draggingItemId === item.id
@@ -519,82 +581,108 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
           </div>
         </div>
 
-        {/* Right Column: Evidence Details */}
+        {/* Right Column: Evidence Details (Single Unified Block) */}
         <div
           className={cn(
-            'relative flex min-h-0 flex-1 flex-col overflow-y-auto bg-panel-2/20 p-5 lg:p-7 transition-opacity duration-200',
+            'relative flex min-h-0 flex-1 flex-col overflow-y-auto bg-panel-2/20 p-2.5 pb-20 transition-opacity duration-200',
             isGathering ? 'pointer-events-none opacity-0' : 'opacity-100'
           )}
         >
           {activeItem ? (
-            <div className="flex max-w-3xl flex-col gap-4">
-              {/* Card 1: 关联项目与目标分支 (Project & Target Ref) */}
-              <section className="grid w-full min-w-0 gap-3 rounded-xl border border-line bg-panel p-4 shadow-2xs">
-                <div className="flex items-center justify-between gap-3 border-b border-line/50 pb-3">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <LuFolderGit2 className="size-4 shrink-0 text-accent" aria-hidden="true" />
-                    <h3 className="truncate text-xs font-bold text-ink">
-                      {activeItem.repoAlias} · {activeItem.name}
-                    </h3>
-                  </div>
-                  {renderStateBadge(activeItem.state)}
+            <div className="w-full max-w-3xl rounded-xl border border-line bg-panel p-4 shadow-2xs sm:p-5">
+              {/* Header: Title + Status Badge */}
+              <div className="flex items-center justify-between gap-3 border-b border-line/60 pb-3">
+                <div className="flex min-w-0 items-center gap-2">
+                  <LuFolderGit2 className="size-4 shrink-0 text-accent" aria-hidden="true" />
+                  <h3 className="truncate text-sm font-bold text-ink">
+                    {activeItem.repoAlias} · {activeItem.name}
+                  </h3>
                 </div>
+                {renderStateBadge(activeItem.state)}
+              </div>
 
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  {/* Target Project */}
-                  <div className="flex flex-col gap-1 rounded-lg border border-line/60 bg-panel-2/40 p-2.5">
-                    <span className="text-[11px] font-medium text-ink-muted">{t('workdesk.detail.targetProject')}</span>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="truncate text-xs font-semibold text-ink">{activeItem.repoAlias}</span>
-                      <Link href={`/git/${encodeURIComponent(activeItem.repoId)}`} className="flex shrink-0 items-center gap-1 text-[11px] text-accent hover:underline">
+              <div className="mt-4 flex flex-col gap-4">
+                {/* 1. 关联项目 & 问题分支 - 均单独一行展示 */}
+                <div className="flex flex-col gap-2 rounded-lg border border-line/60 bg-panel-2/40 p-3 text-xs">
+                  {/* Row 1: 关联项目 */}
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                    <span className="w-20 shrink-0 text-[11px] font-medium text-ink-muted">{t('workdesk.detail.targetProject')}</span>
+                    <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
+                      <span className="truncate font-semibold text-ink">{activeItem.repoAlias}</span>
+                      <Link href={`/git/${encodeURIComponent(activeItem.repoId)}`} className="flex shrink-0 items-center gap-1 text-[11px] font-medium text-accent hover:underline">
                         <span>{t('workdesk.detail.openRepo')}</span>
                         <LuExternalLink className="size-3" aria-hidden="true" />
                       </Link>
                     </div>
                   </div>
 
-                  {/* Target Branch */}
-                  <div className="flex flex-col gap-1 rounded-lg border border-line/60 bg-panel-2/40 p-2.5">
-                    <span className="text-[11px] font-medium text-ink-muted">{t('workdesk.detail.targetBranch')}</span>
-                    <div className="flex items-center gap-1.5">
-                      <LuGitBranch className="size-3.5 text-accent" aria-hidden="true" />
-                      <span className="font-mono text-xs font-medium text-ink">{activeItem.name}</span>
+                  <div className="h-px bg-line/40" />
+
+                  {/* Row 2: 问题分支 (单独一行，长名称不被挤压) */}
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                    <span className="w-20 shrink-0 text-[11px] font-medium text-ink-muted">{t('workdesk.detail.problemBranch')}</span>
+                    <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                      <LuGitBranch className="size-3.5 shrink-0 text-accent" aria-hidden="true" />
+                      <span className="font-mono text-xs font-medium text-ink break-all select-all">{activeItem.name}</span>
                     </div>
                   </div>
                 </div>
-              </section>
 
-              {/* Card 2: 诊断结论与说明 (Diagnosis & Conclusion) */}
-              <section className="grid w-full min-w-0 gap-3 rounded-xl border border-line bg-panel p-4 shadow-2xs">
-                <div className="flex items-center justify-between gap-3 border-b border-line/50 pb-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-ink">
-                      <LuInfo className="size-4 shrink-0 text-accent" aria-hidden="true" />
-                      <span>{t('workdesk.evidence.conclusion')}</span>
-                    </div>
-                    <p className="mt-0.5 text-xs leading-relaxed text-ink-muted">{t('workdesk.detail.diagnosisDesc')}</p>
-                  </div>
+                {/* 2. 问题描述 */}
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-ink-muted">{t('workdesk.detail.problemDesc')}</span>
+                  <div className="rounded-lg border border-line/60 bg-panel-2/30 p-3 text-xs font-medium leading-relaxed text-ink">{activeItem.summary}</div>
                 </div>
 
-                <div className="rounded-lg border border-line/60 bg-panel-2/40 p-3.5 text-xs font-medium leading-relaxed text-ink">{activeItem.summary}</div>
+                {/* 3. CR 成因分析与潜在影响 (类似 CR 代码审查) */}
+                {(() => {
+                  const cr = getCrAnalysis(card.id, activeItem)
+                  return (
+                    <div className="flex flex-col gap-3 rounded-lg border border-line/70 bg-panel-2/40 p-3.5">
+                      {/* 产生原因 */}
+                      <div className="flex flex-col gap-0.5">
+                        <span className="flex items-center gap-1.5 text-[11px] font-bold text-ink">
+                          <span className="size-1.5 rounded-full bg-accent" />
+                          {t('workdesk.detail.causeTitle')}
+                        </span>
+                        <p className="pl-3 text-xs leading-relaxed text-ink-soft">{cr.cause}</p>
+                      </div>
 
-                {/* Agent Assist Quick Action */}
-                {card.id !== 'standard-project-organization' && (
+                      {/* 潜在风险 */}
+                      <div className="flex flex-col gap-0.5">
+                        <span className="flex items-center gap-1.5 text-[11px] font-bold text-amber-600 dark:text-amber-400">
+                          <span className="size-1.5 rounded-full bg-amber-500" />
+                          {t('workdesk.detail.riskTitle')}
+                        </span>
+                        <p className="pl-3 text-xs leading-relaxed text-ink-soft">{cr.risk}</p>
+                      </div>
+
+                      {/* 处理建议 */}
+                      <div className="flex flex-col gap-0.5">
+                        <span className="flex items-center gap-1.5 text-[11px] font-bold text-[#28a388]">
+                          <span className="size-1.5 rounded-full bg-[#28a388]" />
+                          {t('workdesk.detail.suggestionTitle')}
+                        </span>
+                        <p className="pl-3 text-xs leading-relaxed text-ink-soft">{cr.suggestion}</p>
+                      </div>
+                    </div>
+                  )
+                })()}
+
+                {/* 4. 由 Git Agent 协助处理此任务 */}
+                {card.id !== 'standard-project-organization' ? (
                   <div className="flex flex-col gap-3 rounded-lg border border-[#b5ddd4] bg-[#f4faf7] p-3 sm:flex-row sm:items-center sm:justify-between dark:border-emerald-800/40 dark:bg-emerald-950/20">
                     <div className="flex min-w-0 flex-1 flex-col pr-3">
-                      <span className="text-xs font-semibold text-ink">由 Git Agent 协助处理此任务</span>
-                      <span className="mt-0.5 text-[11px] text-ink-muted">一键将项目诊断与分支状态带入 Agent 进行自动化合并、变基或规范整理</span>
+                      <span className="text-xs font-semibold text-ink">{t('workdesk.detail.agentAssistTitle')}</span>
+                      <span className="mt-0.5 text-[11px] text-ink-muted">{t('workdesk.detail.agentAssistDesc')}</span>
                     </div>
                     <Button size="sm" className="shrink-0 gap-1.5" onClick={() => handleSendToAgent()}>
                       <LuBot className="size-3.5" aria-hidden="true" />
                       <span>{t('workdesk.action.sendToAgent')}</span>
                     </Button>
                   </div>
-                )}
-
-                {/* Organization Hygiene Special Action Button */}
-                {card.id === 'standard-project-organization' && (
-                  <div className="flex flex-col gap-3 rounded-lg border border-[#b5ddd4] bg-[#f4faf7] p-3.5 sm:flex-row sm:items-center sm:justify-between dark:border-emerald-800/40 dark:bg-emerald-950/20">
+                ) : (
+                  <div className="flex flex-col gap-3 rounded-lg border border-[#b5ddd4] bg-[#f4faf7] p-3 sm:flex-row sm:items-center sm:justify-between dark:border-emerald-800/40 dark:bg-emerald-950/20">
                     <div className="flex flex-col">
                       <span className="text-xs font-semibold text-ink">{t('workdesk.organization.bannerTitle')}</span>
                       <span className="mt-0.5 text-[11px] text-ink-muted">{t('workdesk.organization.bannerDesc')}</span>
@@ -617,59 +705,45 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
                     </Button>
                   </div>
                 )}
-              </section>
 
-              {/* Card 3: 关联 Git 证据与导航 (Git Evidence & Navigation) */}
-              <section className="grid w-full min-w-0 gap-3 rounded-xl border border-line bg-panel p-4 shadow-2xs">
-                <div className="flex items-center justify-between gap-3 border-b border-line/50 pb-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-ink">
-                      <LuFileCode className="size-4 shrink-0 text-accent" aria-hidden="true" />
-                      <span>{t('workdesk.evidence.title')}</span>
-                    </div>
-                    <p className="mt-0.5 text-xs leading-relaxed text-ink-muted">{t('workdesk.detail.evidenceDesc')}</p>
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  {/* Related Commit */}
-                  {activeItem.commit && (
-                    <Link
-                      href={`/git/${encodeURIComponent(activeItem.repoId)}/commit/${activeItem.commit}`}
-                      className="group flex items-center justify-between gap-3 rounded-lg border border-line bg-panel p-2.5 transition-colors hover:border-accent hover:bg-panel-2/60 focus-visible:outline-hidden"
-                    >
-                      <div className="flex items-center gap-2 text-xs">
-                        <LuGitCommitHorizontal className="size-4 text-accent" aria-hidden="true" />
-                        <span className="font-mono text-ink">{t('workdesk.evidence.commit', { oid: activeItem.commit.slice(0, 7) })}</span>
-                        <span className="text-ink-muted">({t('workdesk.action.openCommit')})</span>
-                      </div>
-                      <LuExternalLink className="size-3.5 text-ink-muted group-hover:text-accent" aria-hidden="true" />
-                    </Link>
-                  )}
-
-                  {/* Related Files & Diff */}
-                  {activeItem.paths && activeItem.paths.length > 0
-                    ? activeItem.paths.map((filePath) => (
+                {/* 5. 关联 Git 证据与导航 (如果有提交或文件差异) */}
+                {(activeItem.commit || (activeItem.paths && activeItem.paths.length > 0)) && (
+                  <div className="flex flex-col gap-2 border-t border-line/60 pt-3">
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-ink-muted">{t('workdesk.evidence.title')}</span>
+                    <div className="flex flex-col gap-2">
+                      {activeItem.commit && (
                         <Link
-                          key={filePath}
-                          href={`/git/${encodeURIComponent(activeItem.repoId)}/commit/${activeItem.commit || 'HEAD'}?file=${encodeURIComponent(filePath)}`}
-                          className="group flex items-center justify-between gap-3 rounded-lg border border-line bg-panel p-2.5 transition-colors hover:border-accent hover:bg-panel-2/60 focus-visible:outline-hidden"
+                          href={`/git/${encodeURIComponent(activeItem.repoId)}/commit/${activeItem.commit}`}
+                          className="group flex items-center justify-between gap-3 rounded-lg border border-line bg-panel-2/40 p-2.5 transition-colors hover:border-accent hover:bg-panel-2/70 focus-visible:outline-hidden"
                         >
                           <div className="flex items-center gap-2 text-xs">
-                            <LuFileCode className="size-4 text-accent" aria-hidden="true" />
-                            <span className="font-mono text-ink">{t('workdesk.evidence.file', { path: filePath })}</span>
-                            <span className="text-ink-muted">({t('workdesk.action.openDiff')})</span>
+                            <LuGitCommitHorizontal className="size-4 text-accent" aria-hidden="true" />
+                            <span className="font-mono text-ink">{t('workdesk.evidence.commit', { oid: activeItem.commit.slice(0, 7) })}</span>
+                            <span className="text-ink-muted">({t('workdesk.action.openCommit')})</span>
                           </div>
                           <LuExternalLink className="size-3.5 text-ink-muted group-hover:text-accent" aria-hidden="true" />
                         </Link>
-                      ))
-                    : null}
-
-                  {!activeItem.commit && (!activeItem.paths || activeItem.paths.length === 0) && (
-                    <div className="rounded-lg border border-dashed border-line p-3 text-center text-xs text-ink-muted">{t('workdesk.evidence.noEvidence')}</div>
-                  )}
-                </div>
-              </section>
+                      )}
+                      {activeItem.paths &&
+                        activeItem.paths.length > 0 &&
+                        activeItem.paths.map((filePath) => (
+                          <Link
+                            key={filePath}
+                            href={`/git/${encodeURIComponent(activeItem.repoId)}/commit/${activeItem.commit || 'HEAD'}?file=${encodeURIComponent(filePath)}`}
+                            className="group flex items-center justify-between gap-3 rounded-lg border border-line bg-panel-2/40 p-2.5 transition-colors hover:border-accent hover:bg-panel-2/70 focus-visible:outline-hidden"
+                          >
+                            <div className="flex items-center gap-2 text-xs">
+                              <LuFileCode className="size-4 text-accent" aria-hidden="true" />
+                              <span className="font-mono text-ink">{t('workdesk.evidence.file', { path: filePath })}</span>
+                              <span className="text-ink-muted">({t('workdesk.action.openDiff')})</span>
+                            </div>
+                            <LuExternalLink className="size-3.5 text-ink-muted group-hover:text-accent" aria-hidden="true" />
+                          </Link>
+                        ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           ) : (
             <div className="flex flex-1 items-center justify-center text-xs text-ink-muted">{t('workdesk.detail.selectPrompt')}</div>

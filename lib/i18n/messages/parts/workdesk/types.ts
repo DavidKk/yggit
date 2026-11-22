@@ -85,6 +85,13 @@ export interface WorkdeskMessages {
     taskList: string
     targetProject: string
     targetBranch: string
+    problemBranch: string
+    problemDesc: string
+    causeTitle: string
+    riskTitle: string
+    suggestionTitle: string
+    agentAssistTitle: string
+    agentAssistDesc: string
     diagnosisDesc: string
     evidenceDesc: string
     openRepo: string

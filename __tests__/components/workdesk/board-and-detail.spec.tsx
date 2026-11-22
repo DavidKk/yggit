@@ -198,7 +198,11 @@ describe('Workdesk Components', () => {
     expect(host.textContent).toContain('Main App · main')
     expect(host.textContent).toContain('远程领先，可安全快进')
     expect(host.textContent).toContain('workdesk.detail.targetProject')
-    expect(host.textContent).toContain('workdesk.detail.targetBranch')
+    expect(host.textContent).toContain('workdesk.detail.problemBranch')
+    expect(host.textContent).toContain('workdesk.detail.problemDesc')
+    expect(host.textContent).toContain('workdesk.detail.causeTitle')
+    expect(host.textContent).toContain('workdesk.detail.riskTitle')
+    expect(host.textContent).toContain('workdesk.detail.suggestionTitle')
 
     // Verified removed prompt
     expect(host.textContent).not.toContain('workdesk.agent.prompt')
