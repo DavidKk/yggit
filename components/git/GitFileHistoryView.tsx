@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { LuCheck, LuClock, LuCopy, LuCornerDownRight, LuGitCommitVertical, LuSearch, LuUser, LuX } from 'react-icons/lu'
+import { LuCheck, LuClock, LuCopy, LuCrosshair, LuGitCommitVertical, LuSearch, LuUser, LuX } from 'react-icons/lu'
 
 import { GitDiffCodeText, useGitLineTokens } from '@/components/git/GitHighlightedCode'
 import { useLocaleCode, useT } from '@/components/i18n/LocaleProvider'
@@ -218,7 +218,7 @@ export function GitFileHistoryView({
                       isSelected ? 'bg-accent/15 text-ink shadow-xs ring-1 ring-accent/30' : 'text-ink-soft hover:bg-[var(--overlay-08)] hover:text-ink'
                     )}
                   >
-                    {/* Line 1: Hash, Committer Author, Relative Time & Locate */}
+                    {/* Line 1: Hash, Committer Author, Relative Time */}
                     <div className="flex items-center justify-between gap-1.5 min-w-0">
                       <div className="flex items-center gap-1.5 min-w-0">
                         <span className="font-mono text-[11px] font-semibold text-accent shrink-0">{c.short || c.hash.slice(0, 7)}</span>
@@ -227,22 +227,7 @@ export function GitFileHistoryView({
                           <span className="truncate max-w-[120px]">{c.author || 'Unknown'}</span>
                         </span>
                       </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        <span className="text-[10px] text-ink-soft/80">{formatCommitAgo(c.date, locale)}</span>
-                        <Tooltip content={t('git.diff.locateInGraph') || '在提交图中定位'}>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              onLocateCommit?.(c.hash)
-                            }}
-                            className="shrink-0 opacity-0 group-hover:opacity-100 p-0.5 rounded text-ink-soft hover:text-accent hover:bg-accent/15 cursor-pointer transition-opacity"
-                            aria-label={t('git.diff.locateInGraph') || '在提交图中定位'}
-                          >
-                            <LuCornerDownRight className="size-3" />
-                          </button>
-                        </Tooltip>
-                      </div>
+                      <span className="shrink-0 text-[10px] text-ink-soft/80">{formatCommitAgo(c.date, locale)}</span>
                     </div>
 
                     {/* Line 2: Commit Subject */}
@@ -285,9 +270,14 @@ export function GitFileHistoryView({
                 <span>{formatCommitAgo(selectedCommit.date, locale)}</span>
               </span>
               <Tooltip content={t('git.diff.locateInGraph') || '在提交图中定位'}>
-                <Button variant="plain" size="mini" onClick={() => onLocateCommit?.(selectedCommit.hash)} className="ml-1">
-                  <LuCornerDownRight className="size-3 text-accent" />
-                  <span>{t('git.diff.locateInGraph') || '定位'}</span>
+                <Button
+                  variant="plain"
+                  size="mini"
+                  className="size-7 text-ink-soft hover:text-accent hover:enabled:bg-[var(--overlay-08)] cursor-pointer"
+                  onClick={() => onLocateCommit?.(selectedCommit.hash)}
+                  aria-label={t('git.diff.locateInGraph') || '在提交图中定位'}
+                >
+                  <LuCrosshair className="size-3.5 text-accent" />
                 </Button>
               </Tooltip>
             </div>

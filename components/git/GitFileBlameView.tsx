@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { LuCornerDownRight, LuUser } from 'react-icons/lu'
+import { LuCrosshair, LuUser } from 'react-icons/lu'
 
 import { GitDiffCodeText, useGitLineTokens } from '@/components/git/GitHighlightedCode'
 import { useLocaleCode, useT } from '@/components/i18n/LocaleProvider'
@@ -146,9 +146,9 @@ export function GitFileBlameView({
                               type="button"
                               onClick={() => onLocateCommit?.(blame.hash)}
                               className="opacity-0 group-hover/blamerow:opacity-100 text-ink-soft hover:text-accent cursor-pointer transition-opacity"
-                              aria-label={t('git.diff.locateInGraph') || '定位'}
+                              aria-label={t('git.diff.locateInGraph') || '在提交图中定位'}
                             >
-                              <LuCornerDownRight className="size-3" />
+                              <LuCrosshair className="size-3" />
                             </button>
                           </Tooltip>
                         </div>
