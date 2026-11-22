@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import React from 'react'
-import { LuChevronRight, LuCircleCheck, LuFlag, LuGitBranch, LuGitFork, LuGitMerge, LuRefreshCw } from 'react-icons/lu'
+import { LuChevronRight, LuCircleCheck, LuFlag, LuFolderTree, LuGitBranch, LuGitFork, LuGitMerge, LuRefreshCw } from 'react-icons/lu'
 
 import { useT } from '@/components/i18n/LocaleProvider'
 import type { MessageKey } from '@/lib/i18n'
@@ -19,6 +19,7 @@ const CARD_I18N_MAP: Record<string, string> = {
   'worktree-parallel-dev': 'worktreeParallelDev',
   'merge-diverged-branches': 'mergeDivergedBranches',
   'standard-repo-hygiene': 'standardRepoHygiene',
+  'standard-project-organization': 'standardProjectOrganization',
   'review-pending-commits': 'reviewPendingCommits',
 }
 
@@ -28,6 +29,7 @@ function resolveCardIcon(iconName: string, categoryId: string) {
   if (iconName === 'LuGitFork') return <LuGitFork className={cn(iconClass, 'text-[#079b85]')} />
   if (iconName === 'LuGitMerge') return <LuGitMerge className={cn(iconClass, 'text-[#5878aa]')} />
   if (iconName === 'LuFlag') return <LuFlag className={cn(iconClass, 'text-[#a6751c]')} />
+  if (iconName === 'LuFolderTree') return <LuFolderTree className={cn(iconClass, 'text-[#a6751c]')} />
   if (iconName === 'LuCheckCircle' || iconName === 'LuCircleCheck') return <LuCircleCheck className={cn(iconClass, 'text-[#4a8e7e]')} />
 
   switch (categoryId) {

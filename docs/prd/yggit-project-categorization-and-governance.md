@@ -111,7 +111,7 @@
 - **看板卡片聚类**：
   - 聚类归入看板的第 3 列：**「研发规范」(`standard`)**；
   - 卡片名称：`多仓库分组与架构治理巡检`；
-  - 图标：`LuFlag`；
+  - 图标：`LuFolderTree`；
   - 范围摘要：`{count} 个项目`。
 
 ### 5.2 Agent 专属技能 (`project-categorizer` Skill)
@@ -155,12 +155,14 @@
 
 遵循全局多语言规范（`lib/i18n/messages/parts/workdesk/` 与 `agent/`），包含简体中文、繁体中文、英文：
 
-| 词条键名                                            | 简体中文                                        | 繁体中文                                        | English                                                                     |
-| :-------------------------------------------------- | :---------------------------------------------- | :---------------------------------------------- | :-------------------------------------------------------------------------- |
-| `workdesk.cards.projectOrganizationHygiene.title`   | 多仓库分组与架构治理巡检                        | 多倉庫分組與架構治理巡檢                        | Project Grouping & Architecture Hygiene                                     |
-| `workdesk.cards.projectOrganizationHygiene.summary` | 巡检单分组堆叠的大量仓库，由 Agent 辅助归类整理 | 巡檢單分組堆疊的大量倉庫，由 Agent 輔助歸類整理 | Inspect bloated project folders and organize projects with Agent assistance |
-| `agent.skill.projectCategorizer.confirmApply`       | 确认应用分组方案                                | 確認套用分組方案                                | Apply Grouping Plan                                                         |
-| `agent.skill.projectCategorizer.applySuccess`       | 已成功将 {count} 个项目整理至 {folders} 个分组  | 已成功將 {count} 個項目整理至 {folders} 個分組  | Successfully organized {count} projects into {folders} groups               |
+| 词条键名                                             | 简体中文                                                     | 繁体中文                                                     | English                                                                        |
+| :--------------------------------------------------- | :----------------------------------------------------------- | :----------------------------------------------------------- | :----------------------------------------------------------------------------- |
+| `workdesk.cards.standardProjectOrganization.title`   | 多仓库分组与架构治理巡检                                     | 多倉庫分組與架構治理巡檢                                     | Project Grouping & Architecture Hygiene                                        |
+| `workdesk.cards.standardProjectOrganization.summary` | 巡检单分组堆叠的大量仓库，由 Agent 辅助归类整理              | 巡檢單分組堆疊的大量倉庫，由 Agent 輔助歸類整理              | Inspect bloated project folders and organize projects with Agent assistance    |
+| `workdesk.organization.bannerTitle`                  | 智能项目分类与架构治理                                       | 智慧專案分類與架構治理                                       | Smart Project Categorization & Taxonomy                                        |
+| `workdesk.organization.bannerDesc`                   | 由 Git Agent 深度分析各项目路径与 Remote，输出结构化分组方案 | 由 Git Agent 深度分析各專案路徑與 Remote，輸出結構化分組方案 | Let Git Agent analyze project paths and remotes to propose structured folders  |
+| `workdesk.organization.bannerAction`                 | 使用 Agent 规划分组                                          | 使用 Agent 規劃分組                                          | Plan Folders with Agent                                                        |
+| `workdesk.organization.prompt`                       | 请帮我分析当前分组中堆叠的项目，并提供智能分组整理方案       | 請幫我分析當前分組中堆疊的專案，並提供智慧分組整理方案       | Please analyze the bloated project group and propose a smart organization plan |
 
 ---
 

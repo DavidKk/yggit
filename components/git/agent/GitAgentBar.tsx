@@ -204,6 +204,21 @@ export function GitAgentBar({ repoPath, className }: Props) {
     }, 400)
   }, [clearTimers, clearTypewriter, position, expanded, isClosing, isSnapping])
 
+  useEffect(() => {
+    const handleOpen = (e: Event) => {
+      const detail = (e as CustomEvent<{ prompt?: string }>).detail
+      openBar()
+      if (detail?.prompt) {
+        setInput(detail.prompt)
+        setTimeout(() => {
+          inputRef.current?.focus()
+        }, 450)
+      }
+    }
+    window.addEventListener('yggit:agent_open', handleOpen)
+    return () => window.removeEventListener('yggit:agent_open', handleOpen)
+  }, [openBar])
+
   const closeBar = useCallback(() => {
     if (isClosing) return
     clearTimers()

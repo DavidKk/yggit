@@ -210,12 +210,12 @@ Agent Skill 采用**启发式优先 + LLM 语义润色**的双阶管线：
 ```typescript
 // 1. 获取分析元数据
 {
-  name: 'analyze_project_catalog',
-  description: '读取当前所有未分类或堆叠项目的详细路径、Remote 与类型分布',
+  name: 'analyze_project_groups',
+  description: '读取当前所有未分类或堆叠项目的详细路径、Remote 与类型分布，生成多维度分组方案',
   parameters: {
     type: 'object',
     properties: {
-      sourceGroup: { type: 'string', description: '待分析的目标分组名称（默认: 个人项目）' }
+      sourceGroup: { type: 'string', description: '待分析的目标分组名称（默认分析所有项目）' }
     }
   }
 }
@@ -240,7 +240,7 @@ Agent Skill 采用**启发式优先 + LLM 语义润色**的双阶管线：
         }
       }
     },
-    required: ['groupsToCreate', 'moves']
+    required: ['moves']
   }
 }
 ```

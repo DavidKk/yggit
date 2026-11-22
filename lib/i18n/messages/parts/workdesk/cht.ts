@@ -29,10 +29,20 @@ export const workdeskCht: { workdesk: WorkdeskMessages } = {
         title: '研發規範與分支命名巡檢',
         summary: '巡檢未遵循團隊約定的分支命名及規範校驗',
       },
+      standardProjectOrganization: {
+        title: '多倉庫分組與架構治理巡檢',
+        summary: '巡檢單分組堆疊的大量倉庫，由 Agent 輔助歸類整理',
+      },
       reviewPendingCommits: {
         title: '待推送提交與變更複核',
         summary: '巡檢本地已就緒但未推送的提交與工作區改動，支援快速複核',
       },
+    },
+    organization: {
+      bannerTitle: '智慧專案分類與架構治理',
+      bannerDesc: '由 Git Agent 深度分析各專案路徑與 Remote，輸出結構化分組方案',
+      bannerAction: '使用 Agent 規劃分組',
+      prompt: '請幫我分析當前分組中堆疊的專案，並提供智慧分組整理方案',
     },
     status: {
       safe: '可處理',

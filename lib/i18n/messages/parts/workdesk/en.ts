@@ -29,10 +29,20 @@ export const workdeskEn: { workdesk: WorkdeskMessages } = {
         title: 'Standards & Branch Naming Hygiene',
         summary: 'Inspect branches and commits for compliance with engineering standards',
       },
+      standardProjectOrganization: {
+        title: 'Project Grouping & Architecture Hygiene',
+        summary: 'Inspect bloated project folders and organize projects with Agent assistance',
+      },
       reviewPendingCommits: {
         title: 'Pending Commits & Changes Review',
         summary: 'Inspect unpushed commits and modified files ready for code review',
       },
+    },
+    organization: {
+      bannerTitle: 'Smart Project Categorization & Taxonomy',
+      bannerDesc: 'Let Git Agent analyze project paths and remotes to propose structured folders',
+      bannerAction: 'Plan Folders with Agent',
+      prompt: 'Please analyze the bloated project group and propose a smart organization plan',
     },
     status: {
       safe: 'Safe to apply',

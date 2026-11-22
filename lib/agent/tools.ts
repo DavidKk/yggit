@@ -4,8 +4,10 @@ import type { GitProjectView } from '@/lib/git/types'
 import { callMcpTool } from '@/lib/mcp/client'
 import { listMcpServers } from '@/lib/mcp/storage'
 import type { McpServerConfig } from '@/lib/mcp/types'
+import { workdeskEngine } from '@/lib/workdesk/engine'
 import type { SpotlightTarget } from '@/services/git/agent-impact'
 
+import { classifyProjects } from './project-categorizer'
 import type { AgentCodeAnnotation } from './spotlight-context'
 import type { AgentToolDefinition } from './types'
 
@@ -315,6 +317,52 @@ export const AGENT_GIT_TOOLS: AgentToolDefinition[] = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'analyze_project_groups',
+      description: 'Analyze all imported Git projects in the catalog, inspect their paths and remotes, and propose a structured multi-group organization plan.',
+      parameters: {
+        type: 'object',
+        properties: {
+          sourceGroup: {
+            type: 'string',
+            description: 'Optional group name to analyze (e.g. "个人项目"). If omitted, analyzes all projects.',
+          },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'apply_project_grouping',
+      description: 'Apply the approved project grouping plan by creating folders and moving projects into their target groups.',
+      parameters: {
+        type: 'object',
+        properties: {
+          groupsToCreate: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'List of folder names to create',
+          },
+          moves: {
+            type: 'array',
+            description: 'List of project moves',
+            items: {
+              type: 'object',
+              properties: {
+                projectId: { type: 'string' },
+                targetGroup: { type: 'string' },
+              },
+              required: ['projectId', 'targetGroup'],
+            },
+          },
+        },
+        required: ['moves'],
+      },
+    },
+  },
 ]
 
 export interface ToolExecutionResponse {
@@ -548,6 +596,77 @@ export async function executeAgentTool(toolName: string, args: Record<string, un
       ok: true,
       result: { message: `Spotlighted ${targets.length} commits in graph`, count: targets.length },
       spotlightTargets: targets,
+    }
+  }
+
+  // Analyze project catalog and generate grouping plan
+  if (toolName === 'analyze_project_groups') {
+    try {
+      const projects = await getCatalogProjects()
+      const sourceGroup = args.sourceGroup ? String(args.sourceGroup) : undefined
+      const plan = classifyProjects(projects, sourceGroup)
+
+      const groupedSummary: Record<string, string[]> = {}
+      for (const action of plan.actions) {
+        if (!groupedSummary[action.targetGroup]) groupedSummary[action.targetGroup] = []
+        groupedSummary[action.targetGroup].push(action.projectName)
+      }
+
+      return {
+        ok: true,
+        result: {
+          message: `已为您分析 ${plan.totalProjects} 个项目，规划了 ${plan.newGroupsToCreate.length} 个新分组，建议迁移 ${plan.actions.length} 个项目。`,
+          plan,
+          groupedSummary,
+        },
+      }
+    } catch (err) {
+      return {
+        ok: false,
+        result: { error: err instanceof Error ? err.message : '分析项目分组失败' },
+      }
+    }
+  }
+
+  // Apply project grouping moves
+  if (toolName === 'apply_project_grouping') {
+    try {
+      const driver = getGitDriver()
+      const groupsToCreate = Array.isArray(args.groupsToCreate) ? (args.groupsToCreate as string[]) : []
+      const moves = Array.isArray(args.moves) ? (args.moves as Array<{ projectId: string; targetGroup: string }>) : []
+
+      // 1. Create folders
+      for (const groupName of groupsToCreate) {
+        if (groupName && groupName.trim()) {
+          await driver.createFolder(groupName.trim()).catch(() => {})
+        }
+      }
+
+      // 2. Move projects
+      let successCount = 0
+      for (const move of moves) {
+        if (move.projectId && move.targetGroup) {
+          await driver.moveProject(move.projectId, move.targetGroup).catch(() => {})
+          successCount++
+        }
+      }
+
+      // 3. Trigger workdesk scan to update findings
+      workdeskEngine.scan().catch(() => {})
+
+      return {
+        ok: true,
+        result: {
+          message: `成功创建 ${groupsToCreate.length} 个分组，并已将 ${successCount} 个项目迁移至新分组。`,
+          createdGroups: groupsToCreate,
+          movedCount: successCount,
+        },
+      }
+    } catch (err) {
+      return {
+        ok: false,
+        result: { error: err instanceof Error ? err.message : '应用项目分组失败' },
+      }
     }
   }
 

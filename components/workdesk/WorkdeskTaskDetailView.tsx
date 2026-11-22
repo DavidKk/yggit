@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import React, { useEffect, useMemo, useState } from 'react'
-import { LuArrowLeft, LuEllipsis, LuExternalLink, LuFileCode, LuGitBranch, LuGitCommitHorizontal, LuTrash2, LuUndo2 } from 'react-icons/lu'
+import { LuArrowLeft, LuEllipsis, LuExternalLink, LuFileCode, LuFolderTree, LuGitBranch, LuGitCommitHorizontal, LuTrash2, LuUndo2 } from 'react-icons/lu'
 
 import { useT } from '@/components/i18n/LocaleProvider'
 import { Badge, Button } from '@/components/sk'
@@ -19,6 +19,7 @@ const CARD_I18N_MAP: Record<string, string> = {
   'worktree-parallel-dev': 'worktreeParallelDev',
   'merge-diverged-branches': 'mergeDivergedBranches',
   'standard-repo-hygiene': 'standardRepoHygiene',
+  'standard-project-organization': 'standardProjectOrganization',
   'review-pending-commits': 'reviewPendingCommits',
 }
 
@@ -266,6 +267,32 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
                 <span className="text-[11px] font-semibold text-ink-muted">{t('workdesk.evidence.conclusion')}</span>
                 <p className="mt-1 text-xs font-medium text-ink">{activeItem.summary}</p>
               </div>
+
+              {/* Organization Hygiene Special Action Button */}
+              {card.id === 'standard-project-organization' && (
+                <div className="flex flex-col gap-3 rounded-xl border border-[#b5ddd4] bg-[#f4faf7] p-3.5 sm:flex-row sm:items-center sm:justify-between dark:border-emerald-800/40 dark:bg-emerald-950/20">
+                  <div className="flex flex-col">
+                    <span className="text-xs font-semibold text-ink">{t('workdesk.organization.bannerTitle')}</span>
+                    <span className="mt-0.5 text-[11px] text-ink-muted">{t('workdesk.organization.bannerDesc')}</span>
+                  </div>
+                  <Button
+                    size="sm"
+                    className="shrink-0"
+                    onClick={() => {
+                      if (typeof window !== 'undefined') {
+                        window.dispatchEvent(
+                          new CustomEvent('yggit:agent_open', {
+                            detail: { prompt: t('workdesk.organization.prompt') },
+                          })
+                        )
+                      }
+                    }}
+                  >
+                    <LuFolderTree className="mr-1.5 size-3.5" aria-hidden="true" />
+                    {t('workdesk.organization.bannerAction')}
+                  </Button>
+                </div>
+              )}
 
               {/* Navigable Git Evidence List */}
               <div className="flex flex-col gap-2">

@@ -10,6 +10,7 @@ import { clusterFindingsToCards } from '@/lib/workdesk/cluster'
 import { detectDefaultBranchSync } from '@/lib/workdesk/detectors/branch-sync'
 import { detectCodeReview } from '@/lib/workdesk/detectors/code-review'
 import { detectMergeIntegration } from '@/lib/workdesk/detectors/merge-integration'
+import { detectOrganizationHygiene } from '@/lib/workdesk/detectors/organization-hygiene'
 import { detectStandardHygiene } from '@/lib/workdesk/detectors/standard-hygiene'
 import { detectWorktreeParallel } from '@/lib/workdesk/detectors/worktree-parallel'
 import { getDismissedCardIds, loadWorkdeskStore, saveWorkdeskStore } from '@/lib/workdesk/storage'
@@ -166,6 +167,10 @@ class WorkdeskEngine {
           })
         )
       }
+
+      // 6. Organization hygiene detection across all projects (Lane: standard)
+      const orgFindings = detectOrganizationHygiene({ projects: projectsToScan })
+      allFindings.push(...orgFindings)
 
       // Cluster findings
       const dismissedIds = getDismissedCardIds()

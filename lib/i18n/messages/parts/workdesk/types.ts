@@ -26,10 +26,20 @@ export interface WorkdeskMessages {
       title: string
       summary: string
     }
+    standardProjectOrganization: {
+      title: string
+      summary: string
+    }
     reviewPendingCommits: {
       title: string
       summary: string
     }
+  }
+  organization: {
+    bannerTitle: string
+    bannerDesc: string
+    bannerAction: string
+    prompt: string
   }
   status: {
     safe: string

@@ -29,10 +29,20 @@ export const workdeskZh: { workdesk: WorkdeskMessages } = {
         title: '研发规范与分支命名巡检',
         summary: '巡检未遵循团队约定的分支命名及规范校验',
       },
+      standardProjectOrganization: {
+        title: '多仓库分组与架构治理巡检',
+        summary: '巡检单分组堆叠的大量仓库，由 Agent 辅助归类整理',
+      },
       reviewPendingCommits: {
         title: '待推送提交与变更复核',
         summary: '巡检本地已就绪但未推送的提交与工作区改动，支持快速复核',
       },
+    },
+    organization: {
+      bannerTitle: '智能项目分类与架构治理',
+      bannerDesc: '由 Git Agent 深度分析各项目路径与 Remote，输出结构化分组方案',
+      bannerAction: '使用 Agent 规划分组',
+      prompt: '请帮我分析当前分组中堆叠的项目，并提供智能分组整理方案',
     },
     status: {
       safe: '可处理',

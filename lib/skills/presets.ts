@@ -80,4 +80,30 @@ Follow these rules for commit messages:
     createdAt: 1700000000000,
     updatedAt: 1700000000000,
   },
+  {
+    id: 'builtin_project_categorizer',
+    name: 'Project Organization & Taxonomy',
+    description: 'Guidelines and heuristics for analyzing repository paths, remotes, and architecture domains to clean up bloated project folders into structured groups.',
+    source: {
+      type: 'builtin',
+      uri: 'builtin://skills/project-categorizer',
+    },
+    content: `---
+name: Project Organization & Taxonomy
+description: Guidelines and heuristics for analyzing repository paths, remotes, and architecture domains to clean up bloated project folders into structured groups.
+---
+
+# Project Organization & Categorization Guide
+
+When assisting users with project catalog cleanup, folder restructuring, or organizing bloated groups:
+1. **Analyze Existing Catalog**: Call \`analyze_project_groups\` to inspect the project list, common physical path prefixes, and Git remote namespaces.
+2. **Present Clear Proposal**: Present the proposed groups in a structured Markdown table, explaining the rationale for each cluster (e.g. Backend Services, Frontend Apps & Editors, Plugins & Components, Infrastructure, Worktrees).
+3. **Execution Guard**: Explicitly ask the user for confirmation before executing. Once approved, call \`apply_project_grouping\` with the proposed folder names and project moves.
+4. **Safety Verification**: Ensure no disk operations are performed; only Yggit project catalog metadata is modified.
+`,
+    enabled: true,
+    trusted: true,
+    createdAt: 1700000000000,
+    updatedAt: 1700000000000,
+  },
 ]

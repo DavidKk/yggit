@@ -214,6 +214,51 @@ export function clusterFindingsToCards(findings: Finding[], inMemoryDismissedIds
     })
   }
 
+  // --- Group 4.2: Project Organization & Architecture Hygiene (Lane: standard) ---
+  const orgFindings = openFindings.filter((f) => f.evidence?.ruleId === 'project-organization-hygiene')
+  if (orgFindings.length > 0) {
+    const cardId = 'standard-project-organization'
+    const itemIds: string[] = []
+    let totalBloatedProjects = 0
+
+    for (const finding of orgFindings) {
+      const groupName = (finding.evidence?.details?.groupName as string) || finding.target?.name || 'group'
+      const projectCount = (finding.evidence?.details?.projectCount as number) || 0
+      totalBloatedProjects += projectCount
+
+      const itemId = `item_org_${finding.id}`
+      itemIds.push(itemId)
+
+      items[itemId] = {
+        id: itemId,
+        cardId,
+        repoId: finding.repoId,
+        repoAlias: groupName,
+        name: `分组: ${groupName}`,
+        summary: (finding.evidence?.details?.conclusion as string) || `分组包含 ${projectCount} 个项目，建议使用 Agent 整理分类`,
+        state: 'warn',
+        findingIds: [finding.id],
+        paths: finding.evidence?.paths,
+      }
+    }
+
+    cards.push({
+      id: cardId,
+      groupKey: 'standard:project-organization',
+      title: '多仓库分组与架构治理巡检',
+      summary: '巡检单分组堆叠的大量仓库，由 Agent 辅助归类整理',
+      scope: `${totalBloatedProjects} 个项目`,
+      iconName: 'LuFolderTree',
+      categoryId: 'standard',
+      categorySource: 'rule',
+      state: 'prepared',
+      itemIds,
+      hidden: inMemoryDismissedIds?.has(cardId) ?? false,
+      createdAt: Math.min(...orgFindings.map((f) => f.observedAt)),
+      updatedAt: Math.max(...orgFindings.map((f) => f.observedAt)),
+    })
+  }
+
   // --- Group 5: Code Review & Pending Changes (Lane: review) ---
   const reviewFindings = openFindings.filter((f) => f.kind === 'review')
   if (reviewFindings.length > 0) {
