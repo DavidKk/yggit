@@ -575,6 +575,57 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
         : commits.find((commit) => commit.hash === selectedHash || (selectedHash && selectedHash.length >= 6 && commit.hash.startsWith(selectedHash))) || null
   const selectedIsWorktree = selectedHash === GIT_WORKTREE_HASH
 
+  const handleLocateCommit = useCallback(
+    async (commitHash: string) => {
+      if (!commitHash) return
+      setFilePanel(null)
+      setSelectedFile('')
+      setSelectedStatus('')
+      setConflictViewActive(false)
+      setLineageHashes(null)
+      setSelectedHash(commitHash)
+      setFocusRequest({ hash: commitHash })
+
+      if (!view?.repo) return
+      const clean = commitHash.trim().toLowerCase()
+      const inWindow = commits.some((c) => c.hash.toLowerCase() === clean || c.short.toLowerCase() === clean || c.hash.toLowerCase().startsWith(clean))
+
+      if (!inWindow) {
+        try {
+          const driver = getGitDriver()
+          let res = await driver
+            .readLog({
+              repo: view.repo,
+              ref: scope,
+              locate: commitHash,
+              take: 50,
+            })
+            .catch(() => null)
+
+          if (!res || !res.commits || res.commits.length === 0) {
+            res = await driver
+              .readLog({
+                repo: view.repo,
+                locate: commitHash,
+                take: 50,
+              })
+              .catch(() => null)
+          }
+
+          if (res && res.commits && res.commits.length > 0) {
+            setCommits(res.commits)
+            setHasMore(Boolean(res.hasMore))
+            setHasPrev(Boolean(res.hasPrev))
+            setStartIndex(res.startIndex ?? 0)
+            setSelectedHash(commitHash)
+            setFocusRequest({ hash: commitHash })
+          }
+        } catch {}
+      }
+    },
+    [commits, scope, view?.repo]
+  )
+
   const handleCommitFilesLoaded = useCallback(
     (files: GitFileChange[]) => {
       setCommitFiles(files)
@@ -1499,15 +1550,20 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                     ) : (
                       <LuFingerprint className="size-4 shrink-0 text-accent" aria-hidden />
                     )}
-                    <h2 className="m-0 min-w-0 truncate text-xs font-semibold text-ink" title={filePanel.path}>
-                      {filePanel.path.split('/').pop() || filePanel.path}
-                    </h2>
-                    <span className="hidden truncate text-[11px] text-ink-soft md:inline" title={filePanel.path}>
-                      ({filePanel.path})
-                    </span>
+                    {(() => {
+                      const lastSlash = filePanel.path.lastIndexOf('/')
+                      const dirPrefix = lastSlash >= 0 ? filePanel.path.slice(0, lastSlash + 1) : ''
+                      const fileName = lastSlash >= 0 ? filePanel.path.slice(lastSlash + 1) : filePanel.path
+                      return (
+                        <h2 className="m-0 flex min-w-0 items-center text-xs text-ink" title={filePanel.path}>
+                          {dirPrefix ? <span className="truncate text-ink-soft/70 select-none">{dirPrefix}</span> : null}
+                          <span className="shrink-0 font-semibold text-ink">{fileName}</span>
+                        </h2>
+                      )
+                    })()}
                   </div>
                   <div className="flex items-center gap-1">
-                    <Tooltip content={filePanel.type === 'history' ? t('git.operations.fileBlame') || '文件追溯 (Blame)' : t('git.operations.fileHistory') || '文件历史'}>
+                    <Tooltip content={filePanel.type === 'history' ? t('git.operations.fileBlame') || '文件追溯' : t('git.operations.fileHistory') || '文件历史'}>
                       <Button
                         variant="plain"
                         size="icon"
@@ -1525,27 +1581,9 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                 </header>
                 <div className="flex min-h-0 flex-1 overflow-hidden">
                   {filePanel.type === 'history' ? (
-                    <GitFileHistoryView
-                      repo={view.repo}
-                      path={filePanel.path}
-                      currentHash={filePanel.hash || selected?.hash}
-                      onLocateCommit={(commitHash) => {
-                        setSelectedHash(commitHash)
-                        setFocusRequest({ hash: commitHash })
-                        setFilePanel(null)
-                      }}
-                    />
+                    <GitFileHistoryView repo={view.repo} path={filePanel.path} currentHash={filePanel.hash || selected?.hash} onLocateCommit={handleLocateCommit} />
                   ) : (
-                    <GitFileBlameView
-                      repo={view.repo}
-                      path={filePanel.path}
-                      hash={filePanel.hash || selected?.hash}
-                      onLocateCommit={(commitHash) => {
-                        setSelectedHash(commitHash)
-                        setFocusRequest({ hash: commitHash })
-                        setFilePanel(null)
-                      }}
-                    />
+                    <GitFileBlameView repo={view.repo} path={filePanel.path} hash={filePanel.hash || selected?.hash} onLocateCommit={handleLocateCommit} />
                   )}
                 </div>
               </section>
@@ -1579,13 +1617,7 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                   setSelectedFile(path)
                   setFilePanel({ type: 'blame', path, hash: selected?.hash })
                 }}
-                onLocateCommit={(commitHash) => {
-                  setSelectedHash(commitHash)
-                  setFocusRequest({ hash: commitHash })
-                  setSelectedFile('')
-                  setSelectedStatus('')
-                  setConflictViewActive(false)
-                }}
+                onLocateCommit={handleLocateCommit}
                 onClose={() => {
                   setConflictViewActive(false)
                   setSelectedFile('')

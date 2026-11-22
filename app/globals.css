@@ -31,8 +31,16 @@
 }
 
 @layer base {
-  * {
+  *,
+  *::before,
+  *::after {
     box-sizing: border-box;
+    outline: none;
+  }
+
+  *:focus,
+  *:focus-visible {
+    outline: none;
   }
 
   html,

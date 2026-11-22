@@ -26,7 +26,6 @@ import {
   LuSparkles,
   LuTriangleAlert,
   LuUndo2,
-  LuUser,
   LuX,
 } from 'react-icons/lu'
 import { TbFileStack } from 'react-icons/tb'
@@ -36,11 +35,10 @@ import { useOptionalConfirm } from '@/components/confirm/ConfirmProvider'
 import { GitSearchDropdown } from '@/components/git/GitSearchDropdown'
 import { FloatingMenu, type FloatingMenuItem } from '@/components/git/RefChipsCell'
 import { handleTreeExpandKey, handleTreeParentKey } from '@/components/git/treeExpandKey'
-import { useLocaleCode, useT } from '@/components/i18n/LocaleProvider'
+import { useT } from '@/components/i18n/LocaleProvider'
 import { useNotification } from '@/components/notification/useNotification'
 import { Badge, Button, EmptyState, Spinner, TextInput, Tooltip, VirtualList } from '@/components/sk'
 import { getGitDriver } from '@/lib/git/driver'
-import { formatCommitAgo } from '@/lib/git/format-commit-ago'
 import { GIT_WORKTREE_HASH, type GitCommit, type GitCommitChanges, type GitFileChange } from '@/lib/git/types'
 import { isBoolean, useGitUiPref } from '@/lib/git/ui-prefs'
 import { cn } from '@/lib/utils'
@@ -632,7 +630,6 @@ export function GitCommitPanel({
   onRefresh,
 }: Props) {
   const t = useT()
-  const locale = useLocaleCode()
   const notify = useNotification()
   const optionalConfirm = useOptionalConfirm()
   const confirm = optionalConfirm ?? (() => Promise.resolve(true))
@@ -1538,29 +1535,6 @@ export function GitCommitPanel({
           </Button>
         </div>
       </header>
-
-      {/* Historical Commit Metadata Card */}
-      {!isWorktree && commit.hash && (
-        <div className="flex shrink-0 flex-col gap-1 border-b border-line bg-panel-2/40 px-2.5 py-2 text-xs select-text">
-          <div className="flex items-center justify-between gap-1 text-[11px] text-ink-soft">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <span className="font-mono font-semibold text-accent">{commit.short || commit.hash.slice(0, 7)}</span>
-              {commit.author && (
-                <span className="flex items-center gap-1 min-w-0 truncate text-ink font-medium" title={commit.author}>
-                  <LuUser className="size-3 shrink-0 text-ink-soft" />
-                  <span className="truncate">{commit.author}</span>
-                </span>
-              )}
-            </div>
-            {commit.date && <span className="shrink-0 text-[10.5px] text-ink-soft/75">{formatCommitAgo(commit.date, locale)}</span>}
-          </div>
-          {commit.subject && (
-            <p className="m-0 truncate text-xs text-ink/90 font-normal leading-snug" title={commit.subject}>
-              {commit.subject}
-            </p>
-          )}
-        </div>
-      )}
 
       {/* View Options Menu */}
       {moreMenuAnchor ? (

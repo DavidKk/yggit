@@ -932,7 +932,7 @@ export function GitFileDiff({
         if (!(event.target as Element).closest('button,input,textarea,a,[data-git-find="code"]')) sectionRef.current?.focus({ preventScroll: true })
       }}
       data-git-find="diff"
-      className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-panel"
+      className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-panel outline-none"
       aria-label={t('git.diff.aria')}
     >
       <header className="grid h-10 shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 border-b border-line px-2">
@@ -942,9 +942,17 @@ export function GitFileDiff({
           ) : (
             <StatusIcon className={cn('size-4 shrink-0', mark.className)} aria-label={mark.label} />
           )}
-          <h2 className="m-0 min-w-0 truncate text-xs text-ink font-medium" title={path}>
-            {path}
-          </h2>
+          {(() => {
+            const lastSlash = path.lastIndexOf('/')
+            const dirPrefix = lastSlash >= 0 ? path.slice(0, lastSlash + 1) : ''
+            const fileName = lastSlash >= 0 ? path.slice(lastSlash + 1) : path
+            return (
+              <h2 className="m-0 flex min-w-0 items-center text-xs text-ink font-medium" title={path}>
+                {dirPrefix ? <span className="truncate text-ink-soft/70 select-none">{dirPrefix}</span> : null}
+                <span className="shrink-0 font-semibold text-ink">{fileName}</span>
+              </h2>
+            )
+          })()}
           {conflictActive ? (
             <span className="shrink-0 text-ink-soft text-[11px] font-normal" title={commit?.author ? `${commit.author} · ${commit.date}` : undefined}>
               ({t('git.diff.conflictComparison') || '冲突'})
@@ -1080,11 +1088,25 @@ export function GitFileDiff({
 
           {/* Conflict / Changes toggle button */}
           {hasConflict || Boolean(conflict?.hasConflict) || Boolean(commit && commit.parents.length > 1) ? (
-            <Tooltip content={conflictActive ? t('git.diff.diffView') || '变更' : t('git.diff.conflictComparison') || '冲突'}>
+            <Tooltip
+              content={
+                !hasConflict && !conflict?.hasConflict && !conflictActive
+                  ? t('git.diff.noConflict') || '当前文件无冲突'
+                  : conflictActive
+                    ? t('git.diff.diffView') || '变更'
+                    : t('git.diff.conflictComparison') || '冲突'
+              }
+            >
               <Button
                 variant="plain"
                 size="mini"
-                onClick={() => setConflictActive(!conflictActive)}
+                disabled={!hasConflict && !conflict?.hasConflict && !conflictActive}
+                className={!hasConflict && !conflict?.hasConflict && !conflictActive ? 'opacity-40 cursor-not-allowed' : ''}
+                onClick={() => {
+                  if (hasConflict || conflict?.hasConflict || conflictActive) {
+                    setConflictActive(!conflictActive)
+                  }
+                }}
                 aria-label={conflictActive ? t('git.diff.diffView') : t('git.diff.conflictComparison')}
               >
                 {conflictActive ? <LuFileCode className="size-3.5 text-accent" /> : <LuGitMerge className="size-3.5 text-warn" />}

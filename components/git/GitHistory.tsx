@@ -240,30 +240,38 @@ export function GitHistory({
     if (!focusRequest?.hash || focusedRequestRef.current === focusRequest) return
     const root = rootRef.current
     if (!root) return
-    const hash = CSS.escape(focusRequest.hash)
-    const row = root.querySelector<HTMLElement>(`[data-git-commit-hash="${hash}"]`)
+    const targetHash = focusRequest.hash.trim().toLowerCase()
+    const targetCommit = commits.find((c) => c.hash.toLowerCase() === targetHash || c.short.toLowerCase() === targetHash || c.hash.toLowerCase().startsWith(targetHash))
+    const fullHash = targetCommit ? targetCommit.hash : focusRequest.hash
+
+    const safeHash = CSS.escape(fullHash)
+    const row = root.querySelector<HTMLElement>(`[data-git-commit-hash="${safeHash}"]`) || root.querySelector<HTMLElement>(`[data-git-commit-hash^="${CSS.escape(targetHash)}"]`)
     if (!row) {
       if (hasMore) loadMore()
       return
     }
     focusedRequestRef.current = focusRequest
-    const bounds = root.getBoundingClientRect()
-    const target = row.getBoundingClientRect()
-    root.scrollTop += target.top - bounds.top - (root.clientHeight - target.height) / 2
-    const pan = root.querySelector<HTMLElement>('[data-git-graph-pan]')
-    const node = root.querySelector<HTMLElement>(`[data-git-node-hash="${hash}"]`)
-    if (pan && node) {
-      const viewport = pan.getBoundingClientRect()
-      const dot = node.getBoundingClientRect()
-      if (dot.left < viewport.left || dot.right > viewport.right) {
-        pan.scrollLeft += (dot.left + dot.right - viewport.left - viewport.right) / 2
+    requestAnimationFrame(() => {
+      const bounds = root.getBoundingClientRect()
+      const target = row.getBoundingClientRect()
+      if (bounds.height > 0 && target.height > 0) {
+        root.scrollTop += target.top - bounds.top - (root.clientHeight - target.height) / 2
       }
-    }
-    // Only transfer focus if the user was not interacting with the sidebar or file tree
-    const active = typeof document !== 'undefined' ? document.activeElement : null
-    if (!active?.closest?.('[data-git-sidebar]') && !active?.closest?.('[data-git-tree]')) {
-      row.focus({ preventScroll: true })
-    }
+      const pan = root.querySelector<HTMLElement>('[data-git-graph-pan]')
+      const node = root.querySelector<HTMLElement>(`[data-git-node-hash="${safeHash}"]`) || root.querySelector<HTMLElement>(`[data-git-node-hash^="${CSS.escape(targetHash)}"]`)
+      if (pan && node) {
+        const viewport = pan.getBoundingClientRect()
+        const dot = node.getBoundingClientRect()
+        if (dot.left < viewport.left || dot.right > viewport.right) {
+          pan.scrollLeft += (dot.left + dot.right - viewport.left - viewport.right) / 2
+        }
+      }
+      // Only transfer focus if the user was not interacting with the sidebar or file tree
+      const active = typeof document !== 'undefined' ? document.activeElement : null
+      if (!active?.closest?.('[data-git-sidebar]') && !active?.closest?.('[data-git-tree]')) {
+        row.focus({ preventScroll: true })
+      }
+    })
   }, [repo, focusRequest, commits, stashes, hasMore, loadMore, rootRef])
 
   useEffect(() => {

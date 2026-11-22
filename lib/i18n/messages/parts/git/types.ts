@@ -162,6 +162,9 @@ export type GitMessages = {
     prevConflict: string
     locateInGraph?: string
     searchHistoryPlaceholder?: string
+    searchHistory?: string
+    commitHistory?: string
+    noConflict?: string
     noHistoryFound?: string
     loadingHistory?: string
     loadingBlame?: string

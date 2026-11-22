@@ -1,9 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { LuCheck, LuClock, LuCopy, LuCrosshair, LuGitCommitVertical, LuSearch, LuUser, LuX } from 'react-icons/lu'
+import { LuCheck, LuClock, LuCopy, LuCrosshair, LuGitCommitVertical, LuUser } from 'react-icons/lu'
 
 import { GitDiffCodeText, useGitLineTokens } from '@/components/git/GitHighlightedCode'
+import { GitSearchDropdown } from '@/components/git/GitSearchDropdown'
 import { useLocaleCode, useT } from '@/components/i18n/LocaleProvider'
 import { Badge, Button, Spinner, Tooltip } from '@/components/sk'
 import { getGitDriver } from '@/lib/git/driver'
@@ -172,27 +173,24 @@ export function GitFileHistoryView({
     <div className="flex min-h-0 flex-1 overflow-hidden bg-paper">
       {/* Left Pane: Commit History List */}
       <aside className="flex w-72 md:w-80 shrink-0 flex-col border-r border-line bg-panel">
-        {/* Search / Filter header */}
-        <div className="flex items-center gap-1.5 border-b border-line px-2 py-1.5">
-          <div className="relative flex min-w-0 flex-1 items-center">
-            <LuSearch className="pointer-events-none absolute left-2 size-3.5 text-ink-soft" aria-hidden />
-            <input
-              type="text"
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              placeholder={t('git.diff.searchHistoryPlaceholder') || '搜索历史提交…'}
-              className="h-6 w-full rounded border border-line bg-panel px-2 pl-7 pr-6 text-xs text-ink placeholder:text-ink-soft/60 focus:border-accent focus:outline-hidden"
-            />
-            {filter ? (
-              <button type="button" onClick={() => setFilter('')} className="absolute right-1.5 text-ink-soft hover:text-ink cursor-pointer" aria-label={t('common.clear')}>
-                <LuX className="size-3" />
-              </button>
-            ) : null}
+        {/* Header: Title with Badge and Search Dropdown */}
+        <header className="flex h-10 shrink-0 items-center justify-between border-b border-line px-3">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <h2 className="m-0 shrink-0 whitespace-nowrap text-xs font-semibold text-ink">{t('git.diff.commitHistory') || '提交历史'}</h2>
+            <Badge tone="neutral" size="mini" dot={false} className="shrink-0 font-mono text-[10px]">
+              {filteredCommits.length}
+            </Badge>
           </div>
-          <Badge tone="neutral" size="mini" dot={false} className="shrink-0 font-mono text-[10px]">
-            {filteredCommits.length}
-          </Badge>
-        </div>
+          <div className="flex h-8 items-center justify-end gap-1 [&_button]:size-6">
+            <GitSearchDropdown
+              className="mr-0 size-6"
+              label={t('git.diff.searchHistory') || '搜索提交历史'}
+              placeholder={`${t('git.diff.searchHistory') || '搜索提交历史'}…`}
+              value={filter}
+              onChange={setFilter}
+            />
+          </div>
+        </header>
 
         {/* Commits list */}
         <div className="flex-1 overflow-y-auto min-h-0 py-1">
