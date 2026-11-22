@@ -9,6 +9,28 @@ export interface WorkdeskMessages {
     standard: string
     review: string
   }
+  cards: {
+    syncDefaultBranches: {
+      title: string
+      summary: string
+    }
+    worktreeParallelDev: {
+      title: string
+      summary: string
+    }
+    mergeDivergedBranches: {
+      title: string
+      summary: string
+    }
+    standardRepoHygiene: {
+      title: string
+      summary: string
+    }
+    reviewPendingCommits: {
+      title: string
+      summary: string
+    }
+  }
   status: {
     safe: string
     warn: string

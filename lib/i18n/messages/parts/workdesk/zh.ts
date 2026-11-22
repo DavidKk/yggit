@@ -12,6 +12,28 @@ export const workdeskZh: { workdesk: WorkdeskMessages } = {
       standard: '研发规范',
       review: '代码审查',
     },
+    cards: {
+      syncDefaultBranches: {
+        title: '同步默认分支',
+        summary: '检查各项目默认分支与远端的同步状态，识别可安全快进的项目',
+      },
+      worktreeParallelDev: {
+        title: '检查并行开发工作',
+        summary: '巡检各项目的独立 Worktree 与特性分支健康度',
+      },
+      mergeDivergedBranches: {
+        title: '核对分叉与待合并分支',
+        summary: '检测本地与远端分叉或存在潜在冲突的分支，指引合并或变基',
+      },
+      standardRepoHygiene: {
+        title: '研发规范与分支命名巡检',
+        summary: '巡检未遵循团队约定的分支命名及规范校验',
+      },
+      reviewPendingCommits: {
+        title: '待推送提交与变更复核',
+        summary: '巡检本地已就绪但未推送的提交与工作区改动，支持快速复核',
+      },
+    },
     status: {
       safe: '可处理',
       warn: '需核查',

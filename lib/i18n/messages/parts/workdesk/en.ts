@@ -12,6 +12,28 @@ export const workdeskEn: { workdesk: WorkdeskMessages } = {
       standard: 'Engineering Standards',
       review: 'Code Review',
     },
+    cards: {
+      syncDefaultBranches: {
+        title: 'Sync Default Branches',
+        summary: 'Inspect default branch sync with remote to identify fast-forwardable repositories',
+      },
+      worktreeParallelDev: {
+        title: 'Inspect Parallel Worktrees',
+        summary: 'Monitor independent worktrees and feature branches health',
+      },
+      mergeDivergedBranches: {
+        title: 'Review Diverged & Merge Branches',
+        summary: 'Identify diverged branches requiring merge or rebase',
+      },
+      standardRepoHygiene: {
+        title: 'Standards & Branch Naming Hygiene',
+        summary: 'Inspect branches and commits for compliance with engineering standards',
+      },
+      reviewPendingCommits: {
+        title: 'Pending Commits & Changes Review',
+        summary: 'Inspect unpushed commits and modified files ready for code review',
+      },
+    },
     status: {
       safe: 'Safe to apply',
       warn: 'Needs verification',

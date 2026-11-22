@@ -4,12 +4,22 @@ import Link from 'next/link'
 import React from 'react'
 import { LuChevronRight, LuCircleCheck, LuFlag, LuGitBranch, LuGitFork, LuGitMerge, LuRefreshCw } from 'react-icons/lu'
 
+import { useT } from '@/components/i18n/LocaleProvider'
+import type { MessageKey } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 import type { WorkCard } from '@/lib/workdesk/types'
 
 interface WorkdeskCardProps {
   card: WorkCard
   className?: string
+}
+
+const CARD_I18N_MAP: Record<string, string> = {
+  'sync-default-branches': 'syncDefaultBranches',
+  'worktree-parallel-dev': 'worktreeParallelDev',
+  'merge-diverged-branches': 'mergeDivergedBranches',
+  'standard-repo-hygiene': 'standardRepoHygiene',
+  'review-pending-commits': 'reviewPendingCommits',
 }
 
 function resolveCardIcon(iconName: string, categoryId: string) {
@@ -35,6 +45,12 @@ function resolveCardIcon(iconName: string, categoryId: string) {
 }
 
 export function WorkdeskCard({ card, className }: WorkdeskCardProps) {
+  const t = useT()
+
+  const i18nKey = CARD_I18N_MAP[card.id]
+  const rawTitle = i18nKey ? t(`workdesk.cards.${i18nKey}.title` as MessageKey) : undefined
+  const title = rawTitle && !rawTitle.startsWith('workdesk.cards.') ? rawTitle : card.title
+
   return (
     <Link
       href={`/workdesk/tasks/${encodeURIComponent(card.id)}`}
@@ -45,7 +61,7 @@ export function WorkdeskCard({ card, className }: WorkdeskCardProps) {
         className
       )}
       role="button"
-      aria-label={`${card.title} - ${card.scope}`}
+      aria-label={`${title} - ${card.scope}`}
     >
       <div className="flex min-w-0 flex-1 items-center gap-2.5">
         {/* Capsule icon container */}
@@ -61,7 +77,7 @@ export function WorkdeskCard({ card, className }: WorkdeskCardProps) {
 
         {/* Title and Scope */}
         <div className="flex min-w-0 flex-1 flex-col justify-center">
-          <span className="line-clamp-2 text-xs font-semibold leading-tight text-ink transition-colors group-hover:text-ink-vivid">{card.title}</span>
+          <span className="line-clamp-2 text-xs font-semibold leading-tight text-ink transition-colors group-hover:text-ink-vivid">{title}</span>
           <span className="mt-0.5 text-[11px] leading-none text-ink-muted">{card.scope}</span>
         </div>
       </div>

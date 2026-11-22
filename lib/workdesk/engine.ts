@@ -8,6 +8,9 @@ import { projectOpenTarget } from '@/lib/git/project-access'
 import type { GitProjectView } from '@/lib/git/types'
 import { clusterFindingsToCards } from '@/lib/workdesk/cluster'
 import { detectDefaultBranchSync } from '@/lib/workdesk/detectors/branch-sync'
+import { detectCodeReview } from '@/lib/workdesk/detectors/code-review'
+import { detectMergeIntegration } from '@/lib/workdesk/detectors/merge-integration'
+import { detectStandardHygiene } from '@/lib/workdesk/detectors/standard-hygiene'
 import { detectWorktreeParallel } from '@/lib/workdesk/detectors/worktree-parallel'
 import { getDismissedCardIds, loadWorkdeskStore, saveWorkdeskStore } from '@/lib/workdesk/storage'
 import type { Finding, WorkCard, WorkdeskStoreData, WorkItem } from '@/lib/workdesk/types'
@@ -22,7 +25,7 @@ export interface ScanResult {
 type ScanListener = (result: ScanResult) => void
 
 const SCAN_INTERVAL_MS = 5 * 60 * 1000 // 5 minutes default
-const CONCURRENCY_LIMIT = 3
+const CONCURRENCY_LIMIT = 8
 
 class WorkdeskEngine {
   private timer: ReturnType<typeof setInterval> | null = null
@@ -131,21 +134,32 @@ class WorkdeskEngine {
             const target = projectOpenTarget(project)
             if (!target) return
             try {
+              // Fetch full log view with branches, worktrees, remotes, and status
               const logView = await driver.readLog({
                 repo: target,
-                skip: 0,
-                take: 20,
               })
 
-              // 1. Default branch sync detection
+              // 1. Default branch sync detection (Lane: branch)
               const syncFinding = detectDefaultBranchSync({ project, logView })
               if (syncFinding) {
                 allFindings.push(syncFinding)
               }
 
-              // 2. Parallel worktree & feature branch detection
+              // 2. Parallel worktree & feature branch detection (Lane: branch)
               const parallelFindings = detectWorktreeParallel({ project, logView })
               allFindings.push(...parallelFindings)
+
+              // 3. Merge & diverged branches detection (Lane: merge)
+              const mergeFindings = detectMergeIntegration({ project, logView })
+              allFindings.push(...mergeFindings)
+
+              // 4. Engineering standards & branch naming hygiene (Lane: standard)
+              const standardFindings = detectStandardHygiene({ project, logView })
+              allFindings.push(...standardFindings)
+
+              // 5. Code review & pending changes inspection (Lane: review)
+              const reviewFindings = detectCodeReview({ project, logView })
+              allFindings.push(...reviewFindings)
             } catch {
               // Gracefully handle unreadable or unavailable repository
             }

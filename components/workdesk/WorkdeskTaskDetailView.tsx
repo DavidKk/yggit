@@ -8,10 +8,19 @@ import { LuArrowLeft, LuEllipsis, LuExternalLink, LuFileCode, LuGitBranch, LuGit
 import { useT } from '@/components/i18n/LocaleProvider'
 import { Badge, Button } from '@/components/sk'
 import { setWorkdeskContext } from '@/lib/agent/workdesk-context'
+import type { MessageKey } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 import { workdeskEngine } from '@/lib/workdesk/engine'
 import { dismissCard, undoDismissCard } from '@/lib/workdesk/storage'
 import type { WorkCard, WorkItem } from '@/lib/workdesk/types'
+
+const CARD_I18N_MAP: Record<string, string> = {
+  'sync-default-branches': 'syncDefaultBranches',
+  'worktree-parallel-dev': 'worktreeParallelDev',
+  'merge-diverged-branches': 'mergeDivergedBranches',
+  'standard-repo-hygiene': 'standardRepoHygiene',
+  'review-pending-commits': 'reviewPendingCommits',
+}
 
 interface WorkdeskTaskDetailViewProps {
   taskId: string
@@ -190,7 +199,13 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
           <span>{t('workdesk.action.back')}</span>
         </Link>
 
-        <h2 className="text-xs font-bold text-ink">{card.title}</h2>
+        <h2 className="text-xs font-bold text-ink">
+          {(() => {
+            const i18nKey = CARD_I18N_MAP[card.id]
+            const rawTitle = i18nKey ? t(`workdesk.cards.${i18nKey}.title` as MessageKey) : undefined
+            return rawTitle && !rawTitle.startsWith('workdesk.cards.') ? rawTitle : card.title
+          })()}
+        </h2>
 
         <span className="text-[10px] font-medium text-ink-muted">Git Workdesk</span>
       </div>

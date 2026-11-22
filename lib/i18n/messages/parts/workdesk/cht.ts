@@ -12,6 +12,28 @@ export const workdeskCht: { workdesk: WorkdeskMessages } = {
       standard: '研發規範',
       review: '程式碼審查',
     },
+    cards: {
+      syncDefaultBranches: {
+        title: '同步預設分支',
+        summary: '檢查各項目預設分支與遠端的同步狀態，識別可安全快進的項目',
+      },
+      worktreeParallelDev: {
+        title: '檢查平行開發工作',
+        summary: '巡檢各項目的獨立 Worktree 與特性分支健康度',
+      },
+      mergeDivergedBranches: {
+        title: '核對分叉與待合併分支',
+        summary: '檢測本地與遠端分叉或存在潛在衝突的分支，指引合併或變基',
+      },
+      standardRepoHygiene: {
+        title: '研發規範與分支命名巡檢',
+        summary: '巡檢未遵循團隊約定的分支命名及規範校驗',
+      },
+      reviewPendingCommits: {
+        title: '待推送提交與變更複核',
+        summary: '巡檢本地已就緒但未推送的提交與工作區改動，支援快速複核',
+      },
+    },
     status: {
       safe: '可處理',
       warn: '需核查',

@@ -24,7 +24,7 @@ export function clusterFindingsToCards(findings: Finding[], inMemoryDismissedIds
   // Filter open findings
   const openFindings = findings.filter((f) => f.lifecycle === 'open')
 
-  // --- Group 1: Default Branch Sync (sync:default-branches) ---
+  // --- Group 1: Default Branch Sync (Lane: branch) ---
   const syncFindings = openFindings.filter((f) => f.evidence?.ruleId === 'default-branch-sync')
   if (syncFindings.length > 0) {
     const cardId = 'sync-default-branches'
@@ -53,27 +53,24 @@ export function clusterFindingsToCards(findings: Finding[], inMemoryDismissedIds
       }
     }
 
-    const scope = `${projectSet.size} 个项目`
-    const isDismissed = inMemoryDismissedIds?.has(cardId) ?? false
-
     cards.push({
       id: cardId,
       groupKey: 'sync:default-branches',
       title: '同步默认分支',
       summary: '检查各项目默认分支与远端的同步状态，识别可安全快进的项目',
-      scope,
+      scope: `${projectSet.size} 个项目`,
       iconName: 'LuRefreshCw',
       categoryId: 'branch',
       categorySource: 'rule',
       state: 'prepared',
       itemIds,
-      hidden: isDismissed,
+      hidden: inMemoryDismissedIds?.has(cardId) ?? false,
       createdAt: Math.min(...syncFindings.map((f) => f.observedAt)),
       updatedAt: Math.max(...syncFindings.map((f) => f.observedAt)),
     })
   }
 
-  // --- Group 2: Worktree & Parallel Development (worktree:parallel-dev) ---
+  // --- Group 2: Worktree & Parallel Development (Lane: branch) ---
   const parallelFindings = openFindings.filter((f) => f.evidence?.ruleId === 'worktree-parallel' || f.evidence?.ruleId === 'feature-branch-health')
   if (parallelFindings.length > 0) {
     const cardId = 'worktree-parallel-dev'
@@ -107,7 +104,6 @@ export function clusterFindingsToCards(findings: Finding[], inMemoryDismissedIds
     }
 
     const scope = worktreeCount > 0 ? `${projectSet.size} 个项目 · ${worktreeCount} Worktrees` : `${projectSet.size} 个项目`
-    const isDismissed = inMemoryDismissedIds?.has(cardId) ?? false
 
     cards.push({
       id: cardId,
@@ -120,16 +116,16 @@ export function clusterFindingsToCards(findings: Finding[], inMemoryDismissedIds
       categorySource: 'rule',
       state: 'prepared',
       itemIds,
-      hidden: isDismissed,
+      hidden: inMemoryDismissedIds?.has(cardId) ?? false,
       createdAt: Math.min(...parallelFindings.map((f) => f.observedAt)),
       updatedAt: Math.max(...parallelFindings.map((f) => f.observedAt)),
     })
   }
 
-  // --- Group 3: Merge Scenario (if any findings) ---
+  // --- Group 3: Merge & Diverged Branches (Lane: merge) ---
   const mergeFindings = openFindings.filter((f) => f.kind === 'merge')
   if (mergeFindings.length > 0) {
-    const cardId = 'merge-integration-preflight'
+    const cardId = 'merge-diverged-branches'
     const itemIds: string[] = []
     const projectSet = new Set<string>()
 
@@ -138,35 +134,129 @@ export function clusterFindingsToCards(findings: Finding[], inMemoryDismissedIds
       itemIds.push(itemId)
       projectSet.add(finding.repoId)
 
+      const stateKind = (finding.evidence?.details?.stateKind as 'safe' | 'warn' | 'bad') || 'warn'
+      const conclusion = (finding.evidence?.details?.conclusion as string) || '本地分支与远端分叉，需合并或变基'
+
       items[itemId] = {
         id: itemId,
         cardId,
         repoId: finding.repoId,
         repoAlias: finding.repoAlias,
-        name: finding.target?.name || 'merge-preflight',
-        summary: (finding.evidence?.details?.conclusion as string) || '跨分支合并预检',
-        state: finding.severity === 'blocking' ? 'bad' : 'warn',
+        name: finding.target?.name || 'diverged',
+        summary: conclusion,
+        state: stateKind,
         findingIds: [finding.id],
         commit: finding.evidence?.commits?.[0],
         paths: finding.evidence?.paths,
       }
     }
 
-    const isDismissed = inMemoryDismissedIds?.has(cardId) ?? false
     cards.push({
       id: cardId,
-      groupKey: 'merge:integration-preflight',
-      title: '跨分支合并预演核对',
-      summary: '验证候选集成变更与目标分支的兼容性',
+      groupKey: 'merge:diverged-branches',
+      title: '核对分叉与待合并分支',
+      summary: '检测本地与远端分叉或存在潜在冲突的分支，指引合并或变基',
       scope: `${projectSet.size} 个项目`,
       iconName: 'LuGitMerge',
       categoryId: 'merge',
       categorySource: 'rule',
       state: 'prepared',
       itemIds,
-      hidden: isDismissed,
+      hidden: inMemoryDismissedIds?.has(cardId) ?? false,
       createdAt: Math.min(...mergeFindings.map((f) => f.observedAt)),
       updatedAt: Math.max(...mergeFindings.map((f) => f.observedAt)),
+    })
+  }
+
+  // --- Group 4: Engineering Standards & Branch Hygiene (Lane: standard) ---
+  const standardFindings = openFindings.filter((f) => f.kind === 'custom' && (f.evidence?.ruleId === 'standard-branch-naming' || f.evidence?.ruleId === 'standard-commit-message'))
+  if (standardFindings.length > 0) {
+    const cardId = 'standard-repo-hygiene'
+    const itemIds: string[] = []
+    const projectSet = new Set<string>()
+
+    for (const finding of standardFindings) {
+      const itemId = `item_standard_${finding.id}`
+      itemIds.push(itemId)
+      projectSet.add(finding.repoId)
+
+      const stateKind = (finding.evidence?.details?.stateKind as 'safe' | 'warn' | 'bad') || 'warn'
+      const conclusion = (finding.evidence?.details?.conclusion as string) || '未遵循团队研发规范'
+
+      items[itemId] = {
+        id: itemId,
+        cardId,
+        repoId: finding.repoId,
+        repoAlias: finding.repoAlias,
+        name: finding.target?.name || 'standard',
+        summary: conclusion,
+        state: stateKind,
+        findingIds: [finding.id],
+        commit: finding.evidence?.commits?.[0],
+        paths: finding.evidence?.paths,
+      }
+    }
+
+    cards.push({
+      id: cardId,
+      groupKey: 'standard:repo-hygiene',
+      title: '研发规范与分支命名巡检',
+      summary: '巡检未遵循团队约定的分支命名及规范校验',
+      scope: `${projectSet.size} 个项目`,
+      iconName: 'LuFlag',
+      categoryId: 'standard',
+      categorySource: 'rule',
+      state: 'prepared',
+      itemIds,
+      hidden: inMemoryDismissedIds?.has(cardId) ?? false,
+      createdAt: Math.min(...standardFindings.map((f) => f.observedAt)),
+      updatedAt: Math.max(...standardFindings.map((f) => f.observedAt)),
+    })
+  }
+
+  // --- Group 5: Code Review & Pending Changes (Lane: review) ---
+  const reviewFindings = openFindings.filter((f) => f.kind === 'review')
+  if (reviewFindings.length > 0) {
+    const cardId = 'review-pending-commits'
+    const itemIds: string[] = []
+    const projectSet = new Set<string>()
+
+    for (const finding of reviewFindings) {
+      const itemId = `item_review_${finding.id}`
+      itemIds.push(itemId)
+      projectSet.add(finding.repoId)
+
+      const stateKind = (finding.evidence?.details?.stateKind as 'safe' | 'warn' | 'bad') || 'safe'
+      const conclusion = (finding.evidence?.details?.conclusion as string) || '待复核的提交或工作区改动'
+
+      items[itemId] = {
+        id: itemId,
+        cardId,
+        repoId: finding.repoId,
+        repoAlias: finding.repoAlias,
+        name: finding.target?.name || 'review',
+        summary: conclusion,
+        state: stateKind,
+        findingIds: [finding.id],
+        commit: finding.evidence?.commits?.[0],
+        paths: finding.evidence?.paths,
+      }
+    }
+
+    cards.push({
+      id: cardId,
+      groupKey: 'review:code-review-pending',
+      title: '待推送提交与变更复核',
+      summary: '巡检本地已就绪但未推送的提交与工作区改动，支持快速复核',
+      scope: `${projectSet.size} 个项目`,
+      iconName: 'LuCircleCheck',
+      categoryId: 'review',
+      categorySource: 'rule',
+      state: 'prepared',
+      itemIds,
+      hidden: inMemoryDismissedIds?.has(cardId) ?? false,
+      createdAt: Math.min(...reviewFindings.map((f) => f.observedAt)),
+      updatedAt: Math.max(...reviewFindings.map((f) => f.observedAt)),
     })
   }
 
