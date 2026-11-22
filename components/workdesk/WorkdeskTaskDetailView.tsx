@@ -285,41 +285,37 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
       <div className="flex min-h-0 flex-1 divide-x divide-line">
         {/* Left Column: Task Navigation List */}
         <div className="flex w-72 shrink-0 flex-col overflow-hidden border-r border-line bg-panel-2/30 sm:w-80 lg:w-88">
-          {/* Top-Left Small Card (Click to collapse back) */}
-          <div className="border-b border-line bg-panel p-2.5">
+          {/* Top-Left Card (Exact same card style, click to collapse back) */}
+          <div className="p-2.5 pb-0">
             <button
               type="button"
               onClick={handleCollapse}
-              className="group relative flex w-full cursor-pointer items-center justify-between gap-2.5 rounded-xl border border-accent/40 bg-[#f4faf7] p-2.5 shadow-2xs transition-all hover:border-accent hover:bg-[#ebf6f1] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent/40 dark:border-emerald-800/50 dark:bg-emerald-950/30 dark:hover:bg-emerald-950/50"
+              className={cn(
+                'group relative flex min-h-[58px] w-full cursor-pointer items-center justify-between gap-3 rounded-xl border border-line bg-panel p-2.5 shadow-xs transition-all duration-150',
+                'hover:border-[#b5ddd4] hover:bg-[#f8fcfa] hover:shadow-sm dark:hover:border-emerald-700/50 dark:hover:bg-emerald-950/20',
+                'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent/40'
+              )}
               title={t('workdesk.action.back')}
               aria-label={`${cardTitle} - ${t('workdesk.action.back')}`}
             >
               <div className="flex min-w-0 flex-1 items-center gap-2.5">
                 <div
-                  className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-[#eef5f2] transition-colors group-hover:bg-[#e2f1ec] dark:bg-emerald-950/60"
+                  className={cn(
+                    'flex size-7 shrink-0 items-center justify-center rounded-lg bg-[#eef5f2] transition-colors',
+                    'group-hover:bg-[#e2f1ec] dark:bg-emerald-950/40 dark:group-hover:bg-emerald-900/50'
+                  )}
                   aria-hidden="true"
                 >
                   {resolveCardIcon(card.iconName, card.categoryId)}
                 </div>
-                <div className="flex min-w-0 flex-1 flex-col text-left">
-                  <span className="truncate text-xs font-bold text-ink group-hover:text-ink-vivid">{cardTitle}</span>
-                  <div className="mt-0.5 flex items-center gap-1.5 text-[10px] font-medium text-accent">
-                    <span>{card.scope}</span>
-                    <span>·</span>
-                    <span className="flex items-center gap-0.5 group-hover:underline">
-                      <LuArrowLeft className="size-2.5" aria-hidden="true" />
-                      {t('workdesk.action.back')}
-                    </span>
-                  </div>
+                <div className="flex min-w-0 flex-1 flex-col justify-center text-left">
+                  <span className="line-clamp-2 text-xs font-semibold leading-tight text-ink transition-colors group-hover:text-ink-vivid">{cardTitle}</span>
+                  <span className="mt-0.5 text-[11px] leading-none text-ink-muted">{card.scope}</span>
                 </div>
               </div>
-              <span
-                className="flex size-6 shrink-0 items-center justify-center rounded-md border border-accent/30 bg-panel text-accent transition-all group-hover:bg-accent group-hover:text-white"
-                title="收起卡片"
-                aria-hidden="true"
-              >
+              <div className="flex shrink-0 items-center text-ink-soft transition-transform group-hover:-translate-y-0.5 group-hover:text-ink">
                 <LuChevronUp className="size-3.5" aria-hidden="true" />
-              </span>
+              </div>
             </button>
           </div>
 
@@ -347,7 +343,7 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
             }
           `}</style>
 
-          {/* Dealing Cards List (Removed '任务列表 4 4个项目' bar, dealt directly downwards) */}
+          {/* Dealing Cards List (Directly below top card) */}
           <div className="flex flex-1 flex-col gap-2.5 overflow-y-auto p-2.5">
             {Object.entries(groupedItems).map(([groupName, items], groupIndex) => {
               const hasActive = items.some((it) => it.id === activeItem?.id)

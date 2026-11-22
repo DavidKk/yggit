@@ -269,16 +269,18 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
                 zIndex: 50,
                 transition: transition.phase === 'moving' || transition.phase === 'collapsing' ? 'all 350ms cubic-bezier(0.2, 0.8, 0.2, 1)' : 'none',
               }}
-              className="pointer-events-none flex items-center justify-between gap-2.5 rounded-xl border border-accent/40 bg-[#f4faf7] p-2.5 shadow-lg dark:border-emerald-800/50 dark:bg-emerald-950/40"
+              className="pointer-events-none flex min-h-[58px] items-center justify-between gap-3 rounded-xl border border-line bg-panel p-2.5 shadow-md dark:border-line dark:bg-panel"
             >
               <div className="flex min-w-0 flex-1 items-center gap-2.5">
-                <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-[#eef5f2] dark:bg-emerald-950/60">{resolveCardIcon(c.iconName, c.categoryId)}</div>
-                <div className="flex min-w-0 flex-1 flex-col text-left">
-                  <span className="truncate text-xs font-bold text-ink">{title}</span>
-                  <span className="mt-0.5 text-[10px] font-medium text-accent">{c.scope}</span>
+                <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-[#eef5f2] dark:bg-emerald-950/40">{resolveCardIcon(c.iconName, c.categoryId)}</div>
+                <div className="flex min-w-0 flex-1 flex-col justify-center text-left">
+                  <span className="line-clamp-2 text-xs font-semibold leading-tight text-ink">{title}</span>
+                  <span className="mt-0.5 text-[11px] leading-none text-ink-muted">{c.scope}</span>
                 </div>
               </div>
-              <LuChevronUp className="size-4 shrink-0 text-accent" />
+              <div className="flex shrink-0 items-center text-ink-soft">
+                <LuChevronUp className="size-3.5" aria-hidden="true" />
+              </div>
             </div>
           )
         })()}

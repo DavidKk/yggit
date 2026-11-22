@@ -61,28 +61,32 @@ export function WorkdeskCard({ card, className, noWrapperMargin = false, onSelec
 
   return (
     <div
-      className={cn('group/stack relative transition-all duration-200 select-none', !noWrapperMargin && (isMultiple ? 'mb-2.5 pb-1' : 'mb-1'))}
+      className={cn('group/stack relative transition-all duration-200 select-none', !noWrapperMargin && (isMultiple ? 'mb-3 pb-1' : 'mb-1'))}
       data-testid={`workdesk-card-wrapper-${card.id}`}
       data-stacked={isMultiple ? 'true' : 'false'}
     >
-      {/* Visual metaphor for multiple projects: realistic physical card deck underlayers */}
+      {/* Visual metaphor for multiple projects: casually stacked card deck with organic slight tilt */}
       {isMultiple && (
         <>
-          {/* Deepest underlayer (layer 3) */}
+          {/* Deepest underlayer (layer 3, tilted slightly left) */}
           <div
             data-testid="card-stack-layer-bottom"
             className={cn(
-              'absolute inset-x-3 -bottom-2 h-7 rounded-xl border border-line/50 bg-panel-2/60 shadow-2xs transition-all duration-200 pointer-events-none',
-              'group-hover/stack:-bottom-2.5 group-hover/stack:inset-x-3.5 dark:border-line/30 dark:bg-panel-2/40'
+              'absolute inset-0 rounded-xl border border-line/60 bg-panel-2/70 shadow-2xs transition-all duration-200 pointer-events-none origin-center',
+              '-rotate-2 -translate-x-1 translate-y-1.5',
+              'group-hover/stack:-rotate-3 group-hover/stack:-translate-x-1.5 group-hover/stack:translate-y-2',
+              'dark:border-line/40 dark:bg-panel-2/50'
             )}
             aria-hidden="true"
           />
-          {/* Middle underlayer (layer 2) */}
+          {/* Middle underlayer (layer 2, tilted slightly right) */}
           <div
             data-testid="card-stack-layer-middle"
             className={cn(
-              'absolute inset-x-1.5 -bottom-1 h-7 rounded-xl border border-line/75 bg-panel-2/80 shadow-2xs transition-all duration-200 pointer-events-none',
-              'group-hover/stack:-bottom-1.5 group-hover/stack:inset-x-2 dark:border-line/50 dark:bg-panel-2/70'
+              'absolute inset-0 rounded-xl border border-line/80 bg-panel shadow-2xs transition-all duration-200 pointer-events-none origin-center',
+              'rotate-1 translate-x-1 translate-y-0.5',
+              'group-hover/stack:rotate-2 group-hover/stack:translate-x-1.5 group-hover/stack:translate-y-1',
+              'dark:border-line/60 dark:bg-panel-2/70'
             )}
             aria-hidden="true"
           />

@@ -150,7 +150,7 @@ describe('Workdesk Components', () => {
     })
 
     // Topline
-    expect(host.textContent).toContain('workdesk.action.back')
+    expect(host.querySelector('button[aria-label*="workdesk.action.back"]')).not.toBeNull()
     expect(host.textContent).toContain('Git Workdesk')
     // Standalone dismiss button
     expect(host.textContent).toContain('workdesk.action.dismiss')
