@@ -17,6 +17,7 @@ import { panelsEn } from '@/lib/i18n/messages/parts/panels'
 import { playEn } from '@/lib/i18n/messages/parts/play'
 import { savesEn } from '@/lib/i18n/messages/parts/saves.en'
 import { translateEn } from '@/lib/i18n/messages/parts/translate.en'
+import { workdeskEn } from '@/lib/i18n/messages/parts/workdesk'
 import type { MessageTree } from '@/lib/i18n/messages/types'
 
 const commonEn = {
@@ -355,6 +356,7 @@ export const en: MessageTree = {
   ...integrationEn,
   ...mcpGatewayEn,
   ...gitAgentEn,
+  ...workdeskEn,
   ...downloadsEn,
   ...aboutEn,
   ...agentAuthEn,

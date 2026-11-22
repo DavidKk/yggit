@@ -5,6 +5,7 @@ import { floatingBallRu } from '@/lib/i18n/messages/parts/floating-ball'
 import { gitRu } from '@/lib/i18n/messages/parts/git'
 import { mcpGatewayRu } from '@/lib/i18n/messages/parts/mcp-gateway'
 import { playRu } from '@/lib/i18n/messages/parts/play'
+import { workdeskEn } from '@/lib/i18n/messages/parts/workdesk'
 import type { MessageTree } from '@/lib/i18n/messages/types'
 
 export const ru: MessageTree = {
@@ -1406,6 +1407,7 @@ export const ru: MessageTree = {
   },
   ...mcpGatewayRu,
   ...gitAgentRu,
+  ...workdeskEn,
   downloads: {
     title: 'Downloads',
     triggerAria: 'Downloads',

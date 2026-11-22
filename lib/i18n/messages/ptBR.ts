@@ -5,6 +5,7 @@ import { floatingBallPtBR } from '@/lib/i18n/messages/parts/floating-ball'
 import { gitPtBR } from '@/lib/i18n/messages/parts/git'
 import { mcpGatewayPtBR } from '@/lib/i18n/messages/parts/mcp-gateway'
 import { playPtBR } from '@/lib/i18n/messages/parts/play'
+import { workdeskEn } from '@/lib/i18n/messages/parts/workdesk'
 import type { MessageTree } from '@/lib/i18n/messages/types'
 
 export const ptBR: MessageTree = {
@@ -1408,6 +1409,7 @@ export const ptBR: MessageTree = {
   },
   ...mcpGatewayPtBR,
   ...gitAgentPtBR,
+  ...workdeskEn,
   downloads: {
     title: 'Downloads',
     triggerAria: 'Downloads',

@@ -31,6 +31,11 @@ const KNOWN_CATEGORIES: Record<string, { label: string; desc: string; clearable:
     desc: '本地 Git 冲突预检、三方合并比对和已解析状态的历史缓存',
     clearable: true,
   },
+  'git-workdesk': {
+    label: '虚拟工作台任务与检测快照',
+    desc: 'Workdesk 离线任务、历史检测快照与 Git 规则检查缓存',
+    clearable: true,
+  },
   'git-projects': {
     label: '本地项目索引与配置',
     desc: '本地仓库列表、分组架构及 Git 访问凭据配置',

@@ -485,6 +485,9 @@ export function LandingPage() {
           </div>
 
           <div className="flex items-center gap-6">
+            <Link href="/workdesk" className="hover:text-ink transition-colors">
+              {t('workdesk.title')}
+            </Link>
             <Link href="/git" className="hover:text-ink transition-colors">
               工作区
             </Link>

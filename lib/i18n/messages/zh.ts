@@ -20,6 +20,7 @@ import { panelsZh } from '@/lib/i18n/messages/parts/panels'
 import { playZh } from '@/lib/i18n/messages/parts/play'
 import { savesZh } from '@/lib/i18n/messages/parts/saves'
 import { translateZh } from '@/lib/i18n/messages/parts/translate'
+import { workdeskZh } from '@/lib/i18n/messages/parts/workdesk'
 import type { MessageTree } from '@/lib/i18n/messages/types'
 
 /** 简体中文（结构真源） */
@@ -36,6 +37,7 @@ export const zh = {
   ...integrationZh,
   ...mcpGatewayZh,
   ...gitAgentZh,
+  ...workdeskZh,
   ...downloadsZh,
   ...aboutZh,
   ...agentAuthZh,

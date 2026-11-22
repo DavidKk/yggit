@@ -17,6 +17,7 @@ import { panelsKo } from '@/lib/i18n/messages/parts/panels'
 import { playKo } from '@/lib/i18n/messages/parts/play'
 import { savesKo } from '@/lib/i18n/messages/parts/saves.ko'
 import { translateKo } from '@/lib/i18n/messages/parts/translate.ko'
+import { workdeskEn } from '@/lib/i18n/messages/parts/workdesk'
 import type { MessageTree } from '@/lib/i18n/messages/types'
 
 const base = {
@@ -347,6 +348,7 @@ export const ko: MessageTree = {
   ...integrationKo,
   ...mcpGatewayKo,
   ...gitAgentKo,
+  ...workdeskEn,
   ...downloadsKo,
   ...aboutKo,
   ...agentAuthKo,

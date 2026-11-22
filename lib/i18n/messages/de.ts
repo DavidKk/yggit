@@ -5,6 +5,7 @@ import { floatingBallDe } from '@/lib/i18n/messages/parts/floating-ball'
 import { gitDe } from '@/lib/i18n/messages/parts/git'
 import { mcpGatewayDe } from '@/lib/i18n/messages/parts/mcp-gateway'
 import { playDe } from '@/lib/i18n/messages/parts/play'
+import { workdeskEn } from '@/lib/i18n/messages/parts/workdesk'
 import type { MessageTree } from '@/lib/i18n/messages/types'
 
 export const de: MessageTree = {
@@ -1408,6 +1409,7 @@ export const de: MessageTree = {
   },
   ...mcpGatewayDe,
   ...gitAgentDe,
+  ...workdeskEn,
   downloads: {
     title: 'Downloads',
     triggerAria: 'Downloads',

@@ -19,6 +19,7 @@ import { useOptionalSpotlight } from './spotlight-context'
 import { addStepToTask, completeTask, createTask, failTask } from './tasks/storage'
 import { AGENT_GIT_TOOLS, buildMcpToolDefinitions, executeAgentTool } from './tools'
 import type { AgentChatMessage, AgentDockMode, EphemeralAgentConfig } from './types'
+import { getWorkdeskContext } from './workdesk-context'
 
 export interface AgentContextValue {
   config: EphemeralAgentConfig
@@ -212,7 +213,8 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
       const trimmed = userText.trim()
       if (!trimmed || isProcessing) return
 
-      let repo = repoPath || activeRepo || currentRepo || ''
+      const wdCtx = getWorkdeskContext()
+      let repo = repoPath || activeRepo || currentRepo || wdCtx?.repoIdentity || ''
       if (!repo && typeof window !== 'undefined' && window.location.pathname.startsWith('/git/')) {
         const match = window.location.pathname.match(/^\/git\/(.+?)(?:\/(?:commit|branch|tag|blob|tree)\/|$)/)
         if (match?.[1]) {
@@ -305,9 +307,13 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
 
       const buildSystemHistory = (history: AgentChatMessage[]) => {
         const base = withSystemPrompt(history)
-        if (skillsPrompt) {
+        let extraSystem = skillsPrompt
+        if (wdCtx) {
+          extraSystem += `\n\n[Active Workdesk Context]\n- Current Task: ${wdCtx.taskTitle}\n- Current Item: ${wdCtx.targetRef || ''}\n- Target Repository: ${wdCtx.repoAlias} (${wdCtx.repoIdentity})\n- Status: ${wdCtx.state}\n- Summary: ${wdCtx.summary}`
+        }
+        if (extraSystem) {
           const sys = base[0]
-          return [{ ...sys, content: sys.content + skillsPrompt }, ...base.slice(1)]
+          return [{ ...sys, content: sys.content + extraSystem }, ...base.slice(1)]
         }
         return base
       }

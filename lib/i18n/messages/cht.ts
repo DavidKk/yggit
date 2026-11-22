@@ -5,6 +5,7 @@ import { floatingBallCht } from '@/lib/i18n/messages/parts/floating-ball'
 import { gitCht } from '@/lib/i18n/messages/parts/git'
 import { mcpGatewayCht } from '@/lib/i18n/messages/parts/mcp-gateway'
 import { playCht } from '@/lib/i18n/messages/parts/play'
+import { workdeskCht } from '@/lib/i18n/messages/parts/workdesk'
 import type { MessageTree } from '@/lib/i18n/messages/types'
 
 export const cht: MessageTree = {
@@ -1394,6 +1395,7 @@ export const cht: MessageTree = {
   },
   ...mcpGatewayCht,
   ...gitAgentCht,
+  ...workdeskCht,
   downloads: {
     title: '下載',
     triggerAria: '下載管理',

@@ -17,6 +17,7 @@ import { panelsJa } from '@/lib/i18n/messages/parts/panels'
 import { playJa } from '@/lib/i18n/messages/parts/play'
 import { savesJa } from '@/lib/i18n/messages/parts/saves.ja'
 import { translateJa } from '@/lib/i18n/messages/parts/translate.ja'
+import { workdeskEn } from '@/lib/i18n/messages/parts/workdesk'
 import type { MessageTree } from '@/lib/i18n/messages/types'
 
 const base = {
@@ -347,6 +348,7 @@ export const ja: MessageTree = {
   ...integrationJa,
   ...mcpGatewayJa,
   ...gitAgentJa,
+  ...workdeskEn,
   ...downloadsJa,
   ...aboutJa,
   ...agentAuthJa,

@@ -13,6 +13,7 @@ import type { DebugMessages } from '@/lib/i18n/messages/parts/debug'
 import type { FloatingBallMessages } from '@/lib/i18n/messages/parts/floating-ball'
 import type { GitMessages } from '@/lib/i18n/messages/parts/git'
 import type { PlayMessages } from '@/lib/i18n/messages/parts/play'
+import type { WorkdeskMessages } from '@/lib/i18n/messages/parts/workdesk'
 import type { SavesMessages } from '@/lib/i18n/messages/saves-types'
 
 /** 叶子为 string 的同构文案树 */
@@ -933,6 +934,7 @@ export type MessageTree = {
   agentAuth: AgentAuthMessages
   mcpGateway: McpGatewayMessages
   gitAgent: GitAgentMessages
+  workdesk: WorkdeskMessages
   downloads: DownloadsMessages
   about: AboutMessages
   credits: CreditsMessages
