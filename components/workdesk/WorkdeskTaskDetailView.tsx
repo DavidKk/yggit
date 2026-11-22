@@ -51,6 +51,7 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
   const router = useRouter()
 
   const [card, setCard] = useState<WorkCard | undefined>(initialCard)
+  const [isLoading, setIsLoading] = useState<boolean>(!initialCard)
   const [itemsMap, setItemsMap] = useState<Record<string, WorkItem>>(() => {
     const map: Record<string, WorkItem> = {}
     for (const item of initialItems) {
@@ -63,26 +64,51 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
 
   // Listen to engine updates
   useEffect(() => {
-    // If card is not provided, load from engine
+    let mounted = true
     const unsubscribe = workdeskEngine.subscribe((result) => {
+      if (!mounted) return
       const foundCard = result.cards.find((c) => c.id === taskId)
       if (foundCard) {
         setCard(foundCard)
       }
       setItemsMap(result.items)
+      setIsLoading(false)
     })
 
     if (!card) {
       workdeskEngine.loadInitial().then((cached) => {
+        if (!mounted) return
         if (cached) {
           const found = cached.cards.find((c) => c.id === taskId)
-          if (found) setCard(found)
-          setItemsMap(cached.items)
+          if (found) {
+            setCard(found)
+            setItemsMap(cached.items)
+            setIsLoading(false)
+            return
+          }
         }
+        // If not in cache or card not found, trigger scan
+        workdeskEngine
+          .scan()
+          .then((scanned) => {
+            if (!mounted) return
+            const found = scanned.cards.find((c) => c.id === taskId)
+            if (found) setCard(found)
+            setItemsMap(scanned.items)
+            setIsLoading(false)
+          })
+          .catch(() => {
+            if (mounted) setIsLoading(false)
+          })
       })
+    } else {
+      setIsLoading(false)
     }
 
-    return () => unsubscribe()
+    return () => {
+      mounted = false
+      unsubscribe()
+    }
   }, [taskId, card])
 
   // Get list of work items for this card
@@ -145,7 +171,7 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsDealing(false)
-    }, 450)
+    }, 550)
     return () => clearTimeout(timer)
   }, [])
 
@@ -238,6 +264,27 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
   }, [undoToast, router])
 
   if (!card) {
+    if (isLoading) {
+      return (
+        <div className="flex min-h-0 flex-1 divide-x divide-line">
+          <div className="flex w-72 shrink-0 flex-col border-r border-line bg-panel-2/30 p-2.5 sm:w-80 lg:w-88">
+            <div className="h-[58px] w-full animate-pulse rounded-xl bg-panel/70 border border-line/40" />
+            <div className="mt-3 flex flex-col gap-2.5">
+              <div className="h-24 w-full animate-pulse rounded-xl bg-panel/50 border border-line/30" />
+              <div className="h-24 w-full animate-pulse rounded-xl bg-panel/50 border border-line/30" />
+              <div className="h-24 w-full animate-pulse rounded-xl bg-panel/50 border border-line/30" />
+            </div>
+          </div>
+          <div className="flex min-h-0 flex-1 items-center justify-center bg-panel-2/20">
+            <div className="flex items-center gap-2 text-xs text-ink-muted">
+              <span className="size-4 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+              <span>正在加载任务详情...</span>
+            </div>
+          </div>
+        </div>
+      )
+    }
+
     return (
       <div className="flex flex-1 flex-col items-center justify-center p-8 text-center">
         <p className="text-sm text-ink-muted">未找到该工作任务或任务已失效</p>
@@ -286,7 +333,7 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
         {/* Left Column: Task Navigation List */}
         <div className="flex w-72 shrink-0 flex-col overflow-hidden border-r border-line bg-panel-2/30 sm:w-80 lg:w-88">
           {/* Top-Left Card (Exact same card style, click to collapse back) */}
-          <div className="p-2.5 pb-0">
+          <div className="shrink-0 p-2.5 pb-0">
             <button
               type="button"
               onClick={handleCollapse}
@@ -344,7 +391,7 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
           `}</style>
 
           {/* Dealing Cards List (Directly below top card) */}
-          <div className="flex flex-1 flex-col gap-2.5 overflow-y-auto p-2.5">
+          <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto p-2.5">
             {Object.entries(groupedItems).map(([groupName, items], groupIndex) => {
               const hasActive = items.some((it) => it.id === activeItem?.id)
               return (
@@ -354,11 +401,11 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
                     animation: isGathering
                       ? 'workdeskCardGather 160ms cubic-bezier(0.4, 0, 0.2, 1) both'
                       : isDealing
-                        ? `workdeskCardDeal 240ms cubic-bezier(0.16, 1, 0.3, 1) ${groupIndex * 45}ms both`
+                        ? `workdeskCardDeal 240ms cubic-bezier(0.16, 1, 0.3, 1) ${Math.min(groupIndex, 8) * 35}ms both`
                         : undefined,
                   }}
                   className={cn(
-                    'flex flex-col overflow-hidden rounded-xl border bg-panel transition-all shadow-2xs',
+                    'flex shrink-0 flex-col overflow-hidden rounded-xl border bg-panel transition-all shadow-2xs',
                     hasActive ? 'border-accent/40 shadow-xs ring-1 ring-accent/20' : 'border-line/70'
                   )}
                 >
