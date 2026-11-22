@@ -1,15 +1,16 @@
 'use client'
 
-import React, { useEffect, useMemo, useState } from 'react'
-import { LuCircleCheck, LuFlag, LuGitBranch, LuGitMerge, LuUndo2 } from 'react-icons/lu'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { LuChevronUp, LuCircleCheck, LuFlag, LuGitBranch, LuGitMerge, LuUndo2 } from 'react-icons/lu'
 
 import { useT } from '@/components/i18n/LocaleProvider'
+import type { MessageKey } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 import { workdeskEngine } from '@/lib/workdesk/engine'
 import { undoDismissCard } from '@/lib/workdesk/storage'
 import type { WorkCard } from '@/lib/workdesk/types'
 
-import { WorkdeskCard } from './WorkdeskCard'
+import { CARD_I18N_MAP, resolveCardIcon, WorkdeskCard } from './WorkdeskCard'
 import { WorkdeskTaskDetailView } from './WorkdeskTaskDetailView'
 
 interface WorkdeskBoardProps {
@@ -25,11 +26,28 @@ interface LaneConfig {
   badgeColor: string
 }
 
+interface CardRect {
+  left: number
+  top: number
+  width: number
+  height: number
+}
+
+interface TransitionState {
+  cardId: string
+  startRect: CardRect
+  phase: 'lifting' | 'moving' | 'collapsing-start' | 'collapsing'
+}
+
 export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: WorkdeskBoardProps) {
   const t = useT()
+  const containerRef = useRef<HTMLDivElement>(null)
+  const cardOriginMapRef = useRef<Record<string, CardRect>>({})
+
   const [cards, setCards] = useState<WorkCard[]>(initialCards)
   const [undoToast, setUndoToast] = useState<{ cardId: string; cardTitle: string } | null>(null)
   const [activeTaskId, setActiveTaskId] = useState<string | null>(initialActiveTaskId || null)
+  const [transition, setTransition] = useState<TransitionState | null>(null)
 
   // Listen to popstate for browser back/forward navigation
   useEffect(() => {
@@ -45,7 +63,44 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
     return () => window.removeEventListener('popstate', handlePopState)
   }, [])
 
-  const handleSelectCard = (cardId: string) => {
+  const handleSelectCard = (cardId: string, element?: HTMLElement) => {
+    if (element && containerRef.current) {
+      const containerRect = containerRef.current.getBoundingClientRect()
+      const cardRect = element.getBoundingClientRect()
+      const startRect: CardRect = {
+        left: cardRect.left - containerRect.left,
+        top: cardRect.top - containerRect.top,
+        width: cardRect.width,
+        height: cardRect.height,
+      }
+      cardOriginMapRef.current[cardId] = startRect
+
+      // Step 1: Lift state (hide other cards)
+      setTransition({
+        cardId,
+        startRect,
+        phase: 'lifting',
+      })
+
+      // Step 2: Next frame animate card moving up to top-left
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setTransition((prev) => (prev ? { ...prev, phase: 'moving' } : null))
+        })
+      })
+
+      // Step 3: When animation completes (350ms): switch page & reveal detail contents
+      setTimeout(() => {
+        setActiveTaskId(cardId)
+        setTransition(null)
+        if (typeof window !== 'undefined') {
+          window.history.pushState(null, '', `/workdesk/tasks/${encodeURIComponent(cardId)}`)
+        }
+      }, 350)
+      return
+    }
+
+    // Fallback if no DOM element (e.g. tests or direct call)
     setActiveTaskId(cardId)
     if (typeof window !== 'undefined') {
       window.history.pushState(null, '', `/workdesk/tasks/${encodeURIComponent(cardId)}`)
@@ -53,6 +108,31 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
   }
 
   const handleCollapseCard = () => {
+    const originRect = activeTaskId ? cardOriginMapRef.current[activeTaskId] : null
+    if (originRect && activeTaskId) {
+      const cardId = activeTaskId
+      setTransition({
+        cardId,
+        startRect: originRect,
+        phase: 'collapsing-start',
+      })
+      setActiveTaskId(null)
+
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setTransition((prev) => (prev ? { ...prev, phase: 'collapsing' } : null))
+        })
+      })
+
+      setTimeout(() => {
+        setTransition(null)
+        if (typeof window !== 'undefined') {
+          window.history.pushState(null, '', '/git')
+        }
+      }, 350)
+      return
+    }
+
     setActiveTaskId(null)
     if (typeof window !== 'undefined') {
       window.history.pushState(null, '', '/git')
@@ -61,7 +141,6 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
 
   // Listen to engine updates and start background timer
   useEffect(() => {
-    // Fast-pass initial cache load if not provided
     workdeskEngine.loadInitial().then((cached) => {
       if (cached) {
         setCards(cached.cards)
@@ -73,8 +152,6 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
     })
 
     workdeskEngine.startTimer()
-
-    // Trigger an initial active scan if no cards loaded yet
     workdeskEngine.scan().catch(() => {})
 
     return () => {
@@ -89,7 +166,6 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
     workdeskEngine.scan().catch(() => {})
   }
 
-  // Auto-dismiss undo toast after 10 seconds
   useEffect(() => {
     if (!undoToast) return
     const timer = setTimeout(() => {
@@ -130,60 +206,105 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
     },
   ]
 
-  if (activeTaskId) {
-    const activeCard = cards.find((c) => c.id === activeTaskId)
-    return (
-      <div className="relative flex min-h-0 flex-1 overflow-hidden animate-in fade-in duration-200">
-        <WorkdeskTaskDetailView taskId={activeTaskId} initialCard={activeCard} onCollapse={handleCollapseCard} />
-      </div>
-    )
-  }
+  const activeCard = activeTaskId ? cards.find((c) => c.id === activeTaskId) : undefined
 
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pt-4 pb-20 sm:px-6 sm:pb-24 lg:px-8 lg:pb-24">
-      {/* 4-Lane Adaptive Board */}
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:gap-4">
-        {lanes.map((lane) => {
-          const laneCards = visibleCards.filter((c) => c.categoryId === lane.id)
-          const laneTitle = t(`workdesk.lane.${lane.titleKey}`)
+    <div ref={containerRef} className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-paper select-text">
+      {/* Hero Proxy Floating Card during transition */}
+      {transition &&
+        (() => {
+          const c = cards.find((item) => item.id === transition.cardId)
+          if (!c) return null
+          const i18nKey = CARD_I18N_MAP[c.id]
+          const rawTitle = i18nKey ? t(`workdesk.cards.${i18nKey}.title` as MessageKey) : undefined
+          const title = rawTitle && !rawTitle.startsWith('workdesk.cards.') ? rawTitle : c.title
+          const isTarget = transition.phase === 'moving' || transition.phase === 'collapsing-start'
+          const targetWidth = typeof window !== 'undefined' ? (window.innerWidth >= 1024 ? 332 : window.innerWidth >= 640 ? 300 : 268) : 300
 
           return (
-            <div key={lane.id} className="flex min-h-[160px] flex-col rounded-xl border border-line/60 bg-panel-2/40 p-2.5 dark:bg-panel-2/20">
-              {/* Lane Header */}
-              <div className="mb-2.5 flex items-center justify-between px-1">
-                <div className="flex items-center gap-1.5">
-                  {lane.icon}
-                  <span className="text-xs font-bold text-ink">{laneTitle}</span>
+            <div
+              style={{
+                position: 'absolute',
+                left: isTarget ? 10 : transition.startRect.left,
+                top: isTarget ? 10 : transition.startRect.top,
+                width: isTarget ? targetWidth : transition.startRect.width,
+                height: transition.startRect.height,
+                zIndex: 50,
+                transition: transition.phase === 'moving' || transition.phase === 'collapsing' ? 'all 350ms cubic-bezier(0.2, 0.8, 0.2, 1)' : 'none',
+              }}
+              className="pointer-events-none flex items-center justify-between gap-2.5 rounded-xl border border-accent/40 bg-[#f4faf7] p-2.5 shadow-lg dark:border-emerald-800/50 dark:bg-emerald-950/40"
+            >
+              <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-[#eef5f2] dark:bg-emerald-950/60">{resolveCardIcon(c.iconName, c.categoryId)}</div>
+                <div className="flex min-w-0 flex-1 flex-col text-left">
+                  <span className="truncate text-xs font-bold text-ink">{title}</span>
+                  <span className="mt-0.5 text-[10px] font-medium text-accent">{c.scope}</span>
                 </div>
-                <span className={cn('text-[11px] font-semibold text-ink-muted', laneCards.length > 0 && lane.badgeColor)}>{laneCards.length}</span>
               </div>
-
-              {/* Cards List in Lane */}
-              <div className="flex flex-1 flex-col gap-2">
-                {laneCards.length > 0 ? (
-                  laneCards.map((card) => <WorkdeskCard key={card.id} card={card} onSelect={handleSelectCard} />)
-                ) : (
-                  <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-line/40 py-6 text-center">
-                    <span className="text-[11px] text-ink-soft">无待办任务</span>
-                  </div>
-                )}
-              </div>
+              <LuChevronUp className="size-4 shrink-0 text-accent" />
             </div>
           )
-        })}
-      </div>
+        })()}
 
-      {/* Undo Toast for dismissed cards */}
-      {undoToast && (
-        <div className="fixed bottom-20 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-full border border-line bg-panel px-4 py-2 shadow-lg">
-          <span className="text-xs text-ink">{t('workdesk.status.dismissed')}</span>
-          <button
-            onClick={() => handleUndoDismiss(undoToast.cardId)}
-            className="flex items-center gap-1 text-xs font-semibold text-accent hover:underline focus-visible:outline-hidden"
-          >
-            <LuUndo2 className="size-3.5" aria-hidden="true" />
-            {t('workdesk.action.undoDismiss')}
-          </button>
+      {/* Expanded Detail View */}
+      {activeTaskId && !transition && (
+        <div className="relative flex min-h-0 flex-1 overflow-hidden animate-in fade-in duration-200">
+          <WorkdeskTaskDetailView taskId={activeTaskId} initialCard={activeCard} onCollapse={handleCollapseCard} />
+        </div>
+      )}
+
+      {/* 4-Lane Board (Hidden or fading out when activeTaskId or during transition) */}
+      {!activeTaskId && (
+        <div
+          className={cn(
+            'relative flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pt-4 pb-20 sm:px-6 sm:pb-24 lg:px-8 lg:pb-24 transition-all duration-200',
+            transition && 'pointer-events-none scale-[0.98] opacity-0'
+          )}
+        >
+          <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:gap-4">
+            {lanes.map((lane) => {
+              const laneCards = visibleCards.filter((c) => c.categoryId === lane.id)
+              const laneTitle = t(`workdesk.lane.${lane.titleKey}`)
+
+              return (
+                <div key={lane.id} className="flex min-h-[160px] flex-col rounded-xl border border-line/60 bg-panel-2/40 p-2.5 dark:bg-panel-2/20">
+                  {/* Lane Header */}
+                  <div className="mb-2.5 flex items-center justify-between px-1">
+                    <div className="flex items-center gap-1.5">
+                      {lane.icon}
+                      <span className="text-xs font-bold text-ink">{laneTitle}</span>
+                    </div>
+                    <span className={cn('text-[11px] font-semibold text-ink-muted', laneCards.length > 0 && lane.badgeColor)}>{laneCards.length}</span>
+                  </div>
+
+                  {/* Cards List in Lane */}
+                  <div className="flex flex-1 flex-col gap-2">
+                    {laneCards.length > 0 ? (
+                      laneCards.map((card) => <WorkdeskCard key={card.id} card={card} onSelect={handleSelectCard} />)
+                    ) : (
+                      <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-line/40 py-6 text-center">
+                        <span className="text-[11px] text-ink-soft">无待办任务</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Undo Toast for dismissed cards */}
+          {undoToast && (
+            <div className="fixed bottom-20 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-full border border-line bg-panel px-4 py-2 shadow-lg">
+              <span className="text-xs text-ink">{t('workdesk.status.dismissed')}</span>
+              <button
+                onClick={() => handleUndoDismiss(undoToast.cardId)}
+                className="flex items-center gap-1 text-xs font-semibold text-accent hover:underline focus-visible:outline-hidden"
+              >
+                <LuUndo2 className="size-3.5" aria-hidden="true" />
+                {t('workdesk.action.undoDismiss')}
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

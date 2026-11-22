@@ -12,10 +12,10 @@ import type { WorkCard } from '@/lib/workdesk/types'
 interface WorkdeskCardProps {
   card: WorkCard
   className?: string
-  onSelect?: (cardId: string) => void
+  onSelect?: (cardId: string, element?: HTMLElement) => void
 }
 
-const CARD_I18N_MAP: Record<string, string> = {
+export const CARD_I18N_MAP: Record<string, string> = {
   'sync-default-branches': 'syncDefaultBranches',
   'worktree-parallel-dev': 'worktreeParallelDev',
   'merge-diverged-branches': 'mergeDivergedBranches',

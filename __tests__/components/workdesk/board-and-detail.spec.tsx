@@ -174,4 +174,19 @@ describe('Workdesk Components', () => {
     expect(host.textContent).toContain('同步默认分支')
     expect(host.textContent).toContain('workdesk.action.dismiss')
   })
+
+  it('triggers card selection and transition when card in WorkdeskBoard is clicked', () => {
+    act(() => {
+      root.render(<WorkdeskBoard initialCards={[sampleCard]} />)
+    })
+
+    const cardLink = host.querySelector('a[role="button"]') as HTMLElement | null
+    expect(cardLink).not.toBeNull()
+
+    act(() => {
+      cardLink?.click()
+    })
+
+    expect(host.textContent).toContain('同步默认分支')
+  })
 })
