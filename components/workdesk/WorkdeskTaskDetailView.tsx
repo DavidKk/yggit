@@ -7,6 +7,7 @@ import { LuArrowLeft, LuBot, LuFolderArchive, LuFolderGit2, LuFolderTree, LuGitB
 
 import { useT } from '@/components/i18n/LocaleProvider'
 import { Badge, Button, Tooltip } from '@/components/sk'
+import { quotePromptToAgent, quoteWorkdeskTaskToAgent } from '@/lib/agent/agent-quote'
 import { setWorkdeskContext } from '@/lib/agent/workdesk-context'
 import type { MessageKey } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
@@ -326,25 +327,17 @@ ${cr.solution}
 
       const refTitle = target.repoAlias ? `${cardTitle} · ${target.repoAlias}` : cardTitle
 
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(
-          new CustomEvent('yggit:agent_open', {
-            detail: {
-              reference: {
-                title: refTitle,
-                taskId: card.id,
-                itemId: target.id,
-                repoId: target.repoId,
-                repoAlias: target.repoAlias,
-                branch: target.name,
-                summary: target.summary,
-                solution: cr.solution,
-              },
-              prompt,
-            },
-          })
-        )
-      }
+      quoteWorkdeskTaskToAgent({
+        title: refTitle,
+        prompt,
+        taskId: card.id,
+        itemId: target.id,
+        repoId: target.repoId,
+        repoAlias: target.repoAlias,
+        branch: target.name,
+        summary: target.summary,
+        solution: cr.solution,
+      })
     },
     [activeItem, card, cardTitle]
   )
@@ -707,13 +700,7 @@ ${cr.solution}
                       size="sm"
                       className="shrink-0"
                       onClick={() => {
-                        if (typeof window !== 'undefined') {
-                          window.dispatchEvent(
-                            new CustomEvent('yggit:agent_open', {
-                              detail: { prompt: t('workdesk.organization.prompt') },
-                            })
-                          )
-                        }
+                        quotePromptToAgent(t('workdesk.organization.prompt'))
                       }}
                     >
                       <LuFolderTree className="mr-1.5 size-3.5" aria-hidden="true" />

@@ -664,4 +664,59 @@ describe('GitAgentBar', () => {
     })
     expect(host.textContent).not.toContain('同步默认分支')
   })
+
+  it('ignores yggit:agent_open when target is sidebar or dockMode is not collapsed', () => {
+    const mockContext: AgentContextValue = {
+      config: {
+        provider: 'ollama',
+        model: 'qwen2.5:7b',
+        baseUrl: 'http://localhost:11434',
+        apiKey: '',
+        stream: true,
+      },
+      profiles: [DEFAULT_MODEL_PROFILE],
+      activeProfileId: 'default',
+      saveProfile: jest.fn(),
+      deleteProfile: jest.fn(),
+      selectProfile: jest.fn(),
+      redactionOptions: DEFAULT_REDACTION_OPTIONS,
+      setRedactionOptions: jest.fn(),
+      dockMode: 'dock-right', // Sidebar is open
+      setDockMode: jest.fn(),
+      messages: [],
+      isProcessing: false,
+      sendMessage: jest.fn(),
+      clearMessages: jest.fn(),
+      activeResultSummary: null,
+      activeRepo: '',
+      setActiveRepo: jest.fn(),
+      modelFilter: DEFAULT_MODEL_FILTER,
+      setModelFilter: jest.fn(),
+    }
+
+    act(() => {
+      root.render(
+        <AgentContext.Provider value={mockContext}>
+          <GitAgentBar />
+        </AgentContext.Provider>
+      )
+    })
+
+    act(() => {
+      window.dispatchEvent(
+        new CustomEvent('yggit:agent_open', {
+          detail: {
+            reference: {
+              title: '侧栏打开时不应该进底部栏',
+            },
+            target: 'sidebar',
+          },
+        })
+      )
+      jest.advanceTimersByTime(450)
+    })
+
+    // GitAgentBar should NOT open or display citation
+    expect(host.textContent).not.toContain('侧栏打开时不应该进底部栏')
+  })
 })

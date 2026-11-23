@@ -43,7 +43,7 @@ import { handleTreeExpandKey, handleTreeParentKey } from '@/components/git/treeE
 import { useT } from '@/components/i18n/LocaleProvider'
 import { useNotification } from '@/components/notification/useNotification'
 import { Badge, Button, EmptyState, Modal, Tooltip, VirtualList } from '@/components/sk'
-import { quoteBranchToAgent, quoteRemoteToAgent, quoteStashToAgent, quoteTagToAgent, quoteWorktreeToAgent } from '@/lib/agent/agent-quote'
+import { quoteBranchToAgent, quotePromptToAgent, quoteRemoteToAgent, quoteStashToAgent, quoteTagToAgent, quoteWorktreeToAgent } from '@/lib/agent/agent-quote'
 import { copyToClipboard } from '@/lib/clipboard'
 import { buildBranchContextMenu } from '@/lib/git/branch-context-menu'
 import { useContextMenuConfig } from '@/lib/git/context-menu-config'
@@ -679,13 +679,7 @@ export function GitSidebar({
         }
       },
       onAgentPrompt: (prompt) => {
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(
-            new CustomEvent('yggit:agent_open', {
-              detail: { prompt },
-            })
-          )
-        }
+        quotePromptToAgent(prompt)
       },
     })
 

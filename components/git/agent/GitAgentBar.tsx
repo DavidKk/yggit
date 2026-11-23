@@ -6,6 +6,7 @@ import { LuBot, LuSend, LuSparkles, LuX } from 'react-icons/lu'
 import { useT } from '@/components/i18n/LocaleProvider'
 import { Spinner, Tooltip } from '@/components/sk'
 import { useAgent } from '@/lib/agent/agent-context'
+import { type AgentOpenEventDetail, type AgentReference, isAgentSidebarOpen } from '@/lib/agent/agent-quote'
 import { isModelAllowed } from '@/lib/agent/model-filter'
 import { cn } from '@/lib/utils'
 
@@ -35,7 +36,7 @@ export function GitAgentBar({ repoPath, className }: Props) {
   const { sendMessage, isProcessing, messages, dockMode, setDockMode, config, modelFilter } = useAgent()
 
   const [input, setInput] = useState('')
-  const [reference, setReference] = useState<{ title: string; prompt?: string } | null>(null)
+  const [reference, setReference] = useState<AgentReference | null>(null)
   const isModelBlocked = !isModelAllowed(config.model, modelFilter)
   const [expanded, setExpanded] = useState(false)
   const [displayText, setDisplayText] = useState('')
@@ -207,7 +208,10 @@ export function GitAgentBar({ repoPath, className }: Props) {
 
   useEffect(() => {
     const handleOpen = (e: Event) => {
-      const detail = (e as CustomEvent<{ prompt?: string; reference?: { title: string; prompt?: string } }>).detail
+      const detail = (e as CustomEvent<AgentOpenEventDetail>).detail
+      // If sidebar is targeted or sidebar is currently open, do not handle in bottom bar
+      if (detail?.target === 'sidebar' || dockMode !== 'collapsed' || isAgentSidebarOpen()) return
+
       openBar()
       if (detail?.reference) {
         setReference(detail.reference)
@@ -223,7 +227,7 @@ export function GitAgentBar({ repoPath, className }: Props) {
     }
     window.addEventListener('yggit:agent_open', handleOpen)
     return () => window.removeEventListener('yggit:agent_open', handleOpen)
-  }, [openBar])
+  }, [openBar, dockMode])
 
   const closeBar = useCallback(() => {
     if (isClosing) return

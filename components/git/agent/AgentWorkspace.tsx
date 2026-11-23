@@ -26,7 +26,7 @@ import {
 import { useT } from '@/components/i18n/LocaleProvider'
 import { Button, Spinner, Tooltip } from '@/components/sk'
 import { useAgent } from '@/lib/agent/agent-context'
-import type { AgentReference } from '@/lib/agent/agent-quote'
+import type { AgentOpenEventDetail, AgentReference } from '@/lib/agent/agent-quote'
 import { isModelAllowed } from '@/lib/agent/model-filter'
 import { getAgentProcessingStatus } from '@/lib/agent/status-helper'
 import { copyToClipboard } from '@/lib/clipboard'
@@ -125,8 +125,12 @@ export function AgentWorkspace({ repoPath, className }: Props) {
 
   useEffect(() => {
     const handleOpen = (e: Event) => {
-      const detail = (e as CustomEvent<{ prompt?: string; reference?: AgentReference }>).detail
-      if (dockMode === 'collapsed') {
+      const detail = (e as CustomEvent<AgentOpenEventDetail>).detail
+      // If bottom bar was explicitly targeted, or if sidebar is collapsed and not explicitly targeted:
+      if (detail?.target === 'bottom') return
+      if (dockMode === 'collapsed' && detail?.target !== 'sidebar') return
+
+      if (dockMode === 'collapsed' && detail?.target === 'sidebar') {
         setDockMode('dock-right')
       }
       if (detail?.reference) {
@@ -180,6 +184,7 @@ export function AgentWorkspace({ repoPath, className }: Props) {
 
   return (
     <aside
+      data-agent-sidebar=""
       role="region"
       aria-label={t('gitAgent.dockTitle')}
       className={cn(

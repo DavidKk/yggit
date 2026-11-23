@@ -11,8 +11,7 @@ import { branchAtCommits, type FloatingAnchor, FloatingMenu, type FloatingMenuIt
 import { useLocaleCode, useT } from '@/components/i18n/LocaleProvider'
 import { useNotification } from '@/components/notification/useNotification'
 import { EmptyState, ScrollArea, Tooltip } from '@/components/sk'
-import { useOptionalAgent } from '@/lib/agent/agent-context'
-import { quoteCommitToAgent, quoteStashToAgent, quoteWorktreeToAgent } from '@/lib/agent/agent-quote'
+import { quoteCommitToAgent, quotePromptToAgent, quoteStashToAgent, quoteWorktreeToAgent } from '@/lib/agent/agent-quote'
 import { useOptionalSpotlight } from '@/lib/agent/spotlight-context'
 import { copyToClipboard } from '@/lib/clipboard'
 import { buildBranchContextMenu } from '@/lib/git/branch-context-menu'
@@ -287,7 +286,6 @@ function GitGraphComponent({
   const locale = useLocaleCode()
   const notify = useNotification()
   const [contextConfig] = useContextMenuConfig()
-  const agent = useOptionalAgent()
   const spotlight = useOptionalSpotlight()
   const isSpotlightActive = Boolean(spotlight?.active && spotlight.targets.length > 0)
   const spotlightMap = spotlight?.targetsMap
@@ -387,9 +385,8 @@ function GitGraphComponent({
       onCheckoutBranch: (branch, isRemote) => {
         if (onCheckoutBranch) {
           void onCheckoutBranch(branch, isRemote)
-        } else if (agent) {
-          agent.setDockMode('dock-right')
-          void agent.sendMessage(`帮我跳转到 ${branch}`)
+        } else {
+          quotePromptToAgent(`帮我跳转到 ${branch}`)
         }
       },
       onPushBranch,
@@ -398,10 +395,7 @@ function GitGraphComponent({
       onDeleteBranch,
       onRenameBranch,
       onAgentPrompt: (prompt) => {
-        if (agent) {
-          agent.setDockMode('dock-right')
-          void agent.sendMessage(prompt)
-        }
+        quotePromptToAgent(prompt)
       },
       onUndoCommit:
         commit.hash === commits[0]?.hash

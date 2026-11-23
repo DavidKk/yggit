@@ -180,6 +180,13 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
   )
   const [redactionOptions, setRedactionOptions] = useState<RedactionOptions>(DEFAULT_REDACTION_OPTIONS)
   const [dockMode, setDockMode] = useState<AgentDockMode>('collapsed')
+
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.documentElement.dataset.agentSidebarOpen = dockMode !== 'collapsed' ? 'true' : 'false'
+      document.documentElement.dataset.agentDockMode = dockMode
+    }
+  }, [dockMode])
   const [messages, setMessages] = useState<AgentChatMessage[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
   const [activeResultSummary, setActiveResultSummary] = useState<string | null>(null)

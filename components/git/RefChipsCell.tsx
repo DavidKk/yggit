@@ -6,7 +6,7 @@ import { LuCloud, LuGitBranch, LuMonitor, LuTag } from 'react-icons/lu'
 
 import { useT } from '@/components/i18n/LocaleProvider'
 import { useNotification } from '@/components/notification/useNotification'
-import { useOptionalAgent } from '@/lib/agent/agent-context'
+import { quotePromptToAgent } from '@/lib/agent/agent-quote'
 import { buildBranchContextMenu } from '@/lib/git/branch-context-menu'
 import { useContextMenuConfig } from '@/lib/git/context-menu-config'
 import type { layoutCommitGraph } from '@/lib/git/graph'
@@ -87,7 +87,6 @@ export function RefChipsCell({
   const t = useT()
   const notify = useNotification()
   const [contextConfig] = useContextMenuConfig()
-  const agent = useOptionalAgent()
 
   const triggerRef = useRef<HTMLElement | null>(null)
   const openTimerRef = useRef<number | null>(null)
@@ -191,9 +190,8 @@ export function RefChipsCell({
       onCheckoutBranch: (branch, remoteFlag) => {
         if (onCheckoutBranch) {
           void onCheckoutBranch(branch, remoteFlag ?? isRemote)
-        } else if (agent) {
-          agent.setDockMode('dock-right')
-          void agent.sendMessage(`帮我跳转到 ${branch}`)
+        } else {
+          quotePromptToAgent(`帮我跳转到 ${branch}`)
         }
       },
       onPushBranch,
@@ -202,10 +200,7 @@ export function RefChipsCell({
       onDeleteBranch,
       onRenameBranch,
       onAgentPrompt: (prompt) => {
-        if (agent) {
-          agent.setDockMode('dock-right')
-          void agent.sendMessage(prompt)
-        }
+        quotePromptToAgent(prompt)
       },
     })
   }

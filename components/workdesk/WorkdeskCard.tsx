@@ -6,6 +6,7 @@ import { LuBot, LuFolderGit2, LuGitBranch, LuGitFork } from 'react-icons/lu'
 
 import { useT } from '@/components/i18n/LocaleProvider'
 import { Tooltip } from '@/components/sk'
+import { quoteWorkdeskTaskToAgent } from '@/lib/agent/agent-quote'
 import type { MessageKey } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 import type { WorkCard } from '@/lib/workdesk/types'
@@ -133,18 +134,12 @@ export function WorkdeskCard({ card, className, noWrapperMargin = false, onSelec
                 e.preventDefault()
                 e.stopPropagation()
                 const prompt = `请协助分析并处理工作台任务【${title}】（涉及 ${card.scope}）。`
-                if (typeof window !== 'undefined') {
-                  window.dispatchEvent(
-                    new CustomEvent('yggit:agent_open', {
-                      detail: {
-                        reference: {
-                          title,
-                          prompt,
-                        },
-                      },
-                    })
-                  )
-                }
+                quoteWorkdeskTaskToAgent({
+                  title,
+                  taskId: card.id,
+                  scope: card.scope,
+                  prompt,
+                })
               }}
               className="flex size-6 shrink-0 items-center justify-center rounded-md text-ink-muted opacity-0 group-hover:opacity-100 hover:bg-accent/15 hover:text-accent transition-all duration-150 cursor-pointer"
               aria-label="引用到 Git Agent"
