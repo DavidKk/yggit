@@ -78,7 +78,7 @@ describe('branch context menu & config', () => {
       expect(remoteItem).toBeDefined()
     })
 
-    it('groups quick actions and quote agent together, then separates secondary submenus with dividers', () => {
+    it('groups quick actions and secondary submenus into clear classified categories', () => {
       const items = buildBranchContextMenu({
         target: 'commit',
         commit: mockCommit,
@@ -89,24 +89,45 @@ describe('branch context menu & config', () => {
         config: DEFAULT_CONTEXT_MENU_CONFIG,
       })
 
-      const quoteIndex = items.findIndex((i) => i.key === 'quote-commit-to-agent')
-      expect(quoteIndex).toBeGreaterThan(0)
-      // Quote action should NOT have dividerBefore (belongs to same quick action group)
-      expect(items[quoteIndex].dividerBefore).toBeFalsy()
+      // 1. Quick actions categories
+      const checkoutItem = items.find((i) => i.key === 'checkout-branch')
+      expect(checkoutItem).toBeDefined()
 
-      // The first item right after quote action should be the first secondary submenu and HAVE dividerBefore
-      const firstSecondary = items[quoteIndex + 1]
+      const mergeItem = items.find((i) => i.key === 'merge-branch')
+      expect(mergeItem).toBeDefined()
+      expect(mergeItem?.dividerBefore).toBe(true)
+
+      const quoteItem = items.find((i) => i.key === 'quote-commit-to-agent')
+      expect(quoteItem).toBeDefined()
+      expect(quoteItem?.dividerBefore).toBe(true)
+
+      // 2. Secondary submenus categories
+      const firstSecondary = items.find((i) => i.key === 'menu-branch-group')
       expect(firstSecondary).toBeDefined()
-      expect(firstSecondary.key).toBe('menu-branch-group')
-      expect(firstSecondary.dividerBefore).toBe(true)
+      expect(firstSecondary?.dividerBefore).toBe(true)
 
-      // The next Git secondary submenu (menu-commit-group) should not duplicate divider
       const commitSubmenu = items.find((i) => i.key === 'menu-commit-group')
       expect(commitSubmenu?.dividerBefore).toBeFalsy()
 
-      // The copy group begins the next secondary set and should have dividerBefore
       const copyGroup = items.find((i) => i.key === 'menu-copy-group')
       expect(copyGroup?.dividerBefore).toBe(true)
+
+      // 3. Submenu internal grouping (e.g. Copy submenu)
+      const copyChildren = copyGroup?.children || []
+      expect(copyChildren.length).toBeGreaterThanOrEqual(5)
+      // Commit metadata group (first)
+      expect(copyChildren[0].key).toBe('copy-hash')
+      expect(copyChildren[0].dividerBefore).toBeFalsy()
+
+      // Branch info group has dividerBefore
+      const copyBranch = copyChildren.find((c) => c.key === 'copy-branch')
+      expect(copyBranch).toBeDefined()
+      expect(copyBranch?.dividerBefore).toBe(true)
+
+      // Share links group has dividerBefore
+      const copyShare = copyChildren.find((c) => c.key === 'copy-share-link')
+      expect(copyShare).toBeDefined()
+      expect(copyShare?.dividerBefore).toBe(true)
     })
 
     it('places dangerous operations at the bottom of branch submenu with confirmation requirements', () => {

@@ -35,7 +35,7 @@ export const CONTEXT_MENU_PRESETS: Record<ContextMenuPresetId, ContextMenuPreset
     name: '标准模式',
     desc: '按右键列智能聚焦首要操作，核心功能置顶，完整高级操作收纳于二级菜单',
     badge: '默认推荐',
-    quickActions: ['checkout-branch', 'merge-branch', 'rebase-branch', 'new-branch'],
+    quickActions: ['checkout-branch', 'new-branch', 'merge-branch', 'rebase-branch'],
     enabledGroups: {
       copy: true,
       branch: true,

@@ -598,39 +598,73 @@ export function buildBranchContextMenu({
 
   const items: FloatingMenuItem[] = []
 
-  // 2. Quick Actions Area: Pinned top-level items filtered by target focus
-  for (const actionId of config.quickActions || []) {
-    const action = allActions[actionId]
-    if (action) {
-      // Capability filter for quick actions
-      if (config.hideUnavailableCapabilities && isReadOnly && ['checkout-branch', 'rename-branch', 'delete-branch'].includes(actionId)) {
-        continue
-      }
-      // If right clicking on commit column, branch mutation actions are kept in branch submenu
-      if (resolvedTarget === 'commit' && ['rename-branch', 'delete-branch'].includes(actionId)) {
-        continue
-      }
-      // If right clicking on branch column, commit-specific action like cherry-pick is kept in commit submenu
-      if (resolvedTarget === 'branch' && ['cherry-pick', 'reset-commit', 'revert-commit'].includes(actionId)) {
-        continue
-      }
-      items.push({ ...action })
-    }
+  // Helper: map quick action id to a logical group
+  const getQuickActionCategory = (id: string): 'branch' | 'merge' | 'sync' | 'workspace' | 'copy' | 'other' => {
+    if (['checkout-branch', 'new-branch', 'rename-branch', 'delete-branch'].includes(id)) return 'branch'
+    if (['merge-branch', 'rebase-branch'].includes(id)) return 'merge'
+    if (['pull-branch', 'push-branch', 'set-upstream'].includes(id)) return 'sync'
+    if (['stash-changes', 'cherry-pick', 'reset-commit', 'revert-commit', 'compare-workdir'].includes(id)) return 'workspace'
+    if (['copy-branch', 'copy-hash', 'copy-subject', 'copy-author', 'copy-date', 'copy-share-link', 'copy-issue-card'].includes(id)) return 'copy'
+    return 'other'
   }
 
-  // 3. Focused Quick Quote to Git Agent (belongs to the same quick actions group, no divider inside quick actions)
+  // 2. Quick Actions Area: Pinned top-level items filtered by target focus and grouped by category
+  const filteredQuickActionIds = (config.quickActions || []).filter((actionId) => {
+    if (!allActions[actionId]) return false
+    if (config.hideUnavailableCapabilities && isReadOnly && ['checkout-branch', 'rename-branch', 'delete-branch'].includes(actionId)) {
+      return false
+    }
+    if (resolvedTarget === 'commit' && ['rename-branch', 'delete-branch'].includes(actionId)) {
+      return false
+    }
+    if (resolvedTarget === 'branch' && ['cherry-pick', 'reset-commit', 'revert-commit'].includes(actionId)) {
+      return false
+    }
+    return true
+  })
+
+  // Group quick actions by logical categories with dividers between categories
+  const categoryOrder: Record<string, number> = {
+    branch: 1,
+    merge: 2,
+    sync: 3,
+    workspace: 4,
+    copy: 5,
+    other: 6,
+  }
+
+  const sortedQuickActionIds = [...filteredQuickActionIds].sort((a, b) => {
+    const catA = categoryOrder[getQuickActionCategory(a)] || 99
+    const catB = categoryOrder[getQuickActionCategory(b)] || 99
+    return catA - catB
+  })
+
+  let prevQuickCategory: string | null = null
+  for (const actionId of sortedQuickActionIds) {
+    const action = allActions[actionId]
+    const cat = getQuickActionCategory(actionId)
+    const isNewCategory = prevQuickCategory !== null && prevQuickCategory !== cat
+    items.push({
+      ...action,
+      dividerBefore: isNewCategory,
+    })
+    prevQuickCategory = cat
+  }
+
+  // 3. Focused Quick Quote to Git Agent (Only ONE quote action in top-level matching target focus)
+  // Belongs to its own Agent Quick group with a divider
   if (resolvedTarget === 'branch') {
     if (branchName) {
       items.push({
         ...quoteBranchAction,
-        dividerBefore: false,
+        dividerBefore: items.length > 0,
       })
     }
   } else if (resolvedTarget === 'commit') {
     if (commit) {
       items.push({
         ...quoteCommitAction,
-        dividerBefore: false,
+        dividerBefore: items.length > 0,
       })
     }
   } else {
@@ -638,7 +672,7 @@ export function buildBranchContextMenu({
     if (commit) {
       items.push({
         ...quoteCommitAction,
-        dividerBefore: false,
+        dividerBefore: items.length > 0,
       })
     }
   }
@@ -647,7 +681,7 @@ export function buildBranchContextMenu({
   if (branchName && onSoloBranch && resolvedTarget === 'branch') {
     items.push({
       ...allActions['solo-branch'],
-      dividerBefore: false,
+      dividerBefore: items.length > 0,
     })
   }
 
@@ -666,23 +700,39 @@ export function buildBranchContextMenu({
   if (showBranchGroup && branchName) {
     const branchChildren: FloatingMenuItem[] = []
 
-    // If focused on commit, tuck quoteBranchAction into this submenu
+    // Sub-group 1: 检出与新建/重命名
+    const checkoutGroup: FloatingMenuItem[] = []
     if (resolvedTarget !== 'branch') {
-      branchChildren.push({ ...quoteBranchAction, dividerBefore: false })
+      checkoutGroup.push({ ...quoteBranchAction, dividerBefore: false })
     }
+    checkoutGroup.push(allActions['checkout-branch'], allActions['new-branch'], allActions['rename-branch'])
+    branchChildren.push(...checkoutGroup)
 
-    branchChildren.push(
-      allActions['checkout-branch'],
-      allActions['new-branch'],
-      allActions['rename-branch'],
-      allActions['merge-branch'],
-      allActions['rebase-branch'],
-      allActions['pull-branch'],
-      allActions['push-branch'],
-      allActions['create-tag']
-    )
+    // Sub-group 2: 合流与集成
+    const mergeGroup: FloatingMenuItem[] = [allActions['merge-branch'], allActions['rebase-branch']]
+    mergeGroup.forEach((act, idx) => {
+      branchChildren.push({
+        ...act,
+        dividerBefore: idx === 0 && branchChildren.length > 0,
+      })
+    })
 
-    // Destructive operations placed at the bottom of submenu
+    // Sub-group 3: 远端同步
+    const syncGroup: FloatingMenuItem[] = [allActions['pull-branch'], allActions['push-branch']]
+    syncGroup.forEach((act, idx) => {
+      branchChildren.push({
+        ...act,
+        dividerBefore: idx === 0 && branchChildren.length > 0,
+      })
+    })
+
+    // Sub-group 4: 标签管理
+    branchChildren.push({
+      ...allActions['create-tag'],
+      dividerBefore: true,
+    })
+
+    // Sub-group 5: 危险操作
     branchChildren.push({
       ...allActions['delete-branch'],
       dividerBefore: true,
@@ -704,19 +754,41 @@ export function buildBranchContextMenu({
   if (showCommitGroup) {
     const commitChildren: FloatingMenuItem[] = []
 
-    // If focused on branch, tuck quoteCommitAction into this submenu
+    // Sub-group 1: Agent 智能引用
     if (resolvedTarget !== 'commit' && commit) {
       commitChildren.push({ ...quoteCommitAction, dividerBefore: false })
     }
 
+    // Sub-group 2: 提交应用与撤销
+    const applyGroup: FloatingMenuItem[] = []
     if (commit?.hash) {
-      commitChildren.push(allActions['cherry-pick'])
-      commitChildren.push(allActions['undo-commit'])
-      commitChildren.push(allActions['revert-commit'])
-      commitChildren.push(allActions['reset-commit'])
+      applyGroup.push(allActions['cherry-pick'])
+      applyGroup.push(allActions['revert-commit'])
+      applyGroup.push(allActions['undo-commit'])
     }
-    commitChildren.push(allActions['create-tag'])
-    commitChildren.push(allActions['create-annotated-tag'])
+    applyGroup.forEach((act, idx) => {
+      commitChildren.push({
+        ...act,
+        dividerBefore: idx === 0 && commitChildren.length > 0,
+      })
+    })
+
+    // Sub-group 3: 指针重置
+    if (commit?.hash) {
+      commitChildren.push({
+        ...allActions['reset-commit'],
+        dividerBefore: commitChildren.length > 0,
+      })
+    }
+
+    // Sub-group 4: 标签管理
+    const tagGroup: FloatingMenuItem[] = [allActions['create-tag'], allActions['create-annotated-tag']]
+    tagGroup.forEach((act, idx) => {
+      commitChildren.push({
+        ...act,
+        dividerBefore: idx === 0 && commitChildren.length > 0,
+      })
+    })
 
     if (commitChildren.length > 0) {
       items.push({
@@ -733,13 +805,25 @@ export function buildBranchContextMenu({
   const showViewGroup = (config.enabledGroups as any).view !== false && Boolean(branchName || onCompareWorkdir || onPinBranch || onHideBranch)
   if (showViewGroup) {
     const viewChildren: FloatingMenuItem[] = []
+
+    // Sub-group 1: 对比分析
     viewChildren.push(allActions['compare-workdir'])
+
+    // Sub-group 2: 分支组织与过滤
     if (branchName) {
-      viewChildren.push(allActions['pin-branch'])
+      viewChildren.push({
+        ...allActions['pin-branch'],
+        dividerBefore: true,
+      })
       viewChildren.push(allActions['hide-branch'])
     }
+
+    // Sub-group 3: 上游跟踪
     if (onSetUpstream) {
-      viewChildren.push(allActions['set-upstream'])
+      viewChildren.push({
+        ...allActions['set-upstream'],
+        dividerBefore: true,
+      })
     }
 
     if (viewChildren.length > 0) {
@@ -766,20 +850,50 @@ export function buildBranchContextMenu({
   // "Copy" submenu
   if (config.enabledGroups.copy) {
     const copyChildren: FloatingMenuItem[] = []
-    if (resolvedTarget === 'branch') {
-      if (cleanBranch || branchName) copyChildren.push(allActions['copy-branch'])
-      if (fullBranch && cleanBranch && fullBranch !== cleanBranch) copyChildren.push(allActions['copy-full-branch'])
-      if (commit?.hash) copyChildren.push(allActions['copy-hash'])
-      if (commit?.subject) copyChildren.push(allActions['copy-subject'])
-    } else {
-      if (commit?.hash) copyChildren.push(allActions['copy-hash'])
-      if (commit?.subject) copyChildren.push(allActions['copy-subject'])
-      if (commit?.author) copyChildren.push(allActions['copy-author'])
-      if (commit?.date) copyChildren.push(allActions['copy-date'])
-      if (cleanBranch || branchName) copyChildren.push(allActions['copy-branch'])
+
+    // 1. Commit metadata items
+    const commitMetaItems: FloatingMenuItem[] = []
+    if (commit?.hash) commitMetaItems.push(allActions['copy-hash'])
+    if (commit?.subject) commitMetaItems.push(allActions['copy-subject'])
+    if (commit?.author) commitMetaItems.push(allActions['copy-author'])
+    if (commit?.date) commitMetaItems.push(allActions['copy-date'])
+
+    // 2. Branch name & path items
+    const branchMetaItems: FloatingMenuItem[] = []
+    if (cleanBranch || branchName) branchMetaItems.push(allActions['copy-branch'])
+    if (fullBranch && cleanBranch && fullBranch !== cleanBranch) branchMetaItems.push(allActions['copy-full-branch'])
+
+    // 3. Sharing & collaboration items
+    const shareItems: FloatingMenuItem[] = []
+    if (commit?.hash) shareItems.push(allActions['copy-share-link'])
+    if (commit) shareItems.push(allActions['copy-issue-card'])
+
+    // Order groups according to right-clicked target:
+    // If clicking branch column, branch info is at the top; if clicking commit column, commit info is at the top
+    const primarySection = resolvedTarget === 'branch' ? branchMetaItems : commitMetaItems
+    const secondarySection = resolvedTarget === 'branch' ? commitMetaItems : branchMetaItems
+
+    if (primarySection.length > 0) {
+      copyChildren.push(...primarySection)
     }
-    if (commit?.hash) copyChildren.push(allActions['copy-share-link'])
-    if (commit) copyChildren.push(allActions['copy-issue-card'])
+
+    if (secondarySection.length > 0) {
+      secondarySection.forEach((item, idx) => {
+        copyChildren.push({
+          ...item,
+          dividerBefore: idx === 0 && copyChildren.length > 0,
+        })
+      })
+    }
+
+    if (shareItems.length > 0) {
+      shareItems.forEach((item, idx) => {
+        copyChildren.push({
+          ...item,
+          dividerBefore: idx === 0 && copyChildren.length > 0,
+        })
+      })
+    }
 
     if (copyChildren.length > 0) {
       items.push({
