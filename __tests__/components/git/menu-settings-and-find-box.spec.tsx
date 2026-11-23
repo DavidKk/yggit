@@ -104,7 +104,7 @@ describe('MenuSettingsSection component', () => {
     expect(host.textContent).toContain('「复制 ›」二级菜单')
     expect(host.textContent).toContain('「分支操作 ›」二级菜单')
     expect(host.textContent).toContain('「Worktree ›」二级菜单')
-    expect(host.textContent).toContain('「在远程打开」入口')
+    expect(host.textContent).toContain('「在远程仓库打开 ›」二级菜单')
 
     // Zone 3: 配置区
     expect(host.textContent).toContain('安全防护与动态自适应')

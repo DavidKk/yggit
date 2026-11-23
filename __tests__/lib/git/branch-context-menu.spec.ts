@@ -74,8 +74,13 @@ describe('branch context menu & config', () => {
       const worktreeGroup = items.find((i) => i.key === 'menu-worktree-group')
       expect(worktreeGroup).toBeDefined()
 
-      const remoteItem = items.find((i) => i.key === 'open-remote')
-      expect(remoteItem).toBeDefined()
+      const remoteGroup = items.find((i) => i.key === 'menu-remote-group')
+      expect(remoteGroup).toBeDefined()
+      expect(remoteGroup?.children?.length).toBeGreaterThanOrEqual(3)
+      expect(remoteGroup?.children?.some((c) => c.key === 'open-remote-commit')).toBe(true)
+      expect(remoteGroup?.children?.some((c) => c.key === 'open-remote-branch')).toBe(true)
+      expect(remoteGroup?.children?.some((c) => c.key === 'open-remote-pr')).toBe(true)
+      expect(remoteGroup?.children?.some((c) => c.key === 'open-remote-repo')).toBe(true)
     })
 
     it('groups quick actions and secondary submenus into clear classified categories', () => {
@@ -128,6 +133,44 @@ describe('branch context menu & config', () => {
       const copyShare = copyChildren.find((c) => c.key === 'copy-share-link')
       expect(copyShare).toBeDefined()
       expect(copyShare?.dividerBefore).toBe(true)
+    })
+
+    it('groups remote web actions under secondary menu-remote-group with Commit, Branch, PR, and Repo items', () => {
+      const openSpy = jest.spyOn(window, 'open').mockImplementation(() => null)
+      const items = buildBranchContextMenu({
+        target: 'commit',
+        commit: mockCommit,
+        branchName: 'feature/auth-login',
+        repo: 'owner/repo',
+        remoteUrl: 'git@github.com:owner/repo.git',
+        config: DEFAULT_CONTEXT_MENU_CONFIG,
+      })
+
+      const remoteGroup = items.find((i) => i.key === 'menu-remote-group')
+      expect(remoteGroup).toBeDefined()
+      expect(remoteGroup?.children).toBeDefined()
+
+      const commitItem = remoteGroup?.children?.find((c) => c.key === 'open-remote-commit')
+      expect(commitItem).toBeDefined()
+      commitItem?.onSelect?.()
+      expect(openSpy).toHaveBeenCalledWith(`https://github.com/owner/repo/commit/${mockCommit.hash}`, '_blank', 'noopener,noreferrer')
+
+      const branchItem = remoteGroup?.children?.find((c) => c.key === 'open-remote-branch')
+      expect(branchItem).toBeDefined()
+      branchItem?.onSelect?.()
+      expect(openSpy).toHaveBeenCalledWith('https://github.com/owner/repo/tree/feature%2Fauth-login', '_blank', 'noopener,noreferrer')
+
+      const prItem = remoteGroup?.children?.find((c) => c.key === 'open-remote-pr')
+      expect(prItem).toBeDefined()
+      prItem?.onSelect?.()
+      expect(openSpy).toHaveBeenCalledWith('https://github.com/owner/repo/pull/new/feature%2Fauth-login', '_blank', 'noopener,noreferrer')
+
+      const repoItem = remoteGroup?.children?.find((c) => c.key === 'open-remote-repo')
+      expect(repoItem).toBeDefined()
+      repoItem?.onSelect?.()
+      expect(openSpy).toHaveBeenCalledWith('https://github.com/owner/repo', '_blank', 'noopener,noreferrer')
+
+      openSpy.mockRestore()
     })
 
     it('places dangerous operations at the bottom of branch submenu with confirmation requirements', () => {

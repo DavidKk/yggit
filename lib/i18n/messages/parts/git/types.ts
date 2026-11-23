@@ -514,6 +514,11 @@ export type GitMessages = {
     checkoutWorktree?: string
     openWorktree?: string
     openRemote?: string
+    openRemoteCommit?: string
+    openRemoteBranch?: string
+    openRemotePr?: string
+    openRemoteMr?: string
+    openRemoteRepo?: string
     groupWorktree?: string
     groupAgent?: string
     copiedToClipboard?: string

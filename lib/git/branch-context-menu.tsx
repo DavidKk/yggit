@@ -9,7 +9,6 @@ import {
   LuClock,
   LuCloud,
   LuCopy,
-  LuExternalLink,
   LuEye,
   LuEyeOff,
   LuFolderGit2,
@@ -21,6 +20,7 @@ import {
   LuGitMerge,
   LuGitPullRequest,
   LuHash,
+  LuPanelTop,
   LuPencil,
   LuPin,
   LuRotateCcw,
@@ -119,6 +119,27 @@ export function stripRemotePrefix(branch?: string, remoteNames?: string[]): stri
     }
   }
   return branch
+}
+
+/**
+ * Normalizes remote repository URL into clean HTTPS web base URL and detects host provider
+ */
+export function getRemoteWebBase(remoteUrl?: string): { httpsUrl: string; isGitLab: boolean } | null {
+  if (!remoteUrl) return null
+  const trimmed = remoteUrl.trim()
+  if (!trimmed) return null
+  let url = trimmed
+  if (url.startsWith('git@') && url.includes(':')) {
+    url = url.replace(/^git@([^:]+):/, 'https://$1/')
+  } else if (url.startsWith('ssh://git@')) {
+    url = url.replace(/^ssh:\/\/git@([^/]+)\//, 'https://$1/')
+  }
+  url = url.replace(/\.git$/, '').replace(/\/$/, '')
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    url = `https://${url}`
+  }
+  const isGitLab = url.toLowerCase().includes('gitlab')
+  return { httpsUrl: url, isGitLab }
 }
 
 /**
@@ -462,11 +483,12 @@ export function buildBranchContextMenu({
     'open-remote': {
       key: 'open-remote',
       label: tr('git.operations.openRemote', '在远程仓库打开'),
-      icon: <LuExternalLink className="size-4 shrink-0 text-ink-soft" />,
+      icon: <LuPanelTop className="size-4 shrink-0 text-ink-soft" />,
       onSelect: () => {
-        if (!remoteUrl) return
-        let url = remoteUrl.replace(/\.git$/, '')
-        if (branchName) url = `${url}/tree/${encodeURIComponent(branchName)}`
+        const parsed = getRemoteWebBase(remoteUrl)
+        if (!parsed) return
+        let url = parsed.httpsUrl
+        if (cleanBranch || branchName) url = `${url}/tree/${encodeURIComponent(cleanBranch || branchName || '')}`
         else if (commit?.hash) url = `${url}/commit/${commit.hash}`
         window.open(url, '_blank', 'noopener,noreferrer')
       },
@@ -918,11 +940,86 @@ export function buildBranchContextMenu({
     })
   }
 
-  // 10. "Open in Remote" entry (when remote repository URL is available)
-  if (config.enabledGroups.remote && remoteUrl) {
+  // 10. "Open in Remote" submenu (when remote repository URL is available)
+  const remoteBase = getRemoteWebBase(remoteUrl)
+  if (config.enabledGroups.remote && remoteBase) {
+    const { httpsUrl, isGitLab } = remoteBase
+    const remoteChildren: FloatingMenuItem[] = []
+    const targetBranch = cleanBranch || branchName
+
+    // 1. Commit item
+    if (commit?.hash) {
+      remoteChildren.push({
+        key: 'open-remote-commit',
+        label: tr('git.operations.openRemoteCommit', '在网页打开此 Commit'),
+        badge: shortHash,
+        icon: <LuGitCommitHorizontal className="size-4 shrink-0 text-ink-soft" />,
+        onSelect: () => {
+          window.open(`${httpsUrl}/commit/${commit.hash}`, '_blank', 'noopener,noreferrer')
+        },
+      })
+    }
+
+    // 2. Branch item
+    if (targetBranch) {
+      remoteChildren.push({
+        key: 'open-remote-branch',
+        label: tr('git.operations.openRemoteBranch', '在网页打开此分支'),
+        badge: targetBranch,
+        icon: <LuGitBranch className="size-4 shrink-0 text-accent" />,
+        onSelect: () => {
+          window.open(`${httpsUrl}/tree/${encodeURIComponent(targetBranch)}`, '_blank', 'noopener,noreferrer')
+        },
+      })
+    }
+
+    // 3. PR / MR item
+    const prUrl = targetBranch
+      ? isGitLab
+        ? `${httpsUrl}/-/merge_requests/new?merge_request%5Bsource_branch%5D=${encodeURIComponent(targetBranch)}`
+        : `${httpsUrl}/pull/new/${encodeURIComponent(targetBranch)}`
+      : isGitLab
+        ? `${httpsUrl}/-/merge_requests`
+        : `${httpsUrl}/pulls`
+
+    remoteChildren.push({
+      key: 'open-remote-pr',
+      label: isGitLab ? tr('git.operations.openRemoteMr', '在网页创建 / 查看 MR') : tr('git.operations.openRemotePr', '在网页创建 / 查看 PR'),
+      icon: <LuGitPullRequest className="size-4 shrink-0 text-accent" />,
+      onSelect: () => {
+        window.open(prUrl, '_blank', 'noopener,noreferrer')
+      },
+    })
+
+    // If target === 'branch', put branch first, then PR/MR, then commit
+    if (resolvedTarget === 'branch') {
+      remoteChildren.sort((a, b) => {
+        const order: Record<string, number> = {
+          'open-remote-branch': 1,
+          'open-remote-pr': 2,
+          'open-remote-commit': 3,
+        }
+        return (order[a.key] || 99) - (order[b.key] || 99)
+      })
+    }
+
+    // 4. Repository homepage item (separated by divider)
+    remoteChildren.push({
+      key: 'open-remote-repo',
+      label: tr('git.operations.openRemoteRepo', '打开远程仓库主页'),
+      icon: <LuPanelTop className="size-4 shrink-0 text-ink-soft" />,
+      dividerBefore: remoteChildren.length > 0,
+      onSelect: () => {
+        window.open(httpsUrl, '_blank', 'noopener,noreferrer')
+      },
+    })
+
     items.push({
-      ...allActions['open-remote'],
+      key: 'menu-remote-group',
+      label: tr('git.operations.openRemote', '在远程仓库打开'),
+      icon: <LuPanelTop className="size-4 shrink-0 text-ink-soft" />,
       dividerBefore: markCopyExtensionDivider(),
+      children: remoteChildren,
     })
   }
 

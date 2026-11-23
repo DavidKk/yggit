@@ -10,7 +10,6 @@ import {
   LuBot,
   LuClipboardList,
   LuCloud,
-  LuExternalLink,
   LuEyeOff,
   LuFolderGit2,
   LuGitBranch,
@@ -21,6 +20,7 @@ import {
   LuGitPullRequest,
   LuHash,
   LuPackage,
+  LuPanelTop,
   LuPencil,
   LuPin,
   LuPlus,
@@ -188,7 +188,7 @@ export const AVAILABLE_QUICK_ACTIONS: QuickActionDef[] = [
     category: 'sync',
     categoryLabel: '远端同步',
     description: '在浏览器新标签页中直接打开 GitHub / GitLab 对应提交或分支网页',
-    icon: LuExternalLink,
+    icon: LuPanelTop,
   },
 
   // 3. Workspace and commits
@@ -330,10 +330,10 @@ const AVAILABLE_GROUPS: GroupDef[] = [
   },
   {
     key: 'remote',
-    label: '「在远程打开」入口',
-    summary: '当仓库已配置远程仓库地址时，直接跳转网页端查看',
-    includedItems: ['在远程仓库打开 (GitHub / GitLab)'],
-    icon: LuExternalLink,
+    label: '「在远程仓库打开 ›」二级菜单',
+    summary: '聚合在浏览器网页中直达查看此 Commit、分支、PR / MR 或仓库主页',
+    includedItems: ['在网页打开此 Commit', '在网页打开此分支', '在网页创建 / 查看 PR', '打开仓库主页'],
+    icon: LuPanelTop,
   },
   {
     key: 'agent',
