@@ -1,7 +1,7 @@
 'use client'
 
 import { type CSSProperties, Fragment, memo, type ReactNode, type Ref, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { LuArchive, LuArchiveRestore, LuCopy, LuEyeOff, LuHash, LuInbox, LuPencil, LuText, LuTrash2, LuTriangleAlert } from 'react-icons/lu'
+import { LuArchive, LuArchiveRestore, LuBot, LuCopy, LuEyeOff, LuHash, LuInbox, LuPencil, LuText, LuTrash2, LuTriangleAlert } from 'react-icons/lu'
 
 import { AnnotationBadge } from '@/components/git/agent/spotlight/AnnotationBadge'
 import { CommitStatusBadge } from '@/components/git/CommitStatusBadge'
@@ -10,8 +10,9 @@ import { PanelSplitter } from '@/components/git/PanelSplitter'
 import { branchAtCommits, type FloatingAnchor, FloatingMenu, type FloatingMenuItem, refChips, RefChipsCell } from '@/components/git/RefChipsCell'
 import { useLocaleCode, useT } from '@/components/i18n/LocaleProvider'
 import { useNotification } from '@/components/notification/useNotification'
-import { EmptyState, ScrollArea } from '@/components/sk'
+import { EmptyState, ScrollArea, Tooltip } from '@/components/sk'
 import { useOptionalAgent } from '@/lib/agent/agent-context'
+import { quoteCommitToAgent, quoteStashToAgent, quoteWorktreeToAgent } from '@/lib/agent/agent-quote'
 import { useOptionalSpotlight } from '@/lib/agent/spotlight-context'
 import { copyToClipboard } from '@/lib/clipboard'
 import { buildBranchContextMenu } from '@/lib/git/branch-context-menu'
@@ -425,6 +426,12 @@ function GitGraphComponent({
       onSelect: () => onSelectWorktree?.(),
     },
     {
+      key: 'quote-wt',
+      label: t('git.operations.quoteWorktreeToAgent') || '引用工作树到 Git Agent',
+      icon: <LuBot className="size-4 shrink-0 text-accent" />,
+      onSelect: () => quoteWorktreeToAgent(repo || '.', undefined, repo),
+    },
+    {
       key: 'status',
       label: t('git.graph.copyWorktreeChanges'),
       icon: <LuCopy className="size-4 shrink-0 text-ink-soft" />,
@@ -463,6 +470,12 @@ function GitGraphComponent({
         label: t('git.operations.popStashAction', { stash: stash.name }) || `弹出暂存 (${stash.name})`,
         icon: <LuArchiveRestore className="size-3.5 shrink-0 text-ok" aria-hidden />,
         onSelect: () => void handleStashAction('pop', idx),
+      },
+      {
+        key: 'quote-stash',
+        label: t('git.operations.quoteStashToAgent') || '引用暂存到 Git Agent',
+        icon: <LuBot className="size-3.5 shrink-0 text-accent" aria-hidden />,
+        onSelect: () => quoteStashToAgent(stash.name, stash.subject, repo),
       },
       {
         key: 'drop-stash',
@@ -1184,12 +1197,25 @@ function GitGraphComponent({
                     <span data-git-message-cell className={cn('flex h-[26px] min-h-0 min-w-0 items-center pl-2', rowTintClass)}>
                       {isConflictedMerge && <CommitStatusBadge commit={commit} conflict={conflicts?.[commit.hash]} onOpenConflictView={onOpenConflictView} />}
                       <span
-                        className="flex min-w-0 flex-1 items-center truncate pr-3 text-sm leading-none font-normal select-text cursor-pointer transition-colors duration-150 text-ink"
+                        className="flex min-w-0 flex-1 items-center truncate pr-2 text-sm leading-none font-normal select-text cursor-pointer transition-colors duration-150 text-ink"
                         style={{ height: DOT }}
                         title={`${commit.short || commit.hash.slice(0, 7)} · ${commit.author} (${commit.date})\n${commit.subject}`}
                       >
                         {commit.subject}
                       </span>
+                      <Tooltip content={t('git.operations.quoteCommitToAgent') || '引用提交到 Git Agent'} placement="top">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            quoteCommitToAgent({ hash: commit.hash, summary: commit.subject, author: commit.author }, repo)
+                          }}
+                          className="opacity-0 group-hover/commit:opacity-100 hover:text-accent rounded px-1 text-[11px] text-ink-soft select-none transition-opacity mr-2 flex items-center cursor-pointer shrink-0"
+                          aria-label={t('git.operations.quoteCommitToAgent') || '引用提交到 Git Agent'}
+                        >
+                          <LuBot className="size-3 shrink-0" />
+                        </button>
+                      </Tooltip>
                     </span>
                   </div>
                 </li>

@@ -172,13 +172,13 @@ describe('Workdesk Components', () => {
     expect(host.textContent).toContain('同步默认分支')
   })
 
-  it('renders WorkdeskTaskDetailView with left task list and right Git evidence links', () => {
+  it('renders WorkdeskTaskDetailView with left task list and right resolution diagnostics', () => {
     act(() => {
       root.render(<WorkdeskTaskDetailView taskId="sync-default-branches" initialCard={sampleCard} initialItems={[sampleItem]} initialItemId="item1" />)
     })
 
-    // Topline
-    expect(host.querySelector('button[aria-label*="workdesk.action.back"]')).not.toBeNull()
+    // Topline close button for task set
+    expect(host.querySelector('[data-testid="workdesk-detail-close-btn"]')).not.toBeNull()
 
     // Redundant top header strip removed
     expect(host.textContent).not.toContain('Git Workdesk')
@@ -194,26 +194,27 @@ describe('Workdesk Components', () => {
     const itemEl = host.querySelector('[draggable="true"]')
     expect(itemEl).not.toBeNull()
 
-    // Right Evidence Cards
-    expect(host.textContent).toContain('Main App · main')
+    // Right Evidence Card: Non-repetitive problem title, direct project & branch links
+    expect(host.textContent).toContain('workdesk.problemTitles.sync')
     expect(host.textContent).toContain('远程领先，可安全快进')
     expect(host.textContent).toContain('workdesk.detail.targetProject')
     expect(host.textContent).toContain('workdesk.detail.problemBranch')
     expect(host.textContent).toContain('workdesk.detail.problemDesc')
     expect(host.textContent).toContain('workdesk.detail.causeTitle')
     expect(host.textContent).toContain('workdesk.detail.riskTitle')
-    expect(host.textContent).toContain('workdesk.detail.suggestionTitle')
+    expect(host.textContent).toContain('workdesk.detail.solutionTitle')
+
+    // Direct Project and Branch navigation links (no redundant "openRepo" button)
+    expect(host.querySelector('a[href*="/git/repo-1"]')).not.toBeNull()
+    expect(host.querySelector('a[href*="/git/repo-1/branch/main"]')).not.toBeNull()
+    expect(host.textContent).not.toContain('workdesk.detail.openRepo')
 
     // Verified removed prompt
     expect(host.textContent).not.toContain('workdesk.agent.prompt')
 
-    // Navigable Commit link
-    const commitLink = host.querySelector('a[href*="/git/repo-1/commit/a1b2c3d4e5f6"]')
-    expect(commitLink).not.toBeNull()
-
-    // Navigable File link
-    const fileLink = host.querySelector('a[href*="file=src%2Findex.ts"]')
-    expect(fileLink).not.toBeNull()
+    // Git evidence links removed as requested
+    expect(host.querySelector('a[href*="/git/repo-1/commit/a1b2c3d4e5f6"]')).toBeNull()
+    expect(host.querySelector('a[href*="file=src%2Findex.ts"]')).toBeNull()
   })
 
   it('switches items in WorkdeskTaskDetailView updating browser URL via replaceState without router navigation', () => {
@@ -262,7 +263,7 @@ describe('Workdesk Components', () => {
       root.render(<WorkdeskTaskDetailView taskId="sync-default-branches" initialCard={sampleCard} initialItems={[sampleItem]} initialItemId="item1" onCollapse={handleCollapse} />)
     })
 
-    const collapseBtn = host.querySelector('button[aria-label*="workdesk.action.back"]') as HTMLButtonElement | null
+    const collapseBtn = host.querySelector('[data-testid="workdesk-detail-close-btn"]') as HTMLButtonElement | null
     expect(collapseBtn).not.toBeNull()
     act(() => {
       collapseBtn?.click()
@@ -276,7 +277,7 @@ describe('Workdesk Components', () => {
     })
 
     expect(host.textContent).toContain('同步默认分支')
-    expect(host.querySelector('button[aria-label*="workdesk.action.back"]')).not.toBeNull()
+    expect(host.querySelector('[data-testid="workdesk-detail-close-btn"]')).not.toBeNull()
   })
 
   it('triggers card selection and transition when card in WorkdeskBoard is clicked', () => {

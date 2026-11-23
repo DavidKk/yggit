@@ -56,8 +56,11 @@ describe('branch context menu & config', () => {
         config: DEFAULT_CONTEXT_MENU_CONFIG,
       })
 
-      // Pinned quick actions (checkout, merge, rebase, new) + Copy + Branch Operations + Worktree + Open in Remote
-      expect(items.length).toBeLessThanOrEqual(10)
+      // Pinned quick actions (checkout, merge, rebase, new) + Submenus (Branch, Commit, View, Copy, Worktree) + Remote + Quotes
+      expect(items.length).toBeLessThanOrEqual(14)
+
+      const quoteBranch = items.find((i) => i.key === 'quote-branch-to-agent')
+      expect(quoteBranch).toBeDefined()
 
       const copyGroup = items.find((i) => i.key === 'menu-copy-group')
       expect(copyGroup).toBeDefined()

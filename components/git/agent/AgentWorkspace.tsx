@@ -26,6 +26,7 @@ import {
 import { useT } from '@/components/i18n/LocaleProvider'
 import { Button, Spinner, Tooltip } from '@/components/sk'
 import { useAgent } from '@/lib/agent/agent-context'
+import type { AgentReference } from '@/lib/agent/agent-quote'
 import { isModelAllowed } from '@/lib/agent/model-filter'
 import { getAgentProcessingStatus } from '@/lib/agent/status-helper'
 import { copyToClipboard } from '@/lib/clipboard'
@@ -110,8 +111,10 @@ export function AgentWorkspace({ repoPath, className }: Props) {
   const { dockMode, setDockMode, messages, sendMessage, clearMessages, isProcessing, activeRepo, config, modelFilter } = useAgent()
 
   const [input, setInput] = useState('')
+  const [reference, setReference] = useState<AgentReference | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   const effectiveRepo = repoPath || activeRepo || ''
   const isModelBlocked = !isModelAllowed(config.model, modelFilter)
@@ -119,6 +122,24 @@ export function AgentWorkspace({ repoPath, className }: Props) {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  useEffect(() => {
+    const handleOpen = (e: Event) => {
+      const detail = (e as CustomEvent<{ prompt?: string; reference?: AgentReference }>).detail
+      if (dockMode === 'collapsed') {
+        setDockMode('dock-right')
+      }
+      if (detail?.reference) {
+        setReference(detail.reference)
+        setTimeout(() => inputRef.current?.focus(), 150)
+      } else if (detail?.prompt) {
+        setInput(detail.prompt)
+        setTimeout(() => inputRef.current?.focus(), 150)
+      }
+    }
+    window.addEventListener('yggit:agent_open', handleOpen)
+    return () => window.removeEventListener('yggit:agent_open', handleOpen)
+  }, [dockMode, setDockMode])
 
   const handleSendPrompt = useCallback(
     async (promptText: string) => {
@@ -132,7 +153,21 @@ export function AgentWorkspace({ repoPath, className }: Props) {
 
   const handleSend = async (e?: React.FormEvent) => {
     e?.preventDefault()
-    await handleSendPrompt(input)
+    const trimmed = input.trim()
+    if ((!trimmed && !reference) || isProcessing || isModelBlocked) return
+
+    let finalPrompt = trimmed
+    if (reference) {
+      if (trimmed) {
+        finalPrompt = `${reference.prompt || reference.title}\n\n用户附加提问: ${trimmed}`
+      } else {
+        finalPrompt = reference.prompt || reference.title
+      }
+    }
+
+    setInput('')
+    setReference(null)
+    await sendMessage(finalPrompt, effectiveRepo)
   }
 
   const handleCopy = (id: string, text: string) => {
@@ -337,18 +372,45 @@ export function AgentWorkspace({ repoPath, className }: Props) {
             <span>{t('gitAgent.modelBlockedNotice')}</span>
           </div>
         )}
+
+        {/* Reference Citation Badge */}
+        {reference && (
+          <div className="flex items-center">
+            <span
+              className="flex max-w-full items-center gap-1.5 rounded-md border border-accent/40 bg-accent/10 px-2 py-0.5 text-[11px] font-medium text-accent animate-in fade-in zoom-in-95 duration-150"
+              title={reference.title}
+            >
+              <LuBot className="size-3 shrink-0 text-accent" aria-hidden="true" />
+              <span className="truncate">{reference.title}</span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setReference(null)
+                }}
+                className="ml-0.5 rounded-full p-0.5 text-accent/70 hover:bg-accent/20 hover:text-accent focus:outline-none cursor-pointer"
+                title={t('common.remove') || '移除'}
+                aria-label={t('common.remove') || '移除'}
+              >
+                <LuX className="size-3" />
+              </button>
+            </span>
+          </div>
+        )}
+
         <div className="flex items-center gap-1.5">
           <input
+            ref={inputRef}
             type="text"
             value={input}
             disabled={isProcessing || isModelBlocked}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={isModelBlocked ? t('gitAgent.modelBlockedNotice') : t('gitAgent.inputPlaceholder')}
+            placeholder={reference ? '向 Git Agent 追问或直接按回车发送...' : isModelBlocked ? t('gitAgent.modelBlockedNotice') : t('gitAgent.inputPlaceholder')}
             className="flex-1 min-w-0 h-8 rounded border border-line bg-panel px-2.5 text-xs text-ink placeholder:text-ink-soft/60 outline-none focus:border-accent transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           />
           <Tooltip content={isModelBlocked ? t('gitAgent.modelBlockedNotice') : 'Send message'}>
             <span className="inline-flex shrink-0">
-              <Button type="submit" variant="accent" size="icon" disabled={!input.trim() || isProcessing || isModelBlocked} aria-label="Send message">
+              <Button type="submit" variant="accent" size="icon" disabled={(!input.trim() && !reference) || isProcessing || isModelBlocked} aria-label="Send message">
                 {isProcessing ? <Spinner className="size-3.5" /> : <LuSend className="size-3.5" />}
               </Button>
             </span>

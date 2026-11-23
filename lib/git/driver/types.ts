@@ -92,6 +92,11 @@ export interface IGitDriver {
   readonly mode: GitDriverMode
 
   /**
+   * Invalidate cached repository data or memory handles.
+   */
+  clearCache?(repo?: string): void
+
+  /**
    * Check if this driver is supported and operational in the current environment
    */
   isAvailable(): Promise<boolean>

@@ -551,8 +551,23 @@ export type GitMessages = {
     compareWorkdir?: string
     pinBranch?: string
     hideBranch?: string
+    unpinBranch?: string
+    unhideBranch?: string
+    locateCurrentBranch?: string
+    locateCurrentFile?: string
+    groupViewOps?: string
+    groupCommitOps?: string
     fileHistory?: string
     fileBlame?: string
+    quoteToAgent?: string
+    quoteBranchToAgent?: string
+    quoteCommitToAgent?: string
+    quoteFileToAgent?: string
+    quoteFolderToAgent?: string
+    quoteTagToAgent?: string
+    quoteRemoteToAgent?: string
+    quoteWorktreeToAgent?: string
+    quoteStashToAgent?: string
     copyFilePath?: string
     restoreFileFromCommit?: string
     restoreFileSuccess?: string

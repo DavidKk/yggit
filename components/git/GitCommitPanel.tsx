@@ -3,12 +3,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   LuArchive,
+  LuBot,
   LuChevronDown,
   LuChevronRight,
   LuChevronsDownUp,
   LuChevronsUpDown,
   LuColumns2,
   LuCopy,
+  LuCrosshair,
   LuFileClock,
   LuFileCode,
   LuFilePlus,
@@ -38,6 +40,7 @@ import { handleTreeExpandKey, handleTreeParentKey } from '@/components/git/treeE
 import { useT } from '@/components/i18n/LocaleProvider'
 import { useNotification } from '@/components/notification/useNotification'
 import { Badge, Button, EmptyState, Spinner, TextInput, Tooltip, VirtualList } from '@/components/sk'
+import { quoteCommitToAgent, quoteFileToAgent, quoteFolderToAgent } from '@/lib/agent/agent-quote'
 import { getGitDriver } from '@/lib/git/driver'
 import { GIT_WORKTREE_HASH, type GitCommit, type GitCommitChanges, type GitFileChange } from '@/lib/git/types'
 import { isBoolean, useGitUiPref } from '@/lib/git/ui-prefs'
@@ -284,6 +287,7 @@ function TreeRows({
   onDiscard,
   isSearching = false,
   recursive = true,
+  repo,
 }: {
   nodes: TreeNode[]
   depth: number
@@ -304,6 +308,7 @@ function TreeRows({
   onDiscard?: (path: string) => void
   isSearching?: boolean
   recursive?: boolean
+  repo?: string
 }) {
   const t = useT()
   return nodes.map((node) => {
@@ -311,11 +316,11 @@ function TreeRows({
     const expanded = folder && (isSearching || open.has(node.path))
     if (folder) {
       return (
-        <div key={node.path}>
+        <div key={node.path} className="group/folderrow relative flex items-center justify-between w-full">
           <Button
             variant="plain"
             data-git-tree-id={node.path}
-            className="h-7 w-full justify-start gap-1.5 rounded-none px-2 font-normal text-ink"
+            className="h-7 min-w-0 flex-1 justify-start gap-1.5 rounded-none px-2 font-normal text-ink"
             style={{ paddingLeft: 8 + depth * 14 }}
             aria-expanded={expanded}
             onClick={() => onToggle(node.path)}
@@ -334,6 +339,21 @@ function TreeRows({
             </span>
             <CountMarks counts={counts?.get(node.path) ?? tally(node, conflictCounts)} />
           </Button>
+          <span className="opacity-0 group-hover/folderrow:opacity-100 flex items-center pr-1.5 transition-opacity shrink-0">
+            <Tooltip content={t('git.operations.quoteFolderToAgent') || '引用目录到 Git Agent'}>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  quoteFolderToAgent(node.path, repo)
+                }}
+                className="flex size-5 cursor-pointer items-center justify-center rounded text-ink-soft hover:bg-[var(--overlay-08)] hover:text-accent"
+                aria-label={t('git.operations.quoteFolderToAgent') || '引用目录到 Git Agent'}
+              >
+                <LuBot className="size-3" />
+              </button>
+            </Tooltip>
+          </span>
           {recursive && expanded && node.children.length > 0 && (
             <TreeRows
               nodes={node.children}
@@ -355,6 +375,7 @@ function TreeRows({
               onDiscard={onDiscard}
               isSearching={isSearching}
               recursive={recursive}
+              repo={repo}
             />
           )}
         </div>
@@ -368,6 +389,7 @@ function TreeRows({
     return (
       <div
         key={node.path}
+        data-git-file-path={node.path}
         className={cn(
           'group/filerow flex h-7 w-full items-center justify-between pr-1.5 rounded-none text-xs transition-colors',
           active ? 'bg-[color-mix(in_oklab,var(--accent)_18%,transparent)] text-ink' : 'hover:bg-[color-mix(in_oklab,var(--accent)_8%,transparent)] text-ink'
@@ -411,54 +433,69 @@ function TreeRows({
           <ConflictMark count={conflictCounts[node.path]} />
         </button>
 
-        {isWorktree && file ? (
-          <div className="flex shrink-0 items-center gap-1">
-            <div className="flex items-center opacity-0 group-hover/filerow:opacity-100 transition-opacity">
-              {(isStagedSection === false || (isStagedSection === undefined && file.unstaged)) && onStage && (
-                <Tooltip content={t('git.operations.stageFile') || '暂存此文件'}>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onStage(node.path)
-                    }}
-                    className="flex size-5 cursor-pointer items-center justify-center rounded text-ink-soft hover:bg-[var(--overlay-08)] hover:text-accent"
-                  >
-                    <TiPlusOutline className="size-3" />
-                  </button>
-                </Tooltip>
-              )}
-              {(isStagedSection === true || (isStagedSection === undefined && file.staged)) && onUnstage && (
-                <Tooltip content={t('git.operations.unstageFile') || '取消暂存'}>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onUnstage(node.path)
-                    }}
-                    className="flex size-5 cursor-pointer items-center justify-center rounded text-ink-soft hover:bg-[var(--overlay-08)] hover:text-warn"
-                  >
-                    <TiMinusOutline className="size-3" />
-                  </button>
-                </Tooltip>
-              )}
-              {onDiscard && (
-                <Tooltip content={t('git.operations.discardFile') || '放弃更改'}>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onDiscard(node.path)
-                    }}
-                    className="flex size-5 cursor-pointer items-center justify-center rounded text-ink-soft hover:bg-[var(--overlay-08)] hover:text-fail"
-                  >
-                    <LuUndo2 className="size-3" />
-                  </button>
-                </Tooltip>
-              )}
-            </div>
+        <div className="flex shrink-0 items-center gap-1">
+          <div className="flex items-center opacity-0 group-hover/filerow:opacity-100 transition-opacity">
+            <Tooltip content={t('git.operations.quoteFileToAgent') || '引用文件到 Git Agent'}>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  quoteFileToAgent(node.path, node.file?.status, repo)
+                }}
+                className="flex size-5 cursor-pointer items-center justify-center rounded text-ink-soft hover:bg-[var(--overlay-08)] hover:text-accent"
+                aria-label={t('git.operations.quoteFileToAgent') || '引用文件到 Git Agent'}
+              >
+                <LuBot className="size-3" />
+              </button>
+            </Tooltip>
+            {isWorktree && file ? (
+              <>
+                {(isStagedSection === false || (isStagedSection === undefined && file.unstaged)) && onStage && (
+                  <Tooltip content={t('git.operations.stageFile') || '暂存此文件'}>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onStage(node.path)
+                      }}
+                      className="flex size-5 cursor-pointer items-center justify-center rounded text-ink-soft hover:bg-[var(--overlay-08)] hover:text-accent"
+                    >
+                      <TiPlusOutline className="size-3" />
+                    </button>
+                  </Tooltip>
+                )}
+                {(isStagedSection === true || (isStagedSection === undefined && file.staged)) && onUnstage && (
+                  <Tooltip content={t('git.operations.unstageFile') || '取消暂存'}>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onUnstage(node.path)
+                      }}
+                      className="flex size-5 cursor-pointer items-center justify-center rounded text-ink-soft hover:bg-[var(--overlay-08)] hover:text-warn"
+                    >
+                      <TiMinusOutline className="size-3" />
+                    </button>
+                  </Tooltip>
+                )}
+                {onDiscard && (
+                  <Tooltip content={t('git.operations.discardFile') || '放弃更改'}>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onDiscard(node.path)
+                      }}
+                      className="flex size-5 cursor-pointer items-center justify-center rounded text-ink-soft hover:bg-[var(--overlay-08)] hover:text-fail"
+                    >
+                      <LuUndo2 className="size-3" />
+                    </button>
+                  </Tooltip>
+                )}
+              </>
+            ) : null}
           </div>
-        ) : null}
+        </div>
       </div>
     )
   })
@@ -478,6 +515,7 @@ function PathRows({
   onStage,
   onUnstage,
   onDiscard,
+  repo,
 }: {
   groups: PathGroup[]
   headerOnly?: boolean
@@ -492,22 +530,40 @@ function PathRows({
   onStage?: (path: string) => void
   onUnstage?: (path: string) => void
   onDiscard?: (path: string) => void
+  repo?: string
 }) {
   const t = useT()
   return groups.map((group) => (
     <div key={group.dir || '.'} className="min-h-7">
       {!fileOnly && (
-        <p
-          className="m-0 flex items-center whitespace-nowrap px-2 py-1 text-[11px] font-medium text-ink cursor-default"
+        <div
+          className="group/folderrow m-0 flex items-center justify-between whitespace-nowrap px-2 py-1 text-[11px] font-medium text-ink cursor-default"
           title={group.dir || '/'}
           onContextMenu={(event) => {
             event.preventDefault()
             onFolderContextMenu?.(event, group.dir || '.', group.dir || '/')
           }}
         >
-          <span className="min-w-0 truncate">{group.dir || '/'}</span>
-          <CountMarks counts={tally({ name: '', path: '', children: group.files.map((file) => ({ name: file.path, path: file.path, file, children: [] })) }, conflictCounts)} />
-        </p>
+          <div className="flex items-center min-w-0">
+            <span className="min-w-0 truncate">{group.dir || '/'}</span>
+            <CountMarks counts={tally({ name: '', path: '', children: group.files.map((file) => ({ name: file.path, path: file.path, file, children: [] })) }, conflictCounts)} />
+          </div>
+          <span className="opacity-0 group-hover/folderrow:opacity-100 flex items-center pr-0.5 transition-opacity shrink-0">
+            <Tooltip content={t('git.operations.quoteFolderToAgent') || '引用目录到 Git Agent'}>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  quoteFolderToAgent(group.dir || '.', repo)
+                }}
+                className="flex size-5 cursor-pointer items-center justify-center rounded text-ink-soft hover:bg-[var(--overlay-08)] hover:text-accent"
+                aria-label={t('git.operations.quoteFolderToAgent') || '引用目录到 Git Agent'}
+              >
+                <LuBot className="size-3" />
+              </button>
+            </Tooltip>
+          </span>
+        </div>
       )}
       {!headerOnly &&
         group.files.map((file) => {
@@ -517,6 +573,7 @@ function PathRows({
           return (
             <div
               key={file.path}
+              data-git-file-path={file.path}
               className={cn(
                 'group/filerow flex h-7 w-full items-center justify-between px-2 rounded-none text-xs transition-colors',
                 active ? 'bg-[color-mix(in_oklab,var(--accent)_18%,transparent)] text-ink' : 'hover:bg-[color-mix(in_oklab,var(--accent)_8%,transparent)] text-ink'
@@ -559,54 +616,69 @@ function PathRows({
                 <ConflictMark count={conflictCounts[file.path]} />
               </button>
 
-              {isWorktree ? (
-                <div className="flex shrink-0 items-center gap-1">
-                  <div className="flex items-center opacity-0 group-hover/filerow:opacity-100 transition-opacity">
-                    {(isStagedSection === false || (isStagedSection === undefined && file.unstaged)) && onStage && (
-                      <Tooltip content={t('git.operations.stageFile') || '暂存此文件'}>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            onStage(file.path)
-                          }}
-                          className="flex size-5 cursor-pointer items-center justify-center rounded text-ink-soft hover:bg-[var(--overlay-08)] hover:text-accent"
-                        >
-                          <TiPlusOutline className="size-3" />
-                        </button>
-                      </Tooltip>
-                    )}
-                    {(isStagedSection === true || (isStagedSection === undefined && file.staged)) && onUnstage && (
-                      <Tooltip content={t('git.operations.unstageFile') || '取消暂存'}>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            onUnstage(file.path)
-                          }}
-                          className="flex size-5 cursor-pointer items-center justify-center rounded text-ink-soft hover:bg-[var(--overlay-08)] hover:text-warn"
-                        >
-                          <TiMinusOutline className="size-3" />
-                        </button>
-                      </Tooltip>
-                    )}
-                    {onDiscard && (
-                      <Tooltip content={t('git.operations.discardFile') || '放弃更改'}>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            onDiscard(file.path)
-                          }}
-                          className="flex size-5 cursor-pointer items-center justify-center rounded text-ink-soft hover:bg-[var(--overlay-08)] hover:text-fail"
-                        >
-                          <LuUndo2 className="size-3" />
-                        </button>
-                      </Tooltip>
-                    )}
-                  </div>
+              <div className="flex shrink-0 items-center gap-1">
+                <div className="flex items-center opacity-0 group-hover/filerow:opacity-100 transition-opacity">
+                  <Tooltip content={t('git.operations.quoteFileToAgent') || '引用文件到 Git Agent'}>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        quoteFileToAgent(file.path, file.status, repo)
+                      }}
+                      className="flex size-5 cursor-pointer items-center justify-center rounded text-ink-soft hover:bg-[var(--overlay-08)] hover:text-accent"
+                      aria-label={t('git.operations.quoteFileToAgent') || '引用文件到 Git Agent'}
+                    >
+                      <LuBot className="size-3" />
+                    </button>
+                  </Tooltip>
+                  {isWorktree ? (
+                    <>
+                      {(isStagedSection === false || (isStagedSection === undefined && file.unstaged)) && onStage && (
+                        <Tooltip content={t('git.operations.stageFile') || '暂存此文件'}>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onStage(file.path)
+                            }}
+                            className="flex size-5 cursor-pointer items-center justify-center rounded text-ink-soft hover:bg-[var(--overlay-08)] hover:text-accent"
+                          >
+                            <TiPlusOutline className="size-3" />
+                          </button>
+                        </Tooltip>
+                      )}
+                      {(isStagedSection === true || (isStagedSection === undefined && file.staged)) && onUnstage && (
+                        <Tooltip content={t('git.operations.unstageFile') || '取消暂存'}>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onUnstage(file.path)
+                            }}
+                            className="flex size-5 cursor-pointer items-center justify-center rounded text-ink-soft hover:bg-[var(--overlay-08)] hover:text-warn"
+                          >
+                            <TiMinusOutline className="size-3" />
+                          </button>
+                        </Tooltip>
+                      )}
+                      {onDiscard && (
+                        <Tooltip content={t('git.operations.discardFile') || '放弃更改'}>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onDiscard(file.path)
+                            }}
+                            className="flex size-5 cursor-pointer items-center justify-center rounded text-ink-soft hover:bg-[var(--overlay-08)] hover:text-fail"
+                          >
+                            <LuUndo2 className="size-3" />
+                          </button>
+                        </Tooltip>
+                      )}
+                    </>
+                  ) : null}
                 </div>
-              ) : null}
+              </div>
             </div>
           )
         })}
@@ -924,6 +996,40 @@ export function GitCommitPanel({
     return () => clearTimeout(timer)
   }, [selectedPath, treeRows])
 
+  const handleFocusSelectedFile = useCallback(() => {
+    if (!selectedPath) return
+    const parts = selectedPath.split('/')
+    if (parts.length > 1) {
+      setOpenPaths((prev) => {
+        const next = new Set(prev)
+        let accum = ''
+        for (let i = 0; i < parts.length - 1; i++) {
+          accum = accum ? `${accum}/${parts[i]}` : parts[i]
+          next.add(accum)
+        }
+        return next
+      })
+    }
+    setTimeout(() => {
+      const scrollEl = panelRef.current?.querySelector('[role="list"]') as HTMLElement | null
+      const safePath = typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(selectedPath) : selectedPath.replace(/["\\]/g, '\\$&')
+      const targetEl = panelRef.current?.querySelector(`[data-git-file-path="${safePath}"]`) as HTMLElement | null
+      if (targetEl) {
+        targetEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+        targetEl.classList.add('ring-2', 'ring-accent', 'ring-offset-1')
+        setTimeout(() => {
+          targetEl.classList.remove('ring-2', 'ring-accent', 'ring-offset-1')
+        }, 1200)
+      } else if (scrollEl) {
+        const idx = treeRows.findIndex((row) => row.node.path === selectedPath)
+        if (idx >= 0) {
+          const rowTop = idx * 28
+          scrollEl.scrollTo({ top: Math.max(0, rowTop - scrollEl.clientHeight / 2 + 14), behavior: 'smooth' })
+        }
+      }
+    }, 60)
+  }, [selectedPath, treeRows])
+
   const toggleFolder = (path: string) => {
     setOpenPaths((prev) => {
       const next = new Set(prev)
@@ -1229,6 +1335,15 @@ export function GitCommitPanel({
       )
     }
 
+    // Quote file to Git Agent
+    items.push({
+      key: 'quote-file-agent',
+      label: t('git.operations.quoteFileToAgent') || '引用文件到 Git Agent',
+      icon: <LuBot className="size-3.5 text-accent" />,
+      dividerBefore: true,
+      onSelect: () => quoteFileToAgent(filePath, status, repo),
+    })
+
     // Copy file path is universally available
     items.push({
       key: 'copy-relative',
@@ -1385,6 +1500,15 @@ export function GitCommitPanel({
       )
     }
 
+    // Quote folder to Git Agent
+    items.push({
+      key: 'quote-folder-agent',
+      label: t('git.operations.quoteFolderToAgent') || '引用目录到 Git Agent',
+      icon: <LuBot className="size-3.5 text-accent" />,
+      dividerBefore: true,
+      onSelect: () => quoteFolderToAgent(folderPath, repo),
+    })
+
     setContextMenu({
       anchor: { x: e.clientX, y: e.clientY },
       ariaLabel: folderName,
@@ -1417,6 +1541,7 @@ export function GitCommitPanel({
           onStage={handleStage}
           onUnstage={handleUnstage}
           onDiscard={handleDiscard}
+          repo={repo}
         />
       )
     }
@@ -1440,6 +1565,7 @@ export function GitCommitPanel({
         onUnstage={handleUnstage}
         onDiscard={handleDiscard}
         isSearching={isSearching}
+        repo={repo}
       />
     )
   }
@@ -1466,6 +1592,34 @@ export function GitCommitPanel({
           ) : null}
         </div>
         <div className="flex h-8 items-center justify-end gap-1 [&_button]:size-6">
+          {!isWorktree && commit && (
+            <Tooltip content={t('git.operations.quoteCommitToAgent') || '引用提交到 Git Agent'} placement="bottom">
+              <Button
+                variant="plain"
+                size="icon"
+                className="size-6 text-ink-soft hover:enabled:bg-[var(--overlay-08)] hover:enabled:text-accent"
+                aria-label={t('git.operations.quoteCommitToAgent') || '引用提交到 Git Agent'}
+                onClick={() => quoteCommitToAgent({ hash: commit.hash, summary: commit.subject, author: commit.author }, repo)}
+              >
+                <LuBot className="size-3.5 text-accent" />
+              </Button>
+            </Tooltip>
+          )}
+
+          {selectedPath && (
+            <Tooltip content={t('git.operations.locateCurrentFile') || '定位到当前选中文件'} placement="bottom">
+              <Button
+                variant="plain"
+                size="icon"
+                className="size-6 text-ink-soft hover:enabled:bg-[var(--overlay-08)] hover:enabled:text-accent"
+                aria-label={t('git.operations.locateCurrentFile') || '定位到当前选中文件'}
+                onClick={handleFocusSelectedFile}
+              >
+                <LuCrosshair className="size-3.5" />
+              </Button>
+            </Tooltip>
+          )}
+
           {/* Main search dropdown for unified mode */}
           {(!isWorktree || worktreeLayout === 'unified') && (
             <GitSearchDropdown
@@ -1742,6 +1896,7 @@ export function GitCommitPanel({
                 onStage={handleStage}
                 onUnstage={handleUnstage}
                 onDiscard={handleDiscard}
+                repo={repo}
               />
             )
           }}
@@ -1775,6 +1930,7 @@ export function GitCommitPanel({
                 onDiscard={handleDiscard}
                 isSearching={isSearching}
                 recursive={false}
+                repo={repo}
               />
             )
           }}

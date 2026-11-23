@@ -588,10 +588,10 @@ export function GitFileDiff({
   hasConflict,
   onOpenConflictView: _onOpenConflictView,
   initialTab,
-  onTabChange: _onTabChange,
+  onTabChange,
   onLocateCommit,
-  onOpenFileHistory,
-  onOpenFileBlame,
+  onOpenFileHistory: _onOpenFileHistory,
+  onOpenFileBlame: _onOpenFileBlame,
 }: Props) {
   const t = useT()
   const [tabInternal, setTabInternal] = useState<'diff' | 'history' | 'blame'>(initialTab || 'diff')
@@ -684,10 +684,43 @@ export function GitFileDiff({
   const [loading, setLoading] = useState(true)
   const mark = fileStatus(status, t)
   const StatusIcon = mark.Icon
+
+  type ViewMode = 'file' | 'diff' | 'history' | 'blame'
+
+  const currentView: ViewMode = useMemo(() => {
+    if (activeTab === 'history') return 'history'
+    if (activeTab === 'blame') return 'blame'
+    return mode === 'file' ? 'file' : 'diff'
+  }, [activeTab, mode])
+
+  const handleViewChange = useCallback(
+    (nextView: string) => {
+      const v = nextView as ViewMode
+      if (v === 'file') {
+        setMode('file')
+        setTabInternal('diff')
+        onTabChange?.('diff')
+      } else if (v === 'diff') {
+        setMode('diff')
+        setTabInternal('diff')
+        onTabChange?.('diff')
+      } else if (v === 'history') {
+        setTabInternal('history')
+        onTabChange?.('history')
+      } else if (v === 'blame') {
+        setTabInternal('blame')
+        onTabChange?.('blame')
+      }
+    },
+    [setMode, onTabChange]
+  )
+
   const modeItems = useMemo(
     () => [
       { id: 'file' as const, label: t('git.diff.fileView'), icon: <LuFileText />, panelId: 'git-file-view' },
       { id: 'diff' as const, label: t('git.diff.diffView'), icon: <LuGitCompareArrows />, panelId: 'git-diff-view' },
+      { id: 'history' as const, label: t('git.operations.fileHistory') || '文件历史', icon: <LuFileClock />, panelId: 'git-history-view' },
+      { id: 'blame' as const, label: t('git.operations.fileBlame') || '逐行追溯', icon: <LuFingerprint />, panelId: 'git-blame-view' },
     ],
     [t]
   )
@@ -708,7 +741,7 @@ export function GitFileDiff({
   )
   const resolvedKind = gitFileKind(path, changes?.contentBinary === true)
   const showDiffViewports = resolvedKind === 'text' || resolvedKind === 'markdown' || resolvedKind === 'svg'
-  const showFilePane = mode === 'file' && (resolvedKind === 'svg' || resolvedKind === 'markdown')
+  const showFilePane = currentView === 'file' && (resolvedKind === 'svg' || resolvedKind === 'markdown')
 
   useEffect(() => {
     let cancelled = false
@@ -984,7 +1017,7 @@ export function GitFileDiff({
             />
           ) : (
             <>
-              <SegmentedNav aria-label={t('git.diff.contentMode')} size="mini" value={mode} onChange={setMode} items={modeItems} />
+              <SegmentedNav aria-label={t('git.diff.contentMode')} size="mini" value={currentView} onChange={handleViewChange} items={modeItems} />
               {showFilePane ? (
                 <SegmentedNav
                   aria-label={resolvedKind === 'svg' ? t('git.diff.svgView') : t('git.diff.markdownView')}
@@ -994,7 +1027,7 @@ export function GitFileDiff({
                   items={paneItems}
                 />
               ) : null}
-              {mode === 'diff' && showDiffViewports ? (
+              {currentView === 'diff' && showDiffViewports ? (
                 <SegmentedNav aria-label={t('git.diff.viewport')} size="mini" value={viewport} onChange={setViewport} items={viewportItems} />
               ) : null}
             </>
@@ -1066,24 +1099,6 @@ export function GitFileDiff({
             >
               <LuSearch className="size-3.5" aria-hidden />
             </Button>
-          ) : null}
-
-          {/* Dedicated File History Button */}
-          {onOpenFileHistory ? (
-            <Tooltip content={t('git.operations.fileHistory') || 'File History'}>
-              <Button variant="plain" size="mini" onClick={() => onOpenFileHistory(path)} aria-label={t('git.operations.fileHistory')}>
-                <LuFileClock className="size-3.5 text-accent" />
-              </Button>
-            </Tooltip>
-          ) : null}
-
-          {/* Dedicated File Blame Button */}
-          {onOpenFileBlame ? (
-            <Tooltip content={t('git.operations.fileBlame') || 'File Blame'}>
-              <Button variant="plain" size="mini" onClick={() => onOpenFileBlame(path)} aria-label={t('git.operations.fileBlame')}>
-                <LuFingerprint className="size-3.5 text-accent" />
-              </Button>
-            </Tooltip>
           ) : null}
 
           {/* Conflict / Changes toggle button */}

@@ -59,11 +59,21 @@ export function GitModeSwitcher({
       const targetProjects = catalog.projects || []
 
       // Look for a matching project in target mode
+      const repoBasename = repoIdent ? repoIdent.split(/[/\\]/).filter(Boolean).pop() || '' : ''
       const match = targetProjects.find((p) => {
         // 1. By project name
         if (nameIdent && p.name && p.name.toLowerCase() === nameIdent.toLowerCase()) return true
-        // 2. By localPath / id
-        if (repoIdent && (p.localPath === repoIdent || p.id === repoIdent)) return true
+        if (repoBasename && p.name && p.name.toLowerCase() === repoBasename.toLowerCase()) return true
+        // 2. By localPath / id / folder basename
+        if (repoIdent) {
+          if (p.localPath === repoIdent || p.id === repoIdent) return true
+          const pBasename = (p.localPath || p.id || '').split(/[/\\]/).filter(Boolean).pop() || ''
+          if (repoBasename && pBasename && pBasename.toLowerCase() === repoBasename.toLowerCase()) return true
+        }
+        if (nameIdent) {
+          if (p.id?.toLowerCase() === nameIdent.toLowerCase()) return true
+          if (p.localPath?.toLowerCase().endsWith(`/${nameIdent.toLowerCase()}`)) return true
+        }
         // 3. By normalized remote URL
         if (remoteIdent) {
           const kTarget = normalizeRemote(remoteIdent)?.key?.toLowerCase()
@@ -75,10 +85,15 @@ export function GitModeSwitcher({
         return false
       })
 
+      // Invalidate caches in both drivers to guarantee freshly synchronized repository content
+      targetDriver.clearCache?.()
+      const currentDriver = getGitDriver(isEdge ? 'edge' : 'local')
+      currentDriver.clearCache?.()
+
       setMode(nextMode)
 
       if (match) {
-        const nextRepo = nextMode === 'local' ? match.localPath || match.id : match.localPath || match.name
+        const nextRepo = nextMode === 'local' ? match.localPath || match.id : match.id || match.localPath || match.name
         const nextUrl = match.id ? `/git/${match.id}` : `/git?repo=${encodeURIComponent(nextRepo)}`
         if (typeof window !== 'undefined') {
           window.history.replaceState(null, '', nextUrl)

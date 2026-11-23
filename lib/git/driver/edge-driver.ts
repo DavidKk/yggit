@@ -307,6 +307,14 @@ export class EdgeGitDriver implements IGitDriver {
     return pending
   }
 
+  clearCache(repo?: string): void {
+    if (repo) {
+      this.repositories.delete(repo)
+    } else {
+      this.repositories.clear()
+    }
+  }
+
   async isAvailable(): Promise<boolean> {
     return typeof window !== 'undefined' || typeof global !== 'undefined'
   }

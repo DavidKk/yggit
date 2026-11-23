@@ -1411,12 +1411,11 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                 onRefreshProjects={refreshProjects}
               />
             </div>
-            {view?.repo ? (
-              <>
-                <span className="mx-1 h-3.5 w-px shrink-0 bg-[color-mix(in_oklab,var(--ink)_14%,transparent)]" aria-hidden />
+            <div className="flex flex-1 items-center justify-center min-w-0">
+              {view?.repo ? (
                 <GitToolbar repo={view.repo} currentBranch={view.head || view.branch} hasStashes={view.stashes.length > 0} disabled={busy} onRefresh={silentRefresh} />
-              </>
-            ) : null}
+              ) : null}
+            </div>
           </WorkspaceHeaderSlot>
         ) : (
           <header className="flex shrink-0 items-center gap-3 border-b border-line bg-panel-2/60 px-3 py-1.5">
@@ -1494,12 +1493,11 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                 onRefreshProjects={refreshProjects}
               />
             </div>
-            {view?.repo ? (
-              <>
-                <span className="mx-1 h-3.5 w-px shrink-0 bg-[color-mix(in_oklab,var(--ink)_14%,transparent)]" aria-hidden />
+            <div className="flex flex-1 items-center justify-center min-w-0">
+              {view?.repo ? (
                 <GitToolbar repo={view.repo} currentBranch={view.head || view.branch} hasStashes={view.stashes.length > 0} disabled={busy} onRefresh={silentRefresh} />
-              </>
-            ) : null}
+              ) : null}
+            </div>
             <div className="ml-auto flex shrink-0 items-center gap-1.5">
               <GitModeSwitcher
                 currentRepo={view?.repo}
@@ -1516,8 +1514,10 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                   setFilePanel(null)
                   if (targetRepo) {
                     await load(targetRepo)
+                    void refreshProjects()
                   } else {
                     router.push('/git')
+                    void refreshProjects()
                   }
                 }}
               />

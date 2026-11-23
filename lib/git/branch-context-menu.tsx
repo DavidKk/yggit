@@ -33,6 +33,7 @@ import {
   LuUser,
 } from 'react-icons/lu'
 
+import { quoteBranchToAgent, quoteCommitToAgent } from '@/lib/agent/agent-quote'
 import { copyToClipboard } from '@/lib/clipboard'
 import type { ContextMenuUserConfig } from '@/lib/git/context-menu-config'
 import { makeShareUrl } from '@/lib/git/resolver'
@@ -84,6 +85,15 @@ export interface BuildBranchMenuOptions {
   onStashAction?: (action: 'apply' | 'pop' | 'drop' | 'save', index?: number) => void
   onSoloBranch?: (branch: string | null) => void
   onSetUpstream?: (branchName: string) => void
+  onPinBranch?: (branchName: string) => void
+  isPinned?: boolean
+  onHideBranch?: (branchName: string) => void
+  isHidden?: boolean
+  onCompareWorkdir?: (branchName: string) => void
+  onResetBranch?: (hash: string, mode: 'soft' | 'mixed') => void
+  onRevertCommit?: (hash: string) => void
+  onCreateTag?: (target: string) => void
+  onCreateAnnotatedTag?: (target: string) => void
   onAgentPrompt?: (prompt: string) => void
 }
 
@@ -146,6 +156,15 @@ export function buildBranchContextMenu({
   onStashAction,
   onSoloBranch,
   onSetUpstream,
+  onPinBranch,
+  isPinned = false,
+  onHideBranch,
+  isHidden = false,
+  onCompareWorkdir,
+  onResetBranch,
+  onRevertCommit,
+  onCreateTag,
+  onCreateAnnotatedTag,
   onAgentPrompt,
 }: BuildBranchMenuOptions): FloatingMenuItem[] {
   const shortHash = commit?.short || commit?.hash?.slice(0, 7) || ''
@@ -399,7 +418,11 @@ export function buildBranchContextMenu({
       label: tr('git.operations.createTag', '创建标签…'),
       icon: <LuTag className="size-4 shrink-0 text-ink-soft" />,
       onSelect: () => {
-        onNotify?.('success', `在此提交创建标签：${shortHash}`)
+        if (onCreateTag && (commit?.hash || branchName)) {
+          onCreateTag(commit?.hash || branchName || '')
+        } else {
+          onNotify?.('success', `在此提交创建标签：${shortHash}`)
+        }
       },
     },
     'delete-branch': {
@@ -463,16 +486,43 @@ export function buildBranchContextMenu({
         ? tr('git.operations.resetToCommit', `重置当前分支到此提交 (${shortHash})`, { hash: shortHash })
         : tr('git.operations.resetToCommit', '重置当前分支到此提交…'),
       icon: <LuRotateCcw className="size-4 shrink-0 text-warn" />,
-      onSelect: () => {
-        onNotify?.('success', `重置到提交：${shortHash}`)
-      },
+      children: [
+        {
+          key: 'reset-soft',
+          label: tr('git.operations.resetSoftDesc', 'Soft (保留工作区与暂存区)'),
+          icon: <LuUndo2 className="size-3.5 shrink-0" />,
+          onSelect: () => {
+            if (onResetBranch && (commit?.hash || shortHash)) {
+              onResetBranch(commit?.hash || shortHash, 'soft')
+            } else {
+              onNotify?.('success', `软重置到：${shortHash}`)
+            }
+          },
+        },
+        {
+          key: 'reset-mixed',
+          label: tr('git.operations.resetMixedDesc', 'Mixed (保留工作区，清空暂存区)'),
+          icon: <LuUndo2 className="size-3.5 shrink-0" />,
+          onSelect: () => {
+            if (onResetBranch && (commit?.hash || shortHash)) {
+              onResetBranch(commit?.hash || shortHash, 'mixed')
+            } else {
+              onNotify?.('success', `重置到：${shortHash}`)
+            }
+          },
+        },
+      ],
     },
     'revert-commit': {
       key: 'revert-commit',
       label: shortHash ? tr('git.operations.revertCommit', `撤销提交 (Revert ${shortHash})`, { hash: shortHash }) : tr('git.operations.revertCommit', '撤销此提交 (Revert)'),
       icon: <LuUndo2 className="size-4 shrink-0 text-warn" />,
       onSelect: () => {
-        onNotify?.('success', `准备 Revert 提交：${shortHash}`)
+        if (onRevertCommit && (commit?.hash || shortHash)) {
+          onRevertCommit(commit?.hash || shortHash)
+        } else {
+          onNotify?.('success', `准备 Revert 提交：${shortHash}`)
+        }
       },
     },
     'create-annotated-tag': {
@@ -480,7 +530,11 @@ export function buildBranchContextMenu({
       label: tr('git.operations.createAnnotatedTag', '创建附注标签 (Annotated Tag)…'),
       icon: <LuTag className="size-4 shrink-0 text-ink-soft" />,
       onSelect: () => {
-        onNotify?.('success', `创建附注标签：${shortHash}`)
+        if (onCreateAnnotatedTag && (commit?.hash || branchName)) {
+          onCreateAnnotatedTag(commit?.hash || branchName || '')
+        } else {
+          onNotify?.('success', `创建附注标签：${shortHash}`)
+        }
       },
     },
     'compare-workdir': {
@@ -488,23 +542,35 @@ export function buildBranchContextMenu({
       label: tr('git.operations.compareWorkdir', '与工作区对比 (Compare with Working Tree)'),
       icon: <LuGitCompare className="size-4 shrink-0 text-ink-soft" />,
       onSelect: () => {
-        onNotify?.('success', `对比工作区：${shortHash}`)
+        if (onCompareWorkdir && branchName) {
+          onCompareWorkdir(branchName)
+        } else {
+          onNotify?.('success', `对比工作区：${branchName || shortHash}`)
+        }
       },
     },
     'pin-branch': {
       key: 'pin-branch',
-      label: tr('git.operations.pinBranch', '固定到左侧 (Pin to Left)'),
+      label: isPinned ? tr('git.operations.unpinBranch', '取消固定 (Unpin)') : tr('git.operations.pinBranch', '固定到左侧 (Pin to Left)'),
       icon: <LuPin className="size-4 shrink-0 text-ink-soft" />,
       onSelect: () => {
-        onNotify?.('success', `已固定分支：${branchName || ''}`)
+        if (onPinBranch && branchName) {
+          onPinBranch(branchName)
+        } else {
+          onNotify?.('success', `已切换固定状态：${branchName || ''}`)
+        }
       },
     },
     'hide-branch': {
       key: 'hide-branch',
-      label: tr('git.operations.hideBranch', '隐藏分支 (Hide)'),
-      icon: <LuEyeOff className="size-4 shrink-0 text-ink-soft" />,
+      label: isHidden ? tr('git.operations.unhideBranch', '取消隐藏 (Unhide)') : tr('git.operations.hideBranch', '隐藏分支 (Hide)'),
+      icon: isHidden ? <LuEye className="size-4 shrink-0 text-accent" /> : <LuEyeOff className="size-4 shrink-0 text-ink-soft" />,
       onSelect: () => {
-        onNotify?.('success', `已隐藏分支：${branchName || ''}`)
+        if (onHideBranch && branchName) {
+          onHideBranch(branchName)
+        } else {
+          onNotify?.('success', `已切换隐藏状态：${branchName || ''}`)
+        }
       },
     },
   }
@@ -559,7 +625,51 @@ export function buildBranchContextMenu({
     })
   }
 
-  // 5. "Copy" submenu
+  // 5. "Commit & Reset operations" submenu
+  const showCommitGroup = (config.enabledGroups as any).commit !== false && (commit?.hash || onCreateTag || onResetBranch)
+  if (showCommitGroup) {
+    const commitChildren: FloatingMenuItem[] = []
+    if (commit?.hash) {
+      commitChildren.push(allActions['cherry-pick'])
+      commitChildren.push(allActions['undo-commit'])
+      commitChildren.push(allActions['revert-commit'])
+      commitChildren.push(allActions['reset-commit'])
+    }
+    commitChildren.push(allActions['create-tag'])
+    commitChildren.push(allActions['create-annotated-tag'])
+
+    if (commitChildren.length > 0) {
+      items.push({
+        key: 'menu-commit-group',
+        label: tr('git.operations.groupCommitOps', '提交与重置'),
+        icon: <LuGitCommitHorizontal className="size-4 shrink-0 text-ink-soft" />,
+        children: commitChildren,
+      })
+    }
+  }
+
+  // 6. "View & Compare" submenu
+  const showViewGroup = (config.enabledGroups as any).view !== false && Boolean(branchName || onCompareWorkdir || onPinBranch || onHideBranch)
+  if (showViewGroup) {
+    const viewChildren: FloatingMenuItem[] = []
+    viewChildren.push(allActions['compare-workdir'])
+    viewChildren.push(allActions['pin-branch'])
+    viewChildren.push(allActions['hide-branch'])
+    if (onSetUpstream) {
+      viewChildren.push(allActions['set-upstream'])
+    }
+
+    if (viewChildren.length > 0) {
+      items.push({
+        key: 'menu-view-group',
+        label: tr('git.operations.groupViewOps', '视图与对比'),
+        icon: <LuEye className="size-4 shrink-0 text-ink-soft" />,
+        children: viewChildren,
+      })
+    }
+  }
+
+  // 7. "Copy" submenu
   if (config.enabledGroups.copy) {
     const copyChildren: FloatingMenuItem[] = []
     if (cleanBranch || branchName) copyChildren.push(allActions['copy-branch'])
@@ -596,6 +706,31 @@ export function buildBranchContextMenu({
   // 6. "Open in Remote" entry (when remote repository URL is available)
   if (config.enabledGroups.remote && remoteUrl) {
     items.push(allActions['open-remote'])
+  }
+
+  // Quick quote branch or commit to Git Agent
+  if (branchName) {
+    items.push({
+      key: 'quote-branch-to-agent',
+      label: isRemote ? tr('git.operations.quoteRemoteToAgent', '引用远端分支到 Git Agent') : tr('git.operations.quoteBranchToAgent', '引用分支到 Git Agent'),
+      icon: <LuBot className="size-4 shrink-0 text-accent" />,
+      dividerBefore: true,
+      onSelect: () => {
+        quoteBranchToAgent(branchName, isRemote, repo)
+      },
+    })
+  }
+
+  if (commit) {
+    items.push({
+      key: 'quote-commit-to-agent',
+      label: tr('git.operations.quoteCommitToAgent', '引用提交到 Git Agent'),
+      icon: <LuBot className="size-4 shrink-0 text-accent" />,
+      dividerBefore: !branchName,
+      onSelect: () => {
+        quoteCommitToAgent({ hash: commit.hash, summary: commit.subject, author: commit.author }, repo)
+      },
+    })
   }
 
   // 7. "Agent Intelligent Capabilities" (custom actions enabled in configuration)

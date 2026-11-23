@@ -83,6 +83,7 @@ export interface WorkdeskMessages {
   }
   detail: {
     taskList: string
+    taskSet: string
     targetProject: string
     targetBranch: string
     problemBranch: string
@@ -90,12 +91,23 @@ export interface WorkdeskMessages {
     causeTitle: string
     riskTitle: string
     suggestionTitle: string
+    solutionTitle: string
+    closeTaskSet: string
     agentAssistTitle: string
     agentAssistDesc: string
     diagnosisDesc: string
     evidenceDesc: string
     openRepo: string
     selectPrompt: string
+  }
+  problemTitles: {
+    merge: string
+    sync: string
+    worktree: string
+    standard: string
+    organization: string
+    review: string
+    default: string
   }
   import: {
     title: string
