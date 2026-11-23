@@ -10,13 +10,103 @@ export interface AgentCustomMenuAction {
   enabled: boolean
 }
 
+export type ContextMenuPresetId = 'standard' | 'minimal' | 'review' | 'expert'
+
+export interface ContextMenuPreset {
+  id: ContextMenuPresetId
+  name: string
+  desc: string
+  badge?: string
+  quickActions: string[]
+  enabledGroups: {
+    copy: boolean
+    branch: boolean
+    commit: boolean
+    view: boolean
+    worktree: boolean
+    remote: boolean
+    agent: boolean
+  }
+}
+
+export const CONTEXT_MENU_PRESETS: Record<ContextMenuPresetId, ContextMenuPreset> = {
+  standard: {
+    id: 'standard',
+    name: '标准模式',
+    desc: '按右键列智能聚焦首要操作，核心功能置顶，完整高级操作收纳于二级菜单',
+    badge: '默认推荐',
+    quickActions: ['checkout-branch', 'merge-branch', 'rebase-branch', 'new-branch'],
+    enabledGroups: {
+      copy: true,
+      branch: true,
+      commit: true,
+      view: true,
+      worktree: true,
+      remote: true,
+      agent: true,
+    },
+  },
+  minimal: {
+    id: 'minimal',
+    name: '极简模式',
+    desc: '极致简洁，一级仅保留最高频操作与快捷引用，最大化减少视觉干扰',
+    badge: '极简',
+    quickActions: ['checkout-branch', 'new-branch'],
+    enabledGroups: {
+      copy: true,
+      branch: true,
+      commit: true,
+      view: false,
+      worktree: false,
+      remote: true,
+      agent: true,
+    },
+  },
+  review: {
+    id: 'review',
+    name: '审查模式',
+    desc: '侧重代码审查、提交对比、工单卡片复制与远程仓库直达',
+    badge: '代码审查',
+    quickActions: ['checkout-branch', 'merge-branch', 'compare-workdir', 'copy-hash', 'open-remote'],
+    enabledGroups: {
+      copy: true,
+      branch: true,
+      commit: true,
+      view: true,
+      worktree: false,
+      remote: true,
+      agent: true,
+    },
+  },
+  expert: {
+    id: 'expert',
+    name: '专家模式',
+    desc: '展开变基、遴选、暂存等丰富快捷动作，适合高效键盘与鼠标流用户',
+    badge: '全能',
+    quickActions: ['checkout-branch', 'merge-branch', 'rebase-branch', 'cherry-pick', 'new-branch', 'stash-changes'],
+    enabledGroups: {
+      copy: true,
+      branch: true,
+      commit: true,
+      view: true,
+      worktree: true,
+      remote: true,
+      agent: true,
+    },
+  },
+}
+
 export interface ContextMenuUserConfig {
+  /** 当前预设模式 */
+  presetMode?: ContextMenuPresetId
   /** 快捷区：直接在主菜单一级置顶展示的操作 ID 列表（无需进入二级子菜单） */
   quickActions: string[]
   /** 分组区：各二级子菜单的启用状态 */
   enabledGroups: {
     copy: boolean
     branch: boolean
+    commit?: boolean
+    view?: boolean
     worktree: boolean
     remote: boolean
     agent: boolean
@@ -33,14 +123,9 @@ export const CONTEXT_MENU_STORAGE_KEY = 'yggit.context-menu.config.v2'
 const OLD_CONTEXT_MENU_STORAGE_KEY = 'yggit.context-menu.config.v1'
 
 export const DEFAULT_CONTEXT_MENU_CONFIG: ContextMenuUserConfig = {
-  quickActions: ['checkout-branch', 'merge-branch', 'rebase-branch', 'new-branch'],
-  enabledGroups: {
-    copy: true,
-    branch: true,
-    worktree: true,
-    remote: true,
-    agent: true,
-  },
+  presetMode: 'standard',
+  quickActions: CONTEXT_MENU_PRESETS.standard.quickActions,
+  enabledGroups: { ...CONTEXT_MENU_PRESETS.standard.enabledGroups },
   dangerConfirm: true,
   hideUnavailableCapabilities: true,
   agentActions: [

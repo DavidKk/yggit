@@ -418,6 +418,7 @@ export const gitCht: GitMessages = {
     unstagedBadge: '未暫存',
     conflictBadge: '衝突',
     groupBranchOps: '分支操作',
+    groupRelatedBranchOps: '關聯分支操作',
     groupRemoteSync: '遠端同步',
     groupDangerous: '危險操作',
     groupActions: '操作',

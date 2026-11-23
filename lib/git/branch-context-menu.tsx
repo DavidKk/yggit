@@ -58,6 +58,7 @@ export type FloatingMenuItem = {
 }
 
 export interface BuildBranchMenuOptions {
+  target?: 'branch' | 'commit' | 'graph'
   branchName?: string
   rawBranchName?: string
   remoteNames?: string[]
@@ -129,6 +130,7 @@ export function stripRemotePrefix(branch?: string, remoteNames?: string[]): stri
  * - Agent extension capabilities
  */
 export function buildBranchContextMenu({
+  target,
   branchName,
   rawBranchName,
   remoteNames,
@@ -169,6 +171,7 @@ export function buildBranchContextMenu({
 }: BuildBranchMenuOptions): FloatingMenuItem[] {
   const shortHash = commit?.short || commit?.hash?.slice(0, 7) || ''
   const tr = (key: string, fallback: string, vars?: any) => (t ? t(key, vars) || fallback : fallback)
+  const resolvedTarget: 'branch' | 'commit' | 'graph' = target || (branchName ? 'branch' : 'commit')
   const copyVal = async (text: string) => {
     const ok = await copyToClipboard(text)
     if (ok) onNotify?.('success', tr('git.operations.copiedToClipboard', '已复制到剪贴板'))
@@ -575,9 +578,27 @@ export function buildBranchContextMenu({
     },
   }
 
+  const quoteBranchAction: FloatingMenuItem = {
+    key: 'quote-branch-to-agent',
+    label: isRemote ? tr('git.operations.quoteRemoteToAgent', '引用远端分支到 Git Agent') : tr('git.operations.quoteBranchToAgent', '引用分支到 Git Agent'),
+    icon: <LuBot className="size-4 shrink-0 text-accent" />,
+    onSelect: () => {
+      if (branchName) quoteBranchToAgent(branchName, isRemote, repo)
+    },
+  }
+
+  const quoteCommitAction: FloatingMenuItem = {
+    key: 'quote-commit-to-agent',
+    label: tr('git.operations.quoteCommitToAgent', '引用提交到 Git Agent'),
+    icon: <LuBot className="size-4 shrink-0 text-accent" />,
+    onSelect: () => {
+      if (commit) quoteCommitToAgent({ hash: commit.hash, summary: commit.subject, author: commit.author }, repo)
+    },
+  }
+
   const items: FloatingMenuItem[] = []
 
-  // 2. Quick Actions Area: Pinned top-level items
+  // 2. Quick Actions Area: Pinned top-level items filtered by target focus
   for (const actionId of config.quickActions || []) {
     const action = allActions[actionId]
     if (action) {
@@ -585,22 +606,62 @@ export function buildBranchContextMenu({
       if (config.hideUnavailableCapabilities && isReadOnly && ['checkout-branch', 'rename-branch', 'delete-branch'].includes(actionId)) {
         continue
       }
+      // If right clicking on commit column, branch mutation actions are kept in branch submenu
+      if (resolvedTarget === 'commit' && ['rename-branch', 'delete-branch'].includes(actionId)) {
+        continue
+      }
+      // If right clicking on branch column, commit-specific action like cherry-pick is kept in commit submenu
+      if (resolvedTarget === 'branch' && ['cherry-pick', 'reset-commit', 'revert-commit'].includes(actionId)) {
+        continue
+      }
       items.push({ ...action })
     }
   }
 
-  // 3. SOLO branch view entry (when branch is specified and solo view is supported)
-  if (branchName && onSoloBranch) {
+  // 3. Focused Quick Quote to Git Agent (Only ONE quote action in top-level matching target focus)
+  if (resolvedTarget === 'branch') {
+    if (branchName) {
+      items.push({
+        ...quoteBranchAction,
+        dividerBefore: items.length > 0,
+      })
+    }
+  } else if (resolvedTarget === 'commit') {
+    if (commit) {
+      items.push({
+        ...quoteCommitAction,
+        dividerBefore: items.length > 0,
+      })
+    }
+  } else {
+    // graph node / author
+    if (commit) {
+      items.push({
+        ...quoteCommitAction,
+        dividerBefore: items.length > 0,
+      })
+    }
+  }
+
+  // 4. SOLO branch view entry (when branch is specified and solo view is supported, focused on branch)
+  if (branchName && onSoloBranch && resolvedTarget === 'branch') {
     items.push({
       ...allActions['solo-branch'],
       dividerBefore: items.length > 0,
     })
   }
 
-  // 4. "Branch operations" submenu (dynamically filtered by repository capabilities; read-only mode hides write operations)
+  // 5. "Branch operations" submenu (dynamically filtered by repository capabilities; read-only mode hides write operations)
   const showBranchGroup = config.enabledGroups.branch && (!isReadOnly || !config.hideUnavailableCapabilities)
   if (showBranchGroup && branchName) {
-    const branchChildren: FloatingMenuItem[] = [
+    const branchChildren: FloatingMenuItem[] = []
+
+    // If focused on commit, tuck quoteBranchAction into this submenu
+    if (resolvedTarget !== 'branch') {
+      branchChildren.push({ ...quoteBranchAction, dividerBefore: false })
+    }
+
+    branchChildren.push(
       allActions['checkout-branch'],
       allActions['new-branch'],
       allActions['rename-branch'],
@@ -608,8 +669,8 @@ export function buildBranchContextMenu({
       allActions['rebase-branch'],
       allActions['pull-branch'],
       allActions['push-branch'],
-      allActions['create-tag'],
-    ]
+      allActions['create-tag']
+    )
 
     // Destructive operations placed at the bottom of submenu
     branchChildren.push({
@@ -617,18 +678,26 @@ export function buildBranchContextMenu({
       dividerBefore: true,
     })
 
+    const branchGroupLabel = resolvedTarget === 'commit' ? tr('git.operations.groupRelatedBranchOps', '关联分支操作') : tr('git.operations.groupBranchOps', '分支操作')
+
     items.push({
       key: 'menu-branch-group',
-      label: tr('git.operations.groupBranchOps', '分支操作'),
+      label: branchGroupLabel,
       icon: <LuGitBranch className="size-4 shrink-0 text-ink-soft" />,
       children: branchChildren,
     })
   }
 
-  // 5. "Commit & Reset operations" submenu
+  // 6. "Commit & Reset operations" submenu
   const showCommitGroup = (config.enabledGroups as any).commit !== false && (commit?.hash || onCreateTag || onResetBranch)
   if (showCommitGroup) {
     const commitChildren: FloatingMenuItem[] = []
+
+    // If focused on branch, tuck quoteCommitAction into this submenu
+    if (resolvedTarget !== 'commit' && commit) {
+      commitChildren.push({ ...quoteCommitAction, dividerBefore: false })
+    }
+
     if (commit?.hash) {
       commitChildren.push(allActions['cherry-pick'])
       commitChildren.push(allActions['undo-commit'])
@@ -648,13 +717,15 @@ export function buildBranchContextMenu({
     }
   }
 
-  // 6. "View & Compare" submenu
+  // 7. "View & Compare" submenu
   const showViewGroup = (config.enabledGroups as any).view !== false && Boolean(branchName || onCompareWorkdir || onPinBranch || onHideBranch)
   if (showViewGroup) {
     const viewChildren: FloatingMenuItem[] = []
     viewChildren.push(allActions['compare-workdir'])
-    viewChildren.push(allActions['pin-branch'])
-    viewChildren.push(allActions['hide-branch'])
+    if (branchName) {
+      viewChildren.push(allActions['pin-branch'])
+      viewChildren.push(allActions['hide-branch'])
+    }
     if (onSetUpstream) {
       viewChildren.push(allActions['set-upstream'])
     }
@@ -669,15 +740,21 @@ export function buildBranchContextMenu({
     }
   }
 
-  // 7. "Copy" submenu
+  // 8. "Copy" submenu
   if (config.enabledGroups.copy) {
     const copyChildren: FloatingMenuItem[] = []
-    if (cleanBranch || branchName) copyChildren.push(allActions['copy-branch'])
-    if (fullBranch && cleanBranch && fullBranch !== cleanBranch) copyChildren.push(allActions['copy-full-branch'])
-    if (commit?.hash) copyChildren.push(allActions['copy-hash'])
-    if (commit?.subject) copyChildren.push(allActions['copy-subject'])
-    if (commit?.author) copyChildren.push(allActions['copy-author'])
-    if (commit?.date) copyChildren.push(allActions['copy-date'])
+    if (resolvedTarget === 'branch') {
+      if (cleanBranch || branchName) copyChildren.push(allActions['copy-branch'])
+      if (fullBranch && cleanBranch && fullBranch !== cleanBranch) copyChildren.push(allActions['copy-full-branch'])
+      if (commit?.hash) copyChildren.push(allActions['copy-hash'])
+      if (commit?.subject) copyChildren.push(allActions['copy-subject'])
+    } else {
+      if (commit?.hash) copyChildren.push(allActions['copy-hash'])
+      if (commit?.subject) copyChildren.push(allActions['copy-subject'])
+      if (commit?.author) copyChildren.push(allActions['copy-author'])
+      if (commit?.date) copyChildren.push(allActions['copy-date'])
+      if (cleanBranch || branchName) copyChildren.push(allActions['copy-branch'])
+    }
     if (commit?.hash) copyChildren.push(allActions['copy-share-link'])
     if (commit) copyChildren.push(allActions['copy-issue-card'])
 
@@ -692,7 +769,7 @@ export function buildBranchContextMenu({
     }
   }
 
-  // 5. "Worktree" submenu (displayed when repository supports worktrees and not read-only)
+  // 9. "Worktree" submenu (displayed when repository supports worktrees and not read-only)
   const showWorktree = config.enabledGroups.worktree && (hasWorktrees || !config.hideUnavailableCapabilities) && !isReadOnly
   if (showWorktree) {
     items.push({
@@ -703,37 +780,12 @@ export function buildBranchContextMenu({
     })
   }
 
-  // 6. "Open in Remote" entry (when remote repository URL is available)
+  // 10. "Open in Remote" entry (when remote repository URL is available)
   if (config.enabledGroups.remote && remoteUrl) {
     items.push(allActions['open-remote'])
   }
 
-  // Quick quote branch or commit to Git Agent
-  if (branchName) {
-    items.push({
-      key: 'quote-branch-to-agent',
-      label: isRemote ? tr('git.operations.quoteRemoteToAgent', '引用远端分支到 Git Agent') : tr('git.operations.quoteBranchToAgent', '引用分支到 Git Agent'),
-      icon: <LuBot className="size-4 shrink-0 text-accent" />,
-      dividerBefore: true,
-      onSelect: () => {
-        quoteBranchToAgent(branchName, isRemote, repo)
-      },
-    })
-  }
-
-  if (commit) {
-    items.push({
-      key: 'quote-commit-to-agent',
-      label: tr('git.operations.quoteCommitToAgent', '引用提交到 Git Agent'),
-      icon: <LuBot className="size-4 shrink-0 text-accent" />,
-      dividerBefore: !branchName,
-      onSelect: () => {
-        quoteCommitToAgent({ hash: commit.hash, summary: commit.subject, author: commit.author }, repo)
-      },
-    })
-  }
-
-  // 7. "Agent Intelligent Capabilities" (custom actions enabled in configuration)
+  // 11. "Agent Intelligent Capabilities" (custom actions enabled in configuration)
   if (config.enabledGroups.agent && config.agentActions?.some((a) => a.enabled)) {
     const activeAgentActions = config.agentActions.filter((a) => a.enabled)
     items.push({
@@ -753,7 +805,7 @@ export function buildBranchContextMenu({
     })
   }
 
-  // 8. Undo commit (when right-clicking HEAD commit with undo support)
+  // 12. Undo commit (when right-clicking HEAD commit with undo support)
   if (onUndoCommit) {
     items.push({
       ...allActions['undo-commit'],

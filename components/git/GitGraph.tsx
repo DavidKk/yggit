@@ -52,6 +52,7 @@ export function isCommitCurrentBranch(
 type GraphContextMenu =
   | {
       type: 'commit'
+      target?: 'branch' | 'commit' | 'graph'
       commit: GitCommit
       branches: string[]
       color: string
@@ -362,12 +363,13 @@ function GitGraphComponent({
     else notify.error(t('common.copyFailed'))
   }
 
-  const commitContextItems = (commit: GitCommit, branchNames?: string[] | string): FloatingMenuItem[] => {
+  const commitContextItems = (commit: GitCommit, branchNames?: string[] | string, target?: 'branch' | 'commit' | 'graph'): FloatingMenuItem[] => {
     const rawList = Array.isArray(branchNames) ? branchNames : branchNames ? [branchNames] : []
     const branches = Array.from(new Set(rawList.filter(Boolean)))
     const primaryBranch = branches[0]
 
     return buildBranchContextMenu({
+      target,
       branchName: primaryBranch,
       commit,
       repo,
@@ -1109,6 +1111,7 @@ function GitGraphComponent({
                       const branchList = [...chips.map((c) => c.label), ...(branch ? [branch] : [])]
                       setContextMenu({
                         type: 'commit',
+                        target: 'commit',
                         commit,
                         branches: branchList,
                         color,
@@ -1116,7 +1119,23 @@ function GitGraphComponent({
                       })
                     }}
                   >
-                    <span data-git-branch-cell className="flex h-[26px] min-h-0 min-w-0 items-center justify-start overflow-hidden bg-transparent pl-0.5">
+                    <span
+                      data-git-branch-cell
+                      className="flex h-[26px] min-h-0 min-w-0 items-center justify-start overflow-hidden bg-transparent pl-0.5"
+                      onContextMenu={(event) => {
+                        event.preventDefault()
+                        event.stopPropagation()
+                        const branchList = [...chips.map((c) => c.label), ...(branch ? [branch] : [])]
+                        setContextMenu({
+                          type: 'commit',
+                          target: 'branch',
+                          commit,
+                          branches: branchList,
+                          color,
+                          anchor: { x: event.clientX, y: event.clientY },
+                        })
+                      }}
+                    >
                       {chips.length > 0 ? (
                         <>
                           <RefChipsCell
@@ -1191,10 +1210,41 @@ function GitGraphComponent({
                         </>
                       ) : null}
                     </span>
-                    <span className="flex h-[26px] min-h-0 items-center justify-end bg-transparent">
+                    <span
+                      className="flex h-[26px] min-h-0 items-center justify-end bg-transparent"
+                      onContextMenu={(event) => {
+                        event.preventDefault()
+                        event.stopPropagation()
+                        const branchList = [...chips.map((c) => c.label), ...(branch ? [branch] : [])]
+                        setContextMenu({
+                          type: 'commit',
+                          target: 'graph',
+                          commit,
+                          branches: branchList,
+                          color,
+                          anchor: { x: event.clientX, y: event.clientY },
+                        })
+                      }}
+                    >
                       <span className="w-0.5 shrink-0" style={{ height: DOT, background: color }} aria-hidden />
                     </span>
-                    <span data-git-message-cell className={cn('flex h-[26px] min-h-0 min-w-0 items-center pl-2', rowTintClass)}>
+                    <span
+                      data-git-message-cell
+                      className={cn('flex h-[26px] min-h-0 min-w-0 items-center pl-2', rowTintClass)}
+                      onContextMenu={(event) => {
+                        event.preventDefault()
+                        event.stopPropagation()
+                        const branchList = [...chips.map((c) => c.label), ...(branch ? [branch] : [])]
+                        setContextMenu({
+                          type: 'commit',
+                          target: 'commit',
+                          commit,
+                          branches: branchList,
+                          color,
+                          anchor: { x: event.clientX, y: event.clientY },
+                        })
+                      }}
+                    >
                       {isConflictedMerge && <CommitStatusBadge commit={commit} conflict={conflicts?.[commit.hash]} onOpenConflictView={onOpenConflictView} />}
                       <span
                         className="flex min-w-0 flex-1 items-center truncate pr-2 text-sm leading-none font-normal select-text cursor-pointer transition-colors duration-150 text-ink"
@@ -1413,6 +1463,7 @@ function GitGraphComponent({
                       const branchList = [...chips.map((c) => c.label), ...(branch ? [branch] : [])]
                       setContextMenu({
                         type: 'commit',
+                        target: 'graph',
                         commit,
                         branches: branchList,
                         color: tint,
@@ -1487,7 +1538,7 @@ function GitGraphComponent({
               onClose={() => setContextMenu(null)}
               items={
                 contextMenu.type === 'commit'
-                  ? commitContextItems(contextMenu.commit, contextMenu.branches)
+                  ? commitContextItems(contextMenu.commit, contextMenu.branches, contextMenu.target)
                   : contextMenu.type === 'stash'
                     ? stashContextItems(contextMenu.stash)
                     : worktreeContextItems(contextMenu.worktree)

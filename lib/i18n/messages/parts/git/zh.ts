@@ -440,6 +440,7 @@ export const gitZh: GitMessages = {
     expandFolder: '展开文件夹',
     collapseFolder: '折叠文件夹',
     groupBranchOps: '分支操作',
+    groupRelatedBranchOps: '关联分支操作',
     groupRemoteSync: '远端同步',
     groupDangerous: '危险操作',
     groupActions: '操作',

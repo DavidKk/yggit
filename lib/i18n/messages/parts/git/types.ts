@@ -420,6 +420,7 @@ export type GitMessages = {
     expandFolder?: string
     collapseFolder?: string
     groupBranchOps?: string
+    groupRelatedBranchOps?: string
     groupRemoteSync?: string
     groupDangerous?: string
     groupActions?: string

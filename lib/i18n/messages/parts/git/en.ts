@@ -440,6 +440,7 @@ export const gitEn: GitMessages = {
     expandFolder: 'Expand folder',
     collapseFolder: 'Collapse folder',
     groupBranchOps: 'Branch Operations',
+    groupRelatedBranchOps: 'Related Branch Operations',
     groupRemoteSync: 'Remote Sync',
     groupDangerous: 'Danger Zone',
     groupActions: 'Actions',

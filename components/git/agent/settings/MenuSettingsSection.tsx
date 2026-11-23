@@ -40,7 +40,7 @@ import { useConfirm } from '@/components/confirm/ConfirmProvider'
 import { useT } from '@/components/i18n/LocaleProvider'
 import { useNotification } from '@/components/notification/useNotification'
 import { Badge, Button, SwitchToggle } from '@/components/sk'
-import { DEFAULT_CONTEXT_MENU_CONFIG, useContextMenuConfig } from '@/lib/git/context-menu-config'
+import { CONTEXT_MENU_PRESETS, ContextMenuPresetId, useContextMenuConfig } from '@/lib/git/context-menu-config'
 import { cn } from '@/lib/utils'
 
 import { SettingsSectionCard } from './SettingsSectionCard'
@@ -284,44 +284,8 @@ export const AVAILABLE_QUICK_ACTIONS: QuickActionDef[] = [
   },
 ]
 
-interface PresetDef {
-  id: string
-  name: string
-  desc: string
-  badge?: string
-  actions: string[]
-}
-
-const PRESET_OPTIONS: PresetDef[] = [
-  {
-    id: 'recommended',
-    name: '推荐',
-    desc: '切分支 + 合并 (Merge) + 变基 (Rebase) + 新建分支',
-    badge: '默认推荐',
-    actions: ['checkout-branch', 'merge-branch', 'rebase-branch', 'new-branch'],
-  },
-  {
-    id: 'full',
-    name: '全能开发套件',
-    desc: '切分支 + 合并 + 变基 + 拉取 + 推送 + 新建 + 暂存',
-    actions: ['checkout-branch', 'merge-branch', 'rebase-branch', 'pull-branch', 'push-branch', 'new-branch', 'stash-changes'],
-  },
-  {
-    id: 'minimal',
-    name: '极简敏捷',
-    desc: '保留最高频切分支与新建分支',
-    actions: ['checkout-branch', 'new-branch'],
-  },
-  {
-    id: 'review',
-    name: '代码审查/审计',
-    desc: '切分支 + 复制分支名 + 复制 Hash + 远程打开',
-    actions: ['checkout-branch', 'copy-branch', 'copy-hash', 'open-remote'],
-  },
-]
-
 interface GroupDef {
-  key: 'copy' | 'branch' | 'worktree' | 'remote' | 'agent'
+  key: 'copy' | 'branch' | 'commit' | 'view' | 'worktree' | 'remote' | 'agent'
   label: string
   summary: string
   includedItems: string[]
@@ -342,6 +306,20 @@ const AVAILABLE_GROUPS: GroupDef[] = [
     summary: '聚合切换分支、新建分支、重命名、合并、变基、拉取、推送及删除分支',
     includedItems: ['切换分支', '新建分支…', '重命名分支…', '合并到当前…', '变基到当前…', '拉取分支', '推送分支', '创建标签…', '删除分支 (危险)'],
     icon: LuGitBranch,
+  },
+  {
+    key: 'commit',
+    label: '「提交与重置 ›」二级菜单',
+    summary: '聚合撤销提交 (Revert)、重置分支 (Reset)、遴选 (Cherry-pick) 等提交级操作',
+    includedItems: ['撤销此提交 (Revert)', '重置分支到此提交…', '遴选此提交 (Cherry-pick)', '暂存当前更改'],
+    icon: LuGitCommitHorizontal,
+  },
+  {
+    key: 'view',
+    label: '「视图与对比 ›」二级菜单',
+    summary: '聚合工作区对比、隐藏/折叠、只看此分支等视图过滤动作',
+    includedItems: ['与工作区对比', '隐藏', '只看此标签', '固定到左侧'],
+    icon: LuGitCompare,
   },
   {
     key: 'worktree',
@@ -382,14 +360,32 @@ export function MenuSettingsSection() {
     setConfig({ ...config, quickActions: updated })
   }
 
-  const applyPreset = (preset: PresetDef) => {
-    setConfig({ ...config, quickActions: preset.actions })
+  const applyPreset = (presetId: ContextMenuPresetId) => {
+    const preset = CONTEXT_MENU_PRESETS[presetId]
+    if (!preset) return
+    setConfig({
+      ...config,
+      presetMode: presetId,
+      quickActions: [...preset.quickActions],
+      enabledGroups: {
+        ...config.enabledGroups,
+        ...preset.enabledGroups,
+      },
+    })
     notify.success(`已应用「${preset.name}」预设`)
   }
 
   const handleResetDefaults = () => {
-    setConfig({ ...config, quickActions: DEFAULT_CONTEXT_MENU_CONFIG.quickActions })
-    notify.success('已恢复为默认推荐工具配置')
+    setConfig({
+      ...config,
+      presetMode: 'standard',
+      quickActions: [...CONTEXT_MENU_PRESETS.standard.quickActions],
+      enabledGroups: {
+        ...config.enabledGroups,
+        ...CONTEXT_MENU_PRESETS.standard.enabledGroups,
+      },
+    })
+    notify.success('已恢复为默认标准模式配置')
   }
 
   const handleToggleGroup = (key: keyof typeof config.enabledGroups, checked: boolean) => {
@@ -432,10 +428,14 @@ export function MenuSettingsSection() {
     return AVAILABLE_QUICK_ACTIONS.filter((action) => action.category === activeCategory)
   }, [activeCategory])
 
-  const isPresetActive = (preset: PresetDef) => {
-    if (preset.actions.length !== currentQuickActions.length) return false
-    return preset.actions.every((act) => currentQuickActions.includes(act))
-  }
+  const activePresetId = useMemo(() => {
+    for (const [id, preset] of Object.entries(CONTEXT_MENU_PRESETS)) {
+      if (preset.quickActions.length === currentQuickActions.length && preset.quickActions.every((act) => currentQuickActions.includes(act))) {
+        return id as ContextMenuPresetId
+      }
+    }
+    return config.presetMode || null
+  }, [config.presetMode, currentQuickActions])
 
   return (
     <div className="flex flex-col gap-3">
@@ -446,33 +446,70 @@ export function MenuSettingsSection() {
         descriptionTooltip="勾选的操作将直接展示在右键菜单顶部，无需展开二级子菜单，点击即执行。"
       >
         <div className="flex flex-col gap-3">
+          {/* 智能侧重点感知说明条 */}
+          <div className="flex flex-col gap-2 rounded-lg border border-accent/30 bg-accent/5 p-3 text-xs leading-relaxed text-ink">
+            <div className="flex items-center gap-2 font-semibold text-accent">
+              <LuSparkles className="size-4 shrink-0" />
+              <span>智能侧重点感知（内置自适应，无需繁琐单独配置）</span>
+            </div>
+            <p className="text-ink-soft">右键菜单会根据点击的目标列自动调整功能权重与一级引用项，保证高频直达且菜单紧凑：</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-0.5 font-sans text-[11px]">
+              <div className="flex flex-col gap-0.5 rounded-md border border-line/60 bg-panel p-2 shadow-2xs">
+                <span className="font-semibold text-ink flex items-center gap-1.5">
+                  <LuGitBranch className="size-3 text-accent" /> 分支列右键
+                </span>
+                <span className="text-ink-soft leading-normal">一级菜单直出「引用分支到 Agent」及常用分支操作；提交相关操作自动收纳进二级菜单。</span>
+              </div>
+              <div className="flex flex-col gap-0.5 rounded-md border border-line/60 bg-panel p-2 shadow-2xs">
+                <span className="font-semibold text-ink flex items-center gap-1.5">
+                  <LuGitCommitHorizontal className="size-3 text-accent" /> Commit 列右键
+                </span>
+                <span className="text-ink-soft leading-normal">一级菜单直出「引用提交到 Agent」及提交操作；关联分支操作自动收纳进二级菜单。</span>
+              </div>
+              <div className="flex flex-col gap-0.5 rounded-md border border-line/60 bg-panel p-2 shadow-2xs">
+                <span className="font-semibold text-ink flex items-center gap-1.5">
+                  <LuGitMerge className="size-3 text-accent" /> 关系图 / 泳道右键
+                </span>
+                <span className="text-ink-soft leading-normal">聚焦图线关联、合并分析、作者信息核对与多分支拓扑比对。</span>
+              </div>
+            </div>
+          </div>
+
           {/* 预设切换栏 */}
           <div className="flex flex-col gap-2 rounded-lg border border-line/70 bg-panel-2/30 p-2.5">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-medium text-ink-soft flex items-center gap-1.5">
                 <LuSparkles className="size-3.5 text-accent" />
-                <span>快速应用预设方案：</span>
+                <span>预设方案模式（一键切换菜单风格与分组）：</span>
               </span>
               <span className="text-[11px] text-ink-soft">
                 当前已置顶 <span className="font-semibold text-accent">{currentQuickActions.length}</span> 项常用工具
               </span>
             </div>
-            <div className="flex flex-wrap items-center gap-1.5">
-              {PRESET_OPTIONS.map((preset) => {
-                const active = isPresetActive(preset)
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+              {Object.values(CONTEXT_MENU_PRESETS).map((preset) => {
+                const active = activePresetId === preset.id
                 return (
                   <button
                     key={preset.id}
                     type="button"
-                    onClick={() => applyPreset(preset)}
+                    onClick={() => applyPreset(preset.id)}
                     className={cn(
-                      'flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs transition-all cursor-pointer select-none',
-                      active ? 'border-accent bg-accent/15 text-accent font-semibold shadow-2xs' : 'border-line/70 bg-panel text-ink hover:border-line hover:bg-panel-2'
+                      'flex flex-col gap-1 rounded-lg border p-2.5 text-left transition-all cursor-pointer select-none',
+                      active
+                        ? 'border-accent bg-accent/10 text-accent font-semibold shadow-2xs ring-1 ring-accent/30'
+                        : 'border-line/70 bg-panel text-ink hover:border-line hover:bg-panel-2'
                     )}
-                    title={preset.desc}
                   >
-                    <span>{preset.name}</span>
-                    {preset.badge && <span className="rounded bg-accent/20 px-1 py-0.2 text-[9px] text-accent font-normal">{preset.badge}</span>}
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-xs font-semibold text-ink">{preset.name}</span>
+                      {preset.badge && (
+                        <Badge tone={active ? 'accent' : 'neutral'} size="mini" dot={false}>
+                          {preset.badge}
+                        </Badge>
+                      )}
+                    </div>
+                    <span className="text-[11px] text-ink-soft font-normal leading-tight line-clamp-2">{preset.desc}</span>
                   </button>
                 )
               })}
@@ -571,7 +608,7 @@ export function MenuSettingsSection() {
       >
         <div className="flex flex-col divide-y divide-line/60">
           {AVAILABLE_GROUPS.map((group) => {
-            const isEnabled = config.enabledGroups[group.key]
+            const isEnabled = Boolean(config.enabledGroups[group.key])
             const Icon = group.icon
             return (
               <div key={group.key} className="flex items-start justify-between gap-3 py-3 first:pt-0 last:pb-0">
