@@ -618,19 +618,19 @@ export function buildBranchContextMenu({
     }
   }
 
-  // 3. Focused Quick Quote to Git Agent (Only ONE quote action in top-level matching target focus)
+  // 3. Focused Quick Quote to Git Agent (belongs to the same quick actions group, no divider inside quick actions)
   if (resolvedTarget === 'branch') {
     if (branchName) {
       items.push({
         ...quoteBranchAction,
-        dividerBefore: items.length > 0,
+        dividerBefore: false,
       })
     }
   } else if (resolvedTarget === 'commit') {
     if (commit) {
       items.push({
         ...quoteCommitAction,
-        dividerBefore: items.length > 0,
+        dividerBefore: false,
       })
     }
   } else {
@@ -638,7 +638,7 @@ export function buildBranchContextMenu({
     if (commit) {
       items.push({
         ...quoteCommitAction,
-        dividerBefore: items.length > 0,
+        dividerBefore: false,
       })
     }
   }
@@ -647,8 +647,18 @@ export function buildBranchContextMenu({
   if (branchName && onSoloBranch && resolvedTarget === 'branch') {
     items.push({
       ...allActions['solo-branch'],
-      dividerBefore: items.length > 0,
+      dividerBefore: false,
     })
+  }
+
+  // Helper: ensure the first item of a secondary group gets dividerBefore: true to separate from previous group
+  let isFirstGitSecondaryGroup = true
+  const markGitSecondaryDivider = () => {
+    if (isFirstGitSecondaryGroup) {
+      isFirstGitSecondaryGroup = false
+      return items.length > 0
+    }
+    return false
   }
 
   // 5. "Branch operations" submenu (dynamically filtered by repository capabilities; read-only mode hides write operations)
@@ -684,6 +694,7 @@ export function buildBranchContextMenu({
       key: 'menu-branch-group',
       label: branchGroupLabel,
       icon: <LuGitBranch className="size-4 shrink-0 text-ink-soft" />,
+      dividerBefore: markGitSecondaryDivider(),
       children: branchChildren,
     })
   }
@@ -712,6 +723,7 @@ export function buildBranchContextMenu({
         key: 'menu-commit-group',
         label: tr('git.operations.groupCommitOps', '提交与重置'),
         icon: <LuGitCommitHorizontal className="size-4 shrink-0 text-ink-soft" />,
+        dividerBefore: markGitSecondaryDivider(),
         children: commitChildren,
       })
     }
@@ -735,12 +747,23 @@ export function buildBranchContextMenu({
         key: 'menu-view-group',
         label: tr('git.operations.groupViewOps', '视图与对比'),
         icon: <LuEye className="size-4 shrink-0 text-ink-soft" />,
+        dividerBefore: markGitSecondaryDivider(),
         children: viewChildren,
       })
     }
   }
 
-  // 8. "Copy" submenu
+  // 8. Copy & Extensions Group (复制、Worktree、远程直达)
+  let isFirstCopyExtensionGroup = true
+  const markCopyExtensionDivider = () => {
+    if (isFirstCopyExtensionGroup) {
+      isFirstCopyExtensionGroup = false
+      return items.length > 0
+    }
+    return false
+  }
+
+  // "Copy" submenu
   if (config.enabledGroups.copy) {
     const copyChildren: FloatingMenuItem[] = []
     if (resolvedTarget === 'branch') {
@@ -763,7 +786,7 @@ export function buildBranchContextMenu({
         key: 'menu-copy-group',
         label: tr('git.operations.groupCopy', '复制'),
         icon: <LuCopy className="size-4 shrink-0 text-ink-soft" />,
-        dividerBefore: items.length > 0,
+        dividerBefore: markCopyExtensionDivider(),
         children: copyChildren,
       })
     }
@@ -776,13 +799,17 @@ export function buildBranchContextMenu({
       key: 'menu-worktree-group',
       label: tr('git.operations.groupWorktree', 'Worktree'),
       icon: <LuFolderGit2 className="size-4 shrink-0 text-ink-soft" />,
+      dividerBefore: markCopyExtensionDivider(),
       children: [allActions['new-worktree'], allActions['open-worktree']],
     })
   }
 
   // 10. "Open in Remote" entry (when remote repository URL is available)
   if (config.enabledGroups.remote && remoteUrl) {
-    items.push(allActions['open-remote'])
+    items.push({
+      ...allActions['open-remote'],
+      dividerBefore: markCopyExtensionDivider(),
+    })
   }
 
   // 11. "Agent Intelligent Capabilities" (custom actions enabled in configuration)

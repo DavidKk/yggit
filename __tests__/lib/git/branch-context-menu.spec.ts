@@ -78,6 +78,37 @@ describe('branch context menu & config', () => {
       expect(remoteItem).toBeDefined()
     })
 
+    it('groups quick actions and quote agent together, then separates secondary submenus with dividers', () => {
+      const items = buildBranchContextMenu({
+        target: 'commit',
+        commit: mockCommit,
+        branchName: 'hotfix/test',
+        repo: 'owner/repo',
+        remoteUrl: 'https://github.com/owner/repo.git',
+        hasWorktrees: true,
+        config: DEFAULT_CONTEXT_MENU_CONFIG,
+      })
+
+      const quoteIndex = items.findIndex((i) => i.key === 'quote-commit-to-agent')
+      expect(quoteIndex).toBeGreaterThan(0)
+      // Quote action should NOT have dividerBefore (belongs to same quick action group)
+      expect(items[quoteIndex].dividerBefore).toBeFalsy()
+
+      // The first item right after quote action should be the first secondary submenu and HAVE dividerBefore
+      const firstSecondary = items[quoteIndex + 1]
+      expect(firstSecondary).toBeDefined()
+      expect(firstSecondary.key).toBe('menu-branch-group')
+      expect(firstSecondary.dividerBefore).toBe(true)
+
+      // The next Git secondary submenu (menu-commit-group) should not duplicate divider
+      const commitSubmenu = items.find((i) => i.key === 'menu-commit-group')
+      expect(commitSubmenu?.dividerBefore).toBeFalsy()
+
+      // The copy group begins the next secondary set and should have dividerBefore
+      const copyGroup = items.find((i) => i.key === 'menu-copy-group')
+      expect(copyGroup?.dividerBefore).toBe(true)
+    })
+
     it('places dangerous operations at the bottom of branch submenu with confirmation requirements', () => {
       const items = buildBranchContextMenu({
         branchName: 'feat/danger',
