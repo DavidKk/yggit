@@ -604,6 +604,7 @@ export function buildBranchContextMenu({
     key: 'quote-branch-to-agent',
     label: isRemote ? tr('git.operations.quoteRemoteToAgent', '引用远端分支到 Git Agent') : tr('git.operations.quoteBranchToAgent', '引用分支到 Git Agent'),
     icon: <LuBot className="size-4 shrink-0 text-accent" />,
+    shortcut: '⌥Q',
     onSelect: () => {
       if (branchName) quoteBranchToAgent(branchName, isRemote, repo)
     },
@@ -613,6 +614,7 @@ export function buildBranchContextMenu({
     key: 'quote-commit-to-agent',
     label: tr('git.operations.quoteCommitToAgent', '引用提交到 Git Agent'),
     icon: <LuBot className="size-4 shrink-0 text-accent" />,
+    shortcut: '⌥Q',
     onSelect: () => {
       if (commit) quoteCommitToAgent({ hash: commit.hash, summary: commit.subject, author: commit.author }, repo)
     },

@@ -10,8 +10,8 @@ import { PanelSplitter } from '@/components/git/PanelSplitter'
 import { branchAtCommits, type FloatingAnchor, FloatingMenu, type FloatingMenuItem, refChips, RefChipsCell } from '@/components/git/RefChipsCell'
 import { useLocaleCode, useT } from '@/components/i18n/LocaleProvider'
 import { useNotification } from '@/components/notification/useNotification'
-import { EmptyState, ScrollArea, Tooltip } from '@/components/sk'
-import { quoteCommitToAgent, quotePromptToAgent, quoteStashToAgent, quoteWorktreeToAgent } from '@/lib/agent/agent-quote'
+import { EmptyState, ScrollArea } from '@/components/sk'
+import { quotePromptToAgent, quoteStashToAgent, quoteWorktreeToAgent } from '@/lib/agent/agent-quote'
 import { useOptionalSpotlight } from '@/lib/agent/spotlight-context'
 import { copyToClipboard } from '@/lib/clipboard'
 import { buildBranchContextMenu } from '@/lib/git/branch-context-menu'
@@ -1247,19 +1247,6 @@ function GitGraphComponent({
                       >
                         {commit.subject}
                       </span>
-                      <Tooltip content={t('git.operations.quoteCommitToAgent') || '引用提交到 Git Agent'} placement="top">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            quoteCommitToAgent({ hash: commit.hash, summary: commit.subject, author: commit.author }, repo)
-                          }}
-                          className="opacity-0 group-hover/commit:opacity-100 hover:text-accent rounded px-1 text-[11px] text-ink-soft select-none transition-opacity mr-2 flex items-center cursor-pointer shrink-0"
-                          aria-label={t('git.operations.quoteCommitToAgent') || '引用提交到 Git Agent'}
-                        >
-                          <LuBot className="size-3 shrink-0" />
-                        </button>
-                      </Tooltip>
                     </span>
                   </div>
                 </li>

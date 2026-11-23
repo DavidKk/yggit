@@ -6,6 +6,7 @@ import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState }
 import { LuChevronsUpDown, LuFileClock, LuFingerprint, LuFlag, LuFolderGit2, LuSettings, LuX } from 'react-icons/lu'
 
 import { BrandLogo } from '@/components/BrandLogo'
+import { useAgentQuoteGlobalShortcut } from '@/components/git/agent/agentQuoteShortcut'
 import { measurePanelFit } from '@/components/git/fitColumn'
 import { CreateBranchModal, RenameBranchModal } from '@/components/git/GitBranchModal'
 import { GitCommitPanel } from '@/components/git/GitCommitPanel'
@@ -761,6 +762,15 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
       window.history.replaceState(window.history.state, '', canonicalUrl)
     }
   }, [selectedHash, selectedFile, view?.repo, view?.remoteUrl])
+
+  useAgentQuoteGlobalShortcut({
+    repo: view?.repo,
+    currentBranch: view?.branch,
+    selectedHash,
+    selectedFile,
+    selectedStatus,
+    commits,
+  })
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {

@@ -43,7 +43,7 @@ import { handleTreeExpandKey, handleTreeParentKey } from '@/components/git/treeE
 import { useT } from '@/components/i18n/LocaleProvider'
 import { useNotification } from '@/components/notification/useNotification'
 import { Badge, Button, EmptyState, Modal, Tooltip, VirtualList } from '@/components/sk'
-import { quoteBranchToAgent, quotePromptToAgent, quoteRemoteToAgent, quoteStashToAgent, quoteTagToAgent, quoteWorktreeToAgent } from '@/lib/agent/agent-quote'
+import { quotePromptToAgent, quoteRemoteToAgent, quoteStashToAgent, quoteTagToAgent, quoteWorktreeToAgent } from '@/lib/agent/agent-quote'
 import { copyToClipboard } from '@/lib/clipboard'
 import { buildBranchContextMenu } from '@/lib/git/branch-context-menu'
 import { useContextMenuConfig } from '@/lib/git/context-menu-config'
@@ -753,6 +753,7 @@ export function GitSidebar({
         key: 'quote-tag-to-agent',
         label: t('git.operations.quoteTagToAgent') || '引用标签到 Git Agent',
         icon: <LuBot className="size-3.5 shrink-0 text-accent" />,
+        shortcut: '⌥Q',
         dividerBefore: true,
         onSelect: () => {
           quoteTagToAgent(tag.name, tag.tip, view.repo)
@@ -976,6 +977,7 @@ export function GitSidebar({
         key: 'quote-stash-to-agent',
         label: t('git.operations.quoteStashToAgent') || '引用暂存到 Git Agent',
         icon: <LuBot className="size-3.5 shrink-0 text-accent" />,
+        shortcut: '⌥Q',
         onSelect: () => {
           quoteStashToAgent(stash.name, stash.subject, view.repo)
         },
@@ -1033,6 +1035,7 @@ export function GitSidebar({
         key: 'quote-worktree-to-agent',
         label: t('git.operations.quoteWorktreeToAgent') || '引用工作树到 Git Agent',
         icon: <LuBot className="size-3.5 shrink-0 text-accent" />,
+        shortcut: '⌥Q',
         onSelect: () => {
           quoteWorktreeToAgent(entry.path, entry.branch, view.repo)
         },
@@ -1199,6 +1202,7 @@ export function GitSidebar({
         key: 'quote-remote-to-agent',
         label: t('git.operations.quoteRemoteToAgent') || '引用远端到 Git Agent',
         icon: <LuBot className="size-3.5 shrink-0 text-accent" />,
+        shortcut: '⌥Q',
         onSelect: () => {
           quoteRemoteToAgent(group.source, remoteUrl, view.repo)
         },
@@ -1425,20 +1429,6 @@ export function GitSidebar({
                   <span data-git-sidebar-label className="min-w-0 flex-1 truncate whitespace-nowrap text-left text-xs select-text">
                     {group.source}
                   </span>
-                  <button
-                    type="button"
-                    title={t('git.operations.quoteRemoteToAgent')}
-                    aria-label={t('git.operations.quoteRemoteToAgent')}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      const remoteSource = view.remoteSources?.find((r) => r.name === group.source)
-                      const remoteUrl = remoteSource?.url || (group.source === 'origin' ? view.remoteUrl : '') || ''
-                      quoteRemoteToAgent(group.source, remoteUrl, view.repo)
-                    }}
-                    className="opacity-0 group-hover:opacity-100 hover:text-accent rounded p-0.5 text-ink-soft select-none transition-opacity flex items-center justify-center cursor-pointer"
-                  >
-                    <LuBot className="size-3.5 shrink-0" />
-                  </button>
                   {soloRemote === group.source ? (
                     <Badge tone="accent" size="mini" dot={false} className="shrink-0 select-none">
                       {t('git.operations.soloBadge') || '只看'}
@@ -1506,8 +1496,6 @@ export function GitSidebar({
               parentId="section:stash"
               onClick={() => onSelect({ kind: 'stash', name: stash.name })}
               onContextMenu={(e) => handleStashContextMenu(e, stash)}
-              onQuote={() => quoteStashToAgent(stash.name, stash.subject, view.repo)}
-              quoteTooltip={t('git.operations.quoteStashToAgent')}
             />
           ),
         })),
@@ -1529,8 +1517,6 @@ export function GitSidebar({
               parentId="section:tag"
               onClick={() => onSelect({ kind: 'tag', name: tag.name })}
               onContextMenu={(e) => handleTagContextMenu(e, tag)}
-              onQuote={() => quoteTagToAgent(tag.name, tag.tip, view.repo)}
-              quoteTooltip={t('git.operations.quoteTagToAgent')}
             />
           ),
         })),
@@ -1554,8 +1540,6 @@ export function GitSidebar({
               parentId="section:worktree"
               onClick={() => onSelect({ kind: 'worktree', path: entry.path })}
               onContextMenu={(e) => handleWorktreeContextMenu(e, entry)}
-              onQuote={() => quoteWorktreeToAgent(entry.path, entry.branch, view.repo)}
-              quoteTooltip={t('git.operations.quoteWorktreeToAgent')}
             />
           ),
         })),
@@ -1877,7 +1861,7 @@ function BranchTree({
   soloBranch,
   idPrefix = kind,
   parentId,
-  repo,
+  repo: _repo,
   updateByName,
   onBranchHoverStart,
   onBranchHoverEnd,
@@ -1933,8 +1917,6 @@ function BranchTree({
               upstream={node.item.upstream}
               kind={kind}
               onSetUpstream={onSetUpstream ? () => onSetUpstream(node.item!.name) : undefined}
-              onQuote={() => quoteBranchToAgent(node.item!.name, kind === 'remote', repo)}
-              quoteTooltip={t('git.operations.quoteBranchToAgent')}
               onClick={() => onSelect({ kind, name: node.item!.name })}
               onDoubleClick={() => onCheckoutBranch?.(node.item!.name, kind === 'remote')}
               onContextMenu={(e) => onContextMenu?.(e, node.item!, kind)}
@@ -2040,18 +2022,6 @@ function BranchTree({
                       )}
                     </>
                   )}
-                  <button
-                    type="button"
-                    title={t('git.operations.quoteBranchToAgent')}
-                    aria-label={t('git.operations.quoteBranchToAgent')}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      quoteBranchToAgent(node.item!.name, kind === 'remote', repo)
-                    }}
-                    className="opacity-0 group-hover/folder:opacity-100 hover:text-accent rounded p-0.5 text-ink-soft select-none transition-opacity flex items-center justify-center cursor-pointer"
-                  >
-                    <LuBot className="size-3.5 shrink-0" />
-                  </button>
                   {soloBranch === node.item.name ? (
                     <span className="rounded bg-accent/20 px-1 py-0.2 text-[10px] font-semibold text-accent select-none">{t('git.operations.soloBadge') || '只看'}</span>
                   ) : null}
@@ -2080,8 +2050,6 @@ function Row({
   upstream,
   kind,
   onSetUpstream,
-  onQuote,
-  quoteTooltip,
   onClick,
   onDoubleClick,
   onContextMenu,
@@ -2102,8 +2070,6 @@ function Row({
   upstream?: string
   kind?: 'local' | 'remote'
   onSetUpstream?: () => void
-  onQuote?: () => void
-  quoteTooltip?: string
   onClick: () => void
   onDoubleClick?: () => void
   onContextMenu?: (e: React.MouseEvent) => void
@@ -2179,20 +2145,6 @@ function Row({
               </button>
             )}
           </>
-        )}
-        {onQuote && (
-          <button
-            type="button"
-            title={quoteTooltip || t('git.operations.quoteToAgent')}
-            aria-label={quoteTooltip || t('git.operations.quoteToAgent')}
-            onClick={(e) => {
-              e.stopPropagation()
-              onQuote()
-            }}
-            className="opacity-0 group-hover/row:opacity-100 hover:text-accent rounded p-0.5 text-ink-soft select-none transition-opacity flex items-center justify-center cursor-pointer"
-          >
-            <LuBot className="size-3.5 shrink-0" />
-          </button>
         )}
         {isSolo ? <span className="rounded bg-accent/20 px-1 py-0.2 text-[10px] font-semibold text-accent select-none">{t('git.operations.soloBadge') || '只看'}</span> : null}
         {notice ? <span className="size-1.5 shrink-0 rounded-full bg-accent select-none" aria-label={t('git.sidebar.remoteNewAria')} /> : null}

@@ -40,7 +40,7 @@ import { handleTreeExpandKey, handleTreeParentKey } from '@/components/git/treeE
 import { useT } from '@/components/i18n/LocaleProvider'
 import { useNotification } from '@/components/notification/useNotification'
 import { Badge, Button, EmptyState, Spinner, TextInput, Tooltip, VirtualList } from '@/components/sk'
-import { quoteCommitToAgent, quoteFileToAgent, quoteFolderToAgent } from '@/lib/agent/agent-quote'
+import { quoteFileToAgent, quoteFolderToAgent } from '@/lib/agent/agent-quote'
 import { getGitDriver } from '@/lib/git/driver'
 import { GIT_WORKTREE_HASH, type GitCommit, type GitCommitChanges, type GitFileChange } from '@/lib/git/types'
 import { isBoolean, useGitUiPref } from '@/lib/git/ui-prefs'
@@ -287,7 +287,7 @@ function TreeRows({
   onDiscard,
   isSearching = false,
   recursive = true,
-  repo,
+  repo: _repo,
 }: {
   nodes: TreeNode[]
   depth: number
@@ -316,11 +316,11 @@ function TreeRows({
     const expanded = folder && (isSearching || open.has(node.path))
     if (folder) {
       return (
-        <div key={node.path} className="group/folderrow relative flex items-center justify-between w-full">
+        <div key={node.path}>
           <Button
             variant="plain"
             data-git-tree-id={node.path}
-            className="h-7 min-w-0 flex-1 justify-start gap-1.5 rounded-none px-2 font-normal text-ink"
+            className="h-7 w-full justify-start gap-1.5 rounded-none px-2 font-normal text-ink"
             style={{ paddingLeft: 8 + depth * 14 }}
             aria-expanded={expanded}
             onClick={() => onToggle(node.path)}
@@ -339,21 +339,6 @@ function TreeRows({
             </span>
             <CountMarks counts={counts?.get(node.path) ?? tally(node, conflictCounts)} />
           </Button>
-          <span className="opacity-0 group-hover/folderrow:opacity-100 flex items-center pr-1.5 transition-opacity shrink-0">
-            <Tooltip content={t('git.operations.quoteFolderToAgent') || '引用目录到 Git Agent'}>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  quoteFolderToAgent(node.path, repo)
-                }}
-                className="flex size-5 cursor-pointer items-center justify-center rounded text-ink-soft hover:bg-[var(--overlay-08)] hover:text-accent"
-                aria-label={t('git.operations.quoteFolderToAgent') || '引用目录到 Git Agent'}
-              >
-                <LuBot className="size-3" />
-              </button>
-            </Tooltip>
-          </span>
           {recursive && expanded && node.children.length > 0 && (
             <TreeRows
               nodes={node.children}
@@ -375,7 +360,7 @@ function TreeRows({
               onDiscard={onDiscard}
               isSearching={isSearching}
               recursive={recursive}
-              repo={repo}
+              repo={_repo}
             />
           )}
         </div>
@@ -435,19 +420,6 @@ function TreeRows({
 
         <div className="flex shrink-0 items-center gap-1">
           <div className="flex items-center opacity-0 group-hover/filerow:opacity-100 transition-opacity">
-            <Tooltip content={t('git.operations.quoteFileToAgent') || '引用文件到 Git Agent'}>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  quoteFileToAgent(node.path, node.file?.status, repo)
-                }}
-                className="flex size-5 cursor-pointer items-center justify-center rounded text-ink-soft hover:bg-[var(--overlay-08)] hover:text-accent"
-                aria-label={t('git.operations.quoteFileToAgent') || '引用文件到 Git Agent'}
-              >
-                <LuBot className="size-3" />
-              </button>
-            </Tooltip>
             {isWorktree && file ? (
               <>
                 {(isStagedSection === false || (isStagedSection === undefined && file.unstaged)) && onStage && (
@@ -515,7 +487,7 @@ function PathRows({
   onStage,
   onUnstage,
   onDiscard,
-  repo,
+  repo: _repo,
 }: {
   groups: PathGroup[]
   headerOnly?: boolean
@@ -548,21 +520,6 @@ function PathRows({
             <span className="min-w-0 truncate">{group.dir || '/'}</span>
             <CountMarks counts={tally({ name: '', path: '', children: group.files.map((file) => ({ name: file.path, path: file.path, file, children: [] })) }, conflictCounts)} />
           </div>
-          <span className="opacity-0 group-hover/folderrow:opacity-100 flex items-center pr-0.5 transition-opacity shrink-0">
-            <Tooltip content={t('git.operations.quoteFolderToAgent') || '引用目录到 Git Agent'}>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  quoteFolderToAgent(group.dir || '.', repo)
-                }}
-                className="flex size-5 cursor-pointer items-center justify-center rounded text-ink-soft hover:bg-[var(--overlay-08)] hover:text-accent"
-                aria-label={t('git.operations.quoteFolderToAgent') || '引用目录到 Git Agent'}
-              >
-                <LuBot className="size-3" />
-              </button>
-            </Tooltip>
-          </span>
         </div>
       )}
       {!headerOnly &&
@@ -618,19 +575,6 @@ function PathRows({
 
               <div className="flex shrink-0 items-center gap-1">
                 <div className="flex items-center opacity-0 group-hover/filerow:opacity-100 transition-opacity">
-                  <Tooltip content={t('git.operations.quoteFileToAgent') || '引用文件到 Git Agent'}>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        quoteFileToAgent(file.path, file.status, repo)
-                      }}
-                      className="flex size-5 cursor-pointer items-center justify-center rounded text-ink-soft hover:bg-[var(--overlay-08)] hover:text-accent"
-                      aria-label={t('git.operations.quoteFileToAgent') || '引用文件到 Git Agent'}
-                    >
-                      <LuBot className="size-3" />
-                    </button>
-                  </Tooltip>
                   {isWorktree ? (
                     <>
                       {(isStagedSection === false || (isStagedSection === undefined && file.unstaged)) && onStage && (
@@ -1340,6 +1284,7 @@ export function GitCommitPanel({
       key: 'quote-file-agent',
       label: t('git.operations.quoteFileToAgent') || '引用文件到 Git Agent',
       icon: <LuBot className="size-3.5 text-accent" />,
+      shortcut: '⌥Q',
       dividerBefore: true,
       onSelect: () => quoteFileToAgent(filePath, status, repo),
     })
@@ -1505,6 +1450,7 @@ export function GitCommitPanel({
       key: 'quote-folder-agent',
       label: t('git.operations.quoteFolderToAgent') || '引用目录到 Git Agent',
       icon: <LuBot className="size-3.5 text-accent" />,
+      shortcut: '⌥Q',
       dividerBefore: true,
       onSelect: () => quoteFolderToAgent(folderPath, repo),
     })
@@ -1592,20 +1538,6 @@ export function GitCommitPanel({
           ) : null}
         </div>
         <div className="flex h-8 items-center justify-end gap-1 [&_button]:size-6">
-          {!isWorktree && commit && (
-            <Tooltip content={t('git.operations.quoteCommitToAgent') || '引用提交到 Git Agent'} placement="bottom">
-              <Button
-                variant="plain"
-                size="icon"
-                className="size-6 text-ink-soft hover:enabled:bg-[var(--overlay-08)] hover:enabled:text-accent"
-                aria-label={t('git.operations.quoteCommitToAgent') || '引用提交到 Git Agent'}
-                onClick={() => quoteCommitToAgent({ hash: commit.hash, summary: commit.subject, author: commit.author }, repo)}
-              >
-                <LuBot className="size-3.5 text-accent" />
-              </Button>
-            </Tooltip>
-          )}
-
           {selectedPath && (
             <Tooltip content={t('git.operations.locateCurrentFile') || '定位到当前选中文件'} placement="bottom">
               <Button
