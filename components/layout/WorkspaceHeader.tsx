@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import React from 'react'
-import { LuSettings } from 'react-icons/lu'
+import { LuCompass, LuSettings } from 'react-icons/lu'
 
 import { BrandLogo } from '@/components/BrandLogo'
 import { GitModeSwitcher } from '@/components/git/GitModeSwitcher'
@@ -28,11 +28,25 @@ export function WorkspaceHeader() {
     }
   }, [pathname])
 
-  const homeHref = pathname.startsWith('/git') || pathname.startsWith('/workdesk') ? '/git' : isSettings ? getLastGitUrl() : '/'
+  const homeHref = pathname.startsWith('/workdesk') ? '/workdesk' : pathname.startsWith('/git') ? '/git' : isSettings ? getLastGitUrl() : '/'
 
   return (
     <header className="flex h-11 shrink-0 items-center gap-3 border-b border-line bg-panel-2/60 px-3 py-1.5">
-      <BrandLogo href={homeHref} className="shrink-0" markClassName="size-7" wordmarkClassName="text-[0.95rem]" />
+      <BrandLogo
+        href={homeHref}
+        className="shrink-0"
+        markClassName="size-7"
+        wordmarkClassName="text-[0.95rem]"
+        onClick={(e) => {
+          if (pathname.startsWith('/workdesk')) {
+            const closeBtn = document.querySelector<HTMLButtonElement>('[data-testid="workdesk-detail-close-btn"]')
+            if (closeBtn) {
+              e.preventDefault()
+              closeBtn.click()
+            }
+          }
+        }}
+      />
 
       <span className="h-4 w-px shrink-0 bg-[color-mix(in_oklab,var(--ink)_16%,transparent)]" aria-hidden="true" />
 
@@ -45,6 +59,24 @@ export function WorkspaceHeader() {
 
         {/* Git Mode Switcher (Edge / Local) retained across both views */}
         <GitModeSwitcher />
+
+        {/* Development-only Homepage Studio / Resource Editor Entry (Right of Edge, Left of ThemeSwitcher) */}
+        {process.env.NODE_ENV === 'development' && (
+          <Tooltip content="官网工坊与资产管理 (开发模式)" placement="bottom">
+            <Link
+              href="/dev/studio"
+              className={cn(
+                dropdownTriggerClass,
+                'px-2 gap-1.5 text-xs font-mono font-medium',
+                pathname.startsWith('/dev') && 'bg-[color-mix(in_oklab,var(--ink)_9%,transparent)] font-semibold text-accent'
+              )}
+              aria-label="官网工作台"
+            >
+              <LuCompass className="size-3.5 text-accent shrink-0" aria-hidden="true" />
+              <span className="hidden sm:inline">官网工坊</span>
+            </Link>
+          </Tooltip>
+        )}
 
         <span className="mx-0.5 h-3.5 w-px shrink-0 bg-[color-mix(in_oklab,var(--ink)_14%,transparent)]" aria-hidden="true" />
 

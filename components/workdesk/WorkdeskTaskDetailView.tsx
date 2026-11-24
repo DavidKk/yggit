@@ -3,11 +3,11 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { LuArrowLeft, LuBot, LuFolderArchive, LuFolderGit2, LuFolderTree, LuGitBranch, LuX } from 'react-icons/lu'
+import { LuArrowLeft, LuBot, LuFolderArchive, LuX } from 'react-icons/lu'
 
 import { useLocale, useT } from '@/components/i18n/LocaleProvider'
-import { Badge, Button, Tooltip } from '@/components/sk'
-import { quotePromptToAgent, quoteWorkdeskTaskToAgent } from '@/lib/agent/agent-quote'
+import { Button, Tooltip } from '@/components/sk'
+import { quoteWorkdeskTaskToAgent } from '@/lib/agent/agent-quote'
 import { setWorkdeskContext } from '@/lib/agent/workdesk-context'
 import type { MessageKey } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
@@ -15,6 +15,7 @@ import { workdeskEngine } from '@/lib/workdesk/engine'
 import type { WorkCard, WorkItem } from '@/lib/workdesk/types'
 
 import { getCrAnalysis, getItemCardSummary, getItemProblemTitle } from './workdesk-detail-helpers'
+import { WorkdeskEvidencePanel } from './WorkdeskEvidencePanel'
 
 export { getCrAnalysis, getItemCardSummary, getItemProblemTitle }
 
@@ -106,6 +107,8 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
     if (!card) return []
     return card.itemIds.map((id) => itemsMap[id]).filter(Boolean)
   }, [card, itemsMap])
+
+  const isMultiple = Boolean((card && card.itemIds && card.itemIds.length > 1) || taskItems.length > 1 || (card?.projectCount ?? 1) > 1)
 
   // Ensure an active item is selected
   useEffect(() => {
@@ -382,7 +385,7 @@ ${cr.solution}
       if (onCollapse) {
         onCollapse()
       } else {
-        router.push('/git')
+        router.push('/workdesk')
       }
       return
     }
@@ -390,9 +393,9 @@ ${cr.solution}
       if (onCollapse) {
         onCollapse()
       } else {
-        router.push('/git')
+        router.push('/workdesk')
       }
-    }, 220)
+    }, 240)
   }, [isGathering, onCollapse, router])
 
   if (!card) {
@@ -423,7 +426,7 @@ ${cr.solution}
     return (
       <div className="flex flex-1 flex-col items-center justify-center p-8 text-center">
         <p className="text-sm text-ink-muted">未找到该工作任务或任务已失效</p>
-        <Link href="/git" className="mt-4">
+        <Link href="/workdesk" className="mt-4">
           <Button size="sm">
             <LuArrowLeft className="mr-1.5 size-3.5" aria-hidden="true" />
             {t('workdesk.action.back')}
@@ -437,28 +440,6 @@ ${cr.solution}
     if (state === 'safe') return <span className="h-3.5 w-1 shrink-0 rounded-full bg-[#28a388]" aria-hidden="true" />
     if (state === 'warn') return <span className="h-3.5 w-1 shrink-0 rounded-full bg-[#d8a646]" aria-hidden="true" />
     return <span className="h-3.5 w-1 shrink-0 rounded-full bg-[#d96c61]" aria-hidden="true" />
-  }
-
-  const renderStateBadge = (state: 'safe' | 'warn' | 'bad') => {
-    if (state === 'safe') {
-      return (
-        <Badge tone="ok" size="mini">
-          {t('workdesk.status.safe')}
-        </Badge>
-      )
-    }
-    if (state === 'warn') {
-      return (
-        <Badge tone="warn" size="mini">
-          {t('workdesk.status.warn')}
-        </Badge>
-      )
-    }
-    return (
-      <Badge tone="fail" size="mini">
-        {t('workdesk.status.bad')}
-      </Badge>
-    )
   }
 
   return (
@@ -499,7 +480,7 @@ ${cr.solution}
             @keyframes workdeskCardDeal {
               0% {
                 opacity: 0;
-                transform: translateY(-14px) scale(0.97);
+                transform: translateY(-16px) scale(0.97);
               }
               100% {
                 opacity: 1;
@@ -513,7 +494,71 @@ ${cr.solution}
               }
               100% {
                 opacity: 0;
-                transform: translateY(-24px) scale(0.92);
+                transform: translateY(-20px) scale(0.95);
+              }
+            }
+            @keyframes workdeskStackDealMiddle {
+              0% {
+                opacity: 0.9;
+                transform: translate(4px, 4px) rotate(0.6deg);
+              }
+              45% {
+                opacity: 0.9;
+                transform: translate(4px, 4px) rotate(0.6deg);
+              }
+              75% {
+                opacity: 0.5;
+                transform: translate(2px, 2px) rotate(0.3deg);
+              }
+              100% {
+                opacity: 0;
+                transform: translate(0px, 0px) rotate(0deg);
+              }
+            }
+            @keyframes workdeskStackDealBottom {
+              0% {
+                opacity: 0.8;
+                transform: translate(6px, 6px) rotate(1.2deg);
+              }
+              45% {
+                opacity: 0.8;
+                transform: translate(6px, 6px) rotate(1.2deg);
+              }
+              75% {
+                opacity: 0.4;
+                transform: translate(3px, 3px) rotate(0.6deg);
+              }
+              100% {
+                opacity: 0;
+                transform: translate(0px, 0px) rotate(0deg);
+              }
+            }
+            @keyframes workdeskStackGatherMiddle {
+              0% {
+                opacity: 0;
+                transform: translate(0px, 0px) rotate(0deg);
+              }
+              30% {
+                opacity: 0.4;
+                transform: translate(2px, 2px) rotate(0.3deg);
+              }
+              100% {
+                opacity: 0.9;
+                transform: translate(4px, 4px) rotate(0.6deg);
+              }
+            }
+            @keyframes workdeskStackGatherBottom {
+              0% {
+                opacity: 0;
+                transform: translate(0px, 0px) rotate(0deg);
+              }
+              30% {
+                opacity: 0.3;
+                transform: translate(3px, 3px) rotate(0.6deg);
+              }
+              100% {
+                opacity: 0.8;
+                transform: translate(6px, 6px) rotate(1.2deg);
               }
             }
           `}</style>
@@ -562,13 +607,14 @@ ${cr.solution}
                   onClick={() => handleSelectItem(item.id)}
                   style={{
                     animation: isGathering
-                      ? `workdeskCardGather 180ms cubic-bezier(0.4, 0, 0.2, 1) ${Math.min(itemIndex, 5) * 10}ms both`
+                      ? `workdeskCardGather 200ms cubic-bezier(0.2, 0.8, 0.2, 1) ${Math.min(itemIndex, 4) * 8}ms both`
                       : isDealing && itemIndex > 0
                         ? `workdeskCardDeal 240ms cubic-bezier(0.16, 1, 0.3, 1) ${Math.min(itemIndex, 8) * 35}ms both`
                         : undefined,
                   }}
                   className={cn(
                     'group relative flex h-[62px] min-h-[62px] w-full cursor-pointer items-center justify-between gap-3 rounded-xl border p-2.5 shadow-xs transition-all duration-150 select-none shrink-0',
+                    itemIndex === 0 && isMultiple && (isDealing || isGathering) && 'z-10',
                     isSelected
                       ? 'border-[#b5ddd4] bg-[#f8fcfa] shadow-xs dark:border-emerald-700/60 dark:bg-emerald-950/30'
                       : 'border-line bg-panel hover:border-[#b5ddd4] hover:bg-[#f8fcfa] hover:shadow-sm dark:hover:border-emerald-700/50 dark:hover:bg-emerald-950/20',
@@ -586,6 +632,35 @@ ${cr.solution}
                   }}
                   aria-label={`${item.repoAlias ? `${item.repoAlias} · ${item.name}` : item.name} - ${item.summary}`}
                 >
+                  {/* Stacked Card Deck underlayers: preserved during flight, dealing and gathering */}
+                  {itemIndex === 0 && isMultiple && (isDealing || isGathering) && (
+                    <>
+                      <div
+                        data-testid="card-stack-layer-bottom"
+                        style={{
+                          animation: isGathering
+                            ? 'workdeskStackGatherBottom 220ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards'
+                            : isDealing
+                              ? 'workdeskStackDealBottom 380ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards'
+                              : undefined,
+                        }}
+                        className="absolute inset-0 -z-10 rounded-xl border border-line/60 bg-panel shadow-2xs pointer-events-none origin-top-left dark:border-line/40 dark:bg-panel"
+                        aria-hidden="true"
+                      />
+                      <div
+                        data-testid="card-stack-layer-middle"
+                        style={{
+                          animation: isGathering
+                            ? 'workdeskStackGatherMiddle 220ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards'
+                            : isDealing
+                              ? 'workdeskStackDealMiddle 380ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards'
+                              : undefined,
+                        }}
+                        className="absolute inset-0 -z-10 rounded-xl border border-line/80 bg-panel shadow-2xs pointer-events-none origin-top-left dark:border-line/60 dark:bg-panel"
+                        aria-hidden="true"
+                      />
+                    </>
+                  )}
                   <div className="flex min-w-0 flex-1 flex-col justify-center text-left">
                     <span className="line-clamp-1 text-xs font-semibold leading-tight text-ink transition-colors group-hover:text-ink-vivid">
                       {item.repoAlias ? `${item.repoAlias} · ${item.name}` : item.name}
@@ -651,138 +726,7 @@ ${cr.solution}
         </div>
 
         {/* Right Column: Evidence Details (Single Unified Block) */}
-        <div
-          className={cn(
-            'custom-scrollbar relative flex min-h-0 flex-1 flex-col overflow-y-auto bg-panel-2/20 p-3 pb-20 transition-opacity duration-200',
-            isGathering ? 'pointer-events-none opacity-0' : 'opacity-100'
-          )}
-        >
-          {activeItem ? (
-            <div className="w-full max-w-4xl rounded-xl border border-line bg-panel p-3.5 shadow-2xs">
-              {/* Header: Title + Status Badge */}
-              <div className="flex items-center justify-between gap-3 border-b border-line/60 pb-3">
-                <div className="flex min-w-0 items-center gap-2">
-                  <LuFolderGit2 className="size-4 shrink-0 text-accent" aria-hidden="true" />
-                  <h3 className="truncate text-sm font-bold text-ink">{getItemProblemTitle(card.id, activeItem, t)}</h3>
-                </div>
-                {renderStateBadge(activeItem.state)}
-              </div>
-
-              <div className="mt-3 flex flex-col gap-3">
-                {/* 1. 关联项目 & 问题分支 - 均单独一行展示，点击名称直接进入 */}
-                <div className="flex flex-col gap-2 rounded-lg border border-line/60 bg-panel-2/40 p-3 text-xs">
-                  {/* Row 1: 关联项目 (点击直接进入) */}
-                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center">
-                    <span className="w-16 shrink-0 whitespace-nowrap text-[11px] font-medium text-ink-muted sm:w-20">{t('workdesk.detail.targetProject')}</span>
-                    <div className="flex min-w-0 flex-1 items-center">
-                      <Link
-                        href={`/git/${encodeURIComponent(activeItem.repoId)}`}
-                        className="truncate font-semibold text-ink hover:text-accent hover:underline transition-colors"
-                        title={activeItem.repoAlias}
-                      >
-                        {activeItem.repoAlias}
-                      </Link>
-                    </div>
-                  </div>
-
-                  <div className="h-px bg-line/40" />
-
-                  {/* Row 2: 问题分支 (单独一行，点击直接进入) */}
-                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center">
-                    <span className="w-16 shrink-0 whitespace-nowrap text-[11px] font-medium text-ink-muted sm:w-20">{t('workdesk.detail.problemBranch')}</span>
-                    <div className="flex min-w-0 flex-1 items-center gap-1.5">
-                      <Link
-                        href={`/git/${encodeURIComponent(activeItem.repoId)}/branch/${encodeURIComponent(activeItem.name)}`}
-                        className="inline-flex items-center gap-1.5 font-mono text-xs font-medium text-ink hover:text-accent hover:underline transition-colors break-all select-all"
-                        title={activeItem.name}
-                      >
-                        <LuGitBranch className="size-3.5 shrink-0 text-accent" aria-hidden="true" />
-                        <span>{activeItem.name}</span>
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 2. CR 诊断分析 (类似 CR 代码审查：问题描述、产生原因、潜在风险、解决方案) */}
-                {(() => {
-                  const cr = getCrAnalysis(card.id, activeItem, locale)
-                  return (
-                    <div className="flex flex-col gap-3 rounded-lg border border-line/70 bg-panel-2/40 p-3.5">
-                      {/* 问题描述 */}
-                      <div className="flex flex-col gap-0.5">
-                        <span className="flex items-center gap-1.5 text-[11px] font-bold text-ink">
-                          <span className="size-1.5 rounded-full bg-accent" />
-                          {t('workdesk.detail.problemDesc')}
-                        </span>
-                        <p className="pl-3 text-xs font-medium leading-relaxed text-ink">{activeItem.summary}</p>
-                      </div>
-
-                      {/* 产生原因 */}
-                      <div className="flex flex-col gap-0.5">
-                        <span className="flex items-center gap-1.5 text-[11px] font-bold text-ink-soft">
-                          <span className="size-1.5 rounded-full bg-line-contrast" />
-                          {t('workdesk.detail.causeTitle')}
-                        </span>
-                        <p className="pl-3 text-xs leading-relaxed text-ink-muted">{cr.cause}</p>
-                      </div>
-
-                      {/* 潜在风险 */}
-                      <div className="flex flex-col gap-0.5">
-                        <span className="flex items-center gap-1.5 text-[11px] font-bold text-amber-600 dark:text-amber-400">
-                          <span className="size-1.5 rounded-full bg-amber-500" />
-                          {t('workdesk.detail.riskTitle')}
-                        </span>
-                        <p className="pl-3 text-xs leading-relaxed text-ink-muted">{cr.risk}</p>
-                      </div>
-
-                      {/* 解决方案 */}
-                      <div className="flex flex-col gap-1">
-                        <span className="flex items-center gap-1.5 text-[11px] font-bold text-[#28a388]">
-                          <span className="size-1.5 rounded-full bg-[#28a388]" />
-                          {t('workdesk.detail.solutionTitle')}
-                        </span>
-                        <div className="ml-3 whitespace-pre-line rounded-md border border-line/60 bg-panel/60 p-2.5 text-xs leading-relaxed text-ink font-mono">{cr.solution}</div>
-                      </div>
-                    </div>
-                  )
-                })()}
-
-                {/* 3. 由 Git Agent 协助处理此任务 (参考上述解决方案执行) */}
-                {card.id !== 'standard-project-organization' ? (
-                  <div className="flex flex-col gap-3 rounded-lg border border-[#b5ddd4] bg-[#f4faf7] p-3 sm:flex-row sm:items-center sm:justify-between dark:border-emerald-800/40 dark:bg-emerald-950/20">
-                    <div className="flex min-w-0 flex-1 flex-col pr-3">
-                      <span className="text-xs font-semibold text-ink">{t('workdesk.detail.agentAssistTitle')}</span>
-                      <span className="mt-0.5 text-[11px] text-ink-muted">{t('workdesk.detail.agentAssistDesc')}</span>
-                    </div>
-                    <Button size="sm" className="shrink-0 gap-1.5" onClick={() => handleSendToAgent()}>
-                      <LuBot className="size-3.5" aria-hidden="true" />
-                      <span>{t('workdesk.action.sendToAgent')}</span>
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-3 rounded-lg border border-[#b5ddd4] bg-[#f4faf7] p-3 sm:flex-row sm:items-center sm:justify-between dark:border-emerald-800/40 dark:bg-emerald-950/20">
-                    <div className="flex flex-col">
-                      <span className="text-xs font-semibold text-ink">{t('workdesk.organization.bannerTitle')}</span>
-                      <span className="mt-0.5 text-[11px] text-ink-muted">{t('workdesk.organization.bannerDesc')}</span>
-                    </div>
-                    <Button
-                      size="sm"
-                      className="shrink-0"
-                      onClick={() => {
-                        quotePromptToAgent(t('workdesk.organization.prompt'))
-                      }}
-                    >
-                      <LuFolderTree className="mr-1.5 size-3.5" aria-hidden="true" />
-                      {t('workdesk.organization.bannerAction')}
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-1 items-center justify-center text-xs text-ink-muted">{t('workdesk.detail.selectPrompt')}</div>
-          )}
-        </div>
+        <WorkdeskEvidencePanel card={card} activeItem={activeItem} isGathering={isGathering} locale={locale} t={t} handleSendToAgent={handleSendToAgent} />
       </div>
     </div>
   )

@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { LuChevronsUpDown, LuFileClock, LuFingerprint, LuFlag, LuFolderGit2, LuSettings, LuX } from 'react-icons/lu'
+import { LuChevronsUpDown, LuCompass, LuFileClock, LuFingerprint, LuFolderGit2, LuSettings, LuX } from 'react-icons/lu'
 
 import { BrandLogo } from '@/components/BrandLogo'
 import { useAgentQuoteGlobalShortcut } from '@/components/git/agent/agentQuoteShortcut'
@@ -30,7 +30,6 @@ import { useNotification } from '@/components/notification/useNotification'
 import { Button, EmptyState, Spinner, Tooltip } from '@/components/sk'
 import { dropdownTriggerClass } from '@/components/sk/dropdownMenu'
 import { ThemeSwitcher } from '@/components/theme/ThemeSwitcher'
-import { WorkdeskBoard } from '@/components/workdesk/WorkdeskBoard'
 import { useOptionalAgent } from '@/lib/agent/agent-context'
 import { useOptionalSpotlight } from '@/lib/agent/spotlight-context'
 import { readApiErrorMessage } from '@/lib/api-error'
@@ -113,7 +112,6 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
   const [menuOpen, setMenuOpen] = useState(false)
   const [projectSearchRequest, setProjectSearchRequest] = useState(0)
   const [projects, setProjects] = useState<GitProjectView[]>([])
-  const [catalogLoaded, setCatalogLoaded] = useState(false)
   const [folders, setFolders] = useState<string[]>([])
   const [commits, setCommits] = useState<GitCommit[]>(failed ? [] : initial.commits)
   const [hasMore, setHasMore] = useState(failed ? false : initial.hasMore)
@@ -279,7 +277,6 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
   const applyCatalog = useCallback((body: { projects?: GitProjectView[]; folders?: string[] }) => {
     if (Array.isArray(body.projects)) setProjects(body.projects)
     if (Array.isArray(body.folders)) setFolders(body.folders)
-    setCatalogLoaded(true)
   }, [])
 
   const refreshProjects = useCallback(async () => {
@@ -292,9 +289,6 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
         const response = await fetch('/api/git/projects')
         const body = (await response.json()) as { ok?: boolean; projects?: GitProjectView[]; folders?: string[] }
         if (response.ok && body.ok !== false) applyCatalog(body)
-        else setCatalogLoaded(true)
-      } else {
-        setCatalogLoaded(true)
       }
     }
   }, [applyCatalog])
@@ -1421,15 +1415,9 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                   aria-haspopup="dialog"
                   onClick={() => setMenuOpen((open) => !open)}
                 >
-                  {busy ? (
-                    <Spinner className="size-3.5 shrink-0 text-accent" />
-                  ) : view ? (
-                    <LuFolderGit2 className="size-3.5 shrink-0 text-ink-soft" aria-hidden />
-                  ) : (
-                    <LuFlag className="size-3.5 shrink-0 text-accent" aria-hidden />
-                  )}
-                  <span className={cn('min-w-0 truncate text-[0.8125rem] font-semibold', !view && 'text-accent')}>
-                    {busy ? t('common.loading') : view ? repoName(view.repo, view.displayPath) : t('workdesk.topbarTitle') || '工作台'}
+                  {busy ? <Spinner className="size-3.5 shrink-0 text-accent" /> : <LuFolderGit2 className="size-3.5 shrink-0 text-ink-soft" aria-hidden />}
+                  <span className="min-w-0 truncate text-[0.8125rem] font-semibold">
+                    {busy ? t('common.loading') : view ? repoName(view.repo, view.displayPath) : t('git.header.noRepo')}
                   </span>
                   <LuChevronsUpDown className="size-3.5 shrink-0 text-ink-soft" aria-hidden />
                 </Button>
@@ -1506,15 +1494,9 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                   aria-haspopup="dialog"
                   onClick={() => setMenuOpen((open) => !open)}
                 >
-                  {busy ? (
-                    <Spinner className="size-3.5 shrink-0 text-accent" />
-                  ) : view ? (
-                    <LuFolderGit2 className="size-3.5 shrink-0 text-ink-soft" aria-hidden />
-                  ) : (
-                    <LuFlag className="size-3.5 shrink-0 text-accent" aria-hidden />
-                  )}
-                  <span className={cn('min-w-0 truncate text-[0.8125rem] font-semibold', !view && 'text-accent')}>
-                    {busy ? t('common.loading') : view ? repoName(view.repo, view.displayPath) : t('workdesk.topbarTitle') || '工作台'}
+                  {busy ? <Spinner className="size-3.5 shrink-0 text-accent" /> : <LuFolderGit2 className="size-3.5 shrink-0 text-ink-soft" aria-hidden />}
+                  <span className="min-w-0 truncate text-[0.8125rem] font-semibold">
+                    {busy ? t('common.loading') : view ? repoName(view.repo, view.displayPath) : t('git.header.noRepo')}
                   </span>
                   <LuChevronsUpDown className="size-3.5 shrink-0 text-ink-soft" aria-hidden />
                 </Button>
@@ -1573,6 +1555,14 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                   }
                 }}
               />
+              {process.env.NODE_ENV === 'development' && (
+                <Tooltip content="官网工坊与资产管理 (开发模式)" placement="bottom">
+                  <Link href="/dev/studio" className={cn(dropdownTriggerClass, 'px-2 gap-1.5 text-xs font-mono font-medium')} aria-label="官网工作台">
+                    <LuCompass className="size-3.5 text-accent shrink-0" aria-hidden="true" />
+                    <span className="hidden sm:inline">官网工坊</span>
+                  </Link>
+                </Tooltip>
+              )}
               <span className="mx-0.5 h-3.5 w-px shrink-0 bg-[color-mix(in_oklab,var(--ink)_14%,transparent)]" aria-hidden />
               <ThemeSwitcher compact />
               <LocaleSwitcher compact />
@@ -1612,27 +1602,17 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
             </div>
           </EmptyState>
         ) : !view ? (
-          !catalogLoaded ? (
-            <div className="flex flex-1 items-center justify-center">
-              <Spinner className="size-6 text-accent" />
+          <EmptyState title={t('git.page.noProject')} message={t('git.page.noProjectMessage')} hint={t('git.page.noProjectHint')}>
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+              <Button variant="accent" size="md" onClick={() => void chooseFolder()}>
+                <LuFolderGit2 className="size-4" aria-hidden />
+                {t('git.project.addLocal')}
+              </Button>
+              <Button variant="default" size="md" onClick={() => setMenuOpen(true)}>
+                {t('git.project.switcher')}
+              </Button>
             </div>
-          ) : projects.length === 0 ? (
-            <EmptyState title={t('git.page.noProject')} message={t('git.page.noProjectMessage')} hint={t('git.page.noProjectHint')}>
-              <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-                <Button variant="accent" size="md" onClick={() => void chooseFolder()}>
-                  <LuFolderGit2 className="size-4" aria-hidden />
-                  {t('git.project.addLocal')}
-                </Button>
-                <Button variant="default" size="md" onClick={() => setMenuOpen(true)}>
-                  {t('git.project.switcher')}
-                </Button>
-              </div>
-            </EmptyState>
-          ) : (
-            <div className="flex h-full w-full min-h-0 flex-1 flex-col overflow-hidden bg-paper select-text">
-              <WorkdeskBoard />
-            </div>
-          )
+          </EmptyState>
         ) : (
           <div ref={frameRef} className="relative flex min-h-0 flex-1 overflow-hidden" style={frameStyle}>
             {filePanel ? (

@@ -13,7 +13,7 @@ import { dismissCard, undoDismissCard } from '@/lib/workdesk/storage'
 import type { WorkCard, WorkItem } from '@/lib/workdesk/types'
 
 import { CARD_I18N_MAP, WorkdeskCard } from './WorkdeskCard'
-import { getItemCardSummary, WorkdeskTaskDetailView } from './WorkdeskTaskDetailView'
+import { WorkdeskTaskDetailView } from './WorkdeskTaskDetailView'
 
 interface WorkdeskBoardProps {
   initialCards?: WorkCard[]
@@ -141,9 +141,9 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
         })
         if (typeof window !== 'undefined') {
           if (window.location.pathname.startsWith('/workdesk')) {
-            router.replace('/git')
+            router.replace('/workdesk')
           } else {
-            window.history.pushState(null, '', '/git')
+            window.history.pushState(null, '', '/workdesk')
           }
         }
       }, 350)
@@ -153,9 +153,9 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
     setActiveTaskId(null)
     if (typeof window !== 'undefined') {
       if (window.location.pathname.startsWith('/workdesk')) {
-        router.replace('/git')
+        router.replace('/workdesk')
       } else {
-        window.history.pushState(null, '', '/git')
+        window.history.pushState(null, '', '/workdesk')
       }
     }
   }, [activeTaskId, router])
@@ -167,7 +167,12 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
       if (match) {
         setActiveTaskId(decodeURIComponent(match[1]))
       } else {
-        handleCollapseCard()
+        const closeBtn = document.querySelector<HTMLButtonElement>('[data-testid="workdesk-detail-close-btn"]')
+        if (closeBtn) {
+          closeBtn.click()
+        } else {
+          handleCollapseCard()
+        }
       }
     }
     window.addEventListener('popstate', handlePopState)
@@ -352,13 +357,9 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
           const i18nKey = CARD_I18N_MAP[c.id]
           const rawTitle = i18nKey ? t(`workdesk.cards.${i18nKey}.title` as MessageKey) : undefined
           const title = rawTitle && !rawTitle.startsWith('workdesk.cards.') ? rawTitle : c.title
-          const isTarget = transition.phase === 'moving' || transition.phase === 'collapsing-start'
+          const isAtDetail = transition.phase === 'moving' || transition.phase === 'collapsing-start'
           const targetWidth = Math.min(boardCardWidth ?? transition.startRect.width, 300)
-
-          const firstItem = c.itemIds && c.itemIds.length > 0 ? itemsMap[c.itemIds[0]] : null
-          const itemTitle = firstItem ? (firstItem.repoAlias ? `${firstItem.repoAlias} · ${firstItem.name}` : firstItem.name) : title
-          const itemSummary = firstItem ? getItemCardSummary(firstItem.summary) : null
-          const isMultiple = Boolean(c.itemIds && c.itemIds.length > 1)
+          const isMultiple = Boolean(c.itemIds && c.itemIds.length > 1) || (c.projectCount ?? 1) > 1
 
           const parsedCount = parseInt(c.scope.match(/(\d+)\s*个项目/)?.[1] || c.scope.match(/(\d+)/)?.[1] || '1', 10)
           const projectCount = c.projectCount !== undefined ? c.projectCount : parsedCount
@@ -379,9 +380,9 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
             <div
               style={{
                 position: 'absolute',
-                left: isTarget ? 12 : transition.startRect.left,
-                top: isTarget ? 56 : transition.startRect.top,
-                width: isTarget ? targetWidth : transition.startRect.width,
+                left: isAtDetail ? 12 : transition.startRect.left,
+                top: isAtDetail ? 56 : transition.startRect.top,
+                width: isAtDetail ? targetWidth : transition.startRect.width,
                 height: 62,
                 zIndex: 50,
                 transition: transition.phase === 'moving' || transition.phase === 'collapsing' ? 'all 350ms cubic-bezier(0.2, 0.8, 0.2, 1)' : 'none',
@@ -391,19 +392,19 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
               {isMultiple && (
                 <>
                   <div
+                    data-testid="card-stack-layer-bottom"
                     style={{
-                      transform: isTarget ? 'translate(0px, 0px) rotate(0deg)' : 'translate(6px, 6px) rotate(1.2deg)',
-                      opacity: isTarget ? 0 : 0.8,
-                      transition: 'all 350ms cubic-bezier(0.2, 0.8, 0.2, 1)',
+                      transform: 'translate(6px, 6px) rotate(1.2deg)',
+                      opacity: 0.8,
                     }}
                     className="absolute inset-0 -z-10 rounded-xl border border-line/60 bg-panel shadow-2xs pointer-events-none origin-top-left dark:border-line/40 dark:bg-panel"
                     aria-hidden="true"
                   />
                   <div
+                    data-testid="card-stack-layer-middle"
                     style={{
-                      transform: isTarget ? 'translate(0px, 0px) rotate(0deg)' : 'translate(4px, 4px) rotate(0.6deg)',
-                      opacity: isTarget ? 0 : 0.9,
-                      transition: 'all 350ms cubic-bezier(0.2, 0.8, 0.2, 1)',
+                      transform: 'translate(4px, 4px) rotate(0.6deg)',
+                      opacity: 0.9,
                     }}
                     className="absolute inset-0 -z-10 rounded-xl border border-line/80 bg-panel shadow-2xs pointer-events-none origin-top-left dark:border-line/60 dark:bg-panel"
                     aria-hidden="true"
@@ -412,33 +413,18 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
               )}
 
               <div className="flex w-full items-start justify-between gap-2">
-                <span className="line-clamp-1 text-xs font-semibold leading-tight text-ink transition-opacity duration-200">{isTarget && firstItem ? itemTitle : title}</span>
-                {isTarget && firstItem ? (
-                  <span
-                    className={cn(
-                      'h-3.5 w-1 shrink-0 rounded-full transition-opacity duration-200',
-                      firstItem.state === 'safe' ? 'bg-[#28a388]' : firstItem.state === 'warn' ? 'bg-[#d8a646]' : 'bg-[#d96c61]'
-                    )}
-                    aria-hidden="true"
-                  />
-                ) : null}
+                <span className="line-clamp-1 text-xs font-semibold leading-tight text-ink">{title}</span>
               </div>
               <div className="mt-1 flex items-center gap-3 text-[11px] font-medium leading-tight text-ink-muted">
-                {isTarget && firstItem ? (
-                  <span className="line-clamp-1 text-[11px] leading-tight text-ink-muted">{itemSummary}</span>
-                ) : (
-                  <>
-                    <span className="inline-flex items-center gap-1">
-                      <LuFolderGit2 className="size-3 text-ink-muted" aria-hidden="true" />
-                      <span>{displayProjectCount}</span>
-                    </span>
-                    {extraCount !== null && (
-                      <span className="inline-flex items-center gap-1">
-                        {isWorktree ? <LuGitFork className="size-3 text-ink-muted" aria-hidden="true" /> : <LuGitBranch className="size-3 text-ink-muted" aria-hidden="true" />}
-                        <span>{extraCount > 99 ? '99+' : extraCount}</span>
-                      </span>
-                    )}
-                  </>
+                <span className="inline-flex items-center gap-1">
+                  <LuFolderGit2 className="size-3 text-ink-muted" aria-hidden="true" />
+                  <span>{displayProjectCount}</span>
+                </span>
+                {extraCount !== null && (
+                  <span className="inline-flex items-center gap-1">
+                    {isWorktree ? <LuGitFork className="size-3 text-ink-muted" aria-hidden="true" /> : <LuGitBranch className="size-3 text-ink-muted" aria-hidden="true" />}
+                    <span>{extraCount > 99 ? '99+' : extraCount}</span>
+                  </span>
                 )}
               </div>
             </div>

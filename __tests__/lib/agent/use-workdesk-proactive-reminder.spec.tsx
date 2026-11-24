@@ -260,7 +260,7 @@ describe('useWorkdeskProactiveReminder', () => {
         latestReminder?.viewTask()
       })
 
-      expect(mockPush).toHaveBeenCalledWith('/workdesk?card=sync-default-branches')
+      expect(mockPush).toHaveBeenCalledWith('/workdesk/tasks/sync-default-branches')
       expect(latestReminder).toBeNull()
     })
   })

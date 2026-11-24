@@ -24,7 +24,7 @@ let mockReminder: ProactiveReminder | null = {
   message: '默认分支 main 检测到远端有更新，是否需要 Agent 帮忙同步？',
   actionLabel: '帮忙同步',
   agentPrompt: '请帮我同步 main 分支',
-  detailsUrl: '/workdesk?card=sync-default-branches',
+  detailsUrl: '/workdesk/tasks/sync-default-branches',
   dismiss: mockDismiss,
   accept: mockAccept,
   viewTask: mockViewTask,

@@ -55,7 +55,7 @@ export function WorkdeskHeaderSwitcher() {
         <div className="absolute top-full left-0 z-50 mt-1 w-56 rounded-xl border border-line bg-panel p-1 shadow-lg">
           {/* Active Workdesk Selection */}
           <Link
-            href="/git"
+            href="/workdesk"
             onClick={() => setOpen(false)}
             className="flex items-center justify-between rounded-lg bg-emerald-500/10 px-2.5 py-1.5 text-xs font-semibold text-accent dark:bg-emerald-950/40"
           >

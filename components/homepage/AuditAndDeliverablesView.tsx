@@ -1,7 +1,7 @@
 'use client'
 
-import { AlertTriangle, Check, Download, ExternalLink, FileCode2, FileImage, FileText } from 'lucide-react'
 import React, { useState } from 'react'
+import { LuCheck, LuDownload, LuExternalLink, LuFileCode, LuFileImage, LuFileText, LuTriangleAlert } from 'react-icons/lu'
 
 import { HERO_ASSETS } from './data/heroAssets'
 import { GIT_NODES, MASTER_CANVAS, TREE_LAYERS } from './data/worldTreeData'
@@ -208,7 +208,7 @@ export const AuditAndDeliverablesView: React.FC = () => {
                       <span className="flex-1 text-sm text-slate-300">{file.label}</span>
                     )}
                     <a href={file.path} download aria-label={`下载${file.label}`} className="rounded p-1 text-teal-300 hover:bg-teal-500/20">
-                      <Download className="h-4 w-4" />
+                      <LuDownload className="h-4 w-4" />
                     </a>
                   </div>
                 ))}
@@ -219,7 +219,7 @@ export const AuditAndDeliverablesView: React.FC = () => {
             <figcaption className="flex items-center justify-between gap-2 text-sm font-semibold text-slate-100">
               {heroPreview.label}
               <a href={heroPreview.path} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-xs font-medium text-teal-300 hover:underline">
-                原尺寸打开 <ExternalLink className="h-3 w-3" />
+                原尺寸打开 <LuExternalLink className="h-3 w-3" />
               </a>
             </figcaption>
             <div className="checkerboard-bg flex aspect-video items-center justify-center overflow-hidden rounded-lg border border-teal-900/60">
@@ -246,7 +246,7 @@ export const AuditAndDeliverablesView: React.FC = () => {
               download="audit.md"
               className="px-3.5 py-2 rounded-lg bg-teal-500/15 hover:bg-teal-500/25 text-teal-200 border border-teal-500/30 text-xs font-medium flex items-center gap-2 transition-colors whitespace-nowrap shrink-0"
             >
-              <Download className="w-3.5 h-3.5" />
+              <LuDownload className="w-3.5 h-3.5" />
               <span>下载 audit.md</span>
             </a>
           </div>
@@ -277,7 +277,7 @@ export const AuditAndDeliverablesView: React.FC = () => {
                   <td className="py-3 px-3 font-mono tabular-nums text-slate-300">1122 × 1402</td>
                   <td className="py-3 px-3 font-mono text-slate-300">8-bit RGBA</td>
                   <td className="py-3 px-3 text-amber-300 font-medium flex items-center gap-1.5">
-                    <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                    <LuTriangleAlert className="w-3.5 h-3.5 shrink-0" />
                     <span>禁用替代项 (白底独立树)</span>
                   </td>
                   <td className="py-3 px-3 text-slate-400">
@@ -416,11 +416,11 @@ export const AuditAndDeliverablesView: React.FC = () => {
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       {f.format === 'MD' ? (
-                        <FileText className="w-4 h-4 text-teal-400 shrink-0" />
+                        <LuFileText className="w-4 h-4 text-teal-400 shrink-0" />
                       ) : f.format === 'JSON' ? (
-                        <FileCode2 className="w-4 h-4 text-amber-400 shrink-0" />
+                        <LuFileCode className="w-4 h-4 text-amber-400 shrink-0" />
                       ) : (
-                        <FileImage className="w-4 h-4 text-emerald-400 shrink-0" />
+                        <LuFileImage className="w-4 h-4 text-emerald-400 shrink-0" />
                       )}
                       <div className="min-w-0">
                         <div className="font-mono text-xs text-slate-100 truncate">{f.path.replace('/world-tree-assets/', '')}</div>
@@ -439,7 +439,7 @@ export const AuditAndDeliverablesView: React.FC = () => {
                         className="p-1.5 rounded bg-[#061014] hover:bg-teal-500/20 text-teal-300 border border-teal-800/60 transition-colors"
                         title="下载该资产文件"
                       >
-                        <Download className="w-3.5 h-3.5" />
+                        <LuDownload className="w-3.5 h-3.5" />
                       </a>
                     </div>
                   </div>
@@ -455,7 +455,7 @@ export const AuditAndDeliverablesView: React.FC = () => {
                 <h4 className="text-sm font-display font-semibold text-white">资产单文件透明通道预览</h4>
                 <a href={previewAssetUrl} target="_blank" rel="noreferrer" className="text-xs font-mono text-teal-300 hover:underline flex items-center gap-1">
                   <span>原尺寸打开</span>
-                  <ExternalLink className="w-3 h-3" />
+                  <LuExternalLink className="w-3 h-3" />
                 </a>
               </div>
               <div className="checkerboard-bg rounded-lg border border-teal-900/60 p-2 flex items-center justify-center min-h-[240px]">
@@ -478,7 +478,7 @@ export const AuditAndDeliverablesView: React.FC = () => {
                   '显式标注角标修补与底层树皮补全区域 (inpainted_mask)',
                 ].map((item) => (
                   <div key={item} className="flex items-start gap-2">
-                    <Check className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                    <LuCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                     <span>{item}</span>
                   </div>
                 ))}
@@ -499,7 +499,7 @@ export const AuditAndDeliverablesView: React.FC = () => {
               download="nodes.json"
               className="px-3.5 py-2 rounded-lg bg-teal-500/15 hover:bg-teal-500/25 text-teal-200 border border-teal-500/30 text-xs font-medium flex items-center gap-2 transition-colors whitespace-nowrap shrink-0"
             >
-              <Download className="w-3.5 h-3.5" />
+              <LuDownload className="w-3.5 h-3.5" />
               <span>下载 nodes.json</span>
             </a>
           </div>

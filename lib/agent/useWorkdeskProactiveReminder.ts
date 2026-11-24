@@ -190,7 +190,7 @@ export function useWorkdeskProactiveReminder(projects?: GitProjectView[]) {
       agentPrompt = `请协助处理任务【${targetItem.repoAlias} / ${targetItem.name}】: ${targetItem.summary}`
     }
 
-    const detailsUrl = `/workdesk?card=${encodeURIComponent(targetItem.cardId)}`
+    const detailsUrl = `/workdesk/tasks/${encodeURIComponent(targetItem.cardId)}`
 
     const handleDismiss = () => {
       saveDismissedId(compositeId)

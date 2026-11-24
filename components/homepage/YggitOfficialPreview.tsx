@@ -1,9 +1,9 @@
 /* eslint-disable max-lines */
 'use client'
 
-import { ArrowRight, Download, Eye, EyeOff, Layers, Moon, Play, Sliders, Sparkles, Star, Sun, Waves, Wind } from 'lucide-react'
 import Link from 'next/link'
 import React, { useEffect, useRef, useState } from 'react'
+import { LuArrowRight, LuDownload, LuEye, LuEyeOff, LuLayers, LuMoon, LuPlay, LuSlidersHorizontal, LuSparkles, LuStar, LuSun, LuWaves, LuWind } from 'react-icons/lu'
 
 import { HERO_ASSETS } from './data/heroAssets'
 import { SEASON_THEMES, SeasonThemePack, TIME_OF_DAY_PRESETS, TimeOfDayPreset } from './data/worldTreeData'
@@ -33,6 +33,9 @@ export interface YggitOfficialPreviewProps {
   onChangeWind?: React.Dispatch<React.SetStateAction<WindConfig>>
   lighting?: LightingConfig
   compactBannerMode?: boolean
+  hideTopNav?: boolean
+  hideLeftCopy?: boolean
+  fullScreenStage?: boolean
 }
 
 // Separated Distant Background & Dedicated Foreground Layers (1672x941)
@@ -258,6 +261,9 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
   onChangeWind: propOnChangeWind,
   lighting: propLighting,
   compactBannerMode = false,
+  hideTopNav = false,
+  hideLeftCopy = false,
+  fullScreenStage = false,
 }) => {
   const [internalSeasonId, setInternalSeasonId] = useState<SeasonThemePack['id']>('default')
   const [internalTimePresetId, setInternalTimePresetId] = useState<TimeOfDayPreset['id']>('day')
@@ -1168,7 +1174,7 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
                     : 'text-slate-300 hover:text-white'
                 }`}
               >
-                <Sun className="w-3.5 h-3.5" />
+                <LuSun className="w-3.5 h-3.5" />
                 <span>☀️ 白天模式 (错峰晨光过渡)</span>
               </button>
               <button
@@ -1182,7 +1188,7 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
                     : 'text-slate-300 hover:text-white'
                 }`}
               >
-                <Moon className="w-3.5 h-3.5" />
+                <LuMoon className="w-3.5 h-3.5" />
                 <span>🌙 暗黑模式 (错峰入夜点亮)</span>
               </button>
               <button
@@ -1206,7 +1212,7 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
                 showClusterDebug ? 'bg-amber-500/20 text-amber-200 border-amber-400/50' : 'bg-[#050e12] text-slate-300 border-teal-900/60 hover:text-white'
               }`}
             >
-              <Wind className="w-3.5 h-3.5 text-amber-300" />
+              <LuWind className="w-3.5 h-3.5 text-amber-300" />
               <span>{showClusterDebug ? '隐藏树冠与近景花丛标记' : '检视树冠叶簇与近景花丛'}</span>
             </button>
 
@@ -1217,7 +1223,7 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
                   showTuningPanel ? 'bg-teal-500/20 text-teal-200 border-teal-400/50' : 'bg-[#050e12] text-slate-300 border-teal-900/60 hover:text-white'
                 }`}
               >
-                <Sliders className="w-3.5 h-3.5 text-teal-400" />
+                <LuSlidersHorizontal className="w-3.5 h-3.5 text-teal-400" />
                 <span>风场 / 水流 Shader 微调</span>
               </button>
             )}
@@ -1385,7 +1391,7 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
             <div className="flex flex-wrap items-center justify-between gap-4 bg-[#071419] border border-teal-800/60 rounded-xl p-4">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <Layers className="w-4 h-4 text-teal-400" />
+                  <LuLayers className="w-4 h-4 text-teal-400" />
                   <h3 className="text-base font-display font-bold text-white">首屏 Hero 合成预览</h3>
                 </div>
                 <p className="text-xs text-slate-300">
@@ -1466,7 +1472,7 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
                     showWaterShader ? 'bg-sky-500/25 text-sky-200 border-sky-400/60 shadow-[0_0_12px_rgba(56,189,248,0.2)]' : 'bg-[#040a0d] text-slate-400 border-teal-950'
                   }`}
                 >
-                  <Waves className="w-3.5 h-3.5 text-sky-300" />
+                  <LuWaves className="w-3.5 h-3.5 text-sky-300" />
                   <span>🌊 底部溪流 WebGL 连续水纹 v2.0</span>
                 </button>
 
@@ -1498,7 +1504,7 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
                     showForegroundFlowersAndGlow ? 'bg-amber-500/20 text-amber-200 border-amber-400/50' : 'bg-[#040a0d] text-slate-400 border-teal-950'
                   }`}
                 >
-                  <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                  <LuSparkles className="w-3.5 h-3.5 text-amber-300" />
                   <span>🌼 近景花草摆动与发光</span>
                 </button>
 
@@ -1511,7 +1517,7 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
                     showCardFrame && !isolatedCardElementId ? 'bg-emerald-500/20 text-emerald-200 border-emerald-400/50' : 'bg-[#040a0d] text-slate-400 border-teal-950'
                   }`}
                 >
-                  {showCardFrame ? <Eye className="w-3.5 h-3.5 text-emerald-300" /> : <EyeOff className="w-3.5 h-3.5" />}
+                  {showCardFrame ? <LuEye className="w-3.5 h-3.5 text-emerald-300" /> : <LuEyeOff className="w-3.5 h-3.5" />}
                   <span>APP 卡片空框与阴影</span>
                 </button>
 
@@ -1526,7 +1532,7 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
                       : 'bg-[#040a0d] text-slate-400 border-teal-950'
                   }`}
                 >
-                  {showCardInteractiveUi ? <Eye className="w-3.5 h-3.5 text-emerald-300" /> : <EyeOff className="w-3.5 h-3.5" />}
+                  {showCardInteractiveUi ? <LuEye className="w-3.5 h-3.5 text-emerald-300" /> : <LuEyeOff className="w-3.5 h-3.5" />}
                   <span>面板高清 UI 与轻交互层</span>
                 </button>
 
@@ -1558,7 +1564,7 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
                       : 'bg-[#040a0d] text-slate-400 border-teal-950'
                   }`}
                 >
-                  <Sparkles className="w-3.5 h-3.5 text-cyan-300" />
+                  <LuSparkles className="w-3.5 h-3.5 text-cyan-300" />
                   <span>Git 分支流光</span>
                 </button>
 
@@ -1571,7 +1577,7 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
                     showRootNexusStream && !isolatedCardElementId ? 'bg-cyan-500/20 text-cyan-200 border-cyan-400/50' : 'bg-[#040a0d] text-slate-400 border-teal-950'
                   }`}
                 >
-                  <Sparkles className="w-3.5 h-3.5 text-cyan-300" />
+                  <LuSparkles className="w-3.5 h-3.5 text-cyan-300" />
                   <span>根系汇流脉冲</span>
                 </button>
 
@@ -1581,7 +1587,7 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
                     showLeftCopy ? 'bg-teal-500/20 text-teal-200 border-teal-400/50' : 'bg-[#040a0d] text-slate-400 border-teal-950'
                   }`}
                 >
-                  {showLeftCopy ? <Eye className="w-3.5 h-3.5 text-teal-300" /> : <EyeOff className="w-3.5 h-3.5" />}
+                  {showLeftCopy ? <LuEye className="w-3.5 h-3.5 text-teal-300" /> : <LuEyeOff className="w-3.5 h-3.5" />}
                   <span>左侧文案</span>
                 </button>
               </div>
@@ -1591,7 +1597,7 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
                 disabled={isExportingComposite}
                 className="px-3 py-1 rounded bg-[#08151a] hover:bg-teal-950 text-teal-200 border border-teal-800/60 text-xs font-mono flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
               >
-                <Download className="w-3 h-3" />
+                <LuDownload className="w-3 h-3" />
                 <span>导出当前{isDay ? '白天' : '暗黑'}合成画面 PNG</span>
               </button>
             </div>
@@ -1601,7 +1607,11 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
         {/* Main 16:9 Stage: 60 FPS Canvas + Smooth Companion UI + Text-Free Transparent Hotspots */}
         <div
           translate="no"
-          className="notranslate relative w-full aspect-[16/9] min-h-[560px] rounded-2xl overflow-hidden border border-teal-900/70 bg-[#03090d] shadow-2xl select-none [container-type:size]"
+          className={
+            fullScreenStage
+              ? 'notranslate relative w-full h-screen min-h-[640px] overflow-hidden bg-[#03090d] select-none [container-type:size]'
+              : 'notranslate relative w-full aspect-[16/9] min-h-[560px] rounded-2xl overflow-hidden border border-teal-900/70 bg-[#03090d] shadow-2xl select-none [container-type:size]'
+          }
         >
           {/* LAYER 0: Persistent 60 FPS Canvas */}
           <canvas ref={cardStageCanvasRef} width={1672} height={941} className="pointer-events-none absolute inset-0 w-full h-full object-cover block" />
@@ -1620,7 +1630,7 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
           )}
 
           {/* LAYER 1: Top Navigation Bar with 700ms Smooth Companion Transition */}
-          {showTopNav && !isolatedCardElementId && (
+          {showTopNav && !hideTopNav && !isolatedCardElementId && (
             <div
               className={`absolute top-0 inset-x-0 z-30 flex items-center justify-between px-7 lg:px-11 py-3.5 transition-colors duration-700 ease-out ${
                 isDay ? 'bg-gradient-to-b from-[#07223a]/55 via-[#07223a]/20 to-transparent' : 'bg-gradient-to-b from-[#020a0e]/80 via-[#020a0e]/35 to-transparent'
@@ -1669,33 +1679,34 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
                 >
                   {isDay ? (
                     <>
-                      <Sun className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />
+                      <LuSun className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />
                       <span>☀️ 白天模式 · 切暗黑</span>
                     </>
                   ) : (
                     <>
-                      <Moon className="w-3.5 h-3.5 text-teal-300 fill-teal-300" />
+                      <LuMoon className="w-3.5 h-3.5 text-teal-300 fill-teal-300" />
                       <span>🌙 暗黑模式 · 切白天</span>
                     </>
                   )}
                 </button>
 
                 <span className="text-xs font-mono text-slate-100 px-3 py-1.5 rounded-full bg-[#07161c]/85 border border-teal-700/60 flex items-center gap-1.5 shadow-md">
-                  <Star className="w-3.5 h-3.5 text-amber-300 fill-amber-300" />
+                  <LuStar className="w-3.5 h-3.5 text-amber-300 fill-amber-300" />
                   <span>Star 3.4k</span>
                 </span>
-                <button
+                <Link
+                  href="/git"
                   onClick={triggerEnergySurge}
-                  className="px-4 py-1.5 text-xs font-semibold rounded-full bg-gradient-to-r from-[#34d399] to-[#2dd4bf] text-slate-950 shadow-[0_0_18px_rgba(45,212,191,0.45)] whitespace-nowrap shrink-0 cursor-pointer"
+                  className="px-4 py-1.5 text-xs font-semibold rounded-full bg-gradient-to-r from-[#34d399] to-[#2dd4bf] text-slate-950 shadow-[0_0_18px_rgba(45,212,191,0.45)] whitespace-nowrap shrink-0 cursor-pointer no-underline"
                 >
                   开始使用 →
-                </button>
+                </Link>
               </div>
             </div>
           )}
 
           {/* LAYER 2: Left Headline, Subtitle, CTAs & Platform Strip with 700ms Smooth Companion Transition */}
-          {showLeftCopy && !isolatedCardElementId && (
+          {showLeftCopy && !hideLeftCopy && !isolatedCardElementId && (
             <div className="absolute left-[4.4%] top-[18.5%] w-[33.5%] z-30 flex flex-col justify-center space-y-3.5 lg:space-y-4 transition-all duration-700 ease-out">
               <div>
                 <span
@@ -1738,13 +1749,13 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
                   className="px-5 lg:px-6 py-2.5 lg:py-3 rounded-xl bg-gradient-to-r from-[#34d399] to-[#2dd4bf] hover:from-[#5eead4] hover:to-[#34d399] text-slate-950 font-semibold text-xs lg:text-sm flex items-center gap-2 shadow-[0_0_24px_rgba(52,211,153,0.45)] transition-all whitespace-nowrap shrink-0 no-underline cursor-pointer"
                 >
                   <span>打开本地项目</span>
-                  <ArrowRight className="w-4 h-4" />
+                  <LuArrowRight className="w-4 h-4" />
                 </Link>
                 <Link
                   href="/git/github/DavidKk/yggit"
                   className="px-4 lg:px-5 py-2.5 lg:py-3 rounded-xl bg-[#071820]/85 hover:bg-[#0b2430] text-slate-100 border border-teal-400/45 text-xs lg:text-sm font-medium flex items-center gap-2 shadow-[0_0_16px_rgba(20,184,166,0.18)] transition-all whitespace-nowrap shrink-0 no-underline cursor-pointer"
                 >
-                  <Play className="w-3.5 h-3.5 text-teal-300 fill-teal-300" />
+                  <LuPlay className="w-3.5 h-3.5 text-teal-300 fill-teal-300" />
                   <span>在线体验</span>
                 </Link>
                 <Link
@@ -1900,7 +1911,7 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
           <div className="space-y-2 pt-2">
             <div className="flex items-center justify-between px-4 py-2 bg-[#061318] border border-teal-800/60 rounded-xl text-xs">
               <span className="font-semibold text-teal-200 flex items-center gap-2">
-                <Moon className="w-3.5 h-3.5 text-teal-300" />
+                <LuMoon className="w-3.5 h-3.5 text-teal-300" />
                 <span>同屏对照舞台：{isDay ? '🌙 暗黑模式 (极光深林 + 统一近景岩石溪流)' : '☀️ 白天模式 (阳光溪谷 + 统一近景岩石溪流)'}</span>
               </span>
               <span className="font-mono text-slate-400">与上方舞台共享外缘树叶、近景花草和溪流动效</span>
@@ -1989,7 +2000,7 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
                           download={previewUrl.split('/').pop()}
                           className="px-2 py-1 rounded bg-[#081820] hover:bg-teal-500/20 text-slate-200 border border-teal-800/60 text-[11px] font-mono flex items-center gap-1 transition-colors"
                         >
-                          <Download className="w-3 h-3 text-teal-300" />
+                          <LuDownload className="w-3 h-3 text-teal-300" />
                           <span>PNG</span>
                         </a>
                       ) : (
@@ -1998,7 +2009,7 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
                           onClick={() => handleDownloadCardLayer(el.id)}
                           className="px-2 py-1 rounded bg-[#081820] hover:bg-teal-500/20 text-slate-200 border border-teal-800/60 text-[11px] font-mono flex items-center gap-1 transition-colors cursor-pointer"
                         >
-                          <Download className="w-3 h-3 text-teal-300" />
+                          <LuDownload className="w-3 h-3 text-teal-300" />
                           <span>PNG</span>
                         </button>
                       )}
@@ -2027,7 +2038,7 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
                 onClick={() => handleSwitchDayNight(isDay ? 'night' : 'day')}
                 className="px-3 py-1 rounded text-xs font-semibold bg-[#08151a] hover:bg-teal-950 text-amber-200 border border-teal-800/60 flex items-center gap-1.5 transition-colors cursor-pointer"
               >
-                {isDay ? <Moon className="w-3.5 h-3.5 text-teal-300" /> : <Sun className="w-3.5 h-3.5 text-amber-300" />}
+                {isDay ? <LuMoon className="w-3.5 h-3.5 text-teal-300" /> : <LuSun className="w-3.5 h-3.5 text-amber-300" />}
                 <span>错峰平滑切换至{isDay ? '🌙 暗黑模式' : '☀️ 白天模式'}</span>
               </button>
 
@@ -2038,7 +2049,7 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
                 disabled={isExportingComposite}
                 className="px-3 py-1 rounded bg-[#08151a] hover:bg-teal-950 text-teal-200 border border-teal-800/60 text-xs font-mono flex items-center gap-1.5 transition-colors cursor-pointer"
               >
-                <Download className="w-3 h-3" />
+                <LuDownload className="w-3 h-3" />
                 <span>导出无卡片{isDay ? '白天' : '暗黑'}背景帧 PNG</span>
               </button>
             </div>

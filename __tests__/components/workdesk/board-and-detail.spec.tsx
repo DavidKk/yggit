@@ -272,6 +272,40 @@ describe('Workdesk Components', () => {
     expect(handleCollapse).toHaveBeenCalledTimes(1)
   })
 
+  it('preserves stacked card deck layers during initial dealing in WorkdeskTaskDetailView when multiple items exist', () => {
+    const multiItemCard: WorkCard = {
+      ...sampleCard,
+      itemIds: ['item1', 'item2', 'item3'],
+    }
+    const item2: WorkItem = { ...sampleItem, id: 'item2', name: 'feat/2' }
+    const item3: WorkItem = { ...sampleItem, id: 'item3', name: 'feat/3' }
+
+    act(() => {
+      root.render(<WorkdeskTaskDetailView taskId="sync-default-branches" initialCard={multiItemCard} initialItems={[sampleItem, item2, item3]} initialItemId="item1" />)
+    })
+
+    // During dealing, card 0 has stacked deck underlayers
+    expect(host.querySelector('[data-testid="card-stack-layer-bottom"]')).not.toBeNull()
+    expect(host.querySelector('[data-testid="card-stack-layer-middle"]')).not.toBeNull()
+  })
+
+  it('does not render stacked card deck layers in WorkdeskTaskDetailView when only 1 item exists', () => {
+    const singleItemCard: WorkCard = {
+      ...sampleCard,
+      scope: '1 个项目',
+      projectCount: 1,
+      itemIds: ['item1'],
+    }
+
+    act(() => {
+      root.render(<WorkdeskTaskDetailView taskId="sync-default-branches" initialCard={singleItemCard} initialItems={[sampleItem]} initialItemId="item1" />)
+    })
+
+    // Single item: no stacked layers
+    expect(host.querySelector('[data-testid="card-stack-layer-bottom"]')).toBeNull()
+    expect(host.querySelector('[data-testid="card-stack-layer-middle"]')).toBeNull()
+  })
+
   it('renders expanded task detail inside WorkdeskBoard when initialActiveTaskId is provided', () => {
     act(() => {
       root.render(<WorkdeskBoard initialCards={[sampleCard]} initialActiveTaskId="sync-default-branches" />)

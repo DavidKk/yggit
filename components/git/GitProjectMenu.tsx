@@ -1,9 +1,9 @@
 'use client'
 
+import Link from 'next/link'
 import { type DragEvent, type RefObject, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { AiOutlineCloudSync } from 'react-icons/ai'
 import {
-  LuCheck,
   LuChevronDown,
   LuChevronRight,
   LuClock3,
@@ -889,27 +889,20 @@ export function GitProjectMenu({
           />
         </div>
       </div>
-      {/* Workdesk Entry */}
+      {/* 工作台入口 (Workdesk Entry) */}
       {!query && (
         <div className="border-b border-line p-1">
-          <button
-            type="button"
+          <Link
+            href="/workdesk"
             data-workdesk-entry="true"
-            onClick={() => {
-              onClose()
-              handleOpenTarget('')
-            }}
-            className={cn(
-              'flex h-8 w-full items-center justify-between rounded-lg px-2.5 text-xs font-semibold transition-colors cursor-pointer',
-              !currentPath ? 'bg-emerald-500/10 text-accent dark:bg-emerald-950/40' : 'text-ink hover:bg-panel-2'
-            )}
+            onClick={onClose}
+            className="flex h-8 w-full items-center justify-between rounded-lg px-2.5 text-xs font-semibold text-ink transition-colors hover:bg-panel-2 cursor-pointer no-underline"
           >
             <div className="flex items-center gap-2">
               <LuFlag className="size-3.5 text-accent" aria-hidden="true" />
-              <span>{t('workdesk.topbarTitle') || 'Workdesk'}</span>
+              <span>{t('workdesk.topbarTitle') || '工作台'}</span>
             </div>
-            {!currentPath && <LuCheck className="size-3.5 text-accent" aria-hidden="true" />}
-          </button>
+          </Link>
         </div>
       )}
       {parsedRemoteInput ? (
