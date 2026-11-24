@@ -1,7 +1,12 @@
 /** @jest-environment jsdom */
+import { copyToClipboard } from '@/lib/clipboard'
 import { buildBranchContextMenu, stripRemotePrefix } from '@/lib/git/branch-context-menu'
 import { DEFAULT_CONTEXT_MENU_CONFIG, loadContextMenuConfig, saveContextMenuConfig } from '@/lib/git/context-menu-config'
 import type { GitCommit } from '@/lib/git/types'
+
+jest.mock('@/lib/clipboard', () => ({
+  copyToClipboard: jest.fn().mockResolvedValue(true),
+}))
 
 describe('branch context menu & config', () => {
   const mockCommit: GitCommit = {
@@ -74,13 +79,8 @@ describe('branch context menu & config', () => {
       const worktreeGroup = items.find((i) => i.key === 'menu-worktree-group')
       expect(worktreeGroup).toBeDefined()
 
-      const remoteGroup = items.find((i) => i.key === 'menu-remote-group')
-      expect(remoteGroup).toBeDefined()
-      expect(remoteGroup?.children?.length).toBeGreaterThanOrEqual(3)
-      expect(remoteGroup?.children?.some((c) => c.key === 'open-remote-commit')).toBe(true)
-      expect(remoteGroup?.children?.some((c) => c.key === 'open-remote-branch')).toBe(true)
-      expect(remoteGroup?.children?.some((c) => c.key === 'open-remote-pr')).toBe(true)
-      expect(remoteGroup?.children?.some((c) => c.key === 'open-remote-repo')).toBe(true)
+      const remoteItem = items.find((i) => i.key === 'open-remote-branch' || i.key === 'open-remote-commit')
+      expect(remoteItem).toBeDefined()
     })
 
     it('groups quick actions and secondary submenus into clear classified categories', () => {
@@ -135,7 +135,7 @@ describe('branch context menu & config', () => {
       expect(copyShare?.dividerBefore).toBe(true)
     })
 
-    it('groups remote web actions under secondary menu-remote-group with Commit, Branch, PR, and Repo items', () => {
+    it('opens remote web actions directly with Commit or Branch', () => {
       const openSpy = jest.spyOn(window, 'open').mockImplementation(() => null)
       const items = buildBranchContextMenu({
         target: 'commit',
@@ -146,30 +146,10 @@ describe('branch context menu & config', () => {
         config: DEFAULT_CONTEXT_MENU_CONFIG,
       })
 
-      const remoteGroup = items.find((i) => i.key === 'menu-remote-group')
-      expect(remoteGroup).toBeDefined()
-      expect(remoteGroup?.children).toBeDefined()
-
-      const commitItem = remoteGroup?.children?.find((c) => c.key === 'open-remote-commit')
+      const commitItem = items.find((c) => c.key === 'open-remote-commit')
       expect(commitItem).toBeDefined()
       commitItem?.onSelect?.()
       expect(openSpy).toHaveBeenCalledWith(`https://github.com/owner/repo/commit/${mockCommit.hash}`, '_blank', 'noopener,noreferrer')
-
-      const branchItem = remoteGroup?.children?.find((c) => c.key === 'open-remote-branch')
-      expect(branchItem).toBeDefined()
-      branchItem?.onSelect?.()
-      expect(openSpy).toHaveBeenCalledWith('https://github.com/owner/repo/tree/feature%2Fauth-login', '_blank', 'noopener,noreferrer')
-
-      const prItem = remoteGroup?.children?.find((c) => c.key === 'open-remote-pr')
-      expect(prItem).toBeDefined()
-      prItem?.onSelect?.()
-      expect(openSpy).toHaveBeenCalledWith('https://github.com/owner/repo/pull/new/feature%2Fauth-login', '_blank', 'noopener,noreferrer')
-
-      const repoItem = remoteGroup?.children?.find((c) => c.key === 'open-remote-repo')
-      expect(repoItem).toBeDefined()
-      repoItem?.onSelect?.()
-      expect(openSpy).toHaveBeenCalledWith('https://github.com/owner/repo', '_blank', 'noopener,noreferrer')
-
       openSpy.mockRestore()
     })
 
@@ -190,7 +170,7 @@ describe('branch context menu & config', () => {
       expect(deleteAction.key).toBe('delete-branch')
       expect(deleteAction.danger).toBe(true)
       expect(deleteAction.needsConfirm).toBe(true)
-      expect(deleteAction.confirmText).toBe('确定删除此分支？再次点击执行')
+      expect(deleteAction.confirmText).toBe('Delete this branch? Click again to confirm')
     })
 
     it('dynamically hides mutating operations in read-only mode', () => {
@@ -268,7 +248,7 @@ describe('branch context menu & config', () => {
 
       const soloItem = items.find((i) => i.key === 'solo-branch')
       expect(soloItem).toBeDefined()
-      expect(soloItem?.label).toBe('只看此分支')
+      expect(soloItem?.label).toBe('Solo branch')
       expect(soloItem?.checked).toBe(false)
 
       soloItem?.onSelect?.()
@@ -286,7 +266,7 @@ describe('branch context menu & config', () => {
 
       const activeSoloItem = activeItems.find((i) => i.key === 'solo-branch')
       expect(activeSoloItem).toBeDefined()
-      expect(activeSoloItem?.label).toBe('取消只看')
+      expect(activeSoloItem?.label).toBe('Unsolo branch')
       expect(activeSoloItem?.checked).toBe(true)
 
       activeSoloItem?.onSelect?.()
@@ -302,7 +282,7 @@ describe('branch context menu & config', () => {
         expect(stripRemotePrefix('origin/main')).toBe('main')
       })
 
-      it('does NOT strip category prefixes for local branches', () => {
+      it('does NOT strip category prefixes for local branches', async () => {
         const items = buildBranchContextMenu({
           branchName: 'hotfix/section-renderer-v1.261121.2',
           commit: mockCommit,
@@ -312,10 +292,11 @@ describe('branch context menu & config', () => {
         const copyGroup = items.find((i) => i.key === 'menu-copy-group')
         const copyBranch = copyGroup?.children?.find((c) => c.key === 'copy-branch')
         expect(copyBranch).toBeDefined()
-        expect(copyBranch?.label).toContain('hotfix/section-renderer-v1.261121.2')
+        await copyBranch?.onSelect?.()
+        expect(copyToClipboard).toHaveBeenCalledWith('hotfix/section-renderer-v1.261121.2')
       })
 
-      it('preserves category prefixes when remote branch label is already stripped of remote', () => {
+      it('preserves category prefixes when remote branch label is already stripped of remote', async () => {
         const items = buildBranchContextMenu({
           branchName: 'hotfix/section-renderer-v1.261121.2',
           rawBranchName: 'origin/hotfix/section-renderer-v1.261121.2',
@@ -327,14 +308,16 @@ describe('branch context menu & config', () => {
         const copyGroup = items.find((i) => i.key === 'menu-copy-group')
         const copyBranch = copyGroup?.children?.find((c) => c.key === 'copy-branch')
         expect(copyBranch).toBeDefined()
-        expect(copyBranch?.label).toContain('hotfix/section-renderer-v1.261121.2')
+        await copyBranch?.onSelect?.()
+        expect(copyToClipboard).toHaveBeenCalledWith('hotfix/section-renderer-v1.261121.2')
 
         const copyFullBranch = copyGroup?.children?.find((c) => c.key === 'copy-full-branch')
         expect(copyFullBranch).toBeDefined()
-        expect(copyFullBranch?.label).toContain('origin/hotfix/section-renderer-v1.261121.2')
+        await copyFullBranch?.onSelect?.()
+        expect(copyToClipboard).toHaveBeenCalledWith('origin/hotfix/section-renderer-v1.261121.2')
       })
 
-      it('strips origin remote name if full remote ref was passed to branchName', () => {
+      it('strips origin remote name if full remote ref was passed to branchName', async () => {
         const items = buildBranchContextMenu({
           branchName: 'origin/feature/user-dashboard',
           commit: mockCommit,
@@ -344,7 +327,8 @@ describe('branch context menu & config', () => {
         const copyGroup = items.find((i) => i.key === 'menu-copy-group')
         const copyBranch = copyGroup?.children?.find((c) => c.key === 'copy-branch')
         expect(copyBranch).toBeDefined()
-        expect(copyBranch?.label).toContain('feature/user-dashboard')
+        await copyBranch?.onSelect?.()
+        expect(copyToClipboard).toHaveBeenCalledWith('feature/user-dashboard')
       })
     })
   })

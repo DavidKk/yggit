@@ -34,7 +34,7 @@ import { WorkdeskBoard } from '@/components/workdesk/WorkdeskBoard'
 import { useOptionalAgent } from '@/lib/agent/agent-context'
 import { useOptionalSpotlight } from '@/lib/agent/spotlight-context'
 import { readApiErrorMessage } from '@/lib/api-error'
-import { getDriverMode, getGitDriver } from '@/lib/git/driver'
+import { getDriverMode, getGitDriver, type GitDriverMode } from '@/lib/git/driver'
 import type { AddRemoteProjectOptions } from '@/lib/git/driver/types'
 import { isFileSystemAccessSupported } from '@/lib/git/indexeddb-handles'
 import { saveLastGitUrl } from '@/lib/git/last-git-url'
@@ -51,7 +51,7 @@ import {
   type GitSelection,
   gitStashAsCommit,
 } from '@/lib/git/types'
-import { isPositiveNumber, readGitUiPref, repoPrefKey, useGitUiPref, useGitUiReady } from '@/lib/git/ui-prefs'
+import { isPositiveNumber, readGitUiPref, repoPrefKey, useGitUiPref, useGitUiReady, writeGitUiPref } from '@/lib/git/ui-prefs'
 import { cn } from '@/lib/utils'
 
 function isGitSelection(value: unknown): value is GitSelection {
@@ -301,12 +301,21 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
 
   useEffect(() => {
     void refreshProjects()
-    function onDriverModeChanged() {
-      void refreshProjects()
+    async function onDriverModeChanged(e: Event) {
+      const customEvent = e as CustomEvent<GitDriverMode | { mode: GitDriverMode; targetRepo?: string; targetUrl?: string }>
+      const detail = customEvent.detail
+      const targetRepo = typeof detail === 'object' && detail !== null ? detail.targetRepo : undefined
+      const repoToReload = targetRepo || viewRef.current?.repo || ''
+
+      await refreshProjects()
+
+      if (repoToReload) {
+        await load(repoToReload)
+      }
     }
     window.addEventListener('yggit:driver_mode_changed', onDriverModeChanged)
     return () => window.removeEventListener('yggit:driver_mode_changed', onDriverModeChanged)
-  }, [refreshProjects, view?.repo])
+  }, [refreshProjects, router])
 
   useEffect(() => {
     function onUiNavigate(e: Event) {
@@ -345,6 +354,7 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
     silentRefreshingRef.current = true
     try {
       const driver = getGitDriver()
+      driver.clearCache?.(currentRepo)
       const next = await driver.readLog({ repo: currentRepo })
       if (viewRef.current?.repo !== currentRepo) return
 
@@ -474,10 +484,18 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
     setSelectedFile('')
     setSelectedStatus('')
     setFocusRequest(null)
-    const url = new URL(window.location.href)
-    if (url.searchParams.get('repo') !== next.repo) {
-      url.searchParams.set('repo', next.repo)
-      window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}`)
+    setSoloBranch(null)
+    setSoloRemote(null)
+    writeGitUiPref(repoPrefKey(next.repo, 'sectionQueries'), {})
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('yggit:clear_searches', { detail: { repo: next.repo } }))
+      const matchProject = projects.find((p) => p.localPath === next.repo || p.id === next.repo || (next.repo && p.localPath && next.repo.endsWith(p.localPath)))
+      const remoteUrl = matchProject?.httpsUrl || next.remoteUrl || next.remoteSources?.find((r) => r.name === 'origin')?.url || next.remoteSources?.[0]?.url
+      const canonical = makeShareUrl(remoteUrl || next.repo, { remoteUrl })
+      const currentTarget = `${window.location.pathname}${window.location.search}`
+      if (canonical && currentTarget !== canonical) {
+        window.history.replaceState(window.history.state, '', canonical)
+      }
     }
   }
 
@@ -739,7 +757,7 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
       if (pathParts[0] === 'repo' && pathParts[1]) {
         void load(pathParts[1])
       } else if (pathParts[0] === 'git' && pathParts.length > 1) {
-        const repoName = pathParts[pathParts.length - 1]
+        const repoName = pathParts.slice(1).join('/')
         void load(repoName)
       } else if (view?.repo && view.repo.startsWith('/')) {
         const name = view.displayPath || repoName(view.repo)
@@ -1399,6 +1417,9 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                 onClose={closeMenu}
                 onOpen={(path) => {
                   closeMenu()
+                  if (typeof window !== 'undefined') {
+                    window.dispatchEvent(new CustomEvent('yggit:clear_searches', { detail: { repo: path } }))
+                  }
                   if (!path) {
                     void load('')
                     if (typeof window !== 'undefined' && window.location.pathname !== '/git') {
@@ -1481,6 +1502,9 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                 onClose={closeMenu}
                 onOpen={(path) => {
                   closeMenu()
+                  if (typeof window !== 'undefined') {
+                    window.dispatchEvent(new CustomEvent('yggit:clear_searches', { detail: { repo: path } }))
+                  }
                   if (!path) {
                     void load('')
                     if (typeof window !== 'undefined' && window.location.pathname !== '/git') {
@@ -1514,19 +1538,9 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                 currentName={view?.displayPath || (view?.repo ? repoName(view.repo, view.displayPath) : '')}
                 currentRemoteUrl={view?.remoteUrl}
                 onSwitchRepo={async (_nextMode, targetRepo) => {
-                  setView(null)
-                  setCommits([])
-                  setHasMore(false)
-                  setSelectedHash('')
-                  setSelectedFile('')
-                  setSelectedStatus('')
-                  setConflictViewActive(false)
-                  setFilePanel(null)
-                  if (targetRepo) {
-                    await load(targetRepo)
-                    void refreshProjects()
-                  } else {
-                    router.push('/git')
+                  const repoToLoad = targetRepo || viewRef.current?.repo || ''
+                  if (repoToLoad) {
+                    await load(repoToLoad)
                     void refreshProjects()
                   }
                 }}

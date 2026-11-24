@@ -18,7 +18,7 @@ export default async function GitWorkspacePage({
     return (
       <>
         <GitUiBootScript />
-        <GitLogPage initial={{ error: '', repo: '' }} />
+        <GitLogPage key="workspace" initial={{ error: '', repo: '' }} />
       </>
     )
   }
@@ -31,7 +31,7 @@ export default async function GitWorkspacePage({
   return (
     <>
       <GitUiBootScript />
-      <GitLogPage initial={initial} />
+      <GitLogPage key={explicit} initial={initial} />
     </>
   )
 }

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import React, { useEffect, useState } from 'react'
 import { LuChevronRight, LuNetwork, LuPlus, LuServer } from 'react-icons/lu'
 
+import { useT } from '@/components/i18n/LocaleProvider'
 import { useNotification } from '@/components/notification/useNotification'
 import { Badge, Button, SwitchToggle } from '@/components/sk'
 import { listMcpServers, subscribeMcp, toggleMcpServer } from '@/lib/mcp/storage'
@@ -14,6 +15,7 @@ import { cn } from '@/lib/utils'
 import { SettingsSectionCard } from './SettingsSectionCard'
 
 export function McpSettingsSection() {
+  const t = useT()
   const router = useRouter()
   const notify = useNotification()
   const [servers, setServers] = useState<McpServerConfig[]>([])
@@ -35,7 +37,7 @@ export function McpSettingsSection() {
 
   const handleToggleServer = async (id: string, current: boolean) => {
     await toggleMcpServer(id, !current)
-    notify.success(current ? 'MCP Server 已停用' : 'MCP Server 已启用')
+    notify.success(current ? t('gitAgent.mcpDisabled') || 'MCP Server disabled' : t('gitAgent.mcpEnabled') || 'MCP Server enabled')
   }
 
   return (

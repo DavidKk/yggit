@@ -1,54 +1,36 @@
 'use client'
 
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import {
-  LuArchive,
-  LuArchiveRestore,
-  LuArrowDownToLine,
-  LuBot,
-  LuBoxes,
-  LuChevronDown,
-  LuChevronRight,
-  LuChevronsDownUp,
-  LuChevronsUpDown,
-  LuCircleAlert,
-  LuCloud,
-  LuCopy,
-  LuCornerDownRight,
-  LuCrosshair,
-  LuExternalLink,
-  LuEye,
-  LuEyeOff,
-  LuFilter,
-  LuFolder,
-  LuFolderGit2,
-  LuGitBranch,
-  LuGitCommitHorizontal,
-  LuGitMerge,
-  LuHash,
-  LuHistory,
-  LuLink,
-  LuPencil,
-  LuPlus,
-  LuTag,
-  LuText,
-  LuTrash2,
-  LuUndo2,
-} from 'react-icons/lu'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { LuChevronDown, LuChevronRight, LuChevronsDownUp, LuChevronsUpDown, LuCrosshair, LuPlus } from 'react-icons/lu'
 
-import { AddRemoteModal, EditRemoteModal, SetUpstreamModal } from '@/components/git/GitRemoteModal'
+import { AnimatedCounter } from '@/components/git/AnimatedCounter'
 import { GitSearchDropdown } from '@/components/git/GitSearchDropdown'
 import { FloatingMenu, type FloatingMenuItem } from '@/components/git/RefChipsCell'
-import { handleTreeExpandKey, handleTreeParentKey } from '@/components/git/treeExpandKey'
+import { SidebarModals } from '@/components/git/sidebar/SidebarModals'
+import {
+  buildBranchTree,
+  collectFolderIds,
+  groupRemotes,
+  isSectionMap,
+  isSectionQueries,
+  nameMatch,
+  SECTION_DEFAULT,
+  SECTION_EMPTY_KEY,
+  type SectionId,
+  sectionsOf,
+  selectionKey,
+} from '@/components/git/sidebar/sidebarUtils'
+import { useBranchContextMenu } from '@/components/git/sidebar/useBranchContextMenu'
+import { useSidebarContextMenus } from '@/components/git/sidebar/useSidebarContextMenus'
+import { useSidebarSections } from '@/components/git/sidebar/useSidebarSections'
+import { handleTreeExpandKey } from '@/components/git/treeExpandKey'
 import { useT } from '@/components/i18n/LocaleProvider'
 import { useNotification } from '@/components/notification/useNotification'
-import { Badge, Button, EmptyState, Modal, Tooltip, VirtualList } from '@/components/sk'
-import { quotePromptToAgent, quoteRemoteToAgent, quoteStashToAgent, quoteTagToAgent, quoteWorktreeToAgent } from '@/lib/agent/agent-quote'
+import { Badge, Button, EmptyState, VirtualList } from '@/components/sk'
 import { copyToClipboard } from '@/lib/clipboard'
-import { buildBranchContextMenu } from '@/lib/git/branch-context-menu'
 import { useContextMenuConfig } from '@/lib/git/context-menu-config'
-import { getGitDriver, useGitDriver } from '@/lib/git/driver'
-import type { GitCommit, GitLogView, GitRemoteProbe, GitSelection } from '@/lib/git/types'
+import { useGitDriver } from '@/lib/git/driver'
+import type { GitLogView, GitRemoteProbe, GitSelection } from '@/lib/git/types'
 import { isBoolean, isRecordBoolean, repoPrefKey, useGitUiPref, useGitUiReady } from '@/lib/git/ui-prefs'
 import { cn } from '@/lib/utils'
 
@@ -80,144 +62,6 @@ type Props = {
   onBranchHoverStart?: (branchName: string) => void
   onBranchHoverEnd?: () => void
   onRefresh?: () => Promise<void> | void
-}
-
-type SectionId = 'local' | 'remote' | 'stash' | 'tag' | 'worktree' | 'submodule'
-
-const SECTION_DEFAULT: Record<SectionId, boolean> = { local: true, remote: false, stash: false, tag: false, worktree: false, submodule: false }
-
-function isSectionMap(value: unknown): value is Record<SectionId, boolean> {
-  if (!isRecordBoolean(value)) return false
-  // Accept partial maps written by older builds; merge happens at read site.
-  return true
-}
-
-function sectionsOf(value: Record<SectionId, boolean> | Record<string, boolean>): Record<SectionId, boolean> {
-  return { ...SECTION_DEFAULT, ...(value as Partial<Record<SectionId, boolean>>) }
-}
-
-function isSectionQueries(value: unknown): value is Partial<Record<SectionId, string>> {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
-  return Object.values(value as Record<string, unknown>).every((item) => typeof item === 'string')
-}
-
-type BranchItem = {
-  name: string
-  path: string
-  current?: boolean
-  title?: string
-  tip?: string
-  ahead?: number
-  behind?: number
-  upstream?: string
-}
-
-type BranchNode = {
-  id: string
-  label: string
-  item?: BranchItem
-  children: BranchNode[]
-}
-
-function selectionKey(selection: GitSelection): string {
-  if (selection.kind === 'all') return 'all'
-  if (selection.kind === 'worktree') return `worktree:${selection.path}`
-  return `${selection.kind}:${selection.name}`
-}
-
-function groupRemotes(remotes: GitLogView['remotes']): Array<{ source: string; branches: GitLogView['remotes'] }> {
-  const map = new Map<string, GitLogView['remotes']>()
-  for (const remote of remotes) {
-    const list = map.get(remote.remote) || []
-    list.push(remote)
-    map.set(remote.remote, list)
-  }
-  return [...map.entries()]
-    .sort(([left], [right]) => left.localeCompare(right))
-    .map(([source, branches]) => ({
-      source,
-      branches: branches.slice().sort((left, right) => left.branch.localeCompare(right.branch) || left.name.localeCompare(right.name)),
-    }))
-}
-
-function buildBranchTree(items: BranchItem[]): BranchNode[] {
-  type Raw = { name: string; item?: BranchItem; kids: Map<string, Raw> }
-  const root = new Map<string, Raw>()
-
-  for (const item of items) {
-    const parts = item.path.split('/').filter(Boolean)
-    if (parts.length === 0) continue
-    let map = root
-    for (let index = 0; index < parts.length; index += 1) {
-      const name = parts[index]
-      let raw = map.get(name)
-      if (!raw) {
-        raw = { name, kids: new Map() }
-        map.set(name, raw)
-      }
-      if (index === parts.length - 1) raw.item = item
-      map = raw.kids
-    }
-  }
-
-  const toNode = (raw: Raw, prefix: string): BranchNode => {
-    const id = prefix ? `${prefix}/${raw.name}` : raw.name
-    const children = [...raw.kids.values()]
-      .map((child) => toNode(child, id))
-      .sort((left, right) => Number(right.children.length > 0) - Number(left.children.length > 0) || left.label.localeCompare(right.label))
-    return { id, label: raw.name, item: raw.item, children }
-  }
-
-  return [...root.values()]
-    .map((raw) => toNode(raw, ''))
-    .sort((left, right) => Number(right.children.length > 0) - Number(left.children.length > 0) || left.label.localeCompare(right.label))
-}
-
-type BranchRow = { node: BranchNode; depth: number; parentId: string }
-
-function visibleBranchRows(nodes: BranchNode[], prefix: string, folderOpen: (id: string) => boolean, depth: number, parentId: string): BranchRow[] {
-  const rows: BranchRow[] = []
-  const visit = (items: BranchNode[], level: number, parent: string) => {
-    for (const node of items) {
-      rows.push({ node, depth: level, parentId: parent })
-      if (node.children.length && folderOpen(`${prefix}:${node.id}`)) visit(node.children, level + 1, `${prefix}:${node.id}`)
-    }
-  }
-  visit(nodes, depth, parentId)
-  return rows
-}
-
-type SidebarRow = { id: string; render: () => ReactNode }
-
-function collectFolderIds(nodes: BranchNode[], idPrefix: string, into: string[] = []): string[] {
-  for (const node of nodes) {
-    if (node.children.length === 0) continue
-    into.push(`${idPrefix}:${node.id}`)
-    collectFolderIds(node.children, idPrefix, into)
-  }
-  return into
-}
-
-function collectAllBranchItems(node: BranchNode): BranchItem[] {
-  const list: BranchItem[] = []
-  if (node.item) list.push(node.item)
-  for (const child of node.children) {
-    list.push(...collectAllBranchItems(child))
-  }
-  return list
-}
-
-function nameMatch(value: string, needle: string) {
-  return !needle || value.toLowerCase().includes(needle)
-}
-
-const SECTION_EMPTY_KEY: Record<SectionId, `git.sidebar.empty.${SectionId}`> = {
-  local: 'git.sidebar.empty.local',
-  remote: 'git.sidebar.empty.remote',
-  stash: 'git.sidebar.empty.stash',
-  tag: 'git.sidebar.empty.tag',
-  worktree: 'git.sidebar.empty.worktree',
-  submodule: 'git.sidebar.empty.submodule',
 }
 
 export function GitSidebar({
@@ -256,101 +100,9 @@ export function GitSidebar({
     branchesToDelete: string[]
     skippedCurrentBranch: string | null
   } | null>(null)
-  const [deletingFolderBranches, setDeletingFolderBranches] = useState(false)
-
-  const handleConfirmDeleteFolderBranches = async () => {
-    if (!deleteFolderModal || deletingFolderBranches) return
-    setDeletingFolderBranches(true)
-    const { branchesToDelete } = deleteFolderModal
-    const driver = getGitDriver()
-    let successCount = 0
-    let failedCount = 0
-
-    for (const b of branchesToDelete) {
-      try {
-        await driver.deleteBranch(view.repo, b, true)
-        successCount++
-      } catch (err) {
-        console.error(`Failed to delete branch ${b}:`, err)
-        failedCount++
-      }
-    }
-
-    setDeletingFolderBranches(false)
-    setDeleteFolderModal(null)
-
-    if (successCount > 0) {
-      notify.success(t('git.operations.deleteFolderBranchesSuccess', { count: successCount }) || `成功删除 ${successCount} 个分支`)
-      await onRefresh?.()
-    }
-    if (failedCount > 0) {
-      notify.error(t('git.operations.deleteFolderBranchesPartialFail', { count: failedCount }) || `${failedCount} 个分支删除失败`)
-    }
-  }
-
   const [editRemoteState, setEditRemoteState] = useState<{ open: boolean; remote: string; url: string }>({ open: false, remote: '', url: '' })
-  const [editRemoteBusy, setEditRemoteBusy] = useState(false)
-
-  const handleSaveRemote = async (oldName: string, newName: string, newUrl: string) => {
-    setEditRemoteBusy(true)
-    try {
-      const driver = getGitDriver()
-      if (newUrl !== editRemoteState.url) {
-        await driver.setRemoteUrl(view.repo, oldName, newUrl)
-      }
-      if (newName !== oldName) {
-        await driver.renameRemote(view.repo, oldName, newName)
-      }
-      notify.success(t('git.operations.editRemoteSuccess', { remote: newName }) || `已成功更新远程源 ${newName}`)
-      setEditRemoteState({ open: false, remote: '', url: '' })
-      await onRefresh?.()
-    } catch (err) {
-      notify.error(err instanceof Error ? err.message : '更新远程源失败')
-    } finally {
-      setEditRemoteBusy(false)
-    }
-  }
-
   const [addRemoteOpen, setAddRemoteOpen] = useState(false)
-  const [addRemoteBusy, setAddRemoteBusy] = useState(false)
   const [setUpstreamBranch, setSetUpstreamBranch] = useState<string | null>(null)
-  const [setUpstreamBusy, setSetUpstreamBusy] = useState(false)
-
-  const handleAddRemote = async (name: string, pullUrl: string, pushUrl: string) => {
-    setAddRemoteBusy(true)
-    try {
-      const driver = getGitDriver()
-      const res = await driver.addRemote(view.repo, name, pullUrl, pushUrl)
-      if (!res.ok) throw new Error(res.message || '添加远程源失败')
-      notify.success(t('git.operations.remoteAdded', { name }) || `成功添加远程源 ${name}`)
-      setAddRemoteOpen(false)
-      await onRefresh?.()
-    } catch (err) {
-      notify.error(err instanceof Error ? err.message : '添加远程源失败')
-    } finally {
-      setAddRemoteBusy(false)
-    }
-  }
-
-  const handleSetUpstream = async (branch: string, upstream: string) => {
-    setSetUpstreamBusy(true)
-    try {
-      const res = await fetch('/api/git/remote', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ repo: view.repo, action: 'setUpstream', branch, upstream }),
-      })
-      const data = await res.json()
-      if (!res.ok || !data.ok) throw new Error(data.message || data.error || '设置上游分支失败')
-      notify.success(t('git.operations.upstreamSet', { branch, upstream }) || `已成功设置 ${branch} 的上游为 ${upstream}`)
-      setSetUpstreamBranch(null)
-      await onRefresh?.()
-    } catch (err) {
-      notify.error(err instanceof Error ? err.message : '设置上游分支失败')
-    } finally {
-      setSetUpstreamBusy(false)
-    }
-  }
   const [openRaw, setOpen] = useGitUiPref(repoPrefKey(view.repo, 'sections'), SECTION_DEFAULT, isSectionMap)
   const open = sectionsOf(openRaw)
   const [openRemotes, setOpenRemotes] = useGitUiPref(repoPrefKey(view.repo, 'remotes'), {} as Record<string, boolean>, isRecordBoolean)
@@ -360,6 +112,20 @@ export function GitSidebar({
   const [queries, setQueries] = useGitUiPref(repoPrefKey(view.repo, 'sectionQueries'), {} as Partial<Record<SectionId, string>>, isSectionQueries)
   const [searchMenuOpen, setSearchMenuOpen] = useState<Partial<Record<SectionId, boolean>>>({})
   const active = selectionKey(selection)
+
+  useEffect(() => {
+    function onClearSearches() {
+      setQueries({})
+      setSearchMenuOpen({})
+    }
+    window.addEventListener('yggit:clear_searches', onClearSearches)
+    return () => window.removeEventListener('yggit:clear_searches', onClearSearches)
+  }, [setQueries])
+
+  useEffect(() => {
+    setQueries({})
+    setSearchMenuOpen({})
+  }, [view.repo, setQueries])
 
   useEffect(() => {
     function onUiNavigate(e: Event) {
@@ -421,6 +187,7 @@ export function GitSidebar({
           return {
             source: group.source,
             count: branches.length,
+            branches: group.branches,
             tree: buildBranchTree(
               branches.map((remote) => ({
                 name: remote.name,
@@ -436,7 +203,7 @@ export function GitSidebar({
   )
 
   const [hiddenStashes, setHiddenStashes] = useGitUiPref(repoPrefKey(view.repo, 'hiddenStashes'), [] as string[], Array.isArray)
-  const [hiddenTags, setHiddenTags] = useGitUiPref(repoPrefKey(view.repo, 'hiddenTags'), [] as string[], Array.isArray)
+  const [hiddenTags, _setHiddenTags] = useGitUiPref(repoPrefKey(view.repo, 'hiddenTags'), [] as string[], Array.isArray)
   const [hiddenBranches, setHiddenBranches] = useGitUiPref(repoPrefKey(view.repo, 'hiddenBranches'), [] as string[], Array.isArray)
   const [pinnedBranches, setPinnedBranches] = useGitUiPref(repoPrefKey(view.repo, 'pinnedBranches'), [] as string[], Array.isArray)
 
@@ -518,8 +285,8 @@ export function GitSidebar({
 
   const copyValue = async (value: string) => {
     const ok = await copyToClipboard(value)
-    if (ok) notify.success(t('common.copied') || '已复制')
-    else notify.error(t('common.copyFailed') || '复制失败')
+    if (ok) notify.success(t('common.copied') || 'Copied')
+    else notify.error(t('common.copyFailed') || 'Copy failed')
   }
 
   const [contextConfig] = useContextMenuConfig()
@@ -557,1039 +324,94 @@ export function GitSidebar({
     }, 60)
   }, [view.branch, view.head, setOpen, setOpenFolders])
 
-  const handleBranchContextMenu = (e: React.MouseEvent, item: BranchItem, kind: 'local' | 'remote') => {
-    e.preventDefault()
-    e.stopPropagation()
+  const handleBranchContextMenu = useBranchContextMenu({
+    view,
+    isEdge,
+    soloBranch,
+    contextConfig,
+    notify,
+    onCheckoutBranch,
+    onCreateBranch,
+    onDeleteBranch,
+    onRenameBranch,
+    onMergeBranch,
+    onRebaseBranch,
+    onPushBranch,
+    onPullBranch,
+    onSoloBranch,
+    onRefresh,
+    setSetUpstreamBranch,
+    setPinnedBranches,
+    pinnedBranches,
+    setHiddenBranches,
+    hiddenBranches,
+    onSelect,
+    setContextMenu,
+  })
+  const { handleTagContextMenu, handleStashContextMenu, handleWorktreeContextMenu, handleFolderContextMenu, handleRemoteGroupContextMenu } = useSidebarContextMenus({
+    view,
+    onRefresh,
+    onCheckoutBranch,
+    onSoloRemote,
+    onToggleHideRemote,
+    onStashAction,
+    soloRemote,
+    hiddenRemotes,
+    openRemotes,
+    setOpenRemotes,
+    remoteDefault,
+    toggleFolder,
+    setContextMenu,
+    setHiddenStashes,
+    copyValue,
+    setDeleteFolderModal,
+    setEditRemoteState,
+    notify,
+  })
 
-    const foundCommit = item.tip ? view.commits.find((c) => c.hash === item.tip) : undefined
-    const commit: GitCommit | undefined =
-      foundCommit ||
-      (item.tip
-        ? {
-            hash: item.tip,
-            short: item.tip.slice(0, 7),
-            subject: '',
-            author: '',
-            date: '',
-            parents: [],
-            refs: [item.name],
-          }
-        : undefined)
-
-    const remoteNames = Array.from(new Set(view.remotes.map((r) => r.remote)))
-    const remoteUrl = view.remoteUrl
-
-    const actionItems = buildBranchContextMenu({
-      branchName: item.name,
-      rawBranchName: item.name,
-      remoteNames,
-      commit,
-      repo: view.repo,
-      remoteUrl,
-      isReadOnly: isEdge,
-      isRemote: kind === 'remote',
-      hasWorktrees: view.worktrees.length > 0,
-      soloBranch,
-      config: contextConfig,
-      t,
-      onNotify: (type, msg) => {
-        if (type === 'success') notify.success(msg)
-        else notify.error(msg)
-      },
-      onCheckoutBranch: (name, isRem) => void onCheckoutBranch?.(name, isRem ?? kind === 'remote'),
-      onCreateBranch: (name, tip) => void onCreateBranch?.(name, tip),
-      onDeleteBranch: (name) => void onDeleteBranch?.(name),
-      onRenameBranch: (name) => void onRenameBranch?.(name),
-      onMergeBranch: (name) => void onMergeBranch?.(name),
-      onRebaseBranch: (name) => void onRebaseBranch?.(name),
-      onPushBranch: (name) => void onPushBranch?.(name),
-      onPullBranch: (name) => void onPullBranch?.(name),
-      onCherryPick: async (hash) => {
-        try {
-          const driver = getGitDriver()
-          await driver.cherryPick(view.repo, hash)
-          notify.success(`已遴选提交 ${hash.slice(0, 7)}`)
-          await onRefresh?.()
-        } catch (err) {
-          notify.error(err instanceof Error ? err.message : 'Cherry-pick 失败')
-        }
-      },
-      onResetBranch: async (hash, mode) => {
-        try {
-          const driver = getGitDriver()
-          if (driver.reset) {
-            await driver.reset(view.repo, hash, mode)
-            notify.success(`已${mode === 'soft' ? '软' : ''}重置到 ${hash.slice(0, 7)}`)
-            await onRefresh?.()
-          }
-        } catch (err) {
-          notify.error(err instanceof Error ? err.message : '重置失败')
-        }
-      },
-      onRevertCommit: async (hash) => {
-        try {
-          const driver = getGitDriver()
-          if (driver.revert) {
-            await driver.revert(view.repo, hash)
-            notify.success(`已撤销提交 ${hash.slice(0, 7)}`)
-            await onRefresh?.()
-          }
-        } catch (err) {
-          notify.error(err instanceof Error ? err.message : '撤销失败')
-        }
-      },
-      onSetUpstream: (b) => setSetUpstreamBranch(b),
-      onSoloBranch: (b) => void onSoloBranch?.(b),
-      onPinBranch: (b) => {
-        setPinnedBranches((prev) => (prev.includes(b) ? prev.filter((x) => x !== b) : [...prev, b]))
-        notify.success(`已切换置顶分支 ${b}`)
-      },
-      isPinned: pinnedBranches.includes(item.name),
-      onHideBranch: (b) => {
-        setHiddenBranches((prev) => (prev.includes(b) ? prev.filter((x) => x !== b) : [...prev, b]))
-      },
-      isHidden: hiddenBranches.includes(item.name),
-      onCompareWorkdir: () => {
-        onSelect({ kind, name: item.name })
-      },
-      onCreateTag: async (target) => {
-        const tagName = window.prompt('请输入标签名称：')
-        if (!tagName?.trim() || !target) return
-        try {
-          const driver = getGitDriver()
-          await driver.createTag?.(view.repo, tagName.trim(), { target })
-          notify.success(`已创建标签 ${tagName.trim()}`)
-          await onRefresh?.()
-        } catch (err) {
-          notify.error(err instanceof Error ? err.message : '创建标签失败')
-        }
-      },
-      onCreateAnnotatedTag: async (target) => {
-        const tagName = window.prompt('请输入附注标签名称：')
-        if (!tagName?.trim() || !target) return
-        const msg = window.prompt('请输入附注信息：')
-        if (!msg?.trim()) return
-        try {
-          const driver = getGitDriver()
-          await driver.createTag?.(view.repo, tagName.trim(), { target, message: msg.trim() })
-          notify.success(`已创建附注标签 ${tagName.trim()}`)
-          await onRefresh?.()
-        } catch (err) {
-          notify.error(err instanceof Error ? err.message : '创建附注标签失败')
-        }
-      },
-      onAgentPrompt: (prompt) => {
-        quotePromptToAgent(prompt)
-      },
-    })
-
-    setContextMenu({
-      anchor: { x: e.clientX, y: e.clientY },
-      ariaLabel: item.name,
-      items: actionItems,
-    })
-  }
-
-  const handleTagContextMenu = (e: React.MouseEvent, tag: { name: string; tip: string }) => {
-    e.preventDefault()
-    e.stopPropagation()
-    const commit = view.commits.find((c) => c.hash === tag.tip)
-    const currentBranch = view.branch || 'HEAD'
-    const shortHash = tag.tip.slice(0, 7)
-
-    const items: FloatingMenuItem[] = [
-      {
-        key: 'fast-forward-tag',
-        label: t('git.operations.fastForwardTagTo', { tag: tag.name, branch: currentBranch }) || `Fast-forward ${tag.name} to ${currentBranch}`,
-        icon: <LuGitMerge className="size-3.5 shrink-0 text-accent" />,
-        onSelect: async () => {
-          try {
-            const driver = getGitDriver()
-            await driver.mergeBranch(view.repo, tag.name)
-            notify.success(`已快进 ${tag.name} 到 ${currentBranch}`)
-            await onRefresh?.()
-          } catch (err) {
-            notify.error(err instanceof Error ? err.message : '快进失败')
-          }
-        },
-      },
-      {
-        key: 'merge-into-tag',
-        label: t('git.operations.mergeBranchIntoTag', { branch: currentBranch, tag: tag.name }) || `Merge ${currentBranch} into ${tag.name}`,
-        icon: <LuGitMerge className="size-3.5 shrink-0 text-ink-soft" />,
-        onSelect: async () => {
-          try {
-            const driver = getGitDriver()
-            await driver.mergeBranch(view.repo, tag.tip)
-            notify.success(`已合并 ${currentBranch} 到 ${tag.name}`)
-            await onRefresh?.()
-          } catch (err) {
-            notify.error(err instanceof Error ? err.message : '合并失败')
-          }
-        },
-      },
-      {
-        key: 'rebase-onto-tag',
-        label: t('git.operations.rebaseBranchOntoTag', { branch: currentBranch, tag: tag.name }) || `Rebase ${currentBranch} onto ${tag.name}`,
-        icon: <LuGitCommitHorizontal className="size-3.5 shrink-0 text-accent" />,
-        onSelect: async () => {
-          try {
-            const driver = getGitDriver()
-            await driver.rebaseBranch(view.repo, tag.name)
-            notify.success(`已将 ${currentBranch} 变基到 ${tag.name}`)
-            await onRefresh?.()
-          } catch (err) {
-            notify.error(err instanceof Error ? err.message : '变基失败')
-          }
-        },
-      },
-      {
-        key: 'checkout-tag',
-        label: t('git.operations.checkoutTagCommit', { tag: tag.name }) || `Checkout the commit at ${tag.name}`,
-        icon: <LuCornerDownRight className="size-3.5 shrink-0 text-accent" />,
-        onSelect: () => void onCheckoutBranch?.(tag.tip),
-      },
-      {
-        key: 'quote-tag-to-agent',
-        label: t('git.operations.quoteTagToAgent') || '引用标签到 Git Agent',
-        icon: <LuBot className="size-3.5 shrink-0 text-accent" />,
-        shortcut: '⌥Q',
-        dividerBefore: true,
-        onSelect: () => {
-          quoteTagToAgent(tag.name, tag.tip, view.repo)
-        },
-      },
-      {
-        key: 'create-branch-here',
-        label: t('git.operations.createBranchHere') || 'Create branch here',
-        icon: <LuGitBranch className="size-3.5 shrink-0 text-accent" />,
-        dividerBefore: true,
-        onSelect: () => void onCreateBranch?.(tag.tip),
-      },
-      {
-        key: 'cherry-pick-commit',
-        label: t('git.operations.cherryPickCommitAction') || 'Cherry pick commit',
-        icon: <LuGitCommitHorizontal className="size-3.5 shrink-0 text-ink-soft" />,
-        onSelect: async () => {
-          try {
-            const driver = getGitDriver()
-            await driver.cherryPick(view.repo, tag.tip)
-            notify.success(`已遴选提交 ${shortHash}`)
-            await onRefresh?.()
-          } catch (err) {
-            notify.error(err instanceof Error ? err.message : 'Cherry-pick 失败')
-          }
-        },
-      },
-      {
-        key: 'reset-to-commit',
-        label: t('git.operations.resetBranchToCommit', { branch: currentBranch }) || `Reset ${currentBranch} to this commit`,
-        icon: <LuUndo2 className="size-3.5 shrink-0 text-warn" />,
-        children: [
-          {
-            key: 'reset-soft',
-            label: t('git.operations.resetSoftDesc') || 'Soft (保留工作区与暂存区)',
-            icon: <LuUndo2 className="size-3.5 shrink-0" />,
-            onSelect: async () => {
-              try {
-                const driver = getGitDriver()
-                if (driver.reset) {
-                  await driver.reset(view.repo, tag.tip, 'soft')
-                  notify.success(`已软重置到 ${shortHash}`)
-                  await onRefresh?.()
-                }
-              } catch (err) {
-                notify.error(err instanceof Error ? err.message : '重置失败')
-              }
-            },
-          },
-          {
-            key: 'reset-mixed',
-            label: t('git.operations.resetMixedDesc') || 'Mixed (保留工作区，清空暂存区)',
-            icon: <LuUndo2 className="size-3.5 shrink-0" />,
-            onSelect: async () => {
-              try {
-                const driver = getGitDriver()
-                if (driver.reset) {
-                  await driver.reset(view.repo, tag.tip, 'mixed')
-                  notify.success(`已重置到 ${shortHash}`)
-                  await onRefresh?.()
-                }
-              } catch (err) {
-                notify.error(err instanceof Error ? err.message : '重置失败')
-              }
-            },
-          },
-          {
-            key: 'reset-hard',
-            label: t('git.operations.resetHardDesc') || 'Hard (丢弃所有未提交修改)',
-            icon: <LuTrash2 className="size-3.5 shrink-0 text-fail" />,
-            danger: true,
-            onSelect: async () => {
-              try {
-                const driver = getGitDriver()
-                if (driver.reset) {
-                  await driver.reset(view.repo, tag.tip, 'hard')
-                  notify.success(`已强制重置到 ${shortHash}`)
-                  await onRefresh?.()
-                }
-              } catch (err) {
-                notify.error(err instanceof Error ? err.message : '重置失败')
-              }
-            },
-          },
-        ],
-      },
-      {
-        key: 'revert-commit',
-        label: t('git.operations.revertCommitAction') || 'Revert commit',
-        icon: <LuHistory className="size-3.5 shrink-0 text-ink-soft" />,
-        onSelect: async () => {
-          try {
-            const driver = getGitDriver()
-            if (driver.revert) {
-              await driver.revert(view.repo, tag.tip)
-              notify.success(`已撤销提交 ${shortHash}`)
-              await onRefresh?.()
-            }
-          } catch (err) {
-            notify.error(err instanceof Error ? err.message : '撤销失败')
-          }
-        },
-      },
-      {
-        key: 'delete-tag-local',
-        label: t('git.operations.deleteTagLocally', { tag: tag.name }) || `Delete ${tag.name} locally`,
-        icon: <LuTrash2 className="size-3.5 shrink-0 text-fail" />,
-        danger: true,
-        dividerBefore: true,
-        onSelect: async () => {
-          try {
-            const driver = getGitDriver()
-            await driver.deleteTag?.(view.repo, tag.name)
-            notify.success(`已删除本地标签 ${tag.name}`)
-            await onRefresh?.()
-          } catch (err) {
-            notify.error(err instanceof Error ? err.message : '删除标签失败')
-          }
-        },
-      },
-      {
-        key: 'delete-tag-origin',
-        label: t('git.operations.deleteTagFromOrigin', { tag: tag.name }) || `Delete ${tag.name} from origin`,
-        icon: <LuTrash2 className="size-3.5 shrink-0 text-fail" />,
-        danger: true,
-        onSelect: async () => {
-          try {
-            const driver = getGitDriver()
-            await driver.deleteTag?.(view.repo, tag.name, { remote: 'origin' })
-            notify.success(`已从 origin 删除标签 ${tag.name}`)
-            await onRefresh?.()
-          } catch (err) {
-            notify.error(err instanceof Error ? err.message : '删除远程标签失败')
-          }
-        },
-      },
-      {
-        key: 'copy-tag-name',
-        label: t('git.operations.copyTagName') || 'Copy tag name',
-        icon: <LuTag className="size-3.5 shrink-0 text-accent" />,
-        dividerBefore: true,
-        onSelect: () => void copyValue(tag.name),
-      },
-      {
-        key: 'copy-remote-link',
-        label: t('git.operations.copyTagRemoteLink', { remote: 'origin' }) || 'Copy link to this tag on remote: origin',
-        icon: <LuLink className="size-3.5 shrink-0 text-ink-soft" />,
-        onSelect: async () => {
-          try {
-            const driver = getGitDriver()
-            const remoteUrl = await driver.getRemoteUrl(view.repo, 'origin')
-            const webUrl = remoteUrl.replace(/\.git$/, '') + `/releases/tag/${tag.name}`
-            await copyValue(webUrl)
-          } catch {
-            await copyValue(tag.name)
-          }
-        },
-      },
-      {
-        key: 'hide-tag',
-        label: hiddenTags.includes(tag.name) ? t('git.operations.unhideTag') || '取消隐藏' : t('git.operations.hideTag') || 'Hide',
-        icon: <LuEyeOff className="size-3.5 shrink-0 text-ink-soft" />,
-        dividerBefore: true,
-        onSelect: () => setHiddenTags((prev) => (prev.includes(tag.name) ? prev.filter((t) => t !== tag.name) : [...prev, tag.name])),
-      },
-      {
-        key: 'solo-tag',
-        label: soloBranch === tag.name ? t('git.operations.unsoloTag') || '取消只看' : t('git.operations.soloTag') || 'Solo',
-        icon: <LuFilter className="size-3.5 shrink-0 text-accent" />,
-        onSelect: () => onSoloBranch?.(soloBranch === tag.name ? null : tag.name),
-      },
-      {
-        key: 'annotate-tag',
-        label: t('git.operations.annotateTag', { tag: tag.name }) || `Annotate ${tag.name}`,
-        icon: <LuPencil className="size-3.5 shrink-0 text-accent" />,
-        dividerBefore: true,
-        onSelect: async () => {
-          const msg = window.prompt(`为标签 ${tag.name} 输入附注信息：`, commit?.subject || '')
-          if (msg && msg.trim()) {
-            try {
-              const driver = getGitDriver()
-              await driver.createTag?.(view.repo, tag.name, { target: tag.tip, message: msg.trim() })
-              notify.success(`已为标签 ${tag.name} 添加附注`)
-              await onRefresh?.()
-            } catch (err) {
-              notify.error(err instanceof Error ? err.message : '附注失败')
-            }
-          }
-        },
-      },
-    ]
-
-    setContextMenu({
-      anchor: { x: e.clientX, y: e.clientY },
-      ariaLabel: tag.name,
-      items,
-    })
-  }
-
-  const executeStashAction = async (action: 'apply' | 'pop' | 'drop' | 'edit', index: number, message?: string) => {
-    if (onStashAction && action !== 'edit') {
-      onStashAction(action, index)
-      return
-    }
-    try {
-      const driver = getGitDriver()
-      const res = await driver.stash(view.repo, { action, index, message })
-      notify.success(res.message || '操作成功')
-      await onRefresh?.()
-    } catch (err) {
-      notify.error(err instanceof Error ? err.message : '操作失败')
-    }
-  }
-
-  const handleStashContextMenu = (e: React.MouseEvent, stash: { name: string; subject?: string; hash: string }) => {
-    e.preventDefault()
-    e.stopPropagation()
-    const idx = Number(stash.name.match(/\d+/)?.[0] ?? 0)
-    const items: FloatingMenuItem[] = [
-      {
-        key: 'quote-stash-to-agent',
-        label: t('git.operations.quoteStashToAgent') || '引用暂存到 Git Agent',
-        icon: <LuBot className="size-3.5 shrink-0 text-accent" />,
-        shortcut: '⌥Q',
-        onSelect: () => {
-          quoteStashToAgent(stash.name, stash.subject, view.repo)
-        },
-      },
-      {
-        key: 'apply-stash',
-        label: t('git.operations.applyStash') || 'Apply Stash',
-        icon: <LuArchive className="size-3.5 shrink-0 text-accent" />,
-        onSelect: () => void executeStashAction('apply', idx),
-      },
-      {
-        key: 'pop-stash',
-        label: t('git.operations.popStash') || 'Pop Stash',
-        icon: <LuArchiveRestore className="size-3.5 shrink-0 text-ok" />,
-        onSelect: () => void executeStashAction('pop', idx),
-      },
-      {
-        key: 'drop-stash',
-        label: t('git.operations.deleteStash') || 'Delete Stash',
-        icon: <LuTrash2 className="size-3.5 shrink-0 text-fail" />,
-        danger: true,
-        onSelect: () => void executeStashAction('drop', idx),
-      },
-      {
-        key: 'edit-stash-message',
-        label: t('git.operations.editStashMessage') || 'Edit stash message',
-        icon: <LuPencil className="size-3.5 shrink-0 text-ink-soft" />,
-        dividerBefore: true,
-        onSelect: () => {
-          const msg = window.prompt(t('git.operations.editStashPrompt') || '请输入新的暂存说明：', stash.subject || '')
-          if (msg && msg.trim()) void executeStashAction('edit', idx, msg.trim())
-        },
-      },
-      {
-        key: 'hide-stash',
-        label: t('git.operations.hide') || 'Hide',
-        icon: <LuEyeOff className="size-3.5 shrink-0 text-ink-soft" />,
-        dividerBefore: true,
-        onSelect: () => setHiddenStashes((prev) => (prev.includes(stash.name) ? prev.filter((s) => s !== stash.name) : [...prev, stash.name])),
-      },
-    ]
-
-    setContextMenu({
-      anchor: { x: e.clientX, y: e.clientY },
-      ariaLabel: stash.name,
-      items,
-    })
-  }
-
-  const handleWorktreeContextMenu = (e: React.MouseEvent, entry: { path: string; branch?: string; head: string }) => {
-    e.preventDefault()
-    e.stopPropagation()
-    const items: FloatingMenuItem[] = [
-      {
-        key: 'quote-worktree-to-agent',
-        label: t('git.operations.quoteWorktreeToAgent') || '引用工作树到 Git Agent',
-        icon: <LuBot className="size-3.5 shrink-0 text-accent" />,
-        shortcut: '⌥Q',
-        onSelect: () => {
-          quoteWorktreeToAgent(entry.path, entry.branch, view.repo)
-        },
-      },
-      {
-        key: 'copy-path',
-        label: t('git.operations.copyLocalPathAction', { path: entry.path }),
-        icon: <LuFolder className="size-3.5 shrink-0 text-accent" />,
-        onSelect: () => void copyValue(entry.path),
-        group: t('git.operations.groupCopy'),
-      },
-    ]
-    if (entry.branch) {
-      const br = entry.branch
-      items.push({
-        key: 'copy-branch',
-        label: `${t('git.graph.copyBranchName')} (${br})`,
-        icon: <LuGitBranch className="size-3.5 shrink-0 text-accent" />,
-        onSelect: () => void copyValue(br),
-        group: t('git.operations.groupCopy'),
-      })
-    }
-    items.push({
-      key: 'copy-head',
-      label: `${t('git.graph.copyCommitHash')} (${entry.head.slice(0, 7)})`,
-      icon: <LuHash className="size-3.5 shrink-0 text-ink-soft" />,
-      onSelect: () => void copyValue(entry.head),
-      group: t('git.operations.groupCopy'),
-    })
-    setContextMenu({
-      anchor: { x: e.clientX, y: e.clientY },
-      ariaLabel: entry.branch || entry.path,
-      items,
-    })
-  }
-
-  const handleFolderContextMenu = (e: React.MouseEvent, node: BranchNode, kind: 'local' | 'remote', folderId: string, expanded: boolean) => {
-    e.preventDefault()
-    e.stopPropagation()
-
-    const branchItems = collectAllBranchItems(node)
-    const items: FloatingMenuItem[] = []
-
-    if (node.children.length > 0) {
-      items.push({
-        key: 'toggle-folder',
-        label: expanded ? t('git.operations.collapseGroup') || '折叠该组' : t('git.operations.expandGroup') || '展开该组',
-        icon: expanded ? <LuChevronDown className="size-3.5 shrink-0" /> : <LuChevronRight className="size-3.5 shrink-0" />,
-        onSelect: () => toggleFolder(folderId),
-      })
-    }
-
-    const copyChildren: FloatingMenuItem[] = [
-      {
-        key: 'copy-folder-name',
-        label: (t('git.operations.copyGroupName') || '复制组名称 ({name})').replace('{name}', node.label),
-        icon: <LuFolder className="size-3.5 shrink-0 text-accent" />,
-        onSelect: () => void copyValue(node.label),
-      },
-    ]
-
-    if (node.id && node.id !== node.label) {
-      copyChildren.push({
-        key: 'copy-folder-path',
-        label: (t('git.operations.copyGroupPath') || '复制完整分组路径 ({path})').replace('{path}', node.id),
-        icon: <LuCopy className="size-3.5 shrink-0" />,
-        onSelect: () => void copyValue(node.id),
-      })
-    }
-
-    if (branchItems.length > 0) {
-      copyChildren.push({
-        key: 'copy-branches-list',
-        label: (t('git.operations.copyGroupBranches') || '复制组内分支名称 ({count} 个)').replace('{count}', String(branchItems.length)),
-        icon: <LuGitBranch className="size-3.5 shrink-0 text-accent" />,
-        onSelect: () => void copyValue(branchItems.map((b) => b.name).join('\n')),
-      })
-    }
-
-    if (node.item) {
-      const tipCommit = view.commits.find((c) => c.hash === node.item?.tip)
-      if (tipCommit) {
-        copyChildren.push(
-          {
-            key: 'copy-commit-subject',
-            label: `${t('git.graph.copyCommitSubject') || '复制提交信息'} (${tipCommit.subject})`,
-            icon: <LuText className="size-3.5 shrink-0 text-ink-soft" />,
-            onSelect: () => void copyValue(tipCommit.subject),
-          },
-          {
-            key: 'copy-commit-hash',
-            label: `${t('git.graph.copyCommitHash') || '复制 Commit SHA'} (${tipCommit.short || tipCommit.hash.slice(0, 7)})`,
-            icon: <LuHash className="size-3.5 shrink-0 text-ink-soft" />,
-            onSelect: () => void copyValue(tipCommit.hash),
-          }
-        )
-      } else if (node.item.tip) {
-        const hash = node.item.tip
-        copyChildren.push({
-          key: 'copy-commit-hash',
-          label: `${t('git.graph.copyCommitHash') || '复制 Commit SHA'} (${hash.slice(0, 7)})`,
-          icon: <LuHash className="size-3.5 shrink-0 text-ink-soft" />,
-          onSelect: () => void copyValue(hash),
-        })
-      }
-    }
-
-    if (copyChildren.length > 0) {
-      items.push({
-        key: 'copy-folder-group',
-        label: t('git.operations.groupCopy') || '复制',
-        icon: <LuCopy className="size-3.5 shrink-0 text-ink-soft" />,
-        dividerBefore: items.length > 0,
-        children: copyChildren,
-      })
-    }
-
-    if (kind === 'local' && branchItems.length > 0) {
-      const allBranchNames = branchItems.map((b) => b.name)
-      const currentBranch = view.head || view.branch
-      const isCurrentInFolder = allBranchNames.includes(currentBranch)
-      const branchesToDelete = allBranchNames.filter((b) => b !== currentBranch)
-
-      if (branchesToDelete.length > 0) {
-        items.push({
-          key: 'delete-folder-branches',
-          label: t('git.operations.deleteFolderBranches', { count: branchesToDelete.length }) || `删除文件夹下所有分支 (${branchesToDelete.length} 个)`,
-          icon: <LuTrash2 className="size-3.5 shrink-0 text-fail" />,
-          danger: true,
-          dividerBefore: true,
-          onSelect: () => {
-            setDeleteFolderModal({
-              open: true,
-              folderLabel: node.label,
-              branchesToDelete,
-              skippedCurrentBranch: isCurrentInFolder ? currentBranch : null,
-            })
-          },
-        })
-      }
-    }
-
-    setContextMenu({
-      anchor: { x: e.clientX, y: e.clientY },
-      ariaLabel: node.label,
-      items,
-    })
-  }
-
-  const handleRemoteGroupContextMenu = (e: React.MouseEvent, group: { source: string; count: number; tree: BranchNode[] }) => {
-    e.preventDefault()
-    e.stopPropagation()
-
-    const allRemoteBranches = group.tree.flatMap(collectAllBranchItems)
-    const expanded = openRemotes[group.source] ?? remoteDefault
-    const isSolo = soloRemote === group.source
-    const isHidden = hiddenRemotes?.includes(group.source)
-
-    const remoteSource = view.remoteSources?.find((r) => r.name === group.source)
-    const remoteUrl = remoteSource?.url || (group.source === 'origin' ? view.remoteUrl : '') || ''
-
-    const items: FloatingMenuItem[] = [
-      {
-        key: 'quote-remote-to-agent',
-        label: t('git.operations.quoteRemoteToAgent') || '引用远端到 Git Agent',
-        icon: <LuBot className="size-3.5 shrink-0 text-accent" />,
-        shortcut: '⌥Q',
-        onSelect: () => {
-          quoteRemoteToAgent(group.source, remoteUrl, view.repo)
-        },
-      },
-      {
-        key: 'fetch-remote',
-        label: (t('git.operations.fetchRemoteActionSimple') || `Fetch ${group.source}`).replace('{remote}', group.source),
-        icon: <LuArrowDownToLine className="size-3.5 shrink-0 text-accent" />,
-        onSelect: async () => {
-          try {
-            notify.info((t('git.operations.fetchingRemote') || `正在抓取 ${group.source}...`).replace('{remote}', group.source))
-            const driver = getGitDriver()
-            await driver.fetch(view.repo, { remote: group.source, prune: true })
-            notify.success((t('git.operations.fetchRemoteSuccess') || `抓取完成`).replace('{remote}', group.source))
-            await onRefresh?.()
-          } catch (err) {
-            notify.error(err instanceof Error ? err.message : '抓取失败')
-          }
-        },
-      },
-      {
-        key: 'edit-remote',
-        label: (t('git.operations.editRemoteActionSimple') || `Edit ${group.source}`).replace('{remote}', group.source),
-        icon: <LuPencil className="size-3.5 shrink-0 text-ink-soft" />,
-        onSelect: async () => {
-          let url = remoteUrl
-          if (!url) {
-            const driver = getGitDriver()
-            url = (await driver.getRemoteUrl?.(view.repo, group.source).catch(() => '')) || ''
-          }
-          setEditRemoteState({ open: true, remote: group.source, url })
-        },
-      },
-      {
-        key: 'remove-remote',
-        label: (t('git.operations.removeRemoteActionSimple') || `Remove ${group.source}`).replace('{remote}', group.source),
-        icon: <LuTrash2 className="size-3.5 shrink-0 text-fail" />,
-        danger: true,
-        onSelect: async () => {
-          const confirmed = window.confirm(
-            (t('git.operations.removeRemoteConfirm') || `确定要删除远程源 "${group.source}" 吗？此操作将移除该远程及其关联的跟踪分支。`).replace('{remote}', group.source)
-          )
-          if (!confirmed) return
-          try {
-            notify.info(`正在删除远程源 ${group.source}...`)
-            const driver = getGitDriver()
-            await driver.removeRemote?.(view.repo, group.source)
-            notify.success((t('git.operations.removeRemoteSuccess') || `已成功删除远程源 ${group.source}`).replace('{remote}', group.source))
-            await onRefresh?.()
-          } catch (err) {
-            notify.error(err instanceof Error ? err.message : '删除远程源失败')
-          }
-        },
-      },
-      {
-        key: 'hide-remote',
-        label: isHidden ? t('git.operations.unhide') || '取消隐藏' : t('git.operations.hide') || 'Hide',
-        icon: isHidden ? <LuEye className="size-3.5 shrink-0 text-accent" /> : <LuEyeOff className="size-3.5 shrink-0 text-ink-soft" />,
-        dividerBefore: true,
-        onSelect: () => onToggleHideRemote?.(group.source),
-      },
-      {
-        key: 'solo-remote',
-        label: isSolo ? t('git.operations.unsolo') || '取消只看' : t('git.operations.solo') || 'Solo',
-        icon: isSolo ? <LuEyeOff className="size-3.5 shrink-0 text-accent" /> : <LuEye className="size-3.5 shrink-0 text-accent" />,
-        onSelect: () => onSoloRemote?.(isSolo ? null : group.source),
-      },
-      {
-        key: 'copy-remote-link',
-        label: (t('git.operations.copyLinkToRemoteSimple') || `Copy link to remote: ${group.source}`).replace('{remote}', group.source),
-        icon: <LuCopy className="size-3.5 shrink-0 text-accent" />,
-        dividerBefore: true,
-        onSelect: async () => {
-          let url = remoteUrl
-          if (!url) {
-            const driver = getGitDriver()
-            url = (await driver.getRemoteUrl?.(view.repo, group.source).catch(() => '')) || ''
-          }
-          if (!url) {
-            notify.error('未找到该远程源的 URL')
-            return
-          }
-          const ok = await copyToClipboard(url)
-          if (ok) {
-            notify.success((t('git.operations.copyRemoteUrlSuccess') || '已复制远程源链接: {url}').replace('{url}', url))
-          } else {
-            notify.error('复制失败')
-          }
-        },
-      },
-    ]
-
-    const webUrl = remoteUrl ? remoteUrl.replace(/^git@([^:]+):/, 'https://$1/').replace(/\.git$/, '') : ''
-    if (webUrl && (webUrl.startsWith('http://') || webUrl.startsWith('https://'))) {
-      items.push({
-        key: 'open-remote-browser',
-        label: t('git.operations.openRemoteInBrowser') || '在浏览器打开远程仓库',
-        icon: <LuExternalLink className="size-3.5 shrink-0 text-ink-soft" />,
-        onSelect: () => {
-          window.open(webUrl, '_blank', 'noopener,noreferrer')
-        },
-      })
-    }
-
-    if (allRemoteBranches.length > 0) {
-      items.push({
-        key: 'copy-remote-branches',
-        label: (t('git.operations.copyAllRemoteBranches') || '复制该远程下所有分支名 ({count} 个)').replace('{count}', String(allRemoteBranches.length)),
-        icon: <LuGitBranch className="size-3.5 shrink-0 text-accent" />,
-        dividerBefore: true,
-        onSelect: () => void copyValue(allRemoteBranches.map((b) => b.name).join('\n')),
-      })
-    }
-
-    items.push({
-      key: 'toggle-remote-group',
-      label: expanded ? t('git.operations.collapseRemote') || '折叠该远程' : t('git.operations.expandRemote') || '展开该远程',
-      icon: expanded ? <LuChevronDown className="size-3.5 shrink-0" /> : <LuChevronRight className="size-3.5 shrink-0" />,
-      onSelect: () => setOpenRemotes((prev) => ({ ...prev, [group.source]: !expanded })),
-    })
-
-    setContextMenu({
-      anchor: { x: e.clientX, y: e.clientY },
-      ariaLabel: group.source,
-      items,
-    })
-  }
-
-  const sections = useMemo(
-    (): Array<{
-      id: SectionId
-      title: string
-      total: number
-      matchCount: number
-      icon: typeof LuGitBranch
-      rows: SidebarRow[]
-      notice?: number
-      expand?: { allOpen: boolean; disabled: boolean; onToggle: () => void }
-      searchPlaceholder: string
-    }> => [
-      {
-        id: 'local',
-        title: t('git.sidebar.sections.local'),
-        total: view.branches.length,
-        matchCount: localMatchCount,
-        icon: LuGitBranch,
-        searchPlaceholder: t('git.sidebar.search.branch'),
-        expand: { allOpen: localAllOpen, disabled: localFolderIds.length === 0, onToggle: toggleLocalAll },
-        rows: visibleBranchRows(localTree, 'local', folderOpen, 0, 'section:local').map((row) => ({
-          id: `local:${row.node.id}`,
-          render: () => (
-            <BranchTree
-              nodes={[row.node]}
-              depth={row.depth}
-              active={active}
-              kind="local"
-              folderOpen={folderOpen}
-              onToggleFolder={toggleFolder}
-              onSetFolder={setFolderOpen}
-              onSelect={onSelect}
-              onContextMenu={handleBranchContextMenu}
-              onFolderContextMenu={handleFolderContextMenu}
-              onCheckoutBranch={onCheckoutBranch}
-              onSetUpstream={(b) => setSetUpstreamBranch(b)}
-              soloBranch={soloBranch}
-              parentId={row.parentId}
-              repo={view.repo}
-              onBranchHoverStart={onBranchHoverStart}
-              onBranchHoverEnd={onBranchHoverEnd}
-            />
-          ),
-        })),
-      },
-      {
-        id: 'remote',
-        title: t('git.sidebar.sections.remote'),
-        total: view.remotes.length,
-        matchCount: remoteMatchCount,
-        icon: LuCloud,
-        searchPlaceholder: t('git.sidebar.search.remote'),
-        notice: remoteUpdates.length,
-        expand: {
-          allOpen: remoteAllOpen,
-          disabled: remoteTrees.length === 0 && remoteFolderIds.length === 0,
-          onToggle: toggleRemoteAll,
-        },
-        rows: remoteTrees.flatMap((group): SidebarRow[] => {
-          const sourceId = `remote-source:${group.source}`
-          const expanded = Boolean(remoteNeedle) || (openRemotes[group.source] ?? remoteDefault)
-          const sourceUpdates = updatesByRemote.get(group.source) || 0
-          return [
-            {
-              id: sourceId,
-              render: () => (
-                <div
-                  role="treeitem"
-                  tabIndex={0}
-                  data-git-tree-id={sourceId}
-                  aria-expanded={expanded}
-                  aria-selected={false}
-                  className="group flex h-8 w-full cursor-pointer select-text items-center justify-start gap-1.5 rounded-none px-2 font-normal text-xs text-ink-soft hover:bg-[var(--overlay-06)] outline-none focus-visible:ring-1 focus-visible:ring-accent"
-                  onClick={() => {
-                    const sel = typeof window !== 'undefined' ? window.getSelection() : null
-                    if (sel && sel.toString().trim().length > 0) return
-                    setOpenRemotes((prev) => ({ ...prev, [group.source]: !(prev[group.source] ?? remoteDefault) }))
-                  }}
-                  onContextMenu={(e) => handleRemoteGroupContextMenu(e, group)}
-                  onKeyDown={(event) => {
-                    if (handleTreeExpandKey(event, expanded, (next) => setOpenRemotes((prev) => ({ ...prev, [group.source]: next })))) return
-                    handleTreeParentKey(event, 'section:remote')
-                  }}
-                >
-                  <span
-                    role="button"
-                    tabIndex={-1}
-                    className="inline-flex size-3 shrink-0 cursor-pointer items-center justify-center select-none"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setOpenRemotes((prev) => ({ ...prev, [group.source]: !(prev[group.source] ?? remoteDefault) }))
-                    }}
-                  >
-                    {expanded ? <LuChevronDown className="size-3 shrink-0" aria-hidden /> : <LuChevronRight className="size-3 shrink-0" aria-hidden />}
-                  </span>
-                  <span data-git-sidebar-label className="min-w-0 flex-1 truncate whitespace-nowrap text-left text-xs select-text">
-                    {group.source}
-                  </span>
-                  {soloRemote === group.source ? (
-                    <Badge tone="accent" size="mini" dot={false} className="shrink-0 select-none">
-                      {t('git.operations.soloBadge') || '只看'}
-                    </Badge>
-                  ) : hiddenRemotes?.includes(group.source) ? (
-                    <span className="shrink-0 text-ink-soft/70 text-[10px] flex items-center gap-0.5" title="已隐藏此远程分支">
-                      <LuEyeOff className="size-3" />
-                      隐藏
-                    </span>
-                  ) : sourceUpdates > 0 ? (
-                    <Badge tone="accent" size="mini" dot={false} className="shrink-0 select-none" title={t('git.sidebar.remoteBranchUpdates', { count: sourceUpdates })}>
-                      {sourceUpdates}
-                    </Badge>
-                  ) : (
-                    <span className="shrink-0 whitespace-nowrap tabular-nums text-[11px] select-none text-ink-soft">{group.count}</span>
-                  )}
-                </div>
-              ),
-            },
-            ...(expanded
-              ? visibleBranchRows(group.tree, `remote:${group.source}`, folderOpen, 1, sourceId).map((row) => ({
-                  id: `remote:${group.source}:${row.node.id}`,
-                  render: () => (
-                    <BranchTree
-                      nodes={[row.node]}
-                      depth={row.depth}
-                      active={active}
-                      kind="remote"
-                      folderOpen={folderOpen}
-                      onToggleFolder={toggleFolder}
-                      onSetFolder={setFolderOpen}
-                      onSelect={onSelect}
-                      onContextMenu={handleBranchContextMenu}
-                      onFolderContextMenu={handleFolderContextMenu}
-                      onCheckoutBranch={onCheckoutBranch}
-                      soloBranch={soloBranch}
-                      idPrefix={`remote:${group.source}`}
-                      parentId={row.parentId}
-                      repo={view.repo}
-                      updateByName={updateByName}
-                      onBranchHoverStart={onBranchHoverStart}
-                      onBranchHoverEnd={onBranchHoverEnd}
-                    />
-                  ),
-                }))
-              : []),
-          ]
-        }),
-      },
-      {
-        id: 'stash',
-        title: t('git.sidebar.sections.stash'),
-        total: view.stashes.length,
-        matchCount: filteredStashes.length,
-        icon: LuArchive,
-        searchPlaceholder: t('git.sidebar.search.stash'),
-        rows: filteredStashes.map((stash) => ({
-          id: stash.name,
-          render: () => (
-            <Row
-              key={stash.name}
-              label={stash.subject || stash.name}
-              title={stash.name}
-              active={active === `stash:${stash.name}`}
-              parentId="section:stash"
-              onClick={() => onSelect({ kind: 'stash', name: stash.name })}
-              onContextMenu={(e) => handleStashContextMenu(e, stash)}
-            />
-          ),
-        })),
-      },
-      {
-        id: 'tag',
-        title: t('git.sidebar.sections.tag'),
-        total: view.tags.length,
-        matchCount: filteredTags.length,
-        icon: LuTag,
-        searchPlaceholder: t('git.sidebar.search.tag'),
-        rows: filteredTags.map((tag) => ({
-          id: tag.name,
-          render: () => (
-            <Row
-              key={tag.name}
-              label={tag.name}
-              active={active === `tag:${tag.name}`}
-              parentId="section:tag"
-              onClick={() => onSelect({ kind: 'tag', name: tag.name })}
-              onContextMenu={(e) => handleTagContextMenu(e, tag)}
-            />
-          ),
-        })),
-      },
-      {
-        id: 'worktree',
-        title: t('git.sidebar.sections.worktree'),
-        total: view.worktrees.length,
-        matchCount: filteredWorktrees.length,
-        icon: LuFolderGit2,
-        searchPlaceholder: t('git.sidebar.search.worktree'),
-        rows: filteredWorktrees.map((entry) => ({
-          id: entry.path,
-          render: () => (
-            <Row
-              key={entry.path}
-              label={entry.branch || t('git.sidebar.detached')}
-              title={entry.path}
-              current={entry.current}
-              active={active === `worktree:${entry.path}`}
-              parentId="section:worktree"
-              onClick={() => onSelect({ kind: 'worktree', path: entry.path })}
-              onContextMenu={(e) => handleWorktreeContextMenu(e, entry)}
-            />
-          ),
-        })),
-      },
-      {
-        id: 'submodule',
-        title: t('git.sidebar.sections.submodule'),
-        total: view.submodules.length,
-        matchCount: filteredSubmodules.length,
-        icon: LuBoxes,
-        searchPlaceholder: t('git.sidebar.search.submodule'),
-        rows: filteredSubmodules.map((sub) => ({
-          id: sub.path,
-          render: () => <Row key={sub.path} label={sub.path} title={sub.describe || sub.hash} active={false} parentId="section:submodule" onClick={() => onOpenRepo(sub.repo)} />,
-        })),
-      },
-    ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [
-      t,
-      view,
-      localMatchCount,
-      localAllOpen,
-      localFolderIds,
-      localTree,
-      folderOpen,
-      toggleLocalAll,
-      toggleFolder,
-      setFolderOpen,
-      active,
-      onSelect,
-      remoteMatchCount,
-      remoteAllOpen,
-      remoteTrees,
-      remoteFolderIds,
-      remoteDefault,
-      openRemotes,
-      remoteUpdates,
-      updatesByRemote,
-      updateByName,
-      filteredStashes,
-      filteredTags,
-      filteredWorktrees,
-      filteredSubmodules,
-      soloRemote,
-      hiddenRemotes,
-    ]
-  )
-
-  // SSR: headers only (all collapsed). Client: real prefs on first paint — auto-expand when searching.
+  const sections = useSidebarSections({
+    view,
+    localMatchCount,
+    localAllOpen,
+    localFolderIds,
+    toggleLocalAll,
+    localTree,
+    folderOpen,
+    toggleFolder,
+    setFolderOpen,
+    onSelect,
+    handleBranchContextMenu,
+    handleFolderContextMenu,
+    onCheckoutBranch,
+    setSetUpstreamBranch,
+    soloBranch,
+    onBranchHoverStart,
+    onBranchHoverEnd,
+    remoteMatchCount,
+    remoteUpdates,
+    remoteAllOpen,
+    remoteTrees,
+    remoteFolderIds,
+    toggleRemoteAll,
+    remoteNeedle,
+    openRemotes,
+    remoteDefault,
+    updatesByRemote,
+    setOpenRemotes,
+    handleRemoteGroupContextMenu,
+    soloRemote,
+    hiddenRemotes,
+    updateByName,
+    filteredStashes,
+    active,
+    handleStashContextMenu,
+    filteredTags,
+    handleTagContextMenu,
+    filteredWorktrees,
+    handleWorktreeContextMenu,
+    filteredSubmodules,
+    onOpenRepo,
+  })
   const expandedOf = (id: SectionId) => {
     if (!ready) return false
     const needle = id === 'local' ? localNeedle : id === 'remote' ? remoteNeedle : needleOf(id)
@@ -1637,27 +459,15 @@ export function GitSidebar({
                   <span data-git-sidebar-label className="shrink-0 whitespace-nowrap">
                     {section.title}
                   </span>
-                  {!(section.id === 'worktree' && isEdge) ? (
-                    <Badge tone="neutral" size="mini" dot={false} className="shrink-0">
-                      {badgeCount}
-                    </Badge>
-                  ) : null}
+                  <Badge tone="neutral" size="mini" dot={false} className="shrink-0">
+                    <AnimatedCounter value={badgeCount} max={999} />
+                  </Badge>
                   {section.notice && section.notice > 0 ? (
                     <Badge tone="accent" size="mini" dot={false} className="shrink-0" title={t('git.sidebar.remotePending')}>
-                      {section.notice}
+                      <AnimatedCounter value={section.notice} max={99} />
                     </Badge>
                   ) : null}
                 </Button>
-                {section.id === 'worktree' && isEdge ? (
-                  <Tooltip content={t('git.sidebar.worktreeEdgeUnsupportedMsg')} placement="left">
-                    <span
-                      className="mr-2 flex size-6 shrink-0 cursor-help items-center justify-center text-fail hover:text-fail/80"
-                      aria-label={t('git.sidebar.worktreeEdgeUnsupportedMsg')}
-                    >
-                      <LuCircleAlert className="size-3.5 text-fail" aria-hidden="true" />
-                    </span>
-                  </Tooltip>
-                ) : null}
                 <div
                   className={cn(
                     'flex shrink-0 items-center transition-opacity',
@@ -1684,8 +494,8 @@ export function GitSidebar({
                       variant="plain"
                       size="icon"
                       className="size-6 shrink-0 text-ink-soft hover:enabled:bg-[var(--overlay-08)] hover:enabled:text-accent"
-                      aria-label={t('git.operations.locateCurrentBranch') || '定位到当前分支'}
-                      tooltip={t('git.operations.locateCurrentBranch') || '定位到当前分支'}
+                      aria-label={t('git.operations.locateCurrentBranch') || 'Locate current branch'}
+                      tooltip={t('git.operations.locateCurrentBranch') || 'Locate current branch'}
                       onClick={(e) => {
                         e.stopPropagation()
                         focusCurrentBranch()
@@ -1699,8 +509,8 @@ export function GitSidebar({
                       variant="plain"
                       size="icon"
                       className="size-6 shrink-0 text-ink-soft hover:enabled:bg-[var(--overlay-08)]"
-                      aria-label={t('git.operations.addRemoteTitle') || '添加远程源'}
-                      tooltip={t('git.operations.addRemoteTitle') || '添加远程源'}
+                      aria-label={t('git.operations.addRemoteTitle') || 'Add remote'}
+                      tooltip={t('git.operations.addRemoteTitle') || 'Add remote'}
                       onClick={(e) => {
                         e.stopPropagation()
                         setAddRemoteOpen(true)
@@ -1709,13 +519,13 @@ export function GitSidebar({
                       <LuPlus className="size-3.5" aria-hidden />
                     </Button>
                   )}
-                  {section.id === 'worktree' && !isEdge && onAddWorktree ? (
+                  {section.id === 'worktree' && onAddWorktree ? (
                     <Button
                       variant="plain"
                       size="icon"
                       className="size-6 shrink-0 text-ink-soft hover:enabled:bg-[var(--overlay-08)]"
-                      aria-label={t('git.sidebar.addWorktree') || '添加 Worktree'}
-                      tooltip={t('git.sidebar.addWorktree') || '添加 Worktree'}
+                      aria-label={t('git.sidebar.addWorktree') || 'Add Worktree'}
+                      tooltip={t('git.sidebar.addWorktree') || 'Add Worktree'}
                       onClick={(e) => {
                         e.stopPropagation()
                         onAddWorktree()
@@ -1724,32 +534,23 @@ export function GitSidebar({
                       <LuPlus className="size-3.5" aria-hidden />
                     </Button>
                   ) : null}
-                  {!(section.id === 'worktree' && isEdge) && (
-                    <GitSearchDropdown
-                      label={section.searchPlaceholder}
-                      placeholder={section.searchPlaceholder}
-                      value={queries[section.id] || ''}
-                      onOpenChange={(next) => {
-                        setSearchMenuOpen((prev) => ({ ...prev, [section.id]: next }))
-                        if (next) setOpen((prev) => ({ ...prev, [section.id]: true }))
-                      }}
-                      onChange={(next) => {
-                        setQueries((prev) => ({ ...prev, [section.id]: next }))
-                        if (next.trim()) setOpen((prev) => ({ ...prev, [section.id]: true }))
-                      }}
-                    />
-                  )}
+                  <GitSearchDropdown
+                    label={section.searchPlaceholder}
+                    placeholder={section.searchPlaceholder}
+                    value={queries[section.id] || ''}
+                    onOpenChange={(next) => {
+                      setSearchMenuOpen((prev) => ({ ...prev, [section.id]: next }))
+                      if (next) setOpen((prev) => ({ ...prev, [section.id]: true }))
+                    }}
+                    onChange={(next) => {
+                      setQueries((prev) => ({ ...prev, [section.id]: next }))
+                      if (next.trim()) setOpen((prev) => ({ ...prev, [section.id]: true }))
+                    }}
+                  />
                 </div>
               </div>
               {expanded ? (
-                section.id === 'worktree' && isEdge ? (
-                  <EmptyState
-                    density="panel"
-                    className="min-h-32 px-3 py-6"
-                    title={t('git.sidebar.worktreeEdgeUnsupported')}
-                    message={t('git.sidebar.worktreeEdgeUnsupportedMsg')}
-                  />
-                ) : empty || noMatch ? (
+                empty || noMatch ? (
                   <EmptyState
                     density="panel"
                     className="min-h-32 px-3 py-6"
@@ -1775,380 +576,19 @@ export function GitSidebar({
       {contextMenu ? (
         <FloatingMenu anchor={contextMenu.anchor} ariaLabel={contextMenu.ariaLabel} color="var(--accent)" onClose={() => setContextMenu(null)} items={contextMenu.items} />
       ) : null}
-      {deleteFolderModal?.open ? (
-        <Modal
-          open={deleteFolderModal.open}
-          title={t('git.operations.deleteFolderBranchesConfirmTitle') || '批量删除分支'}
-          description={
-            t('git.operations.deleteFolderBranchesConfirmDesc', {
-              folder: deleteFolderModal.folderLabel,
-              count: deleteFolderModal.branchesToDelete.length,
-            }) || `确定要删除文件夹 "${deleteFolderModal.folderLabel}" 下的 ${deleteFolderModal.branchesToDelete.length} 个本地分支吗？此操作不可逆。`
-          }
-          onClose={() => {
-            if (!deletingFolderBranches) setDeleteFolderModal(null)
-          }}
-          footer={
-            <div className="flex w-full items-center justify-end gap-2">
-              <Button variant="plain" size="md" disabled={deletingFolderBranches} onClick={() => setDeleteFolderModal(null)}>
-                {t('common.cancel') || '取消'}
-              </Button>
-              <Button variant="fail" size="md" loading={deletingFolderBranches} onClick={() => void handleConfirmDeleteFolderBranches()}>
-                {t('git.operations.confirmDeleteCount', { count: deleteFolderModal.branchesToDelete.length }) || `删除 ${deleteFolderModal.branchesToDelete.length} 个分支`}
-              </Button>
-            </div>
-          }
-        >
-          <div className="flex flex-col gap-3 py-1">
-            {deleteFolderModal.skippedCurrentBranch ? (
-              <div className="flex items-center gap-2 rounded border border-warn/30 bg-warn/10 px-3 py-2 text-xs text-warn">
-                <LuCircleAlert className="size-4 shrink-0 text-warn" />
-                <span>
-                  {t('git.operations.deleteFolderBranchesSkippedCurrent', {
-                    branch: deleteFolderModal.skippedCurrentBranch,
-                  }) || `当前分支 "${deleteFolderModal.skippedCurrentBranch}" 将被跳过，不会被删除。`}
-                </span>
-              </div>
-            ) : null}
-            <div className="text-xs text-ink-soft">{t('git.operations.branchesToBeDeleted') || '将被删除的分支列表：'}</div>
-            <div className="max-h-48 overflow-y-auto rounded border border-line bg-surface-panel p-2 flex flex-col gap-1">
-              {deleteFolderModal.branchesToDelete.map((b) => (
-                <div key={b} className="flex items-center gap-1.5 text-xs text-fail font-mono">
-                  <LuGitBranch className="size-3.5 shrink-0" />
-                  <span className="truncate">{b}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </Modal>
-      ) : null}
-      <EditRemoteModal
-        open={editRemoteState.open}
-        remote={editRemoteState.remote}
-        initialUrl={editRemoteState.url}
-        busy={editRemoteBusy}
-        onClose={() => setEditRemoteState({ open: false, remote: '', url: '' })}
-        onSubmit={handleSaveRemote}
+      <SidebarModals
+        view={view}
+        onRefresh={onRefresh}
+        notify={notify}
+        deleteFolderModal={deleteFolderModal}
+        setDeleteFolderModal={setDeleteFolderModal}
+        editRemoteState={editRemoteState}
+        setEditRemoteState={setEditRemoteState}
+        addRemoteOpen={addRemoteOpen}
+        setAddRemoteOpen={setAddRemoteOpen}
+        setUpstreamBranch={setUpstreamBranch}
+        setSetUpstreamBranch={setSetUpstreamBranch}
       />
-      <AddRemoteModal open={addRemoteOpen} busy={addRemoteBusy} onClose={() => setAddRemoteOpen(false)} onSubmit={handleAddRemote} />
-      {setUpstreamBranch && (
-        <SetUpstreamModal
-          open={Boolean(setUpstreamBranch)}
-          branch={setUpstreamBranch}
-          availableRemotes={view.remotes.map((r) => r.remote)}
-          busy={setUpstreamBusy}
-          onClose={() => setSetUpstreamBranch(null)}
-          onSubmit={handleSetUpstream}
-        />
-      )}
     </aside>
-  )
-}
-
-function BranchTree({
-  nodes,
-  depth,
-  active,
-  kind,
-  folderOpen,
-  onToggleFolder,
-  onSetFolder,
-  onSelect,
-  onContextMenu,
-  onFolderContextMenu,
-  onCheckoutBranch,
-  onSetUpstream,
-  soloBranch,
-  idPrefix = kind,
-  parentId,
-  repo: _repo,
-  updateByName,
-  onBranchHoverStart,
-  onBranchHoverEnd,
-}: {
-  nodes: BranchNode[]
-  depth: number
-  active: string
-  kind: 'local' | 'remote'
-  folderOpen: (id: string) => boolean
-  onToggleFolder: (id: string) => void
-  onSetFolder: (id: string, next: boolean) => void
-  onSelect: (selection: GitSelection) => void
-  onContextMenu?: (e: React.MouseEvent, item: BranchItem, kind: 'local' | 'remote') => void
-  onFolderContextMenu?: (e: React.MouseEvent, node: BranchNode, kind: 'local' | 'remote', folderId: string, expanded: boolean) => void
-  onCheckoutBranch?: (branch: string, isRemote?: boolean) => Promise<void> | void
-  onSetUpstream?: (branch: string) => void
-  soloBranch?: string | null
-  idPrefix?: string
-  parentId?: string
-  repo?: string
-  updateByName?: Map<string, GitRemoteProbe>
-  onBranchHoverStart?: (branchName: string) => void
-  onBranchHoverEnd?: () => void
-}) {
-  const t = useT()
-  return (
-    <>
-      {nodes.map((node) => {
-        const folderId = `${idPrefix}:${node.id}`
-        if (node.children.length === 0 && node.item) {
-          const probe = updateByName?.get(node.item.name)
-          return (
-            <Row
-              key={folderId}
-              label={node.label}
-              branchName={node.item.name}
-              title={
-                probe
-                  ? t('git.sidebar.remoteNewTip', {
-                      label: node.item.title || node.item.name,
-                      tip: probe.remoteTip.slice(0, 7),
-                    })
-                  : node.item.title
-              }
-              current={node.item.current}
-              isSolo={soloBranch === node.item.name}
-              active={active === `${kind}:${node.item.name}`}
-              depth={depth}
-              parentId={parentId}
-              notice={Boolean(probe)}
-              ahead={node.item.ahead}
-              behind={node.item.behind}
-              upstream={node.item.upstream}
-              kind={kind}
-              onSetUpstream={onSetUpstream ? () => onSetUpstream(node.item!.name) : undefined}
-              onClick={() => onSelect({ kind, name: node.item!.name })}
-              onDoubleClick={() => onCheckoutBranch?.(node.item!.name, kind === 'remote')}
-              onContextMenu={(e) => onContextMenu?.(e, node.item!, kind)}
-              onPointerEnter={() => onBranchHoverStart?.(node.item!.name)}
-              onPointerLeave={() => onBranchHoverEnd?.()}
-            />
-          )
-        }
-
-        const expanded = folderOpen(folderId)
-        const isCurrentBranch = node.item ? Boolean(node.item.current) : false
-        const branchActive = node.item ? active === `${kind}:${node.item.name}` : false
-        return (
-          <div key={folderId}>
-            <div
-              role="treeitem"
-              tabIndex={0}
-              data-git-tree-id={folderId}
-              data-git-sidebar-branch={node.item ? node.item.name : undefined}
-              title={node.item?.title && node.item.title !== node.label ? node.item.title : undefined}
-              aria-expanded={expanded}
-              aria-selected={branchActive}
-              aria-current={branchActive ? 'true' : undefined}
-              className={cn(
-                'group/folder flex h-8 w-full cursor-pointer select-text items-center justify-start gap-1.5 rounded-none px-2 font-normal text-xs transition-colors outline-none focus-visible:ring-1 focus-visible:ring-accent',
-                isCurrentBranch && branchActive
-                  ? 'bg-[color-mix(in_oklab,var(--accent)_22%,var(--ok)_12%)] text-accent font-semibold ring-1 ring-inset ring-accent/30 hover:bg-[color-mix(in_oklab,var(--accent)_28%,var(--ok)_16%)]'
-                  : isCurrentBranch
-                    ? 'bg-[color-mix(in_oklab,var(--ok)_16%,transparent)] text-ink font-medium hover:bg-[color-mix(in_oklab,var(--ok)_22%,transparent)]'
-                    : branchActive
-                      ? 'bg-[color-mix(in_oklab,var(--accent)_16%,transparent)] text-accent font-medium hover:bg-[color-mix(in_oklab,var(--accent)_24%,transparent)]'
-                      : 'text-ink-soft hover:bg-[color-mix(in_oklab,var(--accent)_9%,transparent)]'
-              )}
-              style={depth > 0 ? { paddingLeft: 8 + depth * 14 } : undefined}
-              onClick={() => {
-                const sel = typeof window !== 'undefined' ? window.getSelection() : null
-                if (sel && sel.toString().trim().length > 0) return
-                if (node.item) onSelect({ kind, name: node.item.name })
-                else onToggleFolder(folderId)
-              }}
-              onDoubleClick={() => {
-                if (node.item) onCheckoutBranch?.(node.item.name, kind === 'remote')
-              }}
-              onPointerEnter={() => {
-                if (node.item) onBranchHoverStart?.(node.item.name)
-              }}
-              onPointerLeave={() => {
-                if (node.item) onBranchHoverEnd?.()
-              }}
-              onContextMenu={(e) => {
-                if (node.item) {
-                  onContextMenu?.(e, node.item, kind)
-                } else {
-                  onFolderContextMenu?.(e, node, kind, folderId, expanded)
-                }
-              }}
-              onKeyDown={(event) => {
-                if (handleTreeExpandKey(event, expanded, (next) => onSetFolder(folderId, next))) return
-                handleTreeParentKey(event, parentId)
-              }}
-            >
-              <span
-                role="button"
-                tabIndex={-1}
-                className="inline-flex size-3.5 shrink-0 cursor-pointer items-center justify-center select-none"
-                onClick={(event) => {
-                  event.stopPropagation()
-                  onToggleFolder(folderId)
-                }}
-              >
-                {expanded ? <LuChevronDown className="size-3" aria-hidden /> : <LuChevronRight className="size-3" aria-hidden />}
-              </span>
-              <LuFolder className="size-3 shrink-0 select-none text-ink-soft" aria-hidden />
-              <span data-git-sidebar-label className="min-w-0 flex-1 truncate whitespace-nowrap text-left text-xs select-text">
-                {node.label}
-              </span>
-              {node.item ? (
-                <div className="ml-auto flex shrink-0 items-center gap-1.5 pl-1">
-                  {kind === 'local' && (
-                    <>
-                      {node.item.ahead !== undefined && node.item.ahead > 0 && (
-                        <span className="font-mono text-[11px] text-ink-soft select-none flex items-center gap-0.5" title={`领先远程 ${node.item.ahead} 个提交`}>
-                          {node.item.ahead > 99 ? '99+' : node.item.ahead} ↑
-                        </span>
-                      )}
-                      {node.item.behind !== undefined && node.item.behind > 0 && (
-                        <span className="font-mono text-[11px] text-ink-soft select-none flex items-center gap-0.5" title={`落后远程 ${node.item.behind} 个提交`}>
-                          {node.item.behind > 99 ? '99+' : node.item.behind} ↓
-                        </span>
-                      )}
-                      {!node.item.upstream && onSetUpstream && (
-                        <button
-                          type="button"
-                          title={t('git.operations.setUpstream') || '设置上游远程分支'}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            onSetUpstream(node.item!.name)
-                          }}
-                          className="opacity-0 group-hover/folder:opacity-100 hover:text-accent rounded px-1 text-[11px] text-ink-soft select-none transition-opacity flex items-center gap-0.5 cursor-pointer"
-                        >
-                          <LuCloud className="size-3 shrink-0" />
-                        </button>
-                      )}
-                    </>
-                  )}
-                  {soloBranch === node.item.name ? (
-                    <span className="rounded bg-accent/20 px-1 py-0.2 text-[10px] font-semibold text-accent select-none">{t('git.operations.soloBadge') || '只看'}</span>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
-          </div>
-        )
-      })}
-    </>
-  )
-}
-
-function Row({
-  label,
-  branchName,
-  title,
-  current,
-  isSolo,
-  active,
-  depth = 0,
-  parentId,
-  notice,
-  ahead,
-  behind,
-  upstream,
-  kind,
-  onSetUpstream,
-  onClick,
-  onDoubleClick,
-  onContextMenu,
-  onPointerEnter,
-  onPointerLeave,
-}: {
-  label: string
-  branchName?: string
-  title?: string
-  current?: boolean
-  isSolo?: boolean
-  active: boolean
-  depth?: number
-  parentId?: string
-  notice?: boolean
-  ahead?: number
-  behind?: number
-  upstream?: string
-  kind?: 'local' | 'remote'
-  onSetUpstream?: () => void
-  onClick: () => void
-  onDoubleClick?: () => void
-  onContextMenu?: (e: React.MouseEvent) => void
-  onPointerEnter?: () => void
-  onPointerLeave?: () => void
-}) {
-  const t = useT()
-  return (
-    <div
-      role="treeitem"
-      tabIndex={0}
-      data-git-sidebar-branch={branchName || (kind === 'local' ? label : undefined)}
-      title={title && title !== label ? title : undefined}
-      aria-selected={active}
-      aria-current={active ? 'true' : undefined}
-      className={cn(
-        'group/row flex h-8 w-full cursor-pointer select-text items-center justify-start px-2 font-normal text-xs transition-colors rounded-none outline-none focus-visible:ring-1 focus-visible:ring-accent',
-        current && active
-          ? 'bg-[color-mix(in_oklab,var(--accent)_22%,var(--ok)_12%)] text-accent font-semibold ring-1 ring-inset ring-accent/30 hover:bg-[color-mix(in_oklab,var(--accent)_28%,var(--ok)_16%)]'
-          : current
-            ? 'bg-[color-mix(in_oklab,var(--ok)_16%,transparent)] text-ink font-medium hover:bg-[color-mix(in_oklab,var(--ok)_22%,transparent)]'
-            : active
-              ? 'bg-[color-mix(in_oklab,var(--accent)_16%,transparent)] text-accent font-medium hover:bg-[color-mix(in_oklab,var(--accent)_24%,transparent)]'
-              : 'text-ink hover:bg-[color-mix(in_oklab,var(--accent)_9%,transparent)]'
-      )}
-      style={depth > 0 ? { paddingLeft: 8 + depth * 14 } : undefined}
-      onClick={() => {
-        const sel = typeof window !== 'undefined' ? window.getSelection() : null
-        if (sel && sel.toString().trim().length > 0) return
-        onClick()
-      }}
-      onDoubleClick={onDoubleClick}
-      onContextMenu={onContextMenu}
-      onPointerEnter={onPointerEnter}
-      onPointerLeave={onPointerLeave}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault()
-          onClick()
-          return
-        }
-        handleTreeParentKey(event, parentId)
-      }}
-    >
-      <span data-git-sidebar-label className="min-w-0 flex-1 truncate whitespace-nowrap text-left select-text flex items-center">
-        {(kind === 'local' || kind === 'remote') && <LuGitBranch className="size-3.5 shrink-0 text-ink-soft select-none mr-1.5" aria-hidden />}
-        <span className="truncate">{label}</span>
-      </span>
-      <div className="ml-auto flex shrink-0 items-center gap-1.5 pl-2">
-        {kind === 'local' && (
-          <>
-            {ahead !== undefined && ahead > 0 && (
-              <span className="font-mono text-[11px] text-ink-soft select-none flex items-center gap-0.5" title={`领先远程 ${ahead} 个提交`}>
-                {ahead > 99 ? '99+' : ahead} ↑
-              </span>
-            )}
-            {behind !== undefined && behind > 0 && (
-              <span className="font-mono text-[11px] text-ink-soft select-none flex items-center gap-0.5" title={`落后远程 ${behind} 个提交`}>
-                {behind > 99 ? '99+' : behind} ↓
-              </span>
-            )}
-            {!upstream && onSetUpstream && (
-              <button
-                type="button"
-                title={t('git.operations.setUpstream') || '设置上游远程分支'}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onSetUpstream()
-                }}
-                className="opacity-0 group-hover/row:opacity-100 hover:text-accent rounded px-1 text-[11px] text-ink-soft select-none transition-opacity flex items-center gap-0.5 cursor-pointer"
-              >
-                <LuCloud className="size-3 shrink-0" />
-              </button>
-            )}
-          </>
-        )}
-        {isSolo ? <span className="rounded bg-accent/20 px-1 py-0.2 text-[10px] font-semibold text-accent select-none">{t('git.operations.soloBadge') || '只看'}</span> : null}
-        {notice ? <span className="size-1.5 shrink-0 rounded-full bg-accent select-none" aria-label={t('git.sidebar.remoteNewAria')} /> : null}
-      </div>
-    </div>
   )
 }

@@ -151,4 +151,35 @@ export type GitAgentMessages = {
   modelBlacklistDesc: string
   modelConflictNotice: string
   modelBlockedNotice: string
+  storageCopied?: string
+  storageCopyFailed?: string
+  storageOpenFailed?: string
+  storageCacheCleared?: string
+  storageCacheClearFailed?: string
+  storageClearedItem?: string
+  storageClearFailedItem?: string
+  presetApplied?: string
+  presetReset?: string
+  mcpNameRequired?: string
+  mcpUrlRequired?: string
+  mcpConnected?: string
+  mcpTestFailed?: string
+  mcpDisabled?: string
+  mcpEnabled?: string
+  mcpRemoved?: string
+  skillParsed?: string
+  skillReadFailed?: string
+  skillContentRequired?: string
+  skillAdded?: string
+  skillRepoRequired?: string
+  skillNoneFound?: string
+  skillImported?: string
+  skillImportFailed?: string
+  skillDisabled?: string
+  skillEnabled?: string
+  skillUpdated?: string
+  skillUpToDate?: string
+  skillUpdateFailed?: string
+  skillSaved?: string
+  skillRemoved?: string
 }

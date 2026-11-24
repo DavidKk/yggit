@@ -7,7 +7,7 @@ import { CreateBranchModal } from '@/components/git/GitBranchModal'
 import { useT } from '@/components/i18n/LocaleProvider'
 import { useNotification } from '@/components/notification/useNotification'
 import { Button, Spinner, Tooltip } from '@/components/sk'
-import { getDriverMode, getGitDriver } from '@/lib/git/driver'
+import { getGitDriver } from '@/lib/git/driver'
 import { cn } from '@/lib/utils'
 
 export type PullOperation = 'pull-ff' | 'fetch-all' | 'pull-ff-only' | 'pull-rebase'
@@ -48,10 +48,14 @@ export function GitToolbar({ repo, currentBranch, hasStashes = false, disabled =
     {
       key: 'pull-ff',
       label: t('git.operations.pullFastForwardIfPossible') || 'Pull (fast-forward if possible)',
-      desc: t('git.operations.pullDefaultModeDesc') || '尽可能快进拉取合并 (默认)',
+      desc: t('git.operations.pullDefaultModeDesc') || 'Pull with fast-forward if possible (default)',
     },
-    { key: 'pull-ff-only', label: t('git.operations.pullFastForwardOnly') || 'Pull (fast-forward only)', desc: t('git.operations.pullFastForwardDesc') || '仅在能直接快进时拉取' },
-    { key: 'pull-rebase', label: t('git.operations.pullRebase') || 'Pull (rebase)', desc: t('git.operations.pullRebaseDesc') || '拉取并变基当前本地提交' },
+    {
+      key: 'pull-ff-only',
+      label: t('git.operations.pullFastForwardOnly') || 'Pull (fast-forward only)',
+      desc: t('git.operations.pullFastForwardDesc') || 'Pull only if fast-forward is possible',
+    },
+    { key: 'pull-rebase', label: t('git.operations.pullRebase') || 'Pull (rebase)', desc: t('git.operations.pullRebaseDesc') || 'Pull and rebase local commits' },
   ]
 
   const handleExecutePull = async (op: PullOperation = defaultPullOp) => {
@@ -61,23 +65,23 @@ export function GitToolbar({ repo, currentBranch, hasStashes = false, disabled =
       const driver = getGitDriver()
       if (op === 'fetch-all') {
         const res = await driver.fetch(repo, { all: true, prune: true })
-        notify.success(res.message || t('git.operations.fetchSuccess') || '抓取完成 (Fetch All)')
+        notify.success(res.message || t('git.operations.fetchSuccess') || 'Fetch complete')
       } else {
         await driver.fetch(repo, { all: true, prune: true }).catch(() => {})
         if (op === 'pull-ff-only') {
           const res = await driver.pull(repo, { ffOnly: true })
-          notify.success(res.message || t('git.operations.pullSuccess') || '拉取成功 (Fast-forward only)')
+          notify.success(res.message || t('git.operations.pullSuccess') || 'Pull successful')
         } else if (op === 'pull-rebase') {
           const res = await driver.pull(repo, { rebase: true })
-          notify.success(res.message || t('git.operations.pullSuccess') || '拉取成功 (Rebase)')
+          notify.success(res.message || t('git.operations.pullSuccess') || 'Pull successful')
         } else {
           const res = await driver.pull(repo)
-          notify.success(res.message || t('git.operations.pullSuccess') || '拉取成功 (Pull)')
+          notify.success(res.message || t('git.operations.pullSuccess') || 'Pull successful')
         }
       }
       await onRefresh()
     } catch (error) {
-      notify.error(error instanceof Error ? error.message : t('git.errors.readGit') || '拉取失败')
+      notify.error(error instanceof Error ? error.message : t('git.errors.readGit') || 'Pull failed')
     } finally {
       setPulling(false)
     }
@@ -89,10 +93,10 @@ export function GitToolbar({ repo, currentBranch, hasStashes = false, disabled =
     try {
       const driver = getGitDriver()
       const res = await driver.push(repo, { setUpstream: true })
-      notify.success(res.message || t('git.operations.pushSuccess') || '推送成功')
+      notify.success(res.message || t('git.operations.pushSuccess') || 'Push successful')
       await onRefresh()
     } catch (error) {
-      notify.error(error instanceof Error ? error.message : t('git.operations.pushSuccess') ? 'Push failed' : '推送失败')
+      notify.error(error instanceof Error ? error.message : t('git.operations.pushFailed') || 'Push failed')
     } finally {
       setPushing(false)
     }
@@ -102,10 +106,10 @@ export function GitToolbar({ repo, currentBranch, hasStashes = false, disabled =
     try {
       const driver = getGitDriver()
       const res = await driver.createBranch(repo, name, startPoint, checkout)
-      notify.success(res.message || (t('git.operations.createBranchSuccess') || '已创建分支 {branch}').replace('{branch}', name))
+      notify.success(res.message || t('git.operations.createBranchSuccess', { branch: name }) || `Branch ${name} created`)
       await onRefresh()
     } catch (error) {
-      notify.error(error instanceof Error ? error.message : t('git.operations.createBranchTitle') ? 'Create branch failed' : '创建分支失败')
+      notify.error(error instanceof Error ? error.message : t('git.operations.createBranchTitle') ? 'Create branch failed' : 'Failed to create branch')
     }
   }
 
@@ -115,10 +119,10 @@ export function GitToolbar({ repo, currentBranch, hasStashes = false, disabled =
     try {
       const driver = getGitDriver()
       const res = await driver.stash(repo, { action: 'save' })
-      notify.success(res.message || t('git.operations.stashSuccess') || '已暂存工作区更改 (Stash)')
+      notify.success(res.message || t('git.operations.stashSuccess') || 'Stash saved')
       await onRefresh()
     } catch (error) {
-      notify.error(error instanceof Error ? error.message : t('git.operations.stashSuccess') ? 'Stash failed' : '暂存失败')
+      notify.error(error instanceof Error ? error.message : t('git.operations.stashFailed') || 'Stash failed')
     } finally {
       setStashing(false)
     }
@@ -130,10 +134,10 @@ export function GitToolbar({ repo, currentBranch, hasStashes = false, disabled =
     try {
       const driver = getGitDriver()
       const res = await driver.stash(repo, { action: 'pop' })
-      notify.success(res.message || t('git.operations.popTooltipAction') || '已恢复最近暂存 (Pop Stash)')
+      notify.success(res.message || t('git.operations.popTooltipAction') || 'Popped stash')
       await onRefresh()
     } catch (error) {
-      notify.error(error instanceof Error ? error.message : t('git.operations.popTooltipAction') ? 'Pop stash failed' : '恢复暂存失败')
+      notify.error(error instanceof Error ? error.message : t('git.operations.popTooltipAction') ? 'Pop stash failed' : 'Failed to pop stash')
     } finally {
       setStashing(false)
     }
@@ -145,10 +149,10 @@ export function GitToolbar({ repo, currentBranch, hasStashes = false, disabled =
     try {
       const driver = getGitDriver()
       const res = await driver.undo(repo)
-      notify.success(res.message || t('git.operations.undoSuccess') || '已撤销上一次提交')
+      notify.success(res.message || t('git.operations.undoSuccess') || 'Undid last commit')
       await onRefresh()
     } catch (error) {
-      notify.error(error instanceof Error ? error.message : t('git.operations.undoError') || '撤销失败')
+      notify.error(error instanceof Error ? error.message : t('git.operations.undoError') || 'Undo failed')
     } finally {
       setUndoing(false)
     }
@@ -160,10 +164,10 @@ export function GitToolbar({ repo, currentBranch, hasStashes = false, disabled =
     try {
       const driver = getGitDriver()
       const res = await driver.redo(repo)
-      notify.success(res.message || t('git.operations.redoSuccess') || '已恢复提交')
+      notify.success(res.message || t('git.operations.redoSuccess') || 'Redid commit')
       await onRefresh()
     } catch (error) {
-      notify.error(error instanceof Error ? error.message : t('git.operations.redoError') || '重做失败')
+      notify.error(error instanceof Error ? error.message : t('git.operations.redoError') || 'Redo failed')
     } finally {
       setRedoing(false)
     }
@@ -179,45 +183,40 @@ export function GitToolbar({ repo, currentBranch, hasStashes = false, disabled =
     }
   }
 
-  const isEdge = getDriverMode() === 'edge'
   const anyBusy = pulling || pushing || stashing || undoing || redoing || refreshing || disabled
 
   return (
     <div className="flex items-center gap-0.5 sm:gap-1 text-xs">
-      {/* Undo & Redo (Only in local mode) */}
-      {!isEdge ? (
-        <>
-          <Tooltip content={t('git.operations.undoLastCommit') || '撤销上一次提交 (Undo)'}>
-            <Button
-              variant="plain"
-              size="xs"
-              disabled={anyBusy}
-              loading={undoing}
-              onClick={() => void handleUndo()}
-              className="h-7 gap-1 px-1.5 text-xs font-normal text-ink-soft hover:enabled:bg-[color-mix(in_oklab,var(--ink)_7%,transparent)] hover:enabled:text-ink disabled:opacity-40"
-            >
-              <LuUndo2 className="size-3.5" />
-              <span className="hidden md:inline">{t('git.operations.undo') || 'Undo'}</span>
-            </Button>
-          </Tooltip>
+      {/* Undo & Redo (Available in both local and edge modes) */}
+      <Tooltip content={t('git.operations.undoLastCommit') || '撤销上一次提交 (Undo)'}>
+        <Button
+          variant="plain"
+          size="xs"
+          disabled={anyBusy}
+          loading={undoing}
+          onClick={() => void handleUndo()}
+          className="h-7 gap-1 px-1.5 text-xs font-normal text-ink-soft hover:enabled:bg-[color-mix(in_oklab,var(--ink)_7%,transparent)] hover:enabled:text-ink disabled:opacity-40"
+        >
+          <LuUndo2 className="size-3.5" />
+          <span className="hidden md:inline">{t('git.operations.undo') || 'Undo'}</span>
+        </Button>
+      </Tooltip>
 
-          <Tooltip content={t('git.operations.redoLastCommit') || '恢复撤销的提交 (Redo)'}>
-            <Button
-              variant="plain"
-              size="xs"
-              disabled={anyBusy}
-              loading={redoing}
-              onClick={() => void handleRedo()}
-              className="h-7 gap-1 px-1.5 text-xs font-normal text-ink-soft hover:enabled:bg-[color-mix(in_oklab,var(--ink)_7%,transparent)] hover:enabled:text-ink disabled:opacity-40"
-            >
-              <LuRedo2 className="size-3.5" />
-              <span className="hidden md:inline">{t('git.operations.redo') || 'Redo'}</span>
-            </Button>
-          </Tooltip>
+      <Tooltip content={t('git.operations.redoLastCommit') || '恢复撤销的提交 (Redo)'}>
+        <Button
+          variant="plain"
+          size="xs"
+          disabled={anyBusy}
+          loading={redoing}
+          onClick={() => void handleRedo()}
+          className="h-7 gap-1 px-1.5 text-xs font-normal text-ink-soft hover:enabled:bg-[color-mix(in_oklab,var(--ink)_7%,transparent)] hover:enabled:text-ink disabled:opacity-40"
+        >
+          <LuRedo2 className="size-3.5" />
+          <span className="hidden md:inline">{t('git.operations.redo') || 'Redo'}</span>
+        </Button>
+      </Tooltip>
 
-          <span className="mx-0.5 h-3.5 w-px bg-[color-mix(in_oklab,var(--ink)_14%,transparent)]" aria-hidden />
-        </>
-      ) : null}
+      <span className="mx-0.5 h-3.5 w-px bg-[color-mix(in_oklab,var(--ink)_14%,transparent)]" aria-hidden />
 
       {/* Pull Split Button */}
       <div ref={pullMenuAnchorRef} className="relative inline-flex items-center rounded bg-transparent">

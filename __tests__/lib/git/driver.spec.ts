@@ -32,12 +32,42 @@ describe('GitDriver layer', () => {
     expect(getDriverMode()).toBe('local')
   })
 
-  it('updates and persists driver mode', () => {
-    setDriverMode('edge')
+  it('updates and persists driver mode and dispatches event with payload', () => {
+    const events: Array<{ mode: string; targetRepo?: string }> = []
+    const listeners: Record<string, ((e: any) => void)[]> = {}
+    const mockWindow = {
+      localStorage: mockLocalStorage,
+      dispatchEvent: (e: any) => {
+        listeners[e.type]?.forEach((fn) => fn(e))
+      },
+      addEventListener: (type: string, fn: any) => {
+        listeners[type] = listeners[type] || []
+        listeners[type].push(fn)
+      },
+      removeEventListener: (type: string, fn: any) => {
+        listeners[type] = (listeners[type] || []).filter((f) => f !== fn)
+      },
+    }
+    Object.defineProperty(global, 'window', { value: mockWindow, configurable: true, writable: true })
+
+    const listener = (e: any) => {
+      events.push(e.detail)
+    }
+    mockWindow.addEventListener('yggit:driver_mode_changed', listener)
+
+    setDriverMode('edge', { targetRepo: 'repo-1' })
     expect(getDriverMode()).toBe('edge')
+    expect(events).toHaveLength(1)
+    expect(events[0]).toEqual({ mode: 'edge', targetRepo: 'repo-1' })
 
     setDriverMode('local')
     expect(getDriverMode()).toBe('local')
+    expect(events).toHaveLength(2)
+    expect(events[1]).toEqual({ mode: 'local' })
+
+    mockWindow.removeEventListener('yggit:driver_mode_changed', listener)
+    // @ts-expect-error clean mock
+    delete global.window
   })
 
   it('returns appropriate driver instance for given mode', () => {

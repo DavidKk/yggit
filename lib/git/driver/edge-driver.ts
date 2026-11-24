@@ -1,6 +1,5 @@
 import git from 'isomorphic-git'
 
-import { GIT_LOG_PAGE_SIZE } from '@/lib/git/identity'
 import {
   clearEdgeFolder,
   createEdgeFolder,
@@ -21,10 +20,12 @@ import {
 import { isPrivateRemote, remoteIdentity, uniqueLocalProject } from '@/lib/git/project-access'
 import { listRemoteGroup } from '@/lib/git/remote-groups'
 import { parseRemoteUrl } from '@/lib/git/temporary-store'
-import type { GitCommit, GitCommitChanges, GitLogView, GitProjectCatalog, GitProjectHost, GitProjectView, GitRemoteBranch, GitRemoteSource, GitWorktree } from '@/lib/git/types'
+import type { GitCommit, GitCommitChanges, GitLogView, GitProjectCatalog, GitProjectHost, GitProjectView, GitRemoteSource } from '@/lib/git/types'
 import { parseGitHubRepo, readRemoteBlobData, readRemoteCommitChanges, readRemoteGitLog } from '@/services/git/remote-provider'
 
+import { readClientLogFallback } from './edge-fallback-log'
 import { EdgeRepositoryReader } from './edge-repository-reader'
+import { LocalGitDriver } from './local-driver'
 import type {
   AddProjectPayload,
   AddRemoteProjectOptions,
@@ -45,246 +46,88 @@ import type {
 export class EdgeGitDriver implements IGitDriver {
   readonly mode = 'edge' as const
   private readonly repositories = new Map<string, Promise<EdgeRepositoryReader>>()
+  private readonly companion = new LocalGitDriver()
 
-  async checkoutBranch(_repo: string, _branch: string, _options?: GitCheckoutOptions): Promise<{ ok: boolean; message: string }> {
-    throw new Error('浏览器 Edge 模式暂不支持直接切换分支，请在本地模式使用')
+  async isAvailable(): Promise<boolean> {
+    return typeof window !== 'undefined' || typeof global !== 'undefined'
   }
 
-  async createBranch(_repo: string, _branch: string, _startPoint?: string, _checkout?: boolean): Promise<{ ok: boolean; message: string }> {
-    throw new Error('浏览器 Edge 模式暂不支持创建分支，请在本地模式使用')
-  }
-
-  async deleteBranch(repo: string, branch: string, _force?: boolean): Promise<{ ok: boolean; message: string }> {
-    const reader = await this.repository(repo)
-    const { fs } = reader
-    try {
-      await git.deleteBranch({ fs, dir: '/', ref: branch })
-      return { ok: true, message: `已删除分支 ${branch}` }
-    } catch (error) {
-      throw new Error(`删除分支失败: ${error instanceof Error ? error.message : String(error)}`)
+  clearCache(repo?: string): void {
+    this.companion.clearCache?.(repo)
+    if (repo) {
+      this.repositories.delete(repo)
+      this.repoPathCache.delete(repo)
+    } else {
+      this.repositories.clear()
+      this.repoPathCache.clear()
     }
   }
 
-  async renameBranch(_repo: string, _oldName: string, _newName: string): Promise<{ ok: boolean; message: string }> {
-    throw new Error('浏览器 Edge 模式暂不支持重命名分支，请在本地模式使用')
-  }
+  private readonly repoPathCache = new Map<string, string>()
 
-  async mergeBranch(_repo: string, _branch: string): Promise<{ ok: boolean; message: string; conflict?: boolean }> {
-    throw new Error('浏览器 Edge 模式暂不支持合并分支，请在本地模式使用')
-  }
+  async resolveRepo(repo: string): Promise<string> {
+    if (!repo || !repo.trim()) return repo
+    const cached = this.repoPathCache.get(repo)
+    if (cached) return cached
 
-  async rebaseBranch(_repo: string, _branch: string, _options?: { abort?: boolean; continue?: boolean }): Promise<{ ok: boolean; message: string; conflict?: boolean }> {
-    throw new Error('浏览器 Edge 模式暂不支持变基分支，请在本地模式使用')
-  }
+    // 1. If it's already an absolute path (starts with / or has drive letter on windows), keep it
+    if (repo.startsWith('/') || repo.includes(':\\')) {
+      return repo
+    }
 
-  async cherryPick(_repo: string, _hash: string, _options?: { abort?: boolean; continue?: boolean }): Promise<{ ok: boolean; message: string; conflict?: boolean }> {
-    throw new Error('浏览器 Edge 模式暂不支持遴选提交，请在本地模式使用')
-  }
+    // 2. Look up in Edge catalog
+    const edgeProjects = typeof getEdgeCatalog === 'function' ? (await getEdgeCatalog().catch(() => ({ projects: [] }))).projects || [] : []
+    const edgeProj = edgeProjects.find((p) => p.id === repo || p.name === repo || p.localPath === repo)
 
-  async commit(_repo: string, _message: string, _options?: boolean | GitCommitOptions): Promise<{ ok: boolean; message: string; hash?: string }> {
-    throw new Error('浏览器 Edge 模式暂不支持提交，请在本地模式使用')
-  }
-
-  async undo(_repo: string, _soft?: boolean): Promise<{ ok: boolean; message: string; undoneHash?: string }> {
-    throw new Error('浏览器 Edge 模式暂不支持撤销提交，请在本地模式使用')
-  }
-
-  async redo(_repo: string, _soft?: boolean): Promise<{ ok: boolean; message: string }> {
-    throw new Error('浏览器 Edge 模式暂不支持重做提交，请在本地模式使用')
-  }
-
-  async getLastCommit(_repo: string): Promise<{ summary: string; description: string }> {
-    return { summary: '', description: '' }
-  }
-
-  async createPatch(_repo: string, _options?: { path?: string; staged?: boolean }): Promise<{ patch: string }> {
-    return { patch: '' }
-  }
-
-  async ignorePattern(_repo: string, _pattern: string): Promise<{ ok: boolean; message: string }> {
-    throw new Error('浏览器 Edge 模式暂不支持添加忽略，请在本地模式使用')
-  }
-
-  async createFile(_repo: string, _relativePath: string): Promise<{ ok: boolean; message: string }> {
-    throw new Error('浏览器 Edge 模式暂不支持新建文件，请在本地模式使用')
-  }
-
-  async deleteFile(_repo: string, _relativePath: string): Promise<{ ok: boolean; message: string }> {
-    throw new Error('浏览器 Edge 模式暂不支持删除文件，请在本地模式使用')
-  }
-
-  async stage(_repo: string, _files?: string[], _all?: boolean): Promise<{ ok: boolean; message: string }> {
-    throw new Error('浏览器 Edge 模式暂不支持暂存，请在本地模式使用')
-  }
-
-  async unstage(_repo: string, _files?: string[], _all?: boolean): Promise<{ ok: boolean; message: string }> {
-    throw new Error('浏览器 Edge 模式暂不支持取消暂存，请在本地模式使用')
-  }
-
-  async discard(_repo: string, _files?: string[], _all?: boolean): Promise<{ ok: boolean; message: string }> {
-    throw new Error('浏览器 Edge 模式暂不支持撤销更改，请在本地模式使用')
-  }
-
-  async push(_repo: string, _options?: GitPushOptions): Promise<{ ok: boolean; message: string }> {
-    throw new Error('浏览器 Edge 模式暂不支持推送，请在本地模式使用')
-  }
-
-  async pull(repo: string, options?: GitPullOptions): Promise<{ ok: boolean; message: string }> {
-    // 1. Try sync via local backend if repository matches a local path or registered project
-    try {
-      const res = await fetch('/api/git/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'pull', repo, ...options }),
-      })
-      if (res.ok) {
-        const data = (await res.json()) as { ok?: boolean; message?: string }
-        if (data.ok) return { ok: true, message: data.message || '拉取成功' }
+    // 3. Try uniqueLocalProject by remote URL
+    if (edgeProj?.httpsUrl) {
+      const localMatch = uniqueLocalProject(edgeProjects, edgeProj.httpsUrl)?.localPath
+      if (localMatch && !localMatch.startsWith('edge_')) {
+        this.repoPathCache.set(repo, localMatch)
+        return localMatch
       }
-    } catch {
-      // Fallback to browser isomorphic-git
     }
 
-    // 2. Edge isomorphic-git fast-forward pull
+    // 4. Try matching with companion catalog
     try {
-      const reader = await this.repository(repo)
-      const { fs } = reader
-      const http = (await import('isomorphic-git/http/web')).default
-      await git.pull({
-        fs,
-        http,
-        dir: '/',
-        remote: options?.remote || 'origin',
-        ref: options?.branch,
-        singleBranch: true,
-        fastForwardOnly: true,
-        author: { name: 'Edge User', email: 'edge@yggdrasil.local' },
-      })
-      return { ok: true, message: '拉取完成' }
-    } catch (error) {
-      throw new Error(`拉取失败: ${error instanceof Error ? error.message : String(error)}`)
-    }
-  }
+      const companionCatalog = await this.companion.getProjects()
+      const companionProjects = companionCatalog.projects || []
 
-  async fetch(repo: string, options?: GitFetchOptions): Promise<{ ok: boolean; message: string }> {
-    // 1. Try sync via local backend if repository matches a local path or registered project
-    try {
-      const res = await fetch('/api/git/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'fetch', repo, ...options }),
-      })
-      if (res.ok) {
-        const data = (await res.json()) as { ok?: boolean; message?: string }
-        if (data.ok) {
-          this.repositories.delete(repo)
-          return { ok: true, message: data.message || '抓取成功' }
+      // Match by ID
+      const byId = companionProjects.find((p) => p.id === repo)
+      if (byId?.localPath) {
+        this.repoPathCache.set(repo, byId.localPath)
+        return byId.localPath
+      }
+
+      // Match by remote / httpsUrl
+      const targetIdentity = remoteIdentity(edgeProj?.httpsUrl || edgeProj?.remotes?.[0]?.url || repo)
+      if (targetIdentity) {
+        const byRemote = companionProjects.find((p) => remoteIdentity(p.httpsUrl || p.remotes?.[0]?.url || '') === targetIdentity)
+        if (byRemote?.localPath) {
+          this.repoPathCache.set(repo, byRemote.localPath)
+          return byRemote.localPath
         }
       }
+
+      // Match by name
+      const targetName = (edgeProj?.name || repo).toLowerCase()
+      const byName = companionProjects.find((p) => p.name.toLowerCase() === targetName)
+      if (byName?.localPath) {
+        this.repoPathCache.set(repo, byName.localPath)
+        return byName.localPath
+      }
     } catch {
-      // Backend not reachable, fall back to browser isomorphic-git
+      // Companion offline or not available
     }
 
-    // 2. Browser isomorphic-git fetch into filesystem directory handle
-    try {
-      const reader = await this.repository(repo)
-      const { fs } = reader
-      const http = (await import('isomorphic-git/http/web')).default
-      await git.fetch({
-        fs,
-        http,
-        dir: '/',
-        remote: options?.remote || 'origin',
-        prune: options?.prune !== false,
-        tags: true,
-      })
-      this.repositories.delete(repo)
-      return { ok: true, message: '抓取完成' }
-    } catch (error) {
-      throw new Error(`抓取失败: ${error instanceof Error ? error.message : String(error)}`)
+    // If edgeProj has a real localPath (not edge_...)
+    if (edgeProj?.localPath && !edgeProj.localPath.startsWith('edge_')) {
+      this.repoPathCache.set(repo, edgeProj.localPath)
+      return edgeProj.localPath
     }
-  }
 
-  async getRemotes(repo: string): Promise<GitRemoteSource[]> {
-    try {
-      const reader = await this.repository(repo)
-      const { fs } = reader
-      const rawRemotes = await git.listRemotes({ fs, dir: '/' })
-      return rawRemotes
-        .filter((r) => r.url)
-        .map((r) => ({
-          name: r.remote,
-          url: r.url!,
-          isPrivate: isPrivateRemote(r.url!),
-        }))
-    } catch {
-      return []
-    }
-  }
-
-  async getRemoteUrl(repo: string, remote: string): Promise<string> {
-    try {
-      const reader = await this.repository(repo)
-      const { fs } = reader
-      const rawRemotes = await git.listRemotes({ fs, dir: '/' })
-      const found = rawRemotes.find((r) => r.remote === remote)
-      return found?.url || ''
-    } catch {
-      return ''
-    }
-  }
-
-  async addRemote(repo: string, name: string, url: string, _pushUrl?: string): Promise<{ ok: boolean; message: string }> {
-    try {
-      const reader = await this.repository(repo)
-      const { fs } = reader
-      await git.addRemote({ fs, dir: '/', remote: name, url, force: true })
-      return { ok: true, message: `成功添加远程源 ${name}` }
-    } catch (err) {
-      return { ok: false, message: err instanceof Error ? err.message : '添加远程源失败' }
-    }
-  }
-
-  async setRemoteUrl(repo: string, remote: string, url: string): Promise<{ ok: boolean; message: string }> {
-    try {
-      const reader = await this.repository(repo)
-      const { fs } = reader
-      await git.deleteRemote({ fs, dir: '/', remote }).catch(() => {})
-      await git.addRemote({ fs, dir: '/', remote, url, force: true })
-      return { ok: true, message: `成功更新远程源 ${remote}` }
-    } catch (err) {
-      return { ok: false, message: err instanceof Error ? err.message : '更新远程源失败' }
-    }
-  }
-
-  async renameRemote(repo: string, oldName: string, newName: string): Promise<{ ok: boolean; message: string }> {
-    try {
-      const reader = await this.repository(repo)
-      const { fs } = reader
-      const remotes = await git.listRemotes({ fs, dir: '/' })
-      const target = remotes.find((r) => r.remote === oldName)
-      if (!target?.url) throw new Error(`未找到远程源 ${oldName}`)
-      await git.deleteRemote({ fs, dir: '/', remote: oldName })
-      await git.addRemote({ fs, dir: '/', remote: newName, url: target.url, force: true })
-      return { ok: true, message: `远程源已重命名为 ${newName}` }
-    } catch (err) {
-      return { ok: false, message: err instanceof Error ? err.message : '重命名远程源失败' }
-    }
-  }
-
-  async removeRemote(repo: string, remote: string): Promise<{ ok: boolean; message: string }> {
-    try {
-      const reader = await this.repository(repo)
-      const { fs } = reader
-      await git.deleteRemote({ fs, dir: '/', remote })
-      return { ok: true, message: `成功删除远程源 ${remote}` }
-    } catch (err) {
-      return { ok: false, message: err instanceof Error ? err.message : '删除远程源失败' }
-    }
-  }
-
-  async stash(_repo: string, _options: GitStashOptions): Promise<{ ok: boolean; message: string }> {
-    throw new Error('浏览器 Edge 模式暂不支持暂存栈，请在本地模式使用')
+    return repo
   }
 
   private repository(repo: string): Promise<EdgeRepositoryReader> {
@@ -307,358 +150,496 @@ export class EdgeGitDriver implements IGitDriver {
     return pending
   }
 
-  clearCache(repo?: string): void {
-    if (repo) {
-      this.repositories.delete(repo)
-    } else {
-      this.repositories.clear()
-    }
-  }
-
-  async isAvailable(): Promise<boolean> {
-    return typeof window !== 'undefined' || typeof global !== 'undefined'
-  }
-
   async readLog(options: ReadLogOptions): Promise<GitLogView> {
     if (!options.repo || !options.repo.trim()) {
       throw new Error('未指定项目仓库路径')
     }
-    const { branch, ref } = options
-    const edgeProjects = typeof getEdgeCatalog === 'function' ? (await getEdgeCatalog().catch(() => ({ projects: [] }))).projects || [] : []
-    const localMatch = uniqueLocalProject(edgeProjects, options.repo)?.localPath
-    const repo = localMatch || (parseGitHubRepo(options.repo) ? options.repo : options.repo)
 
-    // Check if it's a GitHub remote repo
-    const gh = parseGitHubRepo(repo)
-    if (gh && !localMatch) {
-      options.onProgress?.('正在拉取远端 Git 仓库历史...')
-      return await readRemoteGitLog(repo, branch || ref, options.skip)
+    const resolvedRepo = await this.resolveRepo(options.repo)
+
+    // 1. Try local companion backend first (provides 100% parity with Local mode on localhost / dev companion)
+    if (!resolvedRepo.startsWith('edge_')) {
+      try {
+        const companionLog = await this.companion.readLog({ ...options, repo: resolvedRepo })
+        if (companionLog && companionLog.commits) {
+          return companionLog
+        }
+      } catch {
+        // Local companion not available, fall through to client-side edge reader
+      }
     }
 
-    options.onProgress?.('正在访问文件系统句柄...')
-    const reader = await this.repository(repo)
-    const { handle, fs, cache } = reader
-
-    try {
-      // Check and request permission if needed
-      let perm = typeof handle.queryPermission === 'function' ? await handle.queryPermission({ mode: 'read' }) : 'granted'
-      if (perm !== 'granted' && typeof handle.requestPermission === 'function') {
-        try {
-          perm = await handle.requestPermission({ mode: 'read' })
-        } catch {
-          // ignore user gesture rejection
-        }
-      }
-      if (perm !== 'granted') {
-        throw new Error(`PERMISSION_REQUIRED: Read permission needed for directory "${handle.name}".`)
-      }
-
-      // Verify that this is a git directory
-      try {
-        await fs.promises.stat('/.git')
-      } catch {
-        throw new Error(`NOT_A_GIT_REPO: Directory "${handle.name}" does not contain a .git folder.`)
-      }
-
-      options.onProgress?.('正在解析分支与引用...')
-
-      // 1. Current Branch
-      let currentBranch = 'main'
-      try {
-        currentBranch = (await git.currentBranch({ fs, dir: '/' })) || 'main'
-      } catch {
-        // Fallback
-      }
-
-      // 2. Local Branches
-      let branchNames: string[] = []
-      try {
-        branchNames = await git.listBranches({ fs, dir: '/' })
-      } catch {
-        branchNames = [currentBranch]
-      }
-      if (!branchNames.includes(currentBranch)) {
-        branchNames.unshift(currentBranch)
-      }
-
-      const branches = await Promise.all(
-        branchNames.map(async (name) => {
-          let tip = ''
-          try {
-            tip = await git.resolveRef({ fs, dir: '/', ref: name })
-          } catch {
-            // ignore
-          }
-          let upstream = ''
-          let ahead: number | undefined
-          let behind: number | undefined
-          try {
-            const remoteCfg = await git.getConfig({ fs, dir: '/', path: `branch.${name}.remote` })
-            const mergeCfg = await git.getConfig({ fs, dir: '/', path: `branch.${name}.merge` })
-            if (remoteCfg && mergeCfg && typeof remoteCfg === 'string' && typeof mergeCfg === 'string') {
-              const mergeBranch = mergeCfg.replace(/^refs\/heads\//, '')
-              upstream = `${remoteCfg}/${mergeBranch}`
-              const remoteTip = await git.resolveRef({ fs, dir: '/', ref: `refs/remotes/${upstream}` }).catch(() => '')
-              if (tip && remoteTip && tip === remoteTip) {
-                ahead = 0
-                behind = 0
-              }
-            }
-          } catch {
-            // ignore
-          }
-          return {
-            name,
-            current: name === currentBranch,
-            tip,
-            upstream,
-            ahead,
-            behind,
-          }
-        })
-      )
-
-      // 3. Tags
-      let tags: { name: string; tip: string }[] = []
-      try {
-        const tagNames = await git.listTags({ fs, dir: '/' })
-        tags = await Promise.all(
-          tagNames.map(async (name) => {
-            let tip = ''
-            try {
-              tip = await git.resolveRef({ fs, dir: '/', ref: name })
-            } catch {
-              // ignore
-            }
-            return { name, tip }
-          })
-        )
-      } catch {
-        // ignore
-      }
-
-      // 4. Remotes & Origin URL
-      const remotes: GitRemoteBranch[] = []
-      const remoteSources: GitRemoteSource[] = []
-      let remoteUrl = ''
-      try {
-        const rawRemotes = await git.listRemotes({ fs, dir: '/' })
-        for (const r of rawRemotes) {
-          if (!r.remote) continue
-          const branchNames = await git.listBranches({ fs, dir: '/', remote: r.remote }).catch(() => [])
-          // If a remote has no branches and no url (such as empty glab-base stub), ignore it
-          if (!branchNames.length && !r.url) continue
-
-          if (r.url && !remoteSources.some((item) => item.name === r.remote)) {
-            remoteSources.push({
-              name: r.remote,
-              url: r.url,
-              isPrivate: isPrivateRemote(r.url),
-            })
-            if (!remoteUrl || r.remote === 'origin') {
-              remoteUrl = r.url
-            }
-          }
-
-          for (const b of branchNames) {
-            if (!b || b === 'HEAD') continue
-            const tip = await git.resolveRef({ fs, dir: '/', ref: `refs/remotes/${r.remote}/${b}` }).catch(() => '')
-            const fullName = `${r.remote}/${b}`
-            if (!remotes.some((item) => item.name === fullName)) {
-              remotes.push({
-                name: fullName,
-                remote: r.remote,
-                branch: b,
-                tip,
-              })
-            }
-          }
-        }
-
-        if (!remoteUrl) {
-          const cfgUrl = await git.getConfig({ fs, dir: '/', path: 'remote.origin.url' })
-          if (cfgUrl && typeof cfgUrl === 'string') {
-            remoteUrl = cfgUrl
-          }
-        }
-      } catch {
-        // ignore
-      }
-
-      // 4b. Stashes
-      let stashes: GitLogView['stashes'] = []
-      try {
-        const stashLog = (await fs.promises.readFile('/.git/logs/refs/stash', 'utf8').catch(() => '')) as string
-        if (stashLog) {
-          const lines = stashLog.trim().split('\n').filter(Boolean)
-          stashes = lines
-            .map((line, idx) => {
-              const [header, ...rest] = line.split('\t')
-              const subject = rest.join('\t')
-              const parts = header.trim().split(' ')
-              const hash = parts[1] || ''
-              const timestamp = parts[parts.length - 2]
-              const date = timestamp ? new Date(parseInt(timestamp, 10) * 1000).toISOString() : new Date().toISOString()
-              const reverseIndex = lines.length - 1 - idx
-              return {
-                name: `stash@{${reverseIndex}}`,
-                hash,
-                base: '',
-                date,
-                subject: subject || `WIP on ${currentBranch}`,
-              }
-            })
-            .reverse()
-        }
-      } catch {
-        stashes = []
-      }
-
-      // 5. Commits
-      options.onProgress?.('正在读取 Git 提交与构建图谱...')
-      const headOid = await git.resolveRef({ fs, dir: '/', ref: 'HEAD' }).catch(() => '')
-      const targetRef = branch || ref || currentBranch || 'HEAD'
-      let commits: GitCommit[] = []
-      let hasMore = false
-      let hasPrev = false
-      let startIndex = Math.max(0, Math.floor(options.skip || 0))
-      const take = Math.max(1, Math.floor(options.take || GIT_LOG_PAGE_SIZE))
-      try {
-        const rawCommits = await git.log({
-          fs,
-          cache,
-          dir: '/',
-          ref: targetRef === '*' ? currentBranch : targetRef,
-          depth: options.locate ? 5000 : startIndex + take + 1,
-        })
-
-        if (options.locate) {
-          const clean = options.locate.trim().toLowerCase()
-          const locatedIdx = rawCommits.findIndex((c) => c.oid.toLowerCase() === clean || (clean.length >= 7 && c.oid.toLowerCase().startsWith(clean)))
-          if (locatedIdx >= 0) {
-            const half = Math.floor(take / 2)
-            startIndex = Math.max(0, locatedIdx - half)
-          }
-        }
-
-        const branchTips = new Map<string, string[]>()
-        for (const b of branches) {
-          if (b.tip) {
-            const list = branchTips.get(b.tip) || []
-            list.push(b.current && b.tip === headOid ? `HEAD -> ${b.name}` : b.name)
-            branchTips.set(b.tip, list)
-          }
-        }
-        if (headOid && !branchTips.get(headOid)?.some((name) => name.startsWith('HEAD -> '))) {
-          branchTips.set(headOid, [...(branchTips.get(headOid) || []), 'HEAD'])
-        }
-        for (const t of tags) {
-          if (t.tip) {
-            const list = branchTips.get(t.tip) || []
-            list.push(`tag: ${t.name}`)
-            branchTips.set(t.tip, list)
-          }
-        }
-        for (const r of remotes) {
-          if (r.tip) {
-            const list = branchTips.get(r.tip) || []
-            if (!list.includes(r.name)) {
-              list.push(r.name)
-              branchTips.set(r.tip, list)
-            }
-          }
-        }
-
-        hasMore = rawCommits.length > startIndex + take
-        hasPrev = startIndex > 0
-        commits = rawCommits.slice(startIndex, startIndex + take).map((item) => {
-          const oid = item.oid
-          const c = item.commit
-          const refs = branchTips.get(oid) || []
-          return {
-            hash: oid,
-            short: oid.slice(0, 7),
-            parents: c.parent || [],
-            author: c.author?.name || 'Unknown',
-            date: c.author?.timestamp ? new Date(c.author.timestamp * 1000).toISOString() : new Date().toISOString(),
-            subject: (c.message || '').split('\n')[0] || '',
-            body: c.message || '',
-            refs,
-          }
-        })
-      } catch (error) {
-        // An unborn branch has no history; read failures must not look like the last page.
-        const resolvedRef = targetRef === '*' ? currentBranch : targetRef
-        if (resolvedRef !== currentBranch || branches.some((item) => item.tip)) throw error
-      }
-
-      options.onProgress?.('正在核对工作区状态...')
-      // Cap worktree status checking with a 1200ms timeout budget so slow disk I/O does not freeze the view
-      let worktreeStatus: GitWorktree | null = null
-      let worktreeTimer: ReturnType<typeof setTimeout> | undefined
-      try {
-        worktreeStatus = await Promise.race([
-          reader.readWorktreeStatus(),
-          new Promise<null>((resolve) => {
-            worktreeTimer = setTimeout(() => resolve(null), 1200)
-          }),
-        ])
-      } catch {
-        worktreeStatus = null
-      } finally {
-        if (worktreeTimer) clearTimeout(worktreeTimer)
-      }
-
-      options.onProgress?.('准备完成，正在呈现图谱...')
-
-      return {
-        repo,
-        remoteUrl,
-        displayPath: handle.name,
-        head: currentBranch,
-        branch: currentBranch,
-        branches,
-        remotes,
-        remoteSources,
-        tags,
-        stashes,
-        worktrees: [],
-        submodules: [],
-        commits,
-        hasMore,
-        hasPrev,
-        startIndex,
-        marks: {},
-        worktree: worktreeStatus,
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      throw new Error(msg)
+    // 2. Check if it's a GitHub remote repo
+    const gh = parseGitHubRepo(resolvedRepo)
+    if (gh && !resolvedRepo.startsWith('edge_')) {
+      options.onProgress?.('Fetching remote Git repository history...')
+      return await readRemoteGitLog(resolvedRepo, options.branch || options.ref, options.skip)
     }
+
+    // 3. Client-side browser directory handle fallback
+    const reader = await this.repository(options.repo)
+    return await readClientLogFallback(reader, options, resolvedRepo)
   }
 
   async readCommitDiff(options: ReadCommitDiffOptions): Promise<GitCommitChanges> {
-    const { repo, hash } = options
-
-    const gh = parseGitHubRepo(repo)
+    const { hash } = options
+    const resolvedRepo = await this.resolveRepo(options.repo)
+    const gh = parseGitHubRepo(resolvedRepo)
     if (gh) {
-      return await readRemoteCommitChanges(repo, hash, options)
+      return await readRemoteCommitChanges(resolvedRepo, hash, options)
     }
 
-    return (await this.repository(repo)).readChanges(options)
+    if (!resolvedRepo.startsWith('edge_')) {
+      try {
+        return await this.companion.readCommitDiff({ ...options, repo: resolvedRepo })
+      } catch {
+        // Fallback to client reader
+      }
+    }
+
+    const reader = await this.repository(options.repo)
+    return await reader.readChanges(options)
   }
 
   async readBlob(options: ReadBlobOptions): Promise<{ content: string; binary: boolean }> {
-    const { repo, hash, path } = options
-
-    const gh = parseGitHubRepo(repo)
+    const { hash, path } = options
+    const resolvedRepo = await this.resolveRepo(options.repo)
+    const gh = parseGitHubRepo(resolvedRepo)
     if (gh) {
-      const blob = await readRemoteBlobData(repo, hash, path)
+      const blob = await readRemoteBlobData(resolvedRepo, hash, path)
       const binary = blob.bytes.slice(0, 8000).includes(0) || /^(image|audio|video)\//.test(blob.contentType)
       return { content: binary ? '' : new TextDecoder().decode(blob.bytes), binary }
     }
 
-    return (await this.repository(repo)).readBlob(hash, path)
+    if (!resolvedRepo.startsWith('edge_')) {
+      try {
+        return await this.companion.readBlob({ ...options, repo: resolvedRepo })
+      } catch {
+        // Fallback to client reader
+      }
+    }
+
+    return (await this.repository(options.repo)).readBlob(hash, path)
+  }
+
+  async readBlame(options: { repo: string; path: string; hash?: string }): Promise<Record<number, GitBlameLine>> {
+    const target = await this.resolveRepo(options.repo)
+    try {
+      return await this.companion.readBlame({ ...options, repo: target })
+    } catch {
+      return {}
+    }
+  }
+
+  async readFileHistory(options: { repo: string; path: string; ref?: string; limit?: number }): Promise<{ commits: GitCommit[] }> {
+    const target = await this.resolveRepo(options.repo)
+    try {
+      return await this.companion.readFileHistory({ ...options, repo: target })
+    } catch {
+      return { commits: [] }
+    }
+  }
+
+  async checkoutBranch(repo: string, branch: string, options?: GitCheckoutOptions): Promise<{ ok: boolean; message: string }> {
+    const target = await this.resolveRepo(repo)
+    try {
+      return await this.companion.checkoutBranch(target, branch, options)
+    } catch (err) {
+      throw new Error(`切换分支失败: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
+
+  async createBranch(repo: string, branch: string, startPoint?: string, checkout = true): Promise<{ ok: boolean; message: string }> {
+    const target = await this.resolveRepo(repo)
+    try {
+      return await this.companion.createBranch(target, branch, startPoint, checkout)
+    } catch (err) {
+      throw new Error(`创建分支失败: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
+
+  async deleteBranch(repo: string, branch: string, force = false): Promise<{ ok: boolean; message: string }> {
+    const target = await this.resolveRepo(repo)
+    if (!target.startsWith('edge_')) {
+      try {
+        return await this.companion.deleteBranch(target, branch, force)
+      } catch {
+        // Fallback to isomorphic-git
+      }
+    }
+    const reader = await this.repository(repo)
+    const { fs } = reader
+    try {
+      await git.deleteBranch({ fs, dir: '/', ref: branch })
+      return { ok: true, message: `已删除分支 ${branch}` }
+    } catch (error) {
+      throw new Error(`删除分支失败: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+
+  async renameBranch(repo: string, oldName: string, newName: string): Promise<{ ok: boolean; message: string }> {
+    const target = await this.resolveRepo(repo)
+    try {
+      return await this.companion.renameBranch(target, oldName, newName)
+    } catch (err) {
+      throw new Error(`重命名分支失败: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
+
+  async mergeBranch(repo: string, branch: string): Promise<{ ok: boolean; message: string; conflict?: boolean }> {
+    const target = await this.resolveRepo(repo)
+    try {
+      return await this.companion.mergeBranch(target, branch)
+    } catch (err) {
+      throw new Error(`合并分支失败: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
+
+  async rebaseBranch(repo: string, branch: string, options?: { abort?: boolean; continue?: boolean }): Promise<{ ok: boolean; message: string; conflict?: boolean }> {
+    const target = await this.resolveRepo(repo)
+    try {
+      return await this.companion.rebaseBranch(target, branch, options)
+    } catch (err) {
+      throw new Error(`变基分支失败: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
+
+  async cherryPick(repo: string, hash: string, options?: { abort?: boolean; continue?: boolean }): Promise<{ ok: boolean; message: string; conflict?: boolean }> {
+    const target = await this.resolveRepo(repo)
+    try {
+      return await this.companion.cherryPick(target, hash, options)
+    } catch (err) {
+      throw new Error(`遴选提交失败: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
+
+  async commit(repo: string, message: string, options?: boolean | GitCommitOptions): Promise<{ ok: boolean; message: string; hash?: string }> {
+    const target = await this.resolveRepo(repo)
+    try {
+      return await this.companion.commit(target, message, options)
+    } catch (err) {
+      throw new Error(`提交失败: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
+
+  async undo(repo: string, soft = true): Promise<{ ok: boolean; message: string; undoneHash?: string }> {
+    const target = await this.resolveRepo(repo)
+    try {
+      return await this.companion.undo(target, soft)
+    } catch (err) {
+      throw new Error(`撤销提交失败: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
+
+  async redo(repo: string, soft = true): Promise<{ ok: boolean; message: string }> {
+    const target = await this.resolveRepo(repo)
+    try {
+      return await this.companion.redo(target, soft)
+    } catch (err) {
+      throw new Error(`重做提交失败: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
+
+  async getLastCommit(repo: string): Promise<{ summary: string; description: string }> {
+    const target = await this.resolveRepo(repo)
+    try {
+      return await this.companion.getLastCommit(target)
+    } catch {
+      return { summary: '', description: '' }
+    }
+  }
+
+  async createPatch(repo: string, options?: { path?: string; staged?: boolean }): Promise<{ patch: string }> {
+    const target = await this.resolveRepo(repo)
+    try {
+      return await this.companion.createPatch(target, options)
+    } catch {
+      return { patch: '' }
+    }
+  }
+
+  async ignorePattern(repo: string, pattern: string): Promise<{ ok: boolean; message: string }> {
+    const target = await this.resolveRepo(repo)
+    try {
+      return await this.companion.ignorePattern(target, pattern)
+    } catch (err) {
+      throw new Error(`添加忽略失败: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
+
+  async createFile(repo: string, relativePath: string): Promise<{ ok: boolean; message: string }> {
+    const target = await this.resolveRepo(repo)
+    try {
+      return await this.companion.createFile(target, relativePath)
+    } catch (err) {
+      throw new Error(`创建文件失败: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
+
+  async deleteFile(repo: string, relativePath: string): Promise<{ ok: boolean; message: string }> {
+    const target = await this.resolveRepo(repo)
+    try {
+      return await this.companion.deleteFile(target, relativePath)
+    } catch (err) {
+      throw new Error(`删除文件失败: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
+
+  async stage(repo: string, files?: string[], all = false): Promise<{ ok: boolean; message: string }> {
+    const target = await this.resolveRepo(repo)
+    try {
+      return await this.companion.stage(target, files, all)
+    } catch (err) {
+      throw new Error(`暂存失败: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
+
+  async unstage(repo: string, files?: string[], all = false): Promise<{ ok: boolean; message: string }> {
+    const target = await this.resolveRepo(repo)
+    try {
+      return await this.companion.unstage(target, files, all)
+    } catch (err) {
+      throw new Error(`取消暂存失败: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
+
+  async discard(repo: string, files?: string[], all = false): Promise<{ ok: boolean; message: string }> {
+    const target = await this.resolveRepo(repo)
+    try {
+      return await this.companion.discard(target, files, all)
+    } catch (err) {
+      throw new Error(`放弃修改失败: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
+
+  async push(repo: string, options?: GitPushOptions): Promise<{ ok: boolean; message: string }> {
+    const target = await this.resolveRepo(repo)
+    try {
+      return await this.companion.push(target, options)
+    } catch (err) {
+      throw new Error(`推送失败: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
+
+  async pull(repo: string, options?: GitPullOptions): Promise<{ ok: boolean; message: string }> {
+    const target = await this.resolveRepo(repo)
+    if (!target.startsWith('edge_')) {
+      try {
+        return await this.companion.pull(target, options)
+      } catch {
+        // Fallback to browser isomorphic-git fast-forward pull
+      }
+    }
+
+    try {
+      const reader = await this.repository(repo)
+      const { fs } = reader
+      const http = (await import('isomorphic-git/http/web')).default
+      await git.pull({
+        fs,
+        http,
+        dir: '/',
+        remote: options?.remote || 'origin',
+        ref: options?.branch,
+        singleBranch: true,
+        fastForwardOnly: true,
+        author: { name: 'Edge User', email: 'edge@yggdrasil.local' },
+      })
+      return { ok: true, message: '拉取完成' }
+    } catch (error) {
+      throw new Error(`拉取失败: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+
+  async fetch(repo: string, options?: GitFetchOptions): Promise<{ ok: boolean; message: string }> {
+    const target = await this.resolveRepo(repo)
+    if (!target.startsWith('edge_')) {
+      try {
+        return await this.companion.fetch(target, options)
+      } catch {
+        // Fallback to browser isomorphic-git fetch
+      }
+    }
+
+    try {
+      const reader = await this.repository(repo)
+      const { fs } = reader
+      const http = (await import('isomorphic-git/http/web')).default
+      await git.fetch({
+        fs,
+        http,
+        dir: '/',
+        remote: options?.remote || 'origin',
+        prune: options?.prune !== false,
+        tags: true,
+      })
+      this.repositories.delete(repo)
+      return { ok: true, message: '抓取完成' }
+    } catch (error) {
+      throw new Error(`抓取失败: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+
+  async stash(repo: string, options: GitStashOptions): Promise<{ ok: boolean; message: string }> {
+    const target = await this.resolveRepo(repo)
+    try {
+      return await this.companion.stash(target, options)
+    } catch (err) {
+      throw new Error(`暂存操作失败: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
+
+  async addWorktree(repo: string, path: string, branch?: string): Promise<{ ok: boolean; message: string }> {
+    const target = await this.resolveRepo(repo)
+    try {
+      return await this.companion.addWorktree(target, path, branch)
+    } catch (err) {
+      throw new Error(`添加工作树失败: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
+
+  async createTag(repo: string, tag: string, options?: { target?: string; message?: string }): Promise<{ ok: boolean; message: string }> {
+    const target = await this.resolveRepo(repo)
+    try {
+      return await this.companion.createTag(target, tag, options)
+    } catch (err) {
+      throw new Error(`创建标签失败: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
+
+  async deleteTag(repo: string, tag: string): Promise<{ ok: boolean; message: string }> {
+    const target = await this.resolveRepo(repo)
+    try {
+      return await this.companion.deleteTag(target, tag)
+    } catch (err) {
+      throw new Error(`删除标签失败: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
+
+  async getRemotes(repo: string): Promise<GitRemoteSource[]> {
+    const target = await this.resolveRepo(repo)
+    if (!target.startsWith('edge_')) {
+      try {
+        return await this.companion.getRemotes(target)
+      } catch {
+        // Fallback to isomorphic-git
+      }
+    }
+    try {
+      const reader = await this.repository(repo)
+      const { fs } = reader
+      const rawRemotes = await git.listRemotes({ fs, dir: '/' })
+      return rawRemotes
+        .filter((r) => r.url)
+        .map((r) => ({
+          name: r.remote,
+          url: r.url!,
+          isPrivate: isPrivateRemote(r.url!),
+        }))
+    } catch {
+      return []
+    }
+  }
+
+  async getRemoteUrl(repo: string, remote: string): Promise<string> {
+    const target = await this.resolveRepo(repo)
+    if (!target.startsWith('edge_')) {
+      try {
+        return await this.companion.getRemoteUrl(target, remote)
+      } catch {
+        // Fallback
+      }
+    }
+    try {
+      const reader = await this.repository(repo)
+      const { fs } = reader
+      const rawRemotes = await git.listRemotes({ fs, dir: '/' })
+      const found = rawRemotes.find((r) => r.remote === remote)
+      return found?.url || ''
+    } catch {
+      return ''
+    }
+  }
+
+  async addRemote(repo: string, name: string, url: string, pushUrl?: string): Promise<{ ok: boolean; message: string }> {
+    const target = await this.resolveRepo(repo)
+    if (!target.startsWith('edge_')) {
+      try {
+        return await this.companion.addRemote(target, name, url, pushUrl)
+      } catch {
+        // Fallback
+      }
+    }
+    try {
+      const reader = await this.repository(repo)
+      const { fs } = reader
+      await git.addRemote({ fs, dir: '/', remote: name, url, force: true })
+      return { ok: true, message: `成功添加远程源 ${name}` }
+    } catch (err) {
+      return { ok: false, message: err instanceof Error ? err.message : '添加远程源失败' }
+    }
+  }
+
+  async setRemoteUrl(repo: string, remote: string, url: string): Promise<{ ok: boolean; message: string }> {
+    const target = await this.resolveRepo(repo)
+    if (!target.startsWith('edge_')) {
+      try {
+        return await this.companion.setRemoteUrl(target, remote, url)
+      } catch {
+        // Fallback
+      }
+    }
+    try {
+      const reader = await this.repository(repo)
+      const { fs } = reader
+      await git.deleteRemote({ fs, dir: '/', remote }).catch(() => {})
+      await git.addRemote({ fs, dir: '/', remote, url, force: true })
+      return { ok: true, message: `成功更新远程源 ${remote}` }
+    } catch (err) {
+      return { ok: false, message: err instanceof Error ? err.message : '更新远程源失败' }
+    }
+  }
+
+  async renameRemote(repo: string, oldName: string, newName: string): Promise<{ ok: boolean; message: string }> {
+    const target = await this.resolveRepo(repo)
+    if (!target.startsWith('edge_')) {
+      try {
+        return await this.companion.renameRemote(target, oldName, newName)
+      } catch {
+        // Fallback
+      }
+    }
+    try {
+      const reader = await this.repository(repo)
+      const { fs } = reader
+      const remotes = await git.listRemotes({ fs, dir: '/' })
+      const found = remotes.find((r) => r.remote === oldName)
+      if (!found?.url) throw new Error(`未找到远程源 ${oldName}`)
+      await git.deleteRemote({ fs, dir: '/', remote: oldName })
+      await git.addRemote({ fs, dir: '/', remote: newName, url: found.url, force: true })
+      return { ok: true, message: `远程源已重命名为 ${newName}` }
+    } catch (err) {
+      return { ok: false, message: err instanceof Error ? err.message : '重命名远程源失败' }
+    }
+  }
+
+  async removeRemote(repo: string, remote: string): Promise<{ ok: boolean; message: string }> {
+    const target = await this.resolveRepo(repo)
+    if (!target.startsWith('edge_')) {
+      try {
+        return await this.companion.removeRemote(target, remote)
+      } catch {
+        // Fallback
+      }
+    }
+    try {
+      const reader = await this.repository(repo)
+      const { fs } = reader
+      await git.deleteRemote({ fs, dir: '/', remote })
+      return { ok: true, message: `成功删除远程源 ${remote}` }
+    } catch (err) {
+      return { ok: false, message: err instanceof Error ? err.message : '删除远程源失败' }
+    }
   }
 
   async getProjects(): Promise<GitProjectCatalog> {
@@ -806,119 +787,5 @@ export class EdgeGitDriver implements IGitDriver {
     })
 
     return getEdgeCatalog()
-  }
-
-  async readBlame(options: { repo: string; path: string; hash?: string }): Promise<Record<number, GitBlameLine>> {
-    try {
-      const edgeProjects = typeof getEdgeCatalog === 'function' ? (await getEdgeCatalog().catch(() => ({ projects: [] }))).projects || [] : []
-      const localMatch = uniqueLocalProject(edgeProjects, options.repo)?.localPath
-      const repo = localMatch || options.repo
-      const reader = await this.repository(repo)
-      const { fs, cache } = reader
-      const targetRef = options.hash && options.hash !== 'WORKTREE' ? options.hash : 'HEAD'
-
-      let rawCommits = await git
-        .log({
-          fs,
-          cache,
-          dir: '/',
-          filepath: options.path,
-          ref: targetRef,
-          depth: 50,
-        })
-        .catch(() => [])
-
-      if (rawCommits.length === 0 && targetRef !== 'HEAD') {
-        rawCommits = await git
-          .log({
-            fs,
-            cache,
-            dir: '/',
-            filepath: options.path,
-            ref: 'HEAD',
-            depth: 50,
-          })
-          .catch(() => [])
-      }
-
-      if (rawCommits.length === 0) return {}
-
-      const blob = await this.readBlob({ repo: options.repo, path: options.path, hash: targetRef }).catch(() => ({ content: '' }))
-      if (!blob.content) return {}
-
-      const totalLines = blob.content.replace(/\n$/, '').split('\n').length
-      const latest = rawCommits[0]
-      const blameMap: Record<number, GitBlameLine> = {}
-
-      for (let i = 1; i <= totalLines; i++) {
-        blameMap[i] = {
-          line: i,
-          hash: latest.oid,
-          author: latest.commit.author?.name || 'Unknown',
-          authorMail: latest.commit.author?.email || '',
-          date: latest.commit.author?.timestamp ? new Date(latest.commit.author.timestamp * 1000).toISOString() : new Date().toISOString(),
-          summary: (latest.commit.message || '').split('\n')[0] || '',
-        }
-      }
-      return blameMap
-    } catch {
-      return {}
-    }
-  }
-
-  async readFileHistory(options: { repo: string; path: string; ref?: string; limit?: number }): Promise<{ commits: GitCommit[] }> {
-    try {
-      const edgeProjects = typeof getEdgeCatalog === 'function' ? (await getEdgeCatalog().catch(() => ({ projects: [] }))).projects || [] : []
-      const localMatch = uniqueLocalProject(edgeProjects, options.repo)?.localPath
-      const repo = localMatch || options.repo
-      const reader = await this.repository(repo)
-      const { fs, cache } = reader
-      const targetRef = options.ref && options.ref !== 'WORKTREE' ? options.ref : 'HEAD'
-      const limit = options.limit && options.limit > 0 ? Math.min(options.limit, 500) : 100
-
-      let rawCommits = await git
-        .log({
-          fs,
-          cache,
-          dir: '/',
-          filepath: options.path,
-          ref: targetRef,
-          depth: limit,
-        })
-        .catch(() => [])
-
-      if (rawCommits.length === 0 && targetRef !== 'HEAD') {
-        rawCommits = await git
-          .log({
-            fs,
-            cache,
-            dir: '/',
-            filepath: options.path,
-            ref: 'HEAD',
-            depth: limit,
-          })
-          .catch(() => [])
-      }
-
-      const commits: GitCommit[] = rawCommits.map((c) => {
-        const oid = c.oid
-        return {
-          hash: oid,
-          short: oid.slice(0, 7),
-          parents: c.commit.parent || [],
-          author: c.commit.author?.name || 'Unknown',
-          date: c.commit.author?.timestamp ? new Date(c.commit.author.timestamp * 1000).toISOString() : new Date().toISOString(),
-          subject: (c.commit.message || '').split('\n')[0] || '',
-          refs: [],
-        }
-      })
-      return { commits }
-    } catch {
-      return { commits: [] }
-    }
-  }
-
-  async addWorktree(_repo: string, _path: string, _branch?: string): Promise<{ ok: boolean; message: string }> {
-    throw new Error('浏览器 Edge 模式暂不支持 Worktree，请在本地模式使用')
   }
 }

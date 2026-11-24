@@ -11,29 +11,29 @@ export function isApplePlatform() {
 
 /**
  * Shortcut label for Agent quotation.
- * On macOS: ⌥Q or ⇧⌘Q; On Windows/Linux: Alt+Q or Ctrl+Shift+Q
+ * On macOS: ⌥A or ⇧⌘A; On Windows/Linux: Alt+A or Ctrl+Shift+A
  */
 export function agentQuoteShortcutLabel(apple = isApplePlatform()) {
-  return apple ? '⌥Q' : 'Alt+Q'
+  return apple ? '⌥A' : 'Alt+A'
 }
 
 /**
  * Checks if keyboard event matches agent quote chord:
- * - Alt + Q (or Option + Q on macOS)
- * - Cmd + Shift + Q / Ctrl + Shift + Q
+ * - Alt + A (or Option + A on macOS)
  * - Cmd + Shift + A / Ctrl + Shift + A
+ * Note: Q and W are strictly avoided to prevent accidental browser tab close (Cmd+W) or app quit (Cmd+Q).
  */
 export function isAgentQuoteChord(event: Pick<KeyboardEvent, 'altKey' | 'shiftKey' | 'key' | 'metaKey' | 'ctrlKey'>): boolean {
   const k = event.key?.toLowerCase()
-  // 1) Alt + Q
-  if (event.altKey && !event.shiftKey && !event.metaKey && !event.ctrlKey && k === 'q') {
+  // Reject any 'q' or 'w' key combo to protect from browser tab close / app quit
+  if (k === 'q' || k === 'w') {
+    return false
+  }
+  // 1) Alt + A (Option + A on macOS)
+  if (event.altKey && !event.shiftKey && !event.metaKey && !event.ctrlKey && k === 'a') {
     return true
   }
-  // 2) Cmd + Shift + Q / Ctrl + Shift + Q
-  if ((event.metaKey || event.ctrlKey) && event.shiftKey && !event.altKey && k === 'q') {
-    return true
-  }
-  // 3) Cmd + Shift + A / Ctrl + Shift + A
+  // 2) Cmd + Shift + A / Ctrl + Shift + A
   if ((event.metaKey || event.ctrlKey) && event.shiftKey && !event.altKey && k === 'a') {
     return true
   }

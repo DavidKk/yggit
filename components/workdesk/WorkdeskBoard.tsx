@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { LuChevronUp, LuCircleCheck, LuFlag, LuFolderGit2, LuGitBranch, LuGitFork, LuGitMerge, LuTrash2, LuUndo2 } from 'react-icons/lu'
+import { LuCircleCheck, LuFlag, LuFolderGit2, LuGitBranch, LuGitFork, LuGitMerge, LuTrash2, LuUndo2 } from 'react-icons/lu'
 
 import { useT } from '@/components/i18n/LocaleProvider'
 import { Badge, Tooltip } from '@/components/sk'
@@ -12,7 +12,7 @@ import { dismissCard, undoDismissCard } from '@/lib/workdesk/storage'
 import type { WorkCard, WorkItem } from '@/lib/workdesk/types'
 
 import { CARD_I18N_MAP, WorkdeskCard } from './WorkdeskCard'
-import { WorkdeskTaskDetailView } from './WorkdeskTaskDetailView'
+import { getItemCardSummary, WorkdeskTaskDetailView } from './WorkdeskTaskDetailView'
 
 interface WorkdeskBoardProps {
   initialCards?: WorkCard[]
@@ -49,6 +49,7 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
   const [itemsMap, setItemsMap] = useState<Record<string, WorkItem>>({})
   const [undoToast, setUndoToast] = useState<{ cardId: string; cardTitle: string } | null>(null)
   const [activeTaskId, setActiveTaskId] = useState<string | null>(initialActiveTaskId || null)
+  const [boardCardWidth, setBoardCardWidth] = useState<number | null>(null)
   const [transition, setTransition] = useState<TransitionState | null>(null)
   const [draggingCardId, setDraggingCardId] = useState<string | null>(null)
   const [dragOverLaneId, setDragOverLaneId] = useState<string | null>(null)
@@ -56,6 +57,7 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
 
   const handleSelectCard = (cardId: string, element?: HTMLElement) => {
     if (element && containerRef.current) {
+      setBoardCardWidth(element.offsetWidth)
       const containerRect = containerRef.current.getBoundingClientRect()
       const cardRect = element.getBoundingClientRect()
       const startRect: CardRect = {
@@ -83,7 +85,9 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
       // Step 3: When animation completes (350ms): switch page & reveal detail contents
       setTimeout(() => {
         setActiveTaskId(cardId)
-        setTransition(null)
+        requestAnimationFrame(() => {
+          setTransition(null)
+        })
         if (typeof window !== 'undefined') {
           window.history.pushState(null, '', `/workdesk/tasks/${encodeURIComponent(cardId)}`)
         }
@@ -130,7 +134,9 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
 
       setTimeout(() => {
         setActiveTaskId(null)
-        setTransition(null)
+        requestAnimationFrame(() => {
+          setTransition(null)
+        })
         if (typeof window !== 'undefined') {
           window.history.pushState(null, '', '/git')
         }
@@ -157,6 +163,15 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
     window.addEventListener('popstate', handlePopState)
     return () => window.removeEventListener('popstate', handlePopState)
   }, [handleCollapseCard])
+
+  useEffect(() => {
+    const handleModeChanged = () => {
+      setActiveTaskId(null)
+      setTransition(null)
+    }
+    window.addEventListener('yggit:driver_mode_changed', handleModeChanged)
+    return () => window.removeEventListener('yggit:driver_mode_changed', handleModeChanged)
+  }, [])
 
   // Card Drag-and-Drop between lanes
   const handleCardDragStart = (e: React.DragEvent, cardId: string) => {
@@ -260,6 +275,20 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
     return cards.filter((c) => !c.hidden)
   }, [cards])
 
+  // Track the exact rendered card width on the board to keep detail view cards 100% identical in size
+  useEffect(() => {
+    const updateWidth = () => {
+      if (!containerRef.current) return
+      const el = containerRef.current.querySelector<HTMLElement>('[data-testid^="workdesk-card-wrapper-"]')
+      if (el && el.offsetWidth > 0) {
+        setBoardCardWidth(el.offsetWidth)
+      }
+    }
+    updateWidth()
+    window.addEventListener('resize', updateWidth)
+    return () => window.removeEventListener('resize', updateWidth)
+  }, [visibleCards.length])
+
   const lanes: LaneConfig[] = [
     {
       id: 'branch',
@@ -300,7 +329,12 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
           const rawTitle = i18nKey ? t(`workdesk.cards.${i18nKey}.title` as MessageKey) : undefined
           const title = rawTitle && !rawTitle.startsWith('workdesk.cards.') ? rawTitle : c.title
           const isTarget = transition.phase === 'moving' || transition.phase === 'collapsing-start'
-          const targetWidth = typeof window !== 'undefined' ? (window.innerWidth >= 1024 ? 332 : window.innerWidth >= 640 ? 300 : 268) : 300
+          const targetWidth = Math.min(boardCardWidth ?? transition.startRect.width, 300)
+
+          const firstItem = c.itemIds && c.itemIds.length > 0 ? itemsMap[c.itemIds[0]] : null
+          const itemTitle = firstItem ? (firstItem.repoAlias ? `${firstItem.repoAlias} · ${firstItem.name}` : firstItem.name) : title
+          const itemSummary = firstItem ? getItemCardSummary(firstItem.summary) : null
+          const isMultiple = Boolean(c.itemIds && c.itemIds.length > 1)
 
           const parsedCount = parseInt(c.scope.match(/(\d+)\s*个项目/)?.[1] || c.scope.match(/(\d+)/)?.[1] || '1', 10)
           const projectCount = c.projectCount !== undefined ? c.projectCount : parsedCount
@@ -321,33 +355,66 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
             <div
               style={{
                 position: 'absolute',
-                left: isTarget ? 10 : transition.startRect.left,
-                top: isTarget ? 10 : transition.startRect.top,
+                left: isTarget ? 12 : transition.startRect.left,
+                top: isTarget ? 56 : transition.startRect.top,
                 width: isTarget ? targetWidth : transition.startRect.width,
-                height: transition.startRect.height,
+                height: 62,
                 zIndex: 50,
                 transition: transition.phase === 'moving' || transition.phase === 'collapsing' ? 'all 350ms cubic-bezier(0.2, 0.8, 0.2, 1)' : 'none',
               }}
-              className="pointer-events-none flex min-h-[58px] flex-col justify-center rounded-xl border border-line bg-panel p-2.5 shadow-md dark:border-line dark:bg-panel"
+              className="pointer-events-none flex h-[62px] min-h-[62px] flex-col justify-center rounded-xl border border-line bg-panel p-2.5 shadow-md dark:border-line dark:bg-panel"
             >
+              {isMultiple && (
+                <>
+                  <div
+                    style={{
+                      transform: isTarget ? 'translate(0px, 0px) rotate(0deg)' : 'translate(6px, 6px) rotate(1.2deg)',
+                      opacity: isTarget ? 0 : 0.8,
+                      transition: 'all 350ms cubic-bezier(0.2, 0.8, 0.2, 1)',
+                    }}
+                    className="absolute inset-0 -z-10 rounded-xl border border-line/60 bg-panel shadow-2xs pointer-events-none origin-top-left dark:border-line/40 dark:bg-panel"
+                    aria-hidden="true"
+                  />
+                  <div
+                    style={{
+                      transform: isTarget ? 'translate(0px, 0px) rotate(0deg)' : 'translate(4px, 4px) rotate(0.6deg)',
+                      opacity: isTarget ? 0 : 0.9,
+                      transition: 'all 350ms cubic-bezier(0.2, 0.8, 0.2, 1)',
+                    }}
+                    className="absolute inset-0 -z-10 rounded-xl border border-line/80 bg-panel shadow-2xs pointer-events-none origin-top-left dark:border-line/60 dark:bg-panel"
+                    aria-hidden="true"
+                  />
+                </>
+              )}
+
               <div className="flex w-full items-start justify-between gap-2">
-                <span className="line-clamp-2 text-xs font-semibold leading-snug text-ink">{title}</span>
-                {isTarget && (
-                  <div className="flex shrink-0 items-center text-ink-soft">
-                    <LuChevronUp className="size-3.5" aria-hidden="true" />
-                  </div>
-                )}
+                <span className="line-clamp-1 text-xs font-semibold leading-tight text-ink transition-opacity duration-200">{isTarget && firstItem ? itemTitle : title}</span>
+                {isTarget && firstItem ? (
+                  <span
+                    className={cn(
+                      'h-3.5 w-1 shrink-0 rounded-full transition-opacity duration-200',
+                      firstItem.state === 'safe' ? 'bg-[#28a388]' : firstItem.state === 'warn' ? 'bg-[#d8a646]' : 'bg-[#d96c61]'
+                    )}
+                    aria-hidden="true"
+                  />
+                ) : null}
               </div>
-              <div className="mt-2 flex items-center gap-3 text-[11px] font-medium text-ink-muted">
-                <span className="inline-flex items-center gap-1">
-                  <LuFolderGit2 className="size-3 text-ink-muted" aria-hidden="true" />
-                  <span>{displayProjectCount}</span>
-                </span>
-                {extraCount !== null && (
-                  <span className="inline-flex items-center gap-1">
-                    {isWorktree ? <LuGitFork className="size-3 text-ink-muted" aria-hidden="true" /> : <LuGitBranch className="size-3 text-ink-muted" aria-hidden="true" />}
-                    <span>{extraCount > 99 ? '99+' : extraCount}</span>
-                  </span>
+              <div className="mt-1 flex items-center gap-3 text-[11px] font-medium leading-tight text-ink-muted">
+                {isTarget && firstItem ? (
+                  <span className="line-clamp-1 text-[11px] leading-tight text-ink-muted">{itemSummary}</span>
+                ) : (
+                  <>
+                    <span className="inline-flex items-center gap-1">
+                      <LuFolderGit2 className="size-3 text-ink-muted" aria-hidden="true" />
+                      <span>{displayProjectCount}</span>
+                    </span>
+                    {extraCount !== null && (
+                      <span className="inline-flex items-center gap-1">
+                        {isWorktree ? <LuGitFork className="size-3 text-ink-muted" aria-hidden="true" /> : <LuGitBranch className="size-3 text-ink-muted" aria-hidden="true" />}
+                        <span>{extraCount > 99 ? '99+' : extraCount}</span>
+                      </span>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -357,12 +424,12 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
       {/* 4 Equal-Width Horizontal Lanes Board (Positioned as absolute inset-0 underneath so layout never jumps) */}
       <div
         className={cn(
-          'absolute inset-0 flex flex-col overflow-y-auto px-4 pt-4 pb-20 sm:px-6 sm:pb-24 lg:px-8 lg:pb-24 transition-opacity duration-200',
-          activeTaskId && (!transition || transition.phase === 'collapsing-start') ? 'pointer-events-none opacity-0 invisible' : 'opacity-100 visible',
-          transition?.phase === 'moving' && 'pointer-events-none opacity-0',
-          transition?.phase === 'lifting' && 'pointer-events-none opacity-40',
-          transition?.phase === 'collapsing' && 'opacity-100',
-          !activeTaskId && !transition && 'opacity-100'
+          'absolute inset-0 flex flex-col overflow-y-auto px-4 pt-4 pb-20 sm:px-6 sm:pb-24 lg:px-8 lg:pb-24 transition-all duration-300 ease-out',
+          activeTaskId && (!transition || transition.phase === 'collapsing-start') ? 'pointer-events-none opacity-0 translate-y-3 invisible' : 'opacity-100 translate-y-0 visible',
+          transition?.phase === 'lifting' && 'pointer-events-none opacity-40 translate-y-1 transition-all duration-150',
+          transition?.phase === 'moving' && 'pointer-events-none opacity-0 translate-y-3 transition-all duration-200 ease-out',
+          transition?.phase === 'collapsing' && 'opacity-100 translate-y-0 transition-all duration-300 ease-out',
+          !activeTaskId && !transition && 'opacity-100 translate-y-0'
         )}
       >
         {/* Drag Drop Trash Bin at the Top */}
@@ -387,7 +454,7 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
               setDraggingCardId(null)
             }}
             className={cn(
-              'mb-3 flex h-14 w-full shrink-0 items-center justify-center gap-2 rounded-xl border border-dashed text-xs font-semibold transition-all duration-200 select-none animate-in fade-in slide-in-from-top-2 duration-150',
+              'mb-3 flex h-14 w-full max-w-[1260px] shrink-0 items-center justify-center gap-2 rounded-xl border border-dashed text-xs font-semibold transition-all duration-200 select-none animate-in fade-in slide-in-from-top-2 duration-150',
               isOverTrash
                 ? 'border-red-500 bg-red-500/10 text-red-600 shadow-md scale-[1.01] dark:border-red-500 dark:bg-red-950/40 dark:text-red-400'
                 : 'border-line bg-panel-2/70 text-ink-muted hover:border-red-400/80 hover:bg-red-500/5 hover:text-red-500'
@@ -395,12 +462,12 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
             data-testid="workdesk-trash-dropzone"
           >
             <LuTrash2 className={cn('size-4 transition-transform duration-150', isOverTrash ? 'scale-125 text-red-500' : 'text-ink-muted')} />
-            <span>{isOverTrash ? '松开以丢弃此卡片' : '拖拽到此处丢弃任务'}</span>
+            <span>{isOverTrash ? t('workdesk.trashRelease') || 'Release to dismiss this card' : t('workdesk.trashDrop') || 'Drag here to dismiss task'}</span>
           </div>
         )}
 
         {/* 4 Equal-Width Horizontal Columns */}
-        <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:gap-4">
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:gap-3.5 max-w-[1260px] w-full">
           {lanes.map((lane) => {
             const laneCards = visibleCards.filter((c) => c.categoryId === lane.id)
             const laneTitle = t(`workdesk.lane.${lane.titleKey}`)
@@ -485,11 +552,19 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
       {activeTaskId && (
         <div
           className={cn(
-            'absolute inset-0 flex flex-col overflow-hidden bg-paper z-20',
-            transition && (transition.phase === 'collapsing-start' || transition.phase === 'collapsing') ? 'pointer-events-none opacity-0 invisible' : 'opacity-100 visible'
+            'absolute inset-0 flex flex-col overflow-hidden bg-paper z-20 transition-opacity duration-200',
+            transition && (transition.phase === 'collapsing-start' || transition.phase === 'collapsing')
+              ? 'pointer-events-none opacity-0'
+              : 'opacity-100 animate-in fade-in duration-200'
           )}
         >
-          <WorkdeskTaskDetailView taskId={activeTaskId} initialCard={activeCard} initialItems={Object.values(itemsMap)} onCollapse={handleCollapseCard} />
+          <WorkdeskTaskDetailView
+            taskId={activeTaskId}
+            initialCard={activeCard}
+            initialItems={Object.values(itemsMap)}
+            onCollapse={handleCollapseCard}
+            cardWidth={boardCardWidth ?? undefined}
+          />
         </div>
       )}
     </div>

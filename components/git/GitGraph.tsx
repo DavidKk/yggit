@@ -378,6 +378,7 @@ function GitGraphComponent({
       soloBranch,
       onSoloBranch,
       config: contextConfig,
+      t,
       onNotify: (type, msg) => {
         if (type === 'success') notify.success(msg)
         else notify.error(msg)
@@ -386,7 +387,7 @@ function GitGraphComponent({
         if (onCheckoutBranch) {
           void onCheckoutBranch(branch, isRemote)
         } else {
-          quotePromptToAgent(`帮我跳转到 ${branch}`)
+          quotePromptToAgent(`${t('git.operations.checkoutBranch') || 'Switch to'} ${branch}`)
         }
       },
       onPushBranch,
@@ -404,10 +405,10 @@ function GitGraphComponent({
               try {
                 const driver = getGitDriver()
                 const res = await driver.undo(repo)
-                notify.success(res.message || t('git.operations.undoSuccess') || '已撤销上一次提交')
+                notify.success(res.message || t('git.operations.undoSuccess') || 'Undid last commit')
                 await onRefresh?.()
               } catch (err) {
-                notify.error(err instanceof Error ? err.message : t('git.operations.undoError') || '撤销失败')
+                notify.error(err instanceof Error ? err.message : t('git.operations.undoError') || 'Undo failed')
               }
             }
           : undefined,
@@ -417,13 +418,13 @@ function GitGraphComponent({
   const worktreeContextItems = (wt: GitWorktree): FloatingMenuItem[] => [
     {
       key: 'select-wt',
-      label: t('git.graph.workingTree') || '查看工作区',
+      label: t('git.graph.workingTree') || 'View Working Tree',
       icon: <LuCopy className="size-4 shrink-0 text-accent" />,
       onSelect: () => onSelectWorktree?.(),
     },
     {
       key: 'quote-wt',
-      label: t('git.operations.quoteWorktreeToAgent') || '引用工作树到 Git Agent',
+      label: t('git.operations.quoteWorktreeToAgent') || 'Quote Worktree to Git Agent',
       icon: <LuBot className="size-4 shrink-0 text-accent" />,
       onSelect: () => quoteWorktreeToAgent(repo || '.', undefined, repo),
     },
@@ -445,10 +446,10 @@ function GitGraphComponent({
     try {
       const driver = getGitDriver()
       const res = await driver.stash(repo, { action, index, message })
-      notify.success(res.message || '操作成功')
+      notify.success(res.message || 'Operation succeeded')
       await onRefresh?.()
     } catch (err) {
-      notify.error(err instanceof Error ? err.message : '操作失败')
+      notify.error(err instanceof Error ? err.message : 'Operation failed')
     }
   }
 
@@ -457,49 +458,49 @@ function GitGraphComponent({
     return [
       {
         key: 'apply-stash',
-        label: t('git.operations.applyStashAction', { stash: stash.name }) || `应用暂存 (${stash.name})`,
+        label: t('git.operations.applyStashAction', { stash: stash.name }) || `Apply Stash (${stash.name})`,
         icon: <LuArchive className="size-3.5 shrink-0 text-accent" aria-hidden />,
         onSelect: () => void handleStashAction('apply', idx),
       },
       {
         key: 'pop-stash',
-        label: t('git.operations.popStashAction', { stash: stash.name }) || `弹出暂存 (${stash.name})`,
+        label: t('git.operations.popStashAction', { stash: stash.name }) || `Pop Stash (${stash.name})`,
         icon: <LuArchiveRestore className="size-3.5 shrink-0 text-ok" aria-hidden />,
         onSelect: () => void handleStashAction('pop', idx),
       },
       {
         key: 'quote-stash',
-        label: t('git.operations.quoteStashToAgent') || '引用暂存到 Git Agent',
+        label: t('git.operations.quoteStashToAgent') || 'Quote Stash to Git Agent',
         icon: <LuBot className="size-3.5 shrink-0 text-accent" aria-hidden />,
         onSelect: () => quoteStashToAgent(stash.name, stash.subject, repo),
       },
       {
         key: 'drop-stash',
-        label: t('git.operations.deleteStashAction', { stash: stash.name }) || `删除暂存 (${stash.name})`,
+        label: t('git.operations.deleteStashAction', { stash: stash.name }) || `Delete Stash (${stash.name})`,
         icon: <LuTrash2 className="size-3.5 shrink-0 text-fail" aria-hidden />,
         danger: true,
         onSelect: () => void handleStashAction('drop', idx),
       },
       {
         key: 'edit-stash-message',
-        label: t('git.operations.editStashMessageAction') || '编辑暂存说明…',
+        label: t('git.operations.editStashMessageAction') || 'Edit Stash Message...',
         icon: <LuPencil className="size-3.5 shrink-0 text-ink-soft" aria-hidden />,
         dividerBefore: true,
         onSelect: () => {
-          const msg = window.prompt(t('git.operations.editStashPrompt') || '请输入新的暂存说明：', stash.subject || '')
+          const msg = window.prompt(t('git.operations.editStashPrompt') || 'Please enter new stash message:', stash.subject || '')
           if (msg && msg.trim()) void handleStashAction('edit', idx, msg.trim())
         },
       },
       {
         key: 'hide-stash',
-        label: t('git.operations.hideStashAction') || '隐藏暂存',
+        label: t('git.operations.hideStashAction') || 'Hide Stash',
         icon: <LuEyeOff className="size-3.5 shrink-0 text-ink-soft" aria-hidden />,
         dividerBefore: true,
         onSelect: () => setHiddenStashes((prev) => (prev.includes(stash.name) ? prev.filter((s) => s !== stash.name) : [...prev, stash.name])),
       },
       {
         key: 'copy-stash-group',
-        label: t('git.operations.groupCopy') || '复制',
+        label: t('git.operations.groupCopy') || 'Copy',
         icon: <LuCopy className="size-3.5 shrink-0 text-ink-soft" aria-hidden />,
         dividerBefore: true,
         children: [

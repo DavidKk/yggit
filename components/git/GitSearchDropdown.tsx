@@ -46,6 +46,14 @@ export function GitSearchDropdown({ value, onChange, placeholder, label, descrip
     onOpenChangeRef.current?.(next)
   }
 
+  useEffect(() => {
+    function onClearSearches() {
+      setOpenState(false)
+    }
+    window.addEventListener('yggit:clear_searches', onClearSearches)
+    return () => window.removeEventListener('yggit:clear_searches', onClearSearches)
+  }, [])
+
   const [mounted, setMounted] = useState(false)
   const anchorRef = useRef<HTMLButtonElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)

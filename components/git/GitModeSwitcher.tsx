@@ -90,34 +90,34 @@ export function GitModeSwitcher({
       const currentDriver = getGitDriver(isEdge ? 'edge' : 'local')
       currentDriver.clearCache?.()
 
-      setMode(nextMode)
-
-      if (match) {
-        const nextRepo = nextMode === 'local' ? match.localPath || match.id : match.id || match.localPath || match.name
-        const nextUrl = match.id ? `/git/${match.id}` : `/git?repo=${encodeURIComponent(nextRepo)}`
-        if (typeof window !== 'undefined') {
-          window.history.replaceState(null, '', nextUrl)
-        }
-        if (onSwitchRepo) {
-          await onSwitchRepo(nextMode, nextRepo)
+      const nextRepo = match ? (nextMode === 'local' ? match.localPath || match.id : match.id || match.localPath || match.name) : repoIdent || currentRepo || nameIdent || ''
+      let nextUrl: string | null = null
+      if (typeof window !== 'undefined') {
+        const currentPath = window.location.pathname
+        if (currentPath.startsWith('/settings') || currentPath.startsWith('/privacy')) {
+          nextUrl = null
+        } else if (currentPath.startsWith('/git/') && !currentPath.startsWith('/git/edge_')) {
+          // Keep current canonical repository route seamlessly across mode switches
+          nextUrl = `${window.location.pathname}${window.location.search}`
+        } else if (match) {
+          nextUrl = match.id ? `/git/${match.id}` : `/git?repo=${encodeURIComponent(nextRepo)}`
         } else {
-          router.push(nextUrl)
-        }
-      } else {
-        if (typeof window !== 'undefined') {
-          window.history.replaceState(null, '', '/git')
-        }
-        if (onSwitchRepo) {
-          await onSwitchRepo(nextMode, '')
-        } else {
-          router.push('/git')
+          nextUrl = '/git'
         }
       }
+
+      setMode(nextMode, { targetRepo: nextRepo, targetUrl: nextUrl || undefined })
+
+      if (onSwitchRepo) {
+        await onSwitchRepo(nextMode, nextRepo)
+      } else if (nextUrl && typeof window !== 'undefined' && window.location.pathname !== nextUrl) {
+        router.push(nextUrl)
+      }
     } catch {
-      setMode(nextMode)
+      setMode(nextMode, { targetRepo: '', targetUrl: '/git' })
       if (onSwitchRepo) {
         await onSwitchRepo(nextMode, '')
-      } else {
+      } else if (typeof window !== 'undefined' && window.location.pathname !== '/git' && !window.location.pathname.startsWith('/settings')) {
         router.push('/git')
       }
     }

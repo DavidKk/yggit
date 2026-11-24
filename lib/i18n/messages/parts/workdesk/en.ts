@@ -89,7 +89,7 @@ export const workdeskEn: { workdesk: WorkdeskMessages } = {
       taskSet: 'Task Set',
       targetProject: 'Repository',
       targetBranch: 'Target Branch',
-      problemBranch: 'Affected Branch',
+      problemBranch: 'Branch',
       problemDesc: 'Problem Description',
       causeTitle: 'Root Cause',
       riskTitle: 'Potential Risk',
@@ -127,5 +127,7 @@ export const workdeskEn: { workdesk: WorkdeskMessages } = {
     lastChecked: 'Last checked: {time}',
     justNow: 'just now',
     minutesAgo: '{minutes}m ago',
+    trashRelease: 'Release to dismiss this card',
+    trashDrop: 'Drag here to dismiss task',
   },
 }

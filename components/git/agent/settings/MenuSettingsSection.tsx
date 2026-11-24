@@ -372,7 +372,7 @@ export function MenuSettingsSection() {
         ...preset.enabledGroups,
       },
     })
-    notify.success(`已应用「${preset.name}」预设`)
+    notify.success(t('gitAgent.presetApplied', { name: preset.name }) || `Applied preset "${preset.name}"`)
   }
 
   const handleResetDefaults = () => {
@@ -385,7 +385,7 @@ export function MenuSettingsSection() {
         ...CONTEXT_MENU_PRESETS.standard.enabledGroups,
       },
     })
-    notify.success('已恢复为默认标准模式配置')
+    notify.success(t('gitAgent.presetReset') || 'Restored to standard mode configuration')
   }
 
   const handleToggleGroup = (key: keyof typeof config.enabledGroups, checked: boolean) => {

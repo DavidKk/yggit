@@ -10,14 +10,9 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true
 
 describe('agentQuoteShortcut', () => {
   describe('isAgentQuoteChord', () => {
-    it('matches Alt + Q', () => {
-      expect(isAgentQuoteChord({ altKey: true, shiftKey: false, metaKey: false, ctrlKey: false, key: 'q' })).toBe(true)
-      expect(isAgentQuoteChord({ altKey: true, shiftKey: false, metaKey: false, ctrlKey: false, key: 'Q' })).toBe(true)
-    })
-
-    it('matches Cmd + Shift + Q or Ctrl + Shift + Q', () => {
-      expect(isAgentQuoteChord({ altKey: false, shiftKey: true, metaKey: true, ctrlKey: false, key: 'q' })).toBe(true)
-      expect(isAgentQuoteChord({ altKey: false, shiftKey: true, metaKey: false, ctrlKey: true, key: 'q' })).toBe(true)
+    it('matches Alt + A', () => {
+      expect(isAgentQuoteChord({ altKey: true, shiftKey: false, metaKey: false, ctrlKey: false, key: 'a' })).toBe(true)
+      expect(isAgentQuoteChord({ altKey: true, shiftKey: false, metaKey: false, ctrlKey: false, key: 'A' })).toBe(true)
     })
 
     it('matches Cmd + Shift + A or Ctrl + Shift + A', () => {
@@ -25,18 +20,22 @@ describe('agentQuoteShortcut', () => {
       expect(isAgentQuoteChord({ altKey: false, shiftKey: true, metaKey: false, ctrlKey: true, key: 'a' })).toBe(true)
     })
 
-    it('rejects other combinations and Cmd + Q (to prevent app quit)', () => {
-      // Normal 'q' without modifier
-      expect(isAgentQuoteChord({ altKey: false, shiftKey: false, metaKey: false, ctrlKey: false, key: 'q' })).toBe(false)
-      // Cmd + Q (standard Mac Quit - should never trigger)
+    it('rejects Q and W chords to prevent accidental tab close or app quit', () => {
+      // Alt + Q
+      expect(isAgentQuoteChord({ altKey: true, shiftKey: false, metaKey: false, ctrlKey: false, key: 'q' })).toBe(false)
+      // Cmd + Q
       expect(isAgentQuoteChord({ altKey: false, shiftKey: false, metaKey: true, ctrlKey: false, key: 'q' })).toBe(false)
+      // Cmd + W
+      expect(isAgentQuoteChord({ altKey: false, shiftKey: false, metaKey: true, ctrlKey: false, key: 'w' })).toBe(false)
+      // Alt + W
+      expect(isAgentQuoteChord({ altKey: true, shiftKey: false, metaKey: false, ctrlKey: false, key: 'w' })).toBe(false)
       // Cmd + F (Find chord)
       expect(isAgentQuoteChord({ altKey: false, shiftKey: false, metaKey: true, ctrlKey: false, key: 'f' })).toBe(false)
     })
 
     it('provides shortcut label based on platform', () => {
-      expect(agentQuoteShortcutLabel(true)).toBe('⌥Q')
-      expect(agentQuoteShortcutLabel(false)).toBe('Alt+Q')
+      expect(agentQuoteShortcutLabel(true)).toBe('⌥A')
+      expect(agentQuoteShortcutLabel(false)).toBe('Alt+A')
     })
   })
 
@@ -96,7 +95,7 @@ describe('agentQuoteShortcut', () => {
       act(() => {
         window.dispatchEvent(
           new KeyboardEvent('keydown', {
-            key: 'q',
+            key: 'a',
             altKey: true,
             bubbles: true,
             cancelable: true,
@@ -119,7 +118,7 @@ describe('agentQuoteShortcut', () => {
       act(() => {
         window.dispatchEvent(
           new KeyboardEvent('keydown', {
-            key: 'q',
+            key: 'a',
             altKey: true,
             bubbles: true,
             cancelable: true,
@@ -141,7 +140,7 @@ describe('agentQuoteShortcut', () => {
       act(() => {
         window.dispatchEvent(
           new KeyboardEvent('keydown', {
-            key: 'q',
+            key: 'a',
             altKey: true,
             bubbles: true,
             cancelable: true,
@@ -166,7 +165,7 @@ describe('agentQuoteShortcut', () => {
       act(() => {
         input.dispatchEvent(
           new KeyboardEvent('keydown', {
-            key: 'q',
+            key: 'a',
             altKey: true,
             bubbles: true,
             cancelable: true,

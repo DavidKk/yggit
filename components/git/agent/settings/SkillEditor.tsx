@@ -5,6 +5,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { LuBookOpen, LuCheck, LuFolderOpen, LuGithub, LuPlus, LuRefreshCw, LuSparkles, LuTrash2 } from 'react-icons/lu'
 
 import { useConfirm } from '@/components/confirm/ConfirmProvider'
+import { useT } from '@/components/i18n/LocaleProvider'
 import { useNotification } from '@/components/notification/useNotification'
 import { Badge, Button, SwitchToggle } from '@/components/sk'
 import { parseSkillMarkdown } from '@/lib/skills/parser'
@@ -20,6 +21,7 @@ interface SkillEditorProps {
 }
 
 export function SkillEditor({ skillId }: SkillEditorProps) {
+  const t = useT()
   const router = useRouter()
   const notify = useNotification()
   const confirm = useConfirm()
@@ -81,21 +83,21 @@ export function SkillEditor({ skillId }: SkillEditorProps) {
       setLocalContent(text)
       if (parsed.name && !localName) setLocalName(parsed.name)
       if (parsed.description && !localDesc) setLocalDesc(parsed.description)
-      notify.success(`已解析 ${file.name}`)
+      notify.success(t('gitAgent.skillParsed', { name: file.name }) || `Parsed ${file.name}`)
     } catch {
-      notify.error('读取 SKILL.md 文件失败')
+      notify.error(t('gitAgent.skillReadFailed') || 'Failed to read SKILL.md file')
     }
   }
 
   // Save new local skill
   const handleSaveLocalSkill = async () => {
     if (!localContent.trim()) {
-      notify.error('请输入 SKILL.md 内容')
+      notify.error(t('gitAgent.skillContentRequired') || 'Please enter SKILL.md content')
       return
     }
     const parsed = parseSkillMarkdown(localContent)
     const finalName = localName.trim() || parsed.name || 'Custom Skill'
-    const finalDesc = localDesc.trim() || parsed.description || '自定义工作流规范'
+    const finalDesc = localDesc.trim() || parsed.description || 'Custom workflow guide'
     const id = `skill-local-${Date.now()}`
 
     const now = Date.now()
@@ -115,14 +117,14 @@ export function SkillEditor({ skillId }: SkillEditorProps) {
     }
 
     await saveSkill(newSkill)
-    notify.success(`已添加技能 "${finalName}"`)
+    notify.success(t('gitAgent.skillAdded', { name: finalName }) || `Added skill "${finalName}"`)
     router.replace('/settings/skills')
   }
 
   // Import GitHub skill
   const handleImportGitHubSkill = async () => {
     if (!ghRepo.trim()) {
-      notify.error('请输入 GitHub 仓库路径 (如 owner/repo)')
+      notify.error(t('gitAgent.skillRepoRequired') || 'Please enter GitHub repository path (e.g. owner/repo)')
       return
     }
 
@@ -136,17 +138,17 @@ export function SkillEditor({ skillId }: SkillEditorProps) {
       })
 
       if (results.length === 0) {
-        notify.warning('未在指定路径下找到有效的 SKILL.md 文件')
+        notify.warning(t('gitAgent.skillNoneFound') || 'No valid SKILL.md file found in the specified path')
         return
       }
 
       for (const s of results) {
         await saveSkill(s)
       }
-      notify.success(`成功导入 ${results.length} 个 GitHub Skill`)
+      notify.success(t('gitAgent.skillImported', { count: results.length }) || `Successfully imported ${results.length} GitHub skills`)
       router.replace('/settings/skills')
     } catch (err) {
-      notify.error(err instanceof Error ? err.message : '从 GitHub 导入 Skill 失败')
+      notify.error(err instanceof Error ? err.message : t('gitAgent.skillImportFailed') || 'Failed to import skill from GitHub')
     } finally {
       setGhFetching(false)
     }
@@ -157,7 +159,7 @@ export function SkillEditor({ skillId }: SkillEditorProps) {
     if (!skill) return
     await toggleSkill(skill.id, !skill.enabled)
     setSkill({ ...skill, enabled: !skill.enabled })
-    notify.success(skill.enabled ? 'Skill 已禁用' : 'Skill 已启用')
+    notify.success(skill.enabled ? t('gitAgent.skillDisabled') || 'Skill disabled' : t('gitAgent.skillEnabled') || 'Skill enabled')
   }
 
   // Check and sync GitHub updates
@@ -170,12 +172,12 @@ export function SkillEditor({ skillId }: SkillEditorProps) {
         await saveSkill(res.updatedSkill)
         setSkill(res.updatedSkill)
         setEditedContent(res.updatedSkill.content || '')
-        notify.success('GitHub Skill 已同步至最新版本')
+        notify.success(t('gitAgent.skillUpdated') || 'GitHub skill updated to latest version')
       } else {
-        notify.info('当前 Skill 已是最新版本')
+        notify.info(t('gitAgent.skillUpToDate') || 'Current skill is already up to date')
       }
     } catch (err) {
-      notify.error(err instanceof Error ? err.message : '检查更新失败')
+      notify.error(err instanceof Error ? err.message : t('gitAgent.skillUpdateFailed') || 'Failed to check for updates')
     } finally {
       setIsUpdating(false)
     }
@@ -194,7 +196,7 @@ export function SkillEditor({ skillId }: SkillEditorProps) {
     }
     await saveSkill(updated)
     setSkill(updated)
-    notify.success('已保存 Skill 指令内容')
+    notify.success(t('gitAgent.skillSaved') || 'Skill content saved')
   }
 
   // Delete skill
@@ -207,7 +209,7 @@ export function SkillEditor({ skillId }: SkillEditorProps) {
       confirmVariant: 'fail',
       onConfirm: async () => {
         await deleteSkill(skill.id)
-        notify.success('已移除 Skill')
+        notify.success(t('gitAgent.skillRemoved') || 'Skill removed')
         router.replace('/settings/skills')
       },
     })

@@ -42,7 +42,7 @@ import { formControl, formDesc, formField, formFieldInlineDense, formTitle, form
 import { useNotification } from '@/components/notification/useNotification'
 import { ApiKeyInput, Badge, Button, EmptyState, Modal, ScrollArea, SwitchToggle, TextInput, Tooltip } from '@/components/sk'
 import { copyToClipboard } from '@/lib/clipboard'
-import { getDriverMode, getGitDriver } from '@/lib/git/driver'
+import { getGitDriver, useGitDriver } from '@/lib/git/driver'
 import { extractProjectRemotes, getRemoteCloudType, hasSavedRemote, projectOpenTarget, projectSource, remoteIdentity, type ResolvedRemoteSource } from '@/lib/git/project-access'
 import { addTemporaryRepo, parseRemoteUrl, removeTemporaryRepo, type TemporaryRepo, useTemporaryRepos } from '@/lib/git/temporary-store'
 import type { GitProjectHost, GitProjectView } from '@/lib/git/types'
@@ -77,6 +77,11 @@ type DropTarget = { group: string; beforeId: string | null }
 
 const PROJECT_MIME = 'application/x-yggdrasil-project-id'
 
+/** Internal default group identifiers used for persistence and initial state. */
+const DEFAULT_GROUP_WORK = '工作项目'
+const DEFAULT_GROUP_PERSONAL = '个人项目'
+const DEFAULT_GROUP_UNGROUPED = '未分类'
+
 function HostIcon({ host }: { host: GitProjectHost | 'generic' }) {
   if (host === 'github') return <LuGithub className="size-3.5 shrink-0 text-ink" aria-hidden />
   if (host === 'gitlab') return <LuGitlab className="size-3.5 shrink-0 text-ink" aria-hidden />
@@ -107,9 +112,14 @@ export function GitProjectMenu({
   searchRequest = 0,
 }: Props) {
   const t = useT()
+  const { isEdge } = useGitDriver()
   const confirm = useConfirm()
   const [query, setQuery] = useState('')
-  const [openGroups, setOpenGroups] = useGitUiPref('projectMenu.openGroups', { 工作项目: true, 个人项目: true } as Record<string, boolean>, isRecordBoolean)
+  const [openGroups, setOpenGroups] = useGitUiPref(
+    'projectMenu.openGroups',
+    { [DEFAULT_GROUP_WORK]: true, [DEFAULT_GROUP_PERSONAL]: true } as Record<string, boolean>,
+    isRecordBoolean
+  )
   const [remoteOpen, setRemoteOpen] = useState(false)
   const [bindingRemoteProject, setBindingRemoteProject] = useState<GitProjectView | null>(null)
   const [bindRemoteBusy, setBindRemoteBusy] = useState(false)
@@ -163,8 +173,8 @@ export function GitProjectMenu({
 
   const copyValue = async (value: string) => {
     const ok = await copyToClipboard(value)
-    if (ok) notify.success(t('common.copied') || '已复制')
-    else notify.error(t('common.copyFailed') || '复制失败')
+    if (ok) notify.success(t('common.copied') || 'Copied')
+    else notify.error(t('common.copyFailed') || 'Copy failed')
   }
 
   const startRenameFolder = (group: string) => {
@@ -186,7 +196,7 @@ export function GitProjectMenu({
         copy[next] = true
         return copy
       })
-      notify.success('文件夹重命名成功')
+      notify.success(t('git.project.renameFolderSuccess') || 'Folder renamed successfully')
     }
   }
 
@@ -198,7 +208,7 @@ export function GitProjectMenu({
     if (errorMsg) {
       notify.error(errorMsg)
     } else {
-      notify.success(next ? '已设置项目别名' : '已清除项目别名')
+      notify.success(next ? t('git.project.setAliasSuccess') || 'Project alias set' : t('git.project.clearAliasSuccess') || 'Project alias cleared')
     }
   }
 
@@ -211,42 +221,42 @@ export function GitProjectMenu({
     const items: FloatingMenuItem[] = [
       {
         key: 'rename-folder',
-        label: '重命名文件夹',
+        label: t('git.project.renameFolder') || 'Rename Folder',
         icon: <LuPencil className="size-3.5 text-accent" />,
         onSelect: () => startRenameFolder(group),
-        group: '操作',
+        group: t('git.operations.groupActions') || 'Actions',
       },
       {
         key: 'toggle-expand',
-        label: expanded ? '折叠文件夹' : '展开文件夹',
+        label: expanded ? t('git.project.collapseFolder') || 'Collapse Folder' : t('git.project.expandFolder') || 'Expand Folder',
         icon: expanded ? <LuChevronDown className="size-3.5" /> : <LuChevronRight className="size-3.5" />,
         onSelect: () => setOpenGroups((prev) => ({ ...prev, [group]: !expanded })),
-        group: '操作',
+        group: t('git.operations.groupActions') || 'Actions',
       },
       {
         key: 'copy-folder-name',
-        label: `复制文件夹名称 (${group})`,
+        label: t('git.project.copyFolderName', { name: group }) || `Copy folder name (${group})`,
         icon: <LuCopy className="size-3.5 text-accent" />,
         onSelect: () => void copyValue(group),
-        group: '复制',
+        group: t('git.operations.groupCopy') || 'Copy',
       },
       {
         key: 'copy-projects-list',
-        label: `复制组内所有项目名 (${itemsInGroup.length} 个)`,
+        label: t('git.project.copyProjectsList', { count: itemsInGroup.length }) || `Copy project names (${itemsInGroup.length})`,
         icon: <LuCopy className="size-3.5 text-accent" />,
         onSelect: () => void copyValue(itemsInGroup.map((p) => p.label || p.name).join('\n')),
-        group: '复制',
+        group: t('git.operations.groupCopy') || 'Copy',
       },
       ...(onClearFolder
         ? [
             {
               key: 'clear-folder',
-              label: '清空文件夹 (移出所有项目)',
+              label: t('git.project.clearFolder') || 'Clear folder (move out all projects)',
               icon: <LuTrash2 className="size-3.5 text-warn" />,
               onSelect: async () => {
                 const msg = await onClearFolder(group)
                 if (msg) notify.error(msg)
-                else notify.success('已清空文件夹')
+                else notify.success(t('git.project.clearFolderSuccess') || 'Folder cleared')
               },
               dividerBefore: true,
             },
@@ -254,7 +264,7 @@ export function GitProjectMenu({
         : []),
       {
         key: 'delete-folder',
-        label: '删除文件夹',
+        label: t('git.project.deleteFolder') || 'Delete folder',
         icon: <LuTrash2 className="size-3.5 text-fail" />,
         onSelect: () => void requestDeleteFolder(group),
       },
@@ -304,29 +314,31 @@ export function GitProjectMenu({
     const items: FloatingMenuItem[] = [
       {
         key: 'edit-label',
-        label: project.label ? `修改别名 (当前: ${project.label})` : '设置项目别名 / 备注',
+        label: project.label
+          ? t('git.project.editAliasCurrent', { label: project.label }) || `Edit alias (Current: ${project.label})`
+          : t('git.project.setAlias') || 'Set project alias / notes',
         icon: <LuPencil className="size-3.5 text-accent" />,
         onSelect: () => {
           setEditingLabelProjectId(project.id)
           setProjectLabelDraft(project.label || '')
         },
-        group: '操作',
+        group: t('git.project.groupAction') || 'Actions',
       },
       {
         key: 'copy-name',
-        label: `复制项目名称 (${project.name})`,
+        label: t('git.project.copyProjectName', { name: project.name }) || `Copy project name (${project.name})`,
         icon: <LuCopy className="size-3.5 text-accent" />,
         onSelect: () => void copyValue(project.name),
-        group: '复制',
+        group: t('git.project.groupCopy') || 'Copy',
       },
       ...(project.label
         ? [
             {
               key: 'copy-label',
-              label: `复制项目别名 (${project.label})`,
+              label: t('git.project.copyProjectAlias', { label: project.label }) || `Copy project alias (${project.label})`,
               icon: <LuCopy className="size-3.5 text-accent" />,
               onSelect: () => void copyValue(project.label!),
-              group: '复制',
+              group: t('git.project.groupCopy') || 'Copy',
             },
           ]
         : []),
@@ -334,19 +346,19 @@ export function GitProjectMenu({
         ? [
             {
               key: 'copy-path',
-              label: `复制本地路径 (${project.localPath})`,
+              label: t('git.project.copyLocalPath', { path: project.localPath }) || `Copy local path (${project.localPath})`,
               icon: <LuHardDrive className="size-3.5 text-ink-soft" />,
               onSelect: () => void copyValue(project.localPath),
-              group: '复制',
+              group: t('git.project.groupCopy') || 'Copy',
             },
-            ...(getDriverMode() === 'local'
+            ...(!isEdge
               ? [
                   {
                     key: 'reveal-finder',
-                    label: '在访达/资源管理器中显示',
+                    label: t('git.project.revealInFinder') || 'Reveal in Finder / File Explorer',
                     icon: <LuFolder className="size-3.5 text-accent" />,
                     onSelect: () => void handleOpenLocalFolder(e, project.localPath),
-                    group: '操作',
+                    group: t('git.project.groupAction') || 'Actions',
                   },
                 ]
               : []),
@@ -356,17 +368,17 @@ export function GitProjectMenu({
         ? [
             {
               key: 'copy-url',
-              label: `复制仓库 URL`,
+              label: t('git.project.copyRepoUrl') || 'Copy repository URL',
               icon: <LuGlobe className="size-3.5 text-ink-soft" />,
               onSelect: () => void copyValue(project.httpsUrl),
-              group: '复制',
+              group: t('git.project.groupCopy') || 'Copy',
             },
             {
               key: 'open-browser',
-              label: '在浏览器中打开远端',
+              label: t('git.project.openInBrowser') || 'Open remote in browser',
               icon: <LuExternalLink className="size-3.5 text-accent" />,
               onSelect: () => window.open(project.httpsUrl.replace(/\.git$/, ''), '_blank'),
-              group: '操作',
+              group: t('git.project.groupAction') || 'Actions',
             },
           ]
         : []),
@@ -374,7 +386,7 @@ export function GitProjectMenu({
         ? [
             {
               key: 'remove-project',
-              label: '从项目切换器中移除',
+              label: t('git.project.removeFromSwitcher') || 'Remove from project switcher',
               icon: <LuTrash2 className="size-3.5 text-fail" />,
               onSelect: () => void requestRemoveProject(project),
               dividerBefore: true,
@@ -498,11 +510,23 @@ export function GitProjectMenu({
     }).finally(() => setFolderDeleting(false))
   }
 
+  const handleOpenTarget = useCallback(
+    (targetPath: string) => {
+      setQuery('')
+      setSearchMenuOpen(false)
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('yggit:clear_searches', { detail: { repo: targetPath } }))
+      }
+      onOpen(targetPath)
+      onClose()
+    },
+    [onOpen, onClose]
+  )
+
   const handleOpenRemoteTemporary = (parsed: ReturnType<typeof parseRemoteUrl>) => {
     if (!parsed) return
     const temp = addTemporaryRepo(parsed)
-    onOpen(temp.remoteUrl)
-    setQuery('')
+    handleOpenTarget(temp.remoteUrl)
     onClose()
   }
 
@@ -865,7 +889,7 @@ export function GitProjectMenu({
           />
         </div>
       </div>
-      {/* 工作台入口 (Workdesk Entry) */}
+      {/* Workdesk Entry */}
       {!query && (
         <div className="border-b border-line p-1">
           <button
@@ -873,7 +897,7 @@ export function GitProjectMenu({
             data-workdesk-entry="true"
             onClick={() => {
               onClose()
-              onOpen('')
+              handleOpenTarget('')
             }}
             className={cn(
               'flex h-8 w-full items-center justify-between rounded-lg px-2.5 text-xs font-semibold transition-colors cursor-pointer',
@@ -882,7 +906,7 @@ export function GitProjectMenu({
           >
             <div className="flex items-center gap-2">
               <LuFlag className="size-3.5 text-accent" aria-hidden="true" />
-              <span>{t('workdesk.topbarTitle') || '工作台'}</span>
+              <span>{t('workdesk.topbarTitle') || 'Workdesk'}</span>
             </div>
             {!currentPath && <LuCheck className="size-3.5 text-accent" aria-hidden="true" />}
           </button>
@@ -951,7 +975,7 @@ export function GitProjectMenu({
                             current && 'bg-[color-mix(in_oklab,var(--accent)_18%,transparent)] hover:enabled:bg-[color-mix(in_oklab,var(--accent)_24%,transparent)]'
                           )}
                           onClick={() => {
-                            onOpen(temp.remoteUrl)
+                            handleOpenTarget(temp.remoteUrl)
                             onClose()
                           }}
                         >
@@ -965,7 +989,7 @@ export function GitProjectMenu({
                         </Button>
                         <div className="flex shrink-0 items-center gap-0.5 opacity-80 group-hover/temp:opacity-100">
                           {tempCloudType === 'single-private' ? (
-                            <Tooltip content={`私有远端: ${tempRemotes[0].name} · 点击打开`}>
+                            <Tooltip content={t('git.project.privateRemoteTooltip', { name: tempRemotes[0].name }) || `Private remote: ${tempRemotes[0].name} · Click to open`}>
                               <button
                                 type="button"
                                 onClick={(e) => {
@@ -973,13 +997,13 @@ export function GitProjectMenu({
                                   window.open(tempRemotes[0].webUrl, '_blank')
                                 }}
                                 className="flex size-6 cursor-pointer items-center justify-center rounded text-warn transition-colors hover:bg-warn/15 hover:text-warn/80"
-                                aria-label={`私有远端: ${tempRemotes[0].name}`}
+                                aria-label={t('git.project.privateRemoteAria', { name: tempRemotes[0].name }) || `Private remote: ${tempRemotes[0].name}`}
                               >
                                 <TbCloudLock className="size-3.5 text-warn" aria-hidden="true" />
                               </button>
                             </Tooltip>
                           ) : tempCloudType === 'single-public' ? (
-                            <Tooltip content={`开源远端: ${tempRemotes[0].name} · 点击打开`}>
+                            <Tooltip content={t('git.project.publicRemoteTooltip', { name: tempRemotes[0].name }) || `Public remote: ${tempRemotes[0].name} · Click to open`}>
                               <button
                                 type="button"
                                 onClick={(e) => {
@@ -987,7 +1011,7 @@ export function GitProjectMenu({
                                   window.open(tempRemotes[0].webUrl, '_blank')
                                 }}
                                 className="flex size-6 cursor-pointer items-center justify-center rounded text-accent transition-colors hover:bg-accent/15 hover:text-[color-mix(in_oklab,var(--accent)_80%,black)]"
-                                aria-label={`开源远端: ${tempRemotes[0].name}`}
+                                aria-label={t('git.project.publicRemoteAria', { name: tempRemotes[0].name }) || `Public remote: ${tempRemotes[0].name}`}
                               >
                                 <LuCloud className="size-3.5 text-accent" aria-hidden="true" />
                               </button>
@@ -1083,7 +1107,15 @@ export function GitProjectMenu({
                     >
                       {expanded ? <LuChevronDown className="size-3.5 shrink-0" aria-hidden /> : <LuChevronRight className="size-3.5 shrink-0" aria-hidden />}
                       <LuFolder className="size-3.5 shrink-0" aria-hidden />
-                      <span className="min-w-0 truncate whitespace-nowrap text-left">{group}</span>
+                      <span className="min-w-0 truncate whitespace-nowrap text-left">
+                        {group === DEFAULT_GROUP_WORK
+                          ? t('git.project.folderWork') || 'Work Projects'
+                          : group === DEFAULT_GROUP_PERSONAL
+                            ? t('git.project.folderPersonal') || 'Personal Projects'
+                            : group === DEFAULT_GROUP_UNGROUPED
+                              ? t('git.project.folderUngrouped') || 'Ungrouped'
+                              : group}
+                      </span>
                       <Badge tone="neutral" size="mini" dot={false} className="shrink-0">
                         {groupCount}
                       </Badge>
@@ -1095,8 +1127,8 @@ export function GitProjectMenu({
                         variant="plain"
                         size="icon"
                         className="size-6 shrink-0 text-ink-soft hover:enabled:bg-[var(--overlay-08)] hover:enabled:text-accent"
-                        aria-label="重命名文件夹"
-                        tooltip="重命名文件夹"
+                        aria-label={t('git.project.renameFolder') || 'Rename folder'}
+                        tooltip={t('git.project.renameFolder') || 'Rename folder'}
                         disabled={busy}
                         onClick={(e) => {
                           e.stopPropagation()
@@ -1129,7 +1161,7 @@ export function GitProjectMenu({
                       const current = Boolean(target) && (target === currentPath || (online && remoteIdentity(target) === remoteIdentity(currentPath)))
                       const showBefore = dropTarget?.group === group && dropTarget.beforeId === project.id
                       const showAfter = dropTarget?.group === group && dropTarget.beforeId === null && index === items.length - 1 && draggingId !== project.id
-                      const isEdgeMode = getDriverMode() === 'edge'
+                      const isEdgeMode = isEdge
                       const remotes = extractProjectRemotes(project)
                       const cloudType = getRemoteCloudType(remotes)
                       const hasLocal = Boolean(project.localPath)
@@ -1159,7 +1191,7 @@ export function GitProjectMenu({
                                   autoFocus
                                   type="text"
                                   value={projectLabelDraft}
-                                  placeholder="设置项目别名/备注…"
+                                  placeholder={t('git.project.aliasPlaceholder') || 'Set project alias / notes…'}
                                   className="h-6 w-full rounded border border-accent bg-paper px-2 text-xs text-ink outline-none focus:ring-1 focus:ring-accent"
                                   onClick={(e) => e.stopPropagation()}
                                   onChange={(e) => setProjectLabelDraft(e.target.value)}
@@ -1189,7 +1221,7 @@ export function GitProjectMenu({
                                 onDragStart={(event) => onProjectDragStart(event, project.id)}
                                 onDragEnd={onProjectDragEnd}
                                 onClick={() => {
-                                  if (target) onOpen(target)
+                                  if (target) handleOpenTarget(target)
                                   else setCloneTarget(project)
                                 }}
                               >
@@ -1223,7 +1255,7 @@ export function GitProjectMenu({
                                 </Button>
                               )}
                               {/* Edit project label button on hover */}
-                              <Tooltip content={project.label ? '修改项目别名' : '设置项目别名'}>
+                              <Tooltip content={project.label ? t('git.project.editAlias') || 'Edit project alias' : t('git.project.setAlias') || 'Set project alias'}>
                                 <button
                                   type="button"
                                   onClick={(e) => {
@@ -1232,24 +1264,24 @@ export function GitProjectMenu({
                                     setProjectLabelDraft(project.label || '')
                                   }}
                                   className="flex size-6 opacity-0 pointer-events-none group-hover/item:pointer-events-auto group-hover/item:opacity-100 cursor-pointer items-center justify-center rounded text-ink-soft transition-all hover:bg-[var(--overlay-08)] hover:text-accent"
-                                  aria-label="设置项目别名"
+                                  aria-label={t('git.project.setAlias') || 'Set project alias'}
                                 >
                                   <LuPencil className="size-3" aria-hidden="true" />
                                 </button>
                               </Tooltip>
                               {/* 1. Local Folder Icon Slot */}
                               {hasLocal ? (
-                                <Tooltip content={isEdgeMode ? '本地项目' : '打开本地项目'}>
+                                <Tooltip content={isEdgeMode ? t('git.project.localProject') || 'Local project' : t('git.project.openLocalProject') || 'Open local project'}>
                                   <button
                                     type="button"
                                     onClick={(e) => {
                                       e.stopPropagation()
-                                      if (!isEdgeMode && project.localPath) {
+                                      if (project.localPath) {
                                         void handleOpenLocalFolder(e, project.localPath)
                                       }
                                     }}
                                     className="flex size-6 cursor-pointer items-center justify-center rounded text-ink-soft transition-colors hover:bg-[var(--overlay-08)] hover:text-accent"
-                                    aria-label={isEdgeMode ? '本地项目' : '打开本地项目'}
+                                    aria-label={isEdgeMode ? t('git.project.localProject') || 'Local project' : t('git.project.openLocalProject') || 'Open local project'}
                                   >
                                     {isEdgeMode && project.authorized === false ? (
                                       <LuLockKeyhole className="size-3.5 text-warn" aria-hidden="true" />
@@ -1264,7 +1296,7 @@ export function GitProjectMenu({
 
                               {/* 2. Remote Cloud Icon Slot */}
                               {cloudType === 'single-public' ? (
-                                <Tooltip content={`开源远端: ${remotes[0].name} · 点击打开`}>
+                                <Tooltip content={t('git.project.publicRemoteTooltip', { name: remotes[0].name }) || `Public remote: ${remotes[0].name} · Click to open`}>
                                   <button
                                     type="button"
                                     onClick={(e) => {
@@ -1272,13 +1304,13 @@ export function GitProjectMenu({
                                       window.open(remotes[0].webUrl, '_blank')
                                     }}
                                     className="flex size-6 cursor-pointer items-center justify-center rounded text-accent transition-colors hover:bg-accent/15 hover:text-[color-mix(in_oklab,var(--accent)_80%,black)]"
-                                    aria-label={`开源远端: ${remotes[0].name}`}
+                                    aria-label={t('git.project.publicRemoteAria', { name: remotes[0].name }) || `Public remote: ${remotes[0].name}`}
                                   >
                                     <LuCloud className="size-3.5 text-accent" aria-hidden="true" />
                                   </button>
                                 </Tooltip>
                               ) : cloudType === 'single-private' ? (
-                                <Tooltip content={`私有远端: ${remotes[0].name} · 点击打开`}>
+                                <Tooltip content={t('git.project.privateRemoteTooltip', { name: remotes[0].name }) || `Private remote: ${remotes[0].name} · Click to open`}>
                                   <button
                                     type="button"
                                     onClick={(e) => {
@@ -1286,13 +1318,13 @@ export function GitProjectMenu({
                                       window.open(remotes[0].webUrl, '_blank')
                                     }}
                                     className="flex size-6 cursor-pointer items-center justify-center rounded text-warn transition-colors hover:bg-warn/15 hover:text-warn/80"
-                                    aria-label={`私有远端: ${remotes[0].name}`}
+                                    aria-label={t('git.project.privateRemoteAria', { name: remotes[0].name }) || `Private remote: ${remotes[0].name}`}
                                   >
                                     <TbCloudLock className="size-3.5 text-warn" aria-hidden="true" />
                                   </button>
                                 </Tooltip>
                               ) : cloudType === 'mixed' ? (
-                                <Tooltip content="远端源列表 (多个源) · 点击展开">
+                                <Tooltip content={t('git.project.remotesListTooltip') || 'Remote list (multiple remotes) · Click to expand'}>
                                   <button
                                     type="button"
                                     onClick={(e) => {
@@ -1304,7 +1336,7 @@ export function GitProjectMenu({
                                       'flex size-6 cursor-pointer items-center justify-center rounded text-ink-soft transition-colors hover:bg-[var(--overlay-08)] hover:text-ink',
                                       remotesMenuAnchor?.projectId === project.id && 'bg-[var(--overlay-08)] text-accent'
                                     )}
-                                    aria-label="远端源列表"
+                                    aria-label={t('git.project.remotesList') || 'Remote list'}
                                     aria-haspopup="menu"
                                     aria-expanded={remotesMenuAnchor?.projectId === project.id}
                                   >
@@ -1312,7 +1344,7 @@ export function GitProjectMenu({
                                   </button>
                                 </Tooltip>
                               ) : (
-                                <Tooltip content={t('git.project.noRemoteBind') || '未配置远端 · 点击绑定/添加远程服务'}>
+                                <Tooltip content={t('git.project.noRemoteBind')}>
                                   <button
                                     type="button"
                                     onClick={(e) => {
@@ -1320,7 +1352,7 @@ export function GitProjectMenu({
                                       setBindingRemoteProject(project)
                                     }}
                                     className="flex size-6 cursor-pointer items-center justify-center rounded text-ink-soft/60 transition-colors hover:bg-[var(--overlay-08)] hover:text-accent"
-                                    aria-label={t('git.project.noRemoteBind') || '绑定/添加远程服务'}
+                                    aria-label={t('git.project.noRemoteBind')}
                                   >
                                     <LuCloudOff className="size-3.5 text-ink-soft/60 hover:text-accent transition-colors" aria-hidden="true" />
                                   </button>
@@ -1353,7 +1385,7 @@ export function GitProjectMenu({
           className="w-64 rounded-xl border border-line bg-panel p-1.5 shadow-2xl backdrop-blur-md"
         >
           <div className="flex items-center justify-between border-b border-line px-2 py-1 text-[0.68rem] font-semibold text-ink-soft">
-            <span>远端源列表 ({remotesMenuAnchor.remotes.length})</span>
+            <span>{t('git.project.remotesListTitle', { count: remotesMenuAnchor.remotes.length }) || `Remote list (${remotesMenuAnchor.remotes.length})`}</span>
             <button
               type="button"
               onClick={(e) => {
@@ -1361,14 +1393,14 @@ export function GitProjectMenu({
                 setRemotesMenuAnchor(null)
               }}
               className="flex size-4 cursor-pointer items-center justify-center rounded text-ink-soft hover:text-ink"
-              aria-label="关闭"
+              aria-label={t('common.close') || 'Close'}
             >
               <LuX className="size-3" />
             </button>
           </div>
           <div className="mt-1 flex max-h-48 flex-col gap-0.5 overflow-y-auto">
             {remotesMenuAnchor.remotes.map((remote) => (
-              <Tooltip key={remote.url} content={`在浏览器中打开: ${remote.webUrl}`} placement="left">
+              <Tooltip key={remote.url} content={t('git.project.openWebUrl', { url: remote.webUrl }) || `Open in browser: ${remote.webUrl}`} placement="left">
                 <button
                   type="button"
                   onClick={(e) => {
@@ -1380,9 +1412,9 @@ export function GitProjectMenu({
                 >
                   <div className="flex min-w-0 flex-1 items-center gap-2">
                     {remote.isPrivate ? (
-                      <TbCloudLock className="size-4 shrink-0 text-warn" aria-label="私有远端" />
+                      <TbCloudLock className="size-4 shrink-0 text-warn" aria-label={t('git.project.privateRemote') || 'Private remote'} />
                     ) : (
-                      <LuCloud className="size-4 shrink-0 text-accent" aria-label="开源远端" />
+                      <LuCloud className="size-4 shrink-0 text-accent" aria-label={t('git.project.publicRemote') || 'Public remote'} />
                     )}
                     <div className="min-w-0 flex-1">
                       <span className="truncate font-mono font-medium text-xs text-ink block">{remote.name}</span>
@@ -1510,7 +1542,7 @@ export function GitProjectMenu({
                 configured={false}
                 unlocked={tokenUnlocked}
                 onUnlockedChange={setTokenUnlocked}
-                placeholder="GitLab / GitHub token"
+                placeholder={t('git.project.tokenPlaceholder') || 'GitLab / GitHub token'}
                 invalid={fieldInvalid.token}
                 aria-describedby={formError && fieldInvalid.token ? formErrorId : undefined}
                 value={token}
@@ -1631,15 +1663,15 @@ export function GitProjectMenu({
               const repo = bindingRemoteProject.localPath || bindingRemoteProject.id
               const driver = getGitDriver()
               const res = await driver.addRemote(repo, name, pullUrl, pushUrl)
-              if (!res.ok) throw new Error(res.message || '添加远程源失败')
-              notify.success(t('git.operations.remoteAdded', { name }) || `成功添加远程源 ${name}`)
+              if (!res.ok) throw new Error(res.message || t('git.operations.addRemoteFail') || 'Failed to add remote')
+              notify.success(t('git.operations.remoteAdded', { name }) || `Successfully added remote ${name}`)
               setBindingRemoteProject(null)
               await onRefreshProjects?.()
               if (repo === currentPath || remoteIdentity(repo) === remoteIdentity(currentPath)) {
                 onOpen(currentPath)
               }
             } catch (err) {
-              notify.error(err instanceof Error ? err.message : '添加远程源失败')
+              notify.error(err instanceof Error ? err.message : t('git.operations.addRemoteFail') || 'Failed to add remote')
             } finally {
               setBindRemoteBusy(false)
             }

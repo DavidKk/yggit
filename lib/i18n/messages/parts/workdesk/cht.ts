@@ -127,5 +127,7 @@ export const workdeskCht: { workdesk: WorkdeskMessages } = {
     lastChecked: '上次檢查: {time}',
     justNow: '剛剛',
     minutesAgo: '{minutes} 分鐘前',
+    trashRelease: '放開以捨棄此卡片',
+    trashDrop: '拖曳到此處捨棄任務',
   },
 }

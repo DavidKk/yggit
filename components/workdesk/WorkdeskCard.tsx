@@ -116,7 +116,7 @@ export function WorkdeskCard({ card, className, noWrapperMargin = false, onSelec
           }
         }}
         className={cn(
-          'group relative z-10 flex min-h-[58px] cursor-pointer flex-col justify-center rounded-xl border border-line bg-panel p-2.5 shadow-xs transition-all duration-150',
+          'group relative z-10 flex h-[62px] min-h-[62px] cursor-pointer flex-col justify-center rounded-xl border border-line bg-panel p-2.5 shadow-xs transition-all duration-150',
           'hover:border-[#b5ddd4] hover:bg-[#f8fcfa] hover:shadow-sm dark:hover:border-emerald-700/50 dark:hover:bg-emerald-950/20',
           'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent/40',
           className
@@ -126,8 +126,8 @@ export function WorkdeskCard({ card, className, noWrapperMargin = false, onSelec
       >
         {/* Top row: Title + Quick Quote to Agent */}
         <div className="flex w-full items-start justify-between gap-2">
-          <span className="line-clamp-2 text-xs font-semibold leading-snug text-ink transition-colors group-hover:text-ink-vivid">{title}</span>
-          <Tooltip content="引用到 Git Agent" placement="top">
+          <span className="line-clamp-1 text-xs font-semibold leading-tight text-ink transition-colors group-hover:text-ink-vivid">{title}</span>
+          <Tooltip content={t('git.operations.quoteToAgent') || 'Quote to Git Agent'} placement="top">
             <button
               type="button"
               onClick={(e) => {
@@ -141,16 +141,17 @@ export function WorkdeskCard({ card, className, noWrapperMargin = false, onSelec
                   prompt,
                 })
               }}
-              className="flex size-6 shrink-0 items-center justify-center rounded-md text-ink-muted opacity-0 group-hover:opacity-100 hover:bg-accent/15 hover:text-accent transition-all duration-150 cursor-pointer"
-              aria-label="引用到 Git Agent"
+              className="flex size-5 shrink-0 items-center justify-center rounded-md text-ink-muted opacity-0 group-hover:opacity-100 hover:bg-accent/15 hover:text-accent transition-all duration-150 cursor-pointer"
+              aria-label={t('git.operations.quoteToAgent') || 'Quote to Git Agent'}
+              data-testid="workdesk-card-agent-btn"
             >
-              <LuBot className="size-3.5" aria-hidden="true" />
+              <LuBot className="size-3" aria-hidden="true" />
             </button>
           </Tooltip>
         </div>
 
         {/* Bottom row: Meta stats with icon + number (>99 formatted as 99+) with Tooltips */}
-        <div className="mt-2 flex items-center gap-3 text-[11px] font-medium text-ink-muted">
+        <div className="mt-1 flex items-center gap-3 text-[11px] font-medium leading-tight text-ink-muted">
           <Tooltip content={`涉及 ${projectCount} 个项目`} placement="top">
             <span className="inline-flex items-center gap-1 cursor-default">
               <LuFolderGit2 className="size-3 text-ink-muted" aria-hidden="true" />

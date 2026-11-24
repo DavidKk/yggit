@@ -44,7 +44,27 @@ class WorkdeskEngine {
           }
         }
       })
+      window.addEventListener('yggit:driver_mode_changed', () => {
+        void this.resetForModeChange()
+      })
     }
+  }
+
+  public async resetForModeChange(): Promise<void> {
+    this.cachedResult = null
+    this.isScanning = false
+    const initial = await this.loadInitial()
+    if (initial) {
+      this.notify(initial)
+    } else {
+      this.notify({
+        lastChecked: Date.now(),
+        findings: [],
+        cards: [],
+        items: {},
+      })
+    }
+    await this.scan().catch(() => {})
   }
 
   public subscribe(listener: ScanListener): () => void {

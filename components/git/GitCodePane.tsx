@@ -64,6 +64,20 @@ export function GitCodePane({
   useGitFindPanel(panelRef, findInputRef, () => setShowFind(true))
   const [query, setQuery] = useState('')
   const [match, setMatch] = useState(0)
+
+  useEffect(() => {
+    setQuery('')
+    setShowFind(false)
+  }, [path])
+
+  useEffect(() => {
+    function onClearSearches() {
+      setQuery('')
+      setShowFind(false)
+    }
+    window.addEventListener('yggit:clear_searches', onClearSearches)
+    return () => window.removeEventListener('yggit:clear_searches', onClearSearches)
+  }, [])
   const needle = query.trim().toLowerCase()
   const lines = useMemo(() => rows.map((row) => row.text), [rows])
   const tokens = useGitLineTokens(lines, path)

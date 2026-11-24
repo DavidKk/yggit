@@ -79,9 +79,11 @@ export async function resolveGitRepo(input?: string): Promise<string> {
       } catch {
         // Fall through
       }
+
+      throw new Error(`无法找到指定的 Git 仓库: ${raw}`)
     }
   }
-  const fallback = (raw && fs.existsSync(raw) ? raw : '') || ROOT_PATH
+  const fallback = ROOT_PATH
   try {
     return (await git(fallback, ['rev-parse', '--show-toplevel'])).trim()
   } catch (error) {

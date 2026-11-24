@@ -25,6 +25,10 @@ const MAX_CLIENT_CACHE = 200
 export class LocalGitDriver implements IGitDriver {
   readonly mode = 'local' as const
 
+  clearCache(_repo?: string): void {
+    commitDiffClientCache.clear()
+  }
+
   async isAvailable(): Promise<boolean> {
     if (typeof window === 'undefined') return true
     try {

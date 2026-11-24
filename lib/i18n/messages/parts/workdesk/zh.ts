@@ -127,5 +127,7 @@ export const workdeskZh: { workdesk: WorkdeskMessages } = {
     lastChecked: '上次检查: {time}',
     justNow: '刚刚',
     minutesAgo: '{minutes} 分钟前',
+    trashRelease: '松开以丢弃此卡片',
+    trashDrop: '拖拽到此处丢弃任务',
   },
 }

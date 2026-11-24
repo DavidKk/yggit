@@ -132,6 +132,20 @@ export function GitHistory({
   const [atBottom, setAtBottom] = useState(false)
   const [query, setQuery] = useState('')
   const [findOpen, setFindOpen] = useState(false)
+
+  useEffect(() => {
+    setQuery('')
+    setFindOpen(false)
+  }, [repo])
+
+  useEffect(() => {
+    function onClearSearches() {
+      setQuery('')
+      setFindOpen(false)
+    }
+    window.addEventListener('yggit:clear_searches', onClearSearches)
+    return () => window.removeEventListener('yggit:clear_searches', onClearSearches)
+  }, [])
   const holdExplore = useGitUiDebugHoldExploreLoading()
   stateRef.current = { repo, scope, commits, hasMore, hasPrev, startIndex }
 

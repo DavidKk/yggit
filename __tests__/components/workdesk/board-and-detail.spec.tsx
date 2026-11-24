@@ -31,6 +31,7 @@ jest.mock('next/link', () => ({
 }))
 
 jest.mock('@/components/i18n/LocaleProvider', () => ({
+  useLocale: () => ({ locale: 'en', preference: 'en', ready: true, setLocale: jest.fn(), t: (k: string) => k }),
   useT: () => (key: string, params?: Record<string, unknown>) => {
     if (params) {
       return Object.entries(params).reduce((acc, [k, v]) => acc.replace(`{${k}}`, String(v)), key)
@@ -301,7 +302,7 @@ describe('Workdesk Components', () => {
       root.render(<WorkdeskCard card={sampleCard} />)
     })
 
-    const agentBtn = host.querySelector('button[aria-label="引用到 Git Agent"]') as HTMLButtonElement | null
+    const agentBtn = host.querySelector('[data-testid="workdesk-card-agent-btn"]') as HTMLButtonElement | null
     expect(agentBtn).not.toBeNull()
 
     act(() => {
@@ -351,7 +352,7 @@ describe('Workdesk Components', () => {
     // Trash dropzone appears
     const trashZone = host.querySelector('[data-testid="workdesk-trash-dropzone"]') as HTMLElement | null
     expect(trashZone).not.toBeNull()
-    expect(trashZone?.textContent).toContain('拖拽到此处丢弃任务')
+    expect(trashZone?.textContent).toContain('workdesk.trashDrop')
 
     // Drop onto trash zone
     act(() => {

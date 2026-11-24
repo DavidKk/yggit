@@ -191,7 +191,7 @@ export function RefChipsCell({
         if (onCheckoutBranch) {
           void onCheckoutBranch(branch, remoteFlag ?? isRemote)
         } else {
-          quotePromptToAgent(`帮我跳转到 ${branch}`)
+          quotePromptToAgent(`${t('git.operations.checkoutBranch') || 'Switch to'} ${branch}`)
         }
       },
       onPushBranch,

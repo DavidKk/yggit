@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import React, { useEffect, useState } from 'react'
 import { LuBookOpen, LuChevronRight, LuPlus, LuSparkles } from 'react-icons/lu'
 
+import { useT } from '@/components/i18n/LocaleProvider'
 import { useNotification } from '@/components/notification/useNotification'
 import { Badge, Button, SwitchToggle } from '@/components/sk'
 import { listSkills, subscribeSkills, toggleSkill } from '@/lib/skills/storage'
@@ -14,6 +15,7 @@ import { cn } from '@/lib/utils'
 import { SettingsSectionCard } from './SettingsSectionCard'
 
 export function SkillsSettingsSection() {
+  const t = useT()
   const router = useRouter()
   const notify = useNotification()
   const [skills, setSkills] = useState<SkillDescriptor[]>([])
@@ -35,7 +37,7 @@ export function SkillsSettingsSection() {
 
   const handleToggle = async (id: string, current: boolean) => {
     await toggleSkill(id, !current)
-    notify.success(current ? 'Skill 已禁用' : 'Skill 已启用')
+    notify.success(current ? t('gitAgent.skillDisabled') || 'Skill disabled' : t('gitAgent.skillEnabled') || 'Skill enabled')
   }
 
   return (

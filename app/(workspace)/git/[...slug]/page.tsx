@@ -57,7 +57,13 @@ export default async function GitSlugPage({ params, searchParams }: Props) {
   return (
     <>
       <GitUiBootScript />
-      <GitLogPage initial={initial} initialCommitHash={initialCommitHash} initialFilePath={initialFilePath} initialPersistence={resolved.persistence} />
+      <GitLogPage
+        key={resolved.repoPathOrUrl || slug.join('/')}
+        initial={initial}
+        initialCommitHash={initialCommitHash}
+        initialFilePath={initialFilePath}
+        initialPersistence={resolved.persistence}
+      />
     </>
   )
 }

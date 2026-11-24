@@ -16,6 +16,12 @@ const DRIVER_MODE_EVENT = 'yggit:driver_mode_changed'
 const localDriverSingleton = new LocalGitDriver()
 const edgeDriverSingleton = new EdgeGitDriver()
 
+export type DriverModeChangedDetail = {
+  mode: GitDriverMode
+  targetRepo?: string
+  targetUrl?: string
+}
+
 /**
  * Read the current driver preference from localStorage.
  * Defaults to 'local' when running on localhost / dev server, or 'edge' when in browser without Node API.
@@ -35,13 +41,13 @@ export function getDriverMode(): GitDriverMode {
 /**
  * Set and persist the driver mode preference
  */
-export function setDriverMode(mode: GitDriverMode): void {
+export function setDriverMode(mode: GitDriverMode, extra?: { targetRepo?: string; targetUrl?: string }): void {
   const storage = typeof window !== 'undefined' ? window.localStorage : typeof localStorage !== 'undefined' ? localStorage : null
   if (!storage) return
   try {
     storage.setItem(DRIVER_MODE_KEY, mode)
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent(DRIVER_MODE_EVENT, { detail: mode }))
+      window.dispatchEvent(new CustomEvent(DRIVER_MODE_EVENT, { detail: { mode, ...extra } }))
     }
   } catch {
     // ignore
@@ -68,17 +74,19 @@ export function useGitDriver() {
     setModeState(getDriverMode())
 
     function onModeChanged(e: Event) {
-      const customEvent = e as CustomEvent<GitDriverMode>
-      if (customEvent.detail === 'edge' || customEvent.detail === 'local') {
-        setModeState(customEvent.detail)
+      const customEvent = e as CustomEvent<GitDriverMode | DriverModeChangedDetail>
+      const detail = customEvent.detail
+      const nextMode = typeof detail === 'string' ? detail : detail?.mode
+      if (nextMode === 'edge' || nextMode === 'local') {
+        setModeState(nextMode)
       }
     }
     window.addEventListener(DRIVER_MODE_EVENT, onModeChanged)
     return () => window.removeEventListener(DRIVER_MODE_EVENT, onModeChanged)
   }, [])
 
-  const setMode = useCallback((nextMode: GitDriverMode) => {
-    setDriverMode(nextMode)
+  const setMode = useCallback((nextMode: GitDriverMode, extra?: { targetRepo?: string; targetUrl?: string }) => {
+    setDriverMode(nextMode, extra)
     setModeState(nextMode)
   }, [])
 

@@ -124,4 +124,6 @@ export interface WorkdeskMessages {
   lastChecked: string
   justNow: string
   minutesAgo: string
+  trashRelease?: string
+  trashDrop?: string
 }

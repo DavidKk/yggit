@@ -185,6 +185,8 @@ export type GitMessages = {
     closeTree: string
     cleanWorktree: string
     cleanWorktreeMsg: string
+    noChangesForMessage?: string
+    autoCommitSummaryGenerated?: string
     noChanges: string
     noChangesMsg: string
     noFiles: string
@@ -246,6 +248,16 @@ export type GitMessages = {
     deleteFolderTip: string
     deleteFolderAria: string
     folderEmpty: string
+    renameFolder?: string
+    collapseFolder?: string
+    expandFolder?: string
+    copyFolderName?: string
+    copyProjectsList?: string
+    clearFolder?: string
+    renameFolderSuccess?: string
+    setAliasSuccess?: string
+    clearAliasSuccess?: string
+    clearFolderSuccess?: string
     folderEmptyMsg: string
     newFolderTitle: string
     newFolderDesc: string
@@ -281,6 +293,35 @@ export type GitMessages = {
     openRemoteTemporary: string
     remoteUrlPlaceholder: string
     noRemoteBind: string
+    folderWork?: string
+    folderPersonal?: string
+    folderUngrouped?: string
+    editAliasCurrent?: string
+    setAlias?: string
+    editAlias?: string
+    aliasPlaceholder?: string
+    copyProjectName?: string
+    copyProjectAlias?: string
+    copyLocalPath?: string
+    revealInFinder?: string
+    copyRepoUrl?: string
+    openInBrowser?: string
+    removeFromSwitcher?: string
+    groupAction?: string
+    groupCopy?: string
+    privateRemoteTooltip?: string
+    privateRemoteAria?: string
+    publicRemoteTooltip?: string
+    publicRemoteAria?: string
+    privateRemote?: string
+    publicRemote?: string
+    localProject?: string
+    openLocalProject?: string
+    remotesListTooltip?: string
+    remotesList?: string
+    remotesListTitle?: string
+    openWebUrl?: string
+    tokenPlaceholder?: string
   }
   status: { add: string; delete: string; rename: string; modify: string }
   driver: {
@@ -353,6 +394,10 @@ export type GitMessages = {
     unhideRemoteAction?: string
     soloRemoteAction?: string
     unsoloRemoteAction?: string
+    aheadCommits?: string
+    behindCommits?: string
+    remoteHiddenTip?: string
+    hiddenBadge?: string
     copyRemoteUrlAction?: string
     copyRemoteUrlSuccess?: string
     openRemoteInBrowser?: string
@@ -516,6 +561,31 @@ export type GitMessages = {
     openRemote?: string
     openRemoteCommit?: string
     openRemoteBranch?: string
+    openRemoteCommitSimple?: string
+    openRemoteBranchSimple?: string
+    stashChangesSimple?: string
+    cherryPickSimple?: string
+    undoCommitSimple?: string
+    pullBranchSimple?: string
+    pushBranchSimple?: string
+    quoteBranchSimple?: string
+    quoteCommitSimple?: string
+    unhideBranchSimple?: string
+    hideBranchSimple?: string
+    unpinBranchSimple?: string
+    pinBranchSimple?: string
+    copyFullPath?: string
+    newBranch?: string
+    mergeBranch?: string
+    rebaseBranch?: string
+    pushFailed?: string
+    pullFailed?: string
+    addRemoteFail?: string
+    ignoreFile?: string
+    ignoreExt?: string
+    stashFile?: string
+    stashFailed?: string
+    createBranchFailed?: string
     openRemotePr?: string
     openRemoteMr?: string
     openRemoteRepo?: string

@@ -97,10 +97,10 @@ export function StorageSettingsSection() {
     try {
       await navigator.clipboard.writeText(localInfo.dataPath)
       setCopied(true)
-      notify.success('存储目录路径已复制到剪贴板')
+      notify.success(t('gitAgent.storageCopied') || 'Storage directory path copied to clipboard')
       setTimeout(() => setCopied(false), 2000)
     } catch {
-      notify.error('复制失败，请手动选取复制')
+      notify.error(t('gitAgent.storageCopyFailed') || 'Failed to copy path')
     }
   }
 
@@ -113,10 +113,10 @@ export function StorageSettingsSection() {
         body: JSON.stringify({ path: localInfo.dataPath, reveal: false }),
       })
       if (!res.ok) {
-        notify.error('打开本地目录失败')
+        notify.error(t('gitAgent.storageOpenFailed') || 'Failed to open local directory')
       }
     } catch {
-      notify.error('打开本地目录失败')
+      notify.error(t('gitAgent.storageOpenFailed') || 'Failed to open local directory')
     }
   }
 
@@ -135,13 +135,13 @@ export function StorageSettingsSection() {
             body: JSON.stringify({ action: 'clearCache' }),
           })
           if (res.ok) {
-            notify.success('本地缓存已成功清理')
+            notify.success(t('gitAgent.storageCacheCleared') || 'Local cache cleared successfully')
             await refresh()
           } else {
-            notify.error('清理缓存失败')
+            notify.error(t('gitAgent.storageCacheClearFailed') || 'Failed to clear cache')
           }
         } catch (err) {
-          notify.error(`清理缓存失败: ${String(err)}`)
+          notify.error(`${t('gitAgent.storageCacheClearFailed') || 'Failed to clear cache'}: ${String(err)}`)
         } finally {
           setBusy(false)
         }
@@ -164,13 +164,13 @@ export function StorageSettingsSection() {
             body: JSON.stringify({ action: 'clearItem', name }),
           })
           if (res.ok) {
-            notify.success(`已清理 ${label}`)
+            notify.success(t('gitAgent.storageClearedItem', { label }) || `Cleared ${label}`)
             await refresh()
           } else {
-            notify.error('清理失败')
+            notify.error(t('gitAgent.storageClearFailedItem') || 'Failed to clear item')
           }
         } catch (err) {
-          notify.error(`清理失败: ${String(err)}`)
+          notify.error(`${t('gitAgent.storageClearFailedItem') || 'Failed to clear item'}: ${String(err)}`)
         } finally {
           setBusy(false)
         }

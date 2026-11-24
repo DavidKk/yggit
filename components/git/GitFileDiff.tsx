@@ -655,7 +655,7 @@ export function GitFileDiff({
     return () => {
       cancelled = true
     }
-  }, [repo, hash, p1Hash, p2Hash, path, hasConflict, commit])
+  }, [repo, hash, p1Hash, p2Hash, path, hasConflict, conflictActive, commit])
 
   useEffect(() => {
     if (regions.length > 0 && conflictNavigation.index === -1) {
@@ -719,8 +719,8 @@ export function GitFileDiff({
     () => [
       { id: 'file' as const, label: t('git.diff.fileView'), icon: <LuFileText />, panelId: 'git-file-view' },
       { id: 'diff' as const, label: t('git.diff.diffView'), icon: <LuGitCompareArrows />, panelId: 'git-diff-view' },
-      { id: 'history' as const, label: t('git.operations.fileHistory') || '文件历史', icon: <LuFileClock />, panelId: 'git-history-view' },
-      { id: 'blame' as const, label: t('git.operations.fileBlame') || '逐行追溯', icon: <LuFingerprint />, panelId: 'git-blame-view' },
+      { id: 'history' as const, label: t('git.operations.fileHistory') || 'File History', icon: <LuFileClock />, panelId: 'git-history-view' },
+      { id: 'blame' as const, label: t('git.operations.fileBlame') || 'File Blame', icon: <LuFingerprint />, panelId: 'git-blame-view' },
     ],
     [t]
   )
@@ -782,6 +782,20 @@ export function GitFileDiff({
   const [showFind, setShowFind] = useState(false)
   const [findQuery, setFindQuery] = useState('')
   const [matchIndex, setMatchIndex] = useState(0)
+
+  useEffect(() => {
+    setFindQuery('')
+    setShowFind(false)
+  }, [repo, path])
+
+  useEffect(() => {
+    function onClearSearches() {
+      setFindQuery('')
+      setShowFind(false)
+    }
+    window.addEventListener('yggit:clear_searches', onClearSearches)
+    return () => window.removeEventListener('yggit:clear_searches', onClearSearches)
+  }, [])
 
   const needle = findQuery.trim().toLowerCase()
 
@@ -988,7 +1002,7 @@ export function GitFileDiff({
           })()}
           {conflictActive ? (
             <span className="shrink-0 text-ink-soft text-[11px] font-normal" title={commit?.author ? `${commit.author} · ${commit.date}` : undefined}>
-              ({t('git.diff.conflictComparison') || '冲突'})
+              ({t('git.diff.conflictComparison') || 'Conflict'})
             </span>
           ) : (
             <CountMarks counts={counts} />
@@ -1003,7 +1017,7 @@ export function GitFileDiff({
             </span>
           ) : null}
         </div>
-        <div className="justify-self-center flex items-center gap-2">
+        <div className="justify-self-center flex items-center justify-start gap-2 min-w-0 sm:min-w-[310px]">
           {conflictActive ? (
             <SegmentedNav
               aria-label={t('git.diff.conflictMode')}
@@ -1017,7 +1031,25 @@ export function GitFileDiff({
             />
           ) : (
             <>
+              {/* Group 1: Content Mode (always present) */}
               <SegmentedNav aria-label={t('git.diff.contentMode')} size="mini" value={currentView} onChange={handleViewChange} items={modeItems} />
+
+              {/* Group 2: Word Wrap Mode (always present, placed before contextual items to keep Group 1 & 2 position rock-solid) */}
+              <SegmentedNav
+                aria-label={t('git.diff.wrapMode')}
+                size="mini"
+                value={wordWrap ? 'wrap' : 'nowrap'}
+                onChange={(val) => setWordWrap(val === 'wrap')}
+                items={[
+                  { id: 'nowrap', label: t('git.diff.noWrap'), icon: <LuAlignLeft /> },
+                  { id: 'wrap', label: t('git.diff.wrap'), icon: <LuWrapText /> },
+                ]}
+              />
+
+              {/* Group 3: Contextual Diff Viewport or File Pane (Markdown/SVG preview) */}
+              {currentView === 'diff' && showDiffViewports ? (
+                <SegmentedNav aria-label={t('git.diff.viewport')} size="mini" value={viewport} onChange={setViewport} items={viewportItems} />
+              ) : null}
               {showFilePane ? (
                 <SegmentedNav
                   aria-label={resolvedKind === 'svg' ? t('git.diff.svgView') : t('git.diff.markdownView')}
@@ -1027,22 +1059,8 @@ export function GitFileDiff({
                   items={paneItems}
                 />
               ) : null}
-              {currentView === 'diff' && showDiffViewports ? (
-                <SegmentedNav aria-label={t('git.diff.viewport')} size="mini" value={viewport} onChange={setViewport} items={viewportItems} />
-              ) : null}
             </>
           )}
-
-          <SegmentedNav
-            aria-label={t('git.diff.wrapMode')}
-            size="mini"
-            value={wordWrap ? 'wrap' : 'nowrap'}
-            onChange={(val) => setWordWrap(val === 'wrap')}
-            items={[
-              { id: 'nowrap', label: t('git.diff.noWrap'), icon: <LuAlignLeft /> },
-              { id: 'wrap', label: t('git.diff.wrap'), icon: <LuWrapText /> },
-            ]}
-          />
         </div>
         <div className="flex items-center justify-end gap-1">
           {/* Stepper count */}
@@ -1106,10 +1124,10 @@ export function GitFileDiff({
             <Tooltip
               content={
                 !hasConflict && !conflict?.hasConflict && !conflictActive
-                  ? t('git.diff.noConflict') || '当前文件无冲突'
+                  ? t('git.diff.noConflict') || 'No conflict in current file'
                   : conflictActive
-                    ? t('git.diff.diffView') || '变更'
-                    : t('git.diff.conflictComparison') || '冲突'
+                    ? t('git.diff.diffView') || 'Diff'
+                    : t('git.diff.conflictComparison') || 'Conflict'
               }
             >
               <Button
@@ -1148,8 +1166,8 @@ export function GitFileDiff({
             onNext={() => stepMatch(1)}
             current={matchIndex}
             total={matches.length}
-            placeholder={t('git.diff.searchPlaceholder') || '搜索代码或差异内容…'}
-            ariaLabel={t('git.diff.searchContent') || '搜索代码或差异内容'}
+            placeholder={t('git.diff.searchPlaceholder') || 'Search code or diff…'}
+            ariaLabel={t('git.diff.searchContent') || 'Search code or diff'}
           />
         </div>
       ) : null}

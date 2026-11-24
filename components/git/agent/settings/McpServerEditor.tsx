@@ -5,6 +5,7 @@ import React, { useEffect, useState } from 'react'
 import { LuNetwork, LuPlus, LuRefreshCw, LuServer, LuTrash2, LuWrench } from 'react-icons/lu'
 
 import { useConfirm } from '@/components/confirm/ConfirmProvider'
+import { useT } from '@/components/i18n/LocaleProvider'
 import { useNotification } from '@/components/notification/useNotification'
 import { Badge, Button, SwitchToggle } from '@/components/sk'
 import { testAndDiscoverMcpServer } from '@/lib/mcp/client'
@@ -19,6 +20,7 @@ interface McpServerEditorProps {
 }
 
 export function McpServerEditor({ serverId }: McpServerEditorProps) {
+  const t = useT()
   const router = useRouter()
   const notify = useNotification()
   const confirm = useConfirm()
@@ -61,11 +63,11 @@ export function McpServerEditor({ serverId }: McpServerEditorProps) {
   // Create new server
   const handleCreateServer = async () => {
     if (!name.trim()) {
-      notify.error('请输入 Server 名称')
+      notify.error(t('gitAgent.mcpNameRequired') || 'Please enter server name')
       return
     }
     if (!url.trim()) {
-      notify.error('请输入 Server URL')
+      notify.error(t('gitAgent.mcpUrlRequired') || 'Please enter server URL')
       return
     }
 
@@ -91,16 +93,16 @@ export function McpServerEditor({ serverId }: McpServerEditorProps) {
         newServer.resources = res.resources
         newServer.prompts = res.prompts
         newServer.lastCheckedAt = Date.now()
-        notify.success(`成功连接并发现 ${res.tools.length} 个工具`)
+        notify.success(t('gitAgent.mcpConnected', { count: res.tools.length }) || `Connected and discovered ${res.tools.length} tools`)
       } else {
         newServer.status = 'error'
         newServer.lastError = res.error
-        notify.warning(`保存配置，但连接测试未通过: ${res.error}`)
+        notify.warning(`Saved configuration, but connection test failed: ${res.error}`)
       }
     } catch (err) {
       newServer.status = 'error'
-      newServer.lastError = err instanceof Error ? err.message : '连接失败'
-      notify.warning('保存配置，外部服务未响应')
+      newServer.lastError = err instanceof Error ? err.message : 'Connection failed'
+      notify.warning('Saved configuration, remote service did not respond')
     } finally {
       await saveMcpServer(newServer)
       setTesting(false)
@@ -126,7 +128,7 @@ export function McpServerEditor({ serverId }: McpServerEditorProps) {
         }
         await saveMcpServer(updated)
         setServer(updated)
-        notify.success(`连接正常，已同步 ${res.tools.length} 个工具`)
+        notify.success(t('gitAgent.mcpConnected', { count: res.tools.length }) || `Connected and synchronized ${res.tools.length} tools`)
       } else {
         const updated: McpServerConfig = {
           ...server,
@@ -136,17 +138,17 @@ export function McpServerEditor({ serverId }: McpServerEditorProps) {
         }
         await saveMcpServer(updated)
         setServer(updated)
-        notify.error(`连接失败: ${res.error}`)
+        notify.error(`Connection failed: ${res.error}`)
       }
     } catch (err) {
       const updated: McpServerConfig = {
         ...server,
         status: 'error',
-        lastError: err instanceof Error ? err.message : '网络请求失败',
+        lastError: err instanceof Error ? err.message : 'Network request failed',
       }
       await saveMcpServer(updated)
       setServer(updated)
-      notify.error('测试连接失败')
+      notify.error(t('gitAgent.mcpTestFailed') || 'Test connection failed')
     } finally {
       setTesting(false)
     }
@@ -157,7 +159,7 @@ export function McpServerEditor({ serverId }: McpServerEditorProps) {
     if (!server) return
     await toggleMcpServer(server.id, !server.enabled)
     setServer({ ...server, enabled: !server.enabled })
-    notify.success(server.enabled ? 'MCP Server 已停用' : 'MCP Server 已启用')
+    notify.success(server.enabled ? t('gitAgent.mcpDisabled') || 'MCP Server disabled' : t('gitAgent.mcpEnabled') || 'MCP Server enabled')
   }
 
   // Toggle tool enabled
@@ -178,7 +180,7 @@ export function McpServerEditor({ serverId }: McpServerEditorProps) {
       confirmVariant: 'fail',
       onConfirm: async () => {
         await deleteMcpServer(server.id)
-        notify.success('已移除 MCP Server')
+        notify.success(t('gitAgent.mcpRemoved') || 'MCP Server removed')
         router.replace('/settings/mcp')
       },
     })

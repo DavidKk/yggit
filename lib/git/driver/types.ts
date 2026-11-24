@@ -97,6 +97,11 @@ export interface IGitDriver {
   clearCache?(repo?: string): void
 
   /**
+   * Optional cache invalidation for driver instances
+   */
+  clearCache?(repo?: string): void
+
+  /**
    * Check if this driver is supported and operational in the current environment
    */
   isAvailable(): Promise<boolean>
