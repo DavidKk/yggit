@@ -132,6 +132,8 @@ export const gitEn: GitMessages = {
     addWorktree: 'Add Worktree',
     worktreeEdgeUnsupported: 'Edge unsupported',
     worktreeEdgeUnsupportedMsg: 'Browser sandbox restrictions prevent access to external worktrees. Download the Yggit desktop app to use this feature.',
+    truncatedNotice: 'Showing first {count} branches (of {total}). Use the search box above to filter.',
+    loadMoreBranches: 'Load more (+{step})',
   },
   diff: {
     searchContent: 'Search content',
@@ -208,6 +210,8 @@ export const gitEn: GitMessages = {
     noFilesMsg: 'This commit has no files.',
     pathListAria: 'Path view',
     allFilesAria: 'All files',
+    truncatedNotice: 'Showing first {count} files (of {total}). Use search to filter for a smoother experience.',
+    loadMoreFiles: 'Load more (+{step})',
     treeAria: 'Tree view',
     mergeLineage: 'Merge lineage',
     sourceBranch: 'Source branch',

@@ -42,7 +42,7 @@ type Props = {
   onDeleteBranch?: (branch: string) => Promise<void> | void
   onRenameBranch?: (oldName: string) => Promise<void> | void
   onOpenConflictView?: (hash: string, file?: string) => void
-  onPage: (scope: string, commits: GitCommit[], hasMore: boolean) => void
+  onPage: (scope: string, commits: GitCommit[], hasMore: boolean, hasPrev?: boolean, startIndex?: number) => void
   onPagePrepend?: (commits: GitCommit[], hasPrev: boolean, startIndex: number) => void
   onRefresh?: () => Promise<void> | void
   currentBranch?: string
@@ -132,16 +132,22 @@ export function GitHistory({
   const [atBottom, setAtBottom] = useState(false)
   const [query, setQuery] = useState('')
   const [findOpen, setFindOpen] = useState(false)
+  const [gitMatches, setGitMatches] = useState<GitCommit[]>([])
+  const [isSearchingGit, setIsSearchingGit] = useState(false)
 
   useEffect(() => {
     setQuery('')
     setFindOpen(false)
+    setGitMatches([])
+    setIsSearchingGit(false)
   }, [repo])
 
   useEffect(() => {
     function onClearSearches() {
       setQuery('')
       setFindOpen(false)
+      setGitMatches([])
+      setIsSearchingGit(false)
     }
     window.addEventListener('yggit:clear_searches', onClearSearches)
     return () => window.removeEventListener('yggit:clear_searches', onClearSearches)
@@ -150,12 +156,61 @@ export function GitHistory({
   stateRef.current = { repo, scope, commits, hasMore, hasPrev, startIndex }
 
   const needle = query.trim().toLowerCase()
+
+  // Deep search in Git when search needle is >= 2 chars
+  useEffect(() => {
+    if (!needle || needle.length < 2 || !repo) {
+      setGitMatches([])
+      setIsSearchingGit(false)
+      return
+    }
+
+    let active = true
+    setIsSearchingGit(true)
+
+    const timer = setTimeout(() => {
+      const driver = getGitDriver()
+      if (!driver.searchLog) {
+        setIsSearchingGit(false)
+        return
+      }
+
+      driver
+        .searchLog({
+          repo,
+          ref: scope,
+          query: needle,
+          limit: 50,
+        })
+        .then((res) => {
+          if (!active) return
+          const seen = new Set(commits.map((c) => c.hash))
+          const remoteHits = (res.commits || []).filter((c) => !seen.has(c.hash))
+          setGitMatches(remoteHits)
+        })
+        .catch(() => {
+          if (active) setGitMatches([])
+        })
+        .finally(() => {
+          if (active) setIsSearchingGit(false)
+        })
+    }, 350)
+
+    return () => {
+      active = false
+      clearTimeout(timer)
+    }
+  }, [needle, repo, scope, commits])
+
   const matches = useMemo(() => {
     if (!needle) return []
     const stashHits = (stashes || []).filter((stash) => stashMatches(stash, needle)).map(gitStashAsCommit)
     const commitHits = commits.filter((commit) => commitMatches(commit, needle))
-    return stashHits.concat(commitHits)
-  }, [commits, needle, stashes])
+    const localHits = stashHits.concat(commitHits)
+    const seen = new Set(localHits.map((c) => c.hash))
+    const extraHits = gitMatches.filter((c) => !seen.has(c.hash))
+    return localHits.concat(extraHits)
+  }, [commits, gitMatches, needle, stashes])
   const showFind = findOpen || Boolean(needle)
   const matchPos =
     needle && matches.length > 0
@@ -357,12 +412,35 @@ export function GitHistory({
     panelRef.current?.focus()
   }
 
+  const handleSelectMatch = useCallback(
+    (commit: GitCommit) => {
+      onSelect?.(commit)
+      const isInWindow = commits.some((c) => c.hash === commit.hash)
+      if (!isInWindow && repo) {
+        const driver = getGitDriver()
+        driver
+          .readLog({
+            repo,
+            ref: scope,
+            locate: commit.hash,
+            take: 50,
+          })
+          .then((body) => {
+            if (!body || !body.commits || body.commits.length === 0) return
+            onPage(scope, body.commits, body.hasMore === true, body.hasPrev, body.startIndex)
+          })
+          .catch(() => {})
+      }
+    },
+    [commits, onPage, onSelect, repo, scope]
+  )
+
   function stepMatch(delta: number) {
     if (matches.length === 0) return
     const current = matchPos >= 0 ? matchPos : delta > 0 ? -1 : 0
     const next = (current + delta + matches.length) % matches.length
     const commit = matches[next]
-    if (commit) onSelect?.(commit)
+    if (commit) handleSelectMatch(commit)
   }
 
   useEffect(() => {
@@ -386,8 +464,8 @@ export function GitHistory({
   useEffect(() => {
     if (!needle || matches.length === 0) return
     if (matchPos >= 0) return
-    onSelect?.(matches[0])
-  }, [needle, matches, matchPos, onSelect])
+    handleSelectMatch(matches[0])
+  }, [needle, matches, matchPos, handleSelectMatch])
 
   useEffect(() => {
     if (!showFind || !selectedHash) return
@@ -410,6 +488,7 @@ export function GitHistory({
             onNext={() => stepMatch(1)}
             current={matchPos}
             total={matches.length}
+            loading={isSearchingGit}
             placeholder={t('git.history.findCommit') || '搜索提交、作者或 Hash…'}
             ariaLabel={t('git.history.findCommit')}
           />

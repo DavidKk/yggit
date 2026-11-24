@@ -132,6 +132,8 @@ export const gitZh: GitMessages = {
     addWorktree: '添加工作树 (Worktree)',
     worktreeEdgeUnsupported: 'Edge 暂不支持',
     worktreeEdgeUnsupportedMsg: '受浏览器沙箱限制，无法读取外部 Worktree。请下载 Yggit 桌面应用以使用此功能。',
+    truncatedNotice: '已显示前 {count} 个分支（共 {total} 个），建议使用上方搜索框精确查找。',
+    loadMoreBranches: '加载更多 (+{step})',
   },
   diff: {
     searchContent: '搜索内容',
@@ -208,6 +210,8 @@ export const gitZh: GitMessages = {
     noFilesMsg: '这次提交没有文件。',
     pathListAria: '路径视图',
     allFilesAria: '所有文件',
+    truncatedNotice: '已显示前 {count} 个变更文件（共 {total} 个），为保证界面流畅，建议使用搜索过滤查看。',
+    loadMoreFiles: '加载更多 (+{step})',
     treeAria: '树级视图',
     mergeLineage: '合并脉络',
     sourceBranch: '来源分支',

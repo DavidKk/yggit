@@ -113,73 +113,66 @@ export function HomepageDevStudio() {
       </aside>
 
       {/* 2. Main Content Area */}
-      <main className="custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-6 sm:px-6 lg:px-8">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-          {/* Header Banner */}
-          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-line pb-4">
-            <div className="flex flex-col gap-1">
+      <main className="custom-scrollbar flex min-h-0 flex-1 flex-col overflow-hidden bg-paper text-ink">
+        {/* Tab 1: Editor — Full-bleed edge-to-edge IDE layout */}
+        {activeTab === 'editor' && (
+          <StudioEditorSection
+            wind={wind}
+            onChangeWind={setWind}
+            lighting={lighting}
+            onChangeLighting={setLighting}
+            timePresetId={timePresetId}
+            onSelectTimePreset={handleSelectTimePreset}
+            seasonId={seasonId}
+            onChangeSeason={setSeasonId}
+          />
+        )}
+
+        {/* Tab 2: Assets */}
+        {activeTab === 'assets' && (
+          <div className="custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto p-4 sm:p-6">
+            <div className="flex flex-col gap-4 border-b border-line pb-4 mb-4">
               <div className="flex items-center gap-2">
-                <h1 className="text-xl font-bold tracking-tight text-ink sm:text-2xl">
-                  {activeTab === 'editor' && '动效与风场参数编辑器'}
-                  {activeTab === 'assets' && '官网核心图层与资产管理'}
-                  {activeTab === 'audit' && '源图审计与资产交付清单'}
-                  {activeTab === 'preview' && '官网首屏全景沉浸预览'}
-                </h1>
+                <h1 className="text-xl font-bold tracking-tight text-ink sm:text-2xl">官网核心图层与资产管理</h1>
                 <Badge tone="accent">DEV ONLY</Badge>
               </div>
-              <p className="text-xs text-ink-soft">
-                {activeTab === 'editor' && '微调物理风场、光影色温与四季节庆主题，实时热更新 60 FPS 画布'}
-                {activeTab === 'assets' && '检视 1672 × 941 高清分层、透明通道近景、水流 Water Flow Map 与独立世界树 RGBA'}
-                {activeTab === 'audit' && '查看 PRD Go/No-Go 验收核对单、母版坐标数据清单与完整交付文件'}
-                {activeTab === 'preview' && '完整体验真实官网首屏的视差滚动、分支流光交互与昼夜平滑过渡'}
-              </p>
+              <p className="text-xs text-ink-soft">检视 1672 × 941 高清分层、透明通道近景、水流 Water Flow Map 与独立世界树 RGBA</p>
             </div>
-
-            <div className="flex items-center gap-2">
-              <Badge tone="neutral">Yggit Homepage v2.0</Badge>
-            </div>
+            <StudioAssetsSection />
           </div>
+        )}
 
-          {/* Tab 1: Editor */}
-          {activeTab === 'editor' && (
-            <StudioEditorSection
-              wind={wind}
-              onChangeWind={setWind}
-              lighting={lighting}
-              onChangeLighting={setLighting}
-              timePresetId={timePresetId}
-              onSelectTimePreset={handleSelectTimePreset}
-              seasonId={seasonId}
-              onChangeSeason={setSeasonId}
-            />
-          )}
-
-          {/* Tab 2: Assets */}
-          {activeTab === 'assets' && <StudioAssetsSection />}
-
-          {/* Tab 3: Audit */}
-          {activeTab === 'audit' && (
+        {/* Tab 3: Audit */}
+        {activeTab === 'audit' && (
+          <div className="custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto p-4 sm:p-6">
+            <div className="flex flex-col gap-4 border-b border-line pb-4 mb-4">
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl font-bold tracking-tight text-ink sm:text-2xl">源图审计与资产交付清单</h1>
+                <Badge tone="accent">DEV ONLY</Badge>
+              </div>
+              <p className="text-xs text-ink-soft">查看 PRD Go/No-Go 验收核对单、母版坐标数据清单与完整交付文件</p>
+            </div>
             <div className="rounded-xl border border-line bg-panel p-5 shadow-sm">
               <AuditAndDeliverablesView />
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Tab 4: Preview */}
-          {activeTab === 'preview' && (
-            <div className="overflow-hidden rounded-2xl border border-line bg-[#03090d] shadow-xl">
-              <YggitOfficialPreview
-                view="official-site"
-                seasonId={seasonId}
-                onChangeSeason={setSeasonId}
-                timePresetId={timePresetId}
-                onSelectTimePreset={handleSelectTimePreset}
-                wind={wind}
-                onChangeWind={setWind}
-                lighting={lighting}
-              />
-            </div>
-          )}
-        </div>
+        {/* Tab 4: Preview */}
+        {activeTab === 'preview' && (
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#03090d]">
+            <YggitOfficialPreview
+              view="official-site"
+              seasonId={seasonId}
+              onChangeSeason={setSeasonId}
+              timePresetId={timePresetId}
+              onSelectTimePreset={handleSelectTimePreset}
+              wind={wind}
+              onChangeWind={setWind}
+              lighting={lighting}
+            />
+          </div>
+        )}
       </main>
     </div>
   )

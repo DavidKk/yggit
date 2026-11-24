@@ -10,6 +10,8 @@ import { cn } from '@/lib/utils'
 
 import { type ConflictCounts, ConflictMark, CountMarks, fileName, fileStateMark, type PathGroup, tally } from './commitTreeUtils'
 
+const MAX_PATH_FILES = 500
+
 export interface PathRowsProps {
   groups: PathGroup[]
   headerOnly?: boolean
@@ -62,7 +64,7 @@ export function PathRows({
         </div>
       )}
       {!headerOnly &&
-        group.files.map((file) => {
+        group.files.slice(0, MAX_PATH_FILES).map((file) => {
           const mark = fileStateMark(file, t)
           const name = fileName(file.path)
           const active = selected === file.path
@@ -169,6 +171,16 @@ export function PathRows({
             </div>
           )
         })}
+      {!headerOnly && group.files.length > MAX_PATH_FILES && (
+        <div className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] text-ink-soft/75 bg-panel-2/30 border-t border-line/30 select-none">
+          <span>
+            {t('git.commit.truncatedNotice', {
+              count: MAX_PATH_FILES,
+              total: group.files.length,
+            }) || `已显示前 ${MAX_PATH_FILES} 个变更文件（共 ${group.files.length} 个）。`}
+          </span>
+        </div>
+      )}
     </div>
   ))
 }

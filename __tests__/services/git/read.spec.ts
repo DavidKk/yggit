@@ -4,7 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 
 import { GIT_LOG_PAGE_SIZE } from '@/lib/git/identity'
-import { readFileHistory, readGitHistory, readGitLog } from '@/services/git/read'
+import { readFileHistory, readGitHistory, readGitLog, searchGitCommits } from '@/services/git/read'
 
 jest.mock('@/services/git/projects', () => ({
   originUrl: jest.fn(async () => ''),
@@ -128,5 +128,21 @@ describe('git stash history', () => {
     })
     expect(history.commits.length).toBeGreaterThanOrEqual(1)
     expect(history.commits[0].author).toBe('Test Author')
+  })
+
+  it('searches git commits by message and by commit hash', async () => {
+    const searchMsg = await searchGitCommits({
+      repo,
+      query: 'history 25',
+    })
+    expect(searchMsg.commits.length).toBeGreaterThanOrEqual(1)
+    expect(searchMsg.commits[0].subject).toContain('history 25')
+
+    const targetHash = branchHistory[25]
+    const searchHash = await searchGitCommits({
+      repo,
+      query: targetHash.slice(0, 8),
+    })
+    expect(searchHash.commits.some((c) => c.hash === targetHash)).toBe(true)
   })
 })

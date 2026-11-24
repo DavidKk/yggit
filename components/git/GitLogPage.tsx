@@ -258,10 +258,12 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
   }, [])
   const closeMenu = useCallback(() => setMenuOpen(false), [])
   const scopeRef = useRef('')
-  const onPage = useCallback((pageScope: string, next: GitCommit[], more: boolean) => {
+  const onPage = useCallback((pageScope: string, next: GitCommit[], more: boolean, nextHasPrev?: boolean, nextStartIndex?: number) => {
     if (pageScope !== scopeRef.current) return
     setCommits(next)
     setHasMore(more)
+    if (nextHasPrev !== undefined) setHasPrev(nextHasPrev)
+    if (nextStartIndex !== undefined) setStartIndex(nextStartIndex)
   }, [])
 
   const handlePagePrepend = useCallback((newCommits: GitCommit[], nextHasPrev: boolean, nextStartIndex: number) => {

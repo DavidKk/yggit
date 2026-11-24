@@ -25,7 +25,7 @@ const isSymlinkNodeModules = (() => {
   }
 })()
 const webpackFlag = args.includes('--webpack') || isSymlinkNodeModules ? '--webpack ' : ''
-const port = process.env.PORT || '3000'
+const port = process.env.PORT || '7272'
 
 // 1. Ensure target port is free
 await ensureListenPort(port)

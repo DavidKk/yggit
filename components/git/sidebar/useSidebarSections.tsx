@@ -13,6 +13,8 @@ import { BranchTree } from './BranchTree'
 import { SidebarRow } from './SidebarRow'
 import { type BranchItem, type BranchNode, type SectionId, type SidebarRowType, visibleBranchRows } from './sidebarUtils'
 
+const MAX_SIDEBAR_BRANCHES = 300
+
 export interface SidebarSectionItem {
   id: SectionId
   title: string
@@ -124,30 +126,50 @@ export function useSidebarSections({
         icon: LuGitBranch,
         searchPlaceholder: t('git.sidebar.search.branch'),
         expand: { allOpen: localAllOpen, disabled: localFolderIds.length === 0, onToggle: toggleLocalAll },
-        rows: visibleBranchRows(localTree, 'local', folderOpen, 0, 'section:local').map((row) => ({
-          id: `local:${row.node.id}`,
-          render: () => (
-            <BranchTree
-              nodes={[row.node]}
-              depth={row.depth}
-              active={active}
-              kind="local"
-              folderOpen={folderOpen}
-              onToggleFolder={toggleFolder}
-              onSetFolder={setFolderOpen}
-              onSelect={onSelect}
-              onContextMenu={handleBranchContextMenu}
-              onFolderContextMenu={handleFolderContextMenu}
-              onCheckoutBranch={onCheckoutBranch}
-              onSetUpstream={(b) => setSetUpstreamBranch(b)}
-              soloBranch={soloBranch}
-              parentId={row.parentId}
-              repo={view.repo}
-              onBranchHoverStart={onBranchHoverStart}
-              onBranchHoverEnd={onBranchHoverEnd}
-            />
-          ),
-        })),
+        rows: (() => {
+          const allRows = visibleBranchRows(localTree, 'local', folderOpen, 0, 'section:local')
+          const visibleRows = allRows.slice(0, MAX_SIDEBAR_BRANCHES)
+          const rows: SidebarRowType[] = visibleRows.map((row) => ({
+            id: `local:${row.node.id}`,
+            render: () => (
+              <BranchTree
+                nodes={[row.node]}
+                depth={row.depth}
+                active={active}
+                kind="local"
+                folderOpen={folderOpen}
+                onToggleFolder={toggleFolder}
+                onSetFolder={setFolderOpen}
+                onSelect={onSelect}
+                onContextMenu={handleBranchContextMenu}
+                onFolderContextMenu={handleFolderContextMenu}
+                onCheckoutBranch={onCheckoutBranch}
+                onSetUpstream={(b) => setSetUpstreamBranch(b)}
+                soloBranch={soloBranch}
+                parentId={row.parentId}
+                repo={view.repo}
+                onBranchHoverStart={onBranchHoverStart}
+                onBranchHoverEnd={onBranchHoverEnd}
+              />
+            ),
+          }))
+          if (allRows.length > MAX_SIDEBAR_BRANCHES) {
+            rows.push({
+              id: 'local:truncated_notice',
+              render: () => (
+                <div className="flex flex-col gap-1 px-3 py-2 text-[11px] text-ink-soft bg-panel-2/40 border-t border-line/40 select-none">
+                  <span>
+                    {t('git.sidebar.truncatedNotice', {
+                      count: MAX_SIDEBAR_BRANCHES,
+                      total: allRows.length,
+                    }) || `已显示前 ${MAX_SIDEBAR_BRANCHES} 个分支（共 ${allRows.length} 个），建议使用上方搜索框精确查找。`}
+                  </span>
+                </div>
+              ),
+            })
+          }
+          return rows
+        })(),
       },
       {
         id: 'remote',
@@ -218,31 +240,51 @@ export function useSidebarSections({
               ),
             },
             ...(expanded
-              ? visibleBranchRows(group.tree, `remote:${group.source}`, folderOpen, 1, sourceId).map((row) => ({
-                  id: `remote:${group.source}:${row.node.id}`,
-                  render: () => (
-                    <BranchTree
-                      nodes={[row.node]}
-                      depth={row.depth}
-                      active={active}
-                      kind="remote"
-                      folderOpen={folderOpen}
-                      onToggleFolder={toggleFolder}
-                      onSetFolder={setFolderOpen}
-                      onSelect={onSelect}
-                      onContextMenu={handleBranchContextMenu}
-                      onFolderContextMenu={handleFolderContextMenu}
-                      onCheckoutBranch={onCheckoutBranch}
-                      soloBranch={soloBranch}
-                      idPrefix={`remote:${group.source}`}
-                      parentId={row.parentId}
-                      repo={view.repo}
-                      updateByName={updateByName}
-                      onBranchHoverStart={onBranchHoverStart}
-                      onBranchHoverEnd={onBranchHoverEnd}
-                    />
-                  ),
-                }))
+              ? (() => {
+                  const allRows = visibleBranchRows(group.tree, `remote:${group.source}`, folderOpen, 1, sourceId)
+                  const visibleRows = allRows.slice(0, MAX_SIDEBAR_BRANCHES)
+                  const branchRows = visibleRows.map((row) => ({
+                    id: `remote:${group.source}:${row.node.id}`,
+                    render: () => (
+                      <BranchTree
+                        nodes={[row.node]}
+                        depth={row.depth}
+                        active={active}
+                        kind="remote"
+                        folderOpen={folderOpen}
+                        onToggleFolder={toggleFolder}
+                        onSetFolder={setFolderOpen}
+                        onSelect={onSelect}
+                        onContextMenu={handleBranchContextMenu}
+                        onFolderContextMenu={handleFolderContextMenu}
+                        onCheckoutBranch={onCheckoutBranch}
+                        soloBranch={soloBranch}
+                        idPrefix={`remote:${group.source}`}
+                        parentId={row.parentId}
+                        repo={view.repo}
+                        updateByName={updateByName}
+                        onBranchHoverStart={onBranchHoverStart}
+                        onBranchHoverEnd={onBranchHoverEnd}
+                      />
+                    ),
+                  }))
+                  if (allRows.length > MAX_SIDEBAR_BRANCHES) {
+                    branchRows.push({
+                      id: `remote:${group.source}:truncated_notice`,
+                      render: () => (
+                        <div className="flex flex-col gap-1 px-3 py-2 text-[11px] text-ink-soft bg-panel-2/40 border-t border-line/40 select-none pl-6">
+                          <span>
+                            {t('git.sidebar.truncatedNotice', {
+                              count: MAX_SIDEBAR_BRANCHES,
+                              total: allRows.length,
+                            }) || `已显示前 ${MAX_SIDEBAR_BRANCHES} 个分支（共 ${allRows.length} 个），建议使用上方搜索框精确查找。`}
+                          </span>
+                        </div>
+                      ),
+                    })
+                  }
+                  return branchRows
+                })()
               : []),
           ]
         }),

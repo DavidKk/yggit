@@ -220,6 +220,65 @@ export async function locateCommitOffset(repo: string, ref: string, hash: string
   }
 }
 
+export async function searchGitCommits(input: { repo?: string; ref?: string; query: string; limit?: number }): Promise<{ commits: GitCommit[] }> {
+  const clean = (input.query || '').trim()
+  if (!clean) return { commits: [] }
+  const repo = await resolveGitRepo(input.repo)
+  const requested = (input.ref || '*').trim() || '*'
+  const isStash = /^(?:stash(?:@\{\d+\})?|refs\/stash)$/.test(requested)
+  const branchRefs = ['--branches', '--tags', '--remotes', 'HEAD']
+  const revisions = isStash ? [...branchRefs, `${requested}^1`] : !requested || requested === '*' ? branchRefs : [requested]
+  const limit = input.limit && input.limit > 0 ? Math.min(input.limit, 100) : 50
+
+  try {
+    const isPotentialHash = /^[0-9a-f]{4,40}$/i.test(clean)
+    let hashMatches: GitCommit[] = []
+
+    if (isPotentialHash) {
+      // 1. Try prefix or exact hash lookup via git log
+      try {
+        const hashText = await git(repo, ['log', ...revisions, '--date-order', '-n', String(limit), '--date=iso-strict', `--pretty=format:${LOG_FORMAT}`, clean])
+        hashMatches = parseGitLog(hashText)
+      } catch {
+        // Fallback to -1 exact hash lookup if revisions failed
+        try {
+          const exactText = await git(repo, ['log', '-1', '--date=iso-strict', `--pretty=format:${LOG_FORMAT}`, clean])
+          hashMatches = parseGitLog(exactText)
+        } catch {
+          // Ignore
+        }
+      }
+    }
+
+    // 2. Search message and author via git log --grep
+    let grepMatches: GitCommit[] = []
+    try {
+      const grepArgs = ['log', ...revisions, '--date-order', '-n', String(limit), '-i', `--grep=${clean}`, '--date=iso-strict', `--pretty=format:${LOG_FORMAT}`]
+      const grepText = await git(repo, grepArgs)
+      grepMatches = parseGitLog(grepText)
+    } catch {
+      // Ignore
+    }
+
+    // Combine & deduplicate by hash
+    const seen = new Set<string>()
+    const combined: GitCommit[] = []
+    for (const c of [...hashMatches, ...grepMatches]) {
+      if (!seen.has(c.hash)) {
+        seen.add(c.hash)
+        combined.push(c)
+      }
+    }
+    return { commits: combined.slice(0, limit) }
+  } catch (error) {
+    const message = gitFailure(error)
+    if (message.includes('does not have any commits') || /bad revision|unknown revision|ambiguous argument/i.test(message)) {
+      return { commits: [] }
+    }
+    throw new Error(message)
+  }
+}
+
 export async function readGitHistory(input: { repo?: string; ref?: string; skip?: number; take?: number; locate?: string }): Promise<{
   commits: GitCommit[]
   hasMore: boolean

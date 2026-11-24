@@ -41,6 +41,7 @@ import type {
   ReadBlobOptions,
   ReadCommitDiffOptions,
   ReadLogOptions,
+  SearchLogOptions,
 } from './types'
 
 export class EdgeGitDriver implements IGitDriver {
@@ -201,6 +202,19 @@ export class EdgeGitDriver implements IGitDriver {
     // 3. Client-side browser directory handle fallback
     const reader = await this.repository(options.repo)
     return await readClientLogFallback(reader, options, resolvedRepo)
+  }
+
+  async searchLog(options: SearchLogOptions): Promise<{ commits: GitCommit[] }> {
+    if (!options.repo || !options.repo.trim()) return { commits: [] }
+    const resolvedRepo = await this.resolveRepo(options.repo)
+    if (!resolvedRepo.startsWith('edge_')) {
+      try {
+        return await this.companion.searchLog({ ...options, repo: resolvedRepo })
+      } catch {
+        // Fall through
+      }
+    }
+    return { commits: [] }
   }
 
   async readCommitDiff(options: ReadCommitDiffOptions): Promise<GitCommitChanges> {

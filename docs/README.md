@@ -29,6 +29,8 @@ Welcome to the Yggit documentation repository. Yggit is a high-performance, orga
 - [Yggit Workdesk Technical Architecture](technical/yggit-workdesk-architecture.md) - Technical specification for the dual-mode deterministic detection pipeline, 4-tier domain models, fingerprint deduplication, and Portable Check sharing protocol.
 - [Smart Project Categorization & Governance PRD](prd/yggit-project-categorization-and-governance.md) - Product requirements for automated detection of bloated project folders, Agent-driven architecture-aware categorization, and safe batch grouping execution.
 - [Smart Project Categorization & Governance Technical Architecture](technical/yggit-project-categorization-and-governance.md) - Technical specification for the organization hygiene detector, four-tier taxonomy pipeline, project-organizer Agent Skill, and dual-mode transactional catalog updates.
+- [Large Repository Scalability & Segmented Rendering PRD](prd/large-repository-scalability.md) - Product requirements for defensive thresholds, lazy directory tree mounting, deep Git log search, and anti-freeze boundaries.
+- [Large Repository Scalability & Segmented Rendering Technical Architecture](technical/large-repository-rendering-architecture.md) - Technical architecture for chunked branch listing, pruned tree traversal, native Git `--grep` / hash locate coordination, and SVG DAG safety limits.
 
 - [Theme Persistence & Hydration](technical/theme-hydration.md) - Cookie preference, system theme resolution, and consistent SSR/client initialization.
 

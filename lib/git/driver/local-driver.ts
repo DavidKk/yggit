@@ -16,6 +16,7 @@ import type {
   ReadBlobOptions,
   ReadCommitDiffOptions,
   ReadLogOptions,
+  SearchLogOptions,
 } from './types'
 
 const inFlightRequests = new Map<string, Promise<unknown>>()
@@ -54,6 +55,22 @@ export class LocalGitDriver implements IGitDriver {
       throw new Error(readApiErrorMessage(body, `Failed to read git log (${res.status})`))
     }
     return (await res.json()) as GitLogView
+  }
+
+  async searchLog(options: SearchLogOptions): Promise<{ commits: GitCommit[] }> {
+    const params = new URLSearchParams()
+    if (options.repo) params.set('repo', options.repo)
+    if (options.query) params.set('q', options.query)
+    if (options.ref) params.set('ref', options.ref)
+    if (options.branch) params.set('branch', options.branch)
+    if (options.limit !== undefined) params.set('take', String(options.limit))
+
+    const res = await fetch(`/api/git/log?${params.toString()}`)
+    if (!res.ok) {
+      return { commits: [] }
+    }
+    const data = (await res.json()) as { commits?: GitCommit[] }
+    return { commits: data.commits || [] }
   }
 
   async readCommitDiff(options: ReadCommitDiffOptions): Promise<GitCommitChanges> {

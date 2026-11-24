@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useRef } from 'react'
-import { LuChevronDown, LuChevronUp, LuSearch, LuX } from 'react-icons/lu'
+import { LuChevronDown, LuChevronUp, LuLoader, LuSearch, LuX } from 'react-icons/lu'
 
 import { useT } from '@/components/i18n/LocaleProvider'
 import { Button } from '@/components/sk'
@@ -51,6 +51,7 @@ export interface GitFindBoxProps {
    */
   size?: GitFindBoxSize
   autoFocus?: boolean
+  loading?: boolean
 }
 
 /**
@@ -73,6 +74,7 @@ export function GitFindBox({
   ariaLabel,
   size = 'auto',
   autoFocus = true,
+  loading = false,
 }: GitFindBoxProps) {
   const t = useT()
   const localInputRef = useRef<HTMLInputElement | null>(null)
@@ -148,7 +150,11 @@ export function GitFindBox({
     >
       {/* Top tier: Input with search icon and close/clear (×) */}
       <div className="flex h-8 items-center gap-1.5 rounded-xl border border-accent/80 bg-panel px-2.5 transition-all focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/25 shadow-2xs">
-        <LuSearch className="size-3.5 shrink-0 text-ink-soft pointer-events-none" aria-hidden />
+        {loading ? (
+          <LuLoader className="size-3.5 shrink-0 text-accent animate-spin" aria-hidden />
+        ) : (
+          <LuSearch className="size-3.5 shrink-0 text-ink-soft pointer-events-none" aria-hidden />
+        )}
         <input
           ref={inputRef}
           type="text"

@@ -117,6 +117,8 @@ export type GitMessages = {
     addWorktree: string
     worktreeEdgeUnsupported: string
     worktreeEdgeUnsupportedMsg: string
+    truncatedNotice?: string
+    loadMoreBranches?: string
   }
   diff: {
     searchContent: string
@@ -193,6 +195,8 @@ export type GitMessages = {
     noFilesMsg: string
     pathListAria: string
     allFilesAria: string
+    truncatedNotice?: string
+    loadMoreFiles?: string
     treeAria: string
     mergeLineage: string
     sourceBranch: string

@@ -12,6 +12,14 @@ export interface ReadLogOptions {
   onProgress?: (stage: string) => void
 }
 
+export interface SearchLogOptions {
+  repo: string
+  branch?: string
+  ref?: string
+  query: string
+  limit?: number
+}
+
 export interface ReadCommitDiffOptions {
   repo: string
   hash: string
@@ -110,6 +118,11 @@ export interface IGitDriver {
    * Read branches, tags, stashes, and commit DAG history
    */
   readLog(options: ReadLogOptions): Promise<GitLogView>
+
+  /**
+   * Search commit history via git log message grep or commit hash
+   */
+  searchLog?(options: SearchLogOptions): Promise<{ commits: GitCommit[] }>
 
   /**
    * Read commit file diffs / patch / status

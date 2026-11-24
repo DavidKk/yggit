@@ -26,23 +26,59 @@ function getServerDesktopViewport() {
   return false
 }
 
+const TIME_PRESET_STORAGE_KEY = 'yggit.landing.timePreset'
+
 function getAutoTimePreset(): 'day' | 'night' {
+  if (typeof window === 'undefined') return 'night'
+  try {
+    const saved = localStorage.getItem(TIME_PRESET_STORAGE_KEY)
+    if (saved === 'day' || saved === 'night') return saved
+  } catch {}
+
   const hour = new Date().getHours()
-  return hour >= 6 && hour < 18 ? 'day' : 'night'
+  // Daytime is strictly between 06:00 and 18:00
+  if (hour >= 6 && hour < 18) {
+    // If user's OS explicitly prefers dark mode, default to night
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      return 'night'
+    }
+    return 'day'
+  }
+  return 'night'
 }
 
 export function LandingPage() {
   const t = useT()
   const isDesktopViewport = useSyncExternalStore(subscribeToViewport, getDesktopViewport, getServerDesktopViewport)
-  const [timePresetId, setTimePresetId] = useState<'day' | 'night'>('day')
+  const [timePresetId, setTimePresetId] = useState<'day' | 'night'>(() => {
+    return typeof window !== 'undefined' ? getAutoTimePreset() : 'night'
+  })
 
   useEffect(() => {
     setTimePresetId(getAutoTimePreset())
   }, [])
 
+  const handleToggleDayNight = () => {
+    setTimePresetId((prev) => {
+      const next = prev === 'day' ? 'night' : 'day'
+      try {
+        localStorage.setItem(TIME_PRESET_STORAGE_KEY, next)
+      } catch {}
+      return next
+    })
+  }
+
+  const handleSelectPreset = (preset: { id: string }) => {
+    const next = preset.id === 'night' ? 'night' : 'day'
+    setTimePresetId(next)
+    try {
+      localStorage.setItem(TIME_PRESET_STORAGE_KEY, next)
+    } catch {}
+  }
+
   return (
     <main className={styles.page} data-scene={timePresetId}>
-      <LandingHeader timePresetId={timePresetId} onToggleDayNight={() => setTimePresetId((prev) => (prev === 'day' ? 'night' : 'day'))} />
+      <LandingHeader timePresetId={timePresetId} onToggleDayNight={handleToggleDayNight} />
       <LandingHero />
       <div className={styles.stage}>
         {isDesktopViewport && (
@@ -53,7 +89,7 @@ export function LandingPage() {
             hideLeftCopy
             fullScreenStage
             timePresetId={timePresetId}
-            onSelectTimePreset={(preset) => setTimePresetId(preset.id === 'night' ? 'night' : 'day')}
+            onSelectTimePreset={handleSelectPreset}
           />
         )}
       </div>
