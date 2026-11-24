@@ -51,7 +51,12 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
     }
     return map
   })
-  const [activeItemId, setActiveItemId] = useState<string>(initialItemId || '')
+  const [activeItemId, setActiveItemId] = useState<string>(() => {
+    if (initialItemId) return initialItemId
+    if (initialCard?.itemIds && initialCard.itemIds.length > 0) return initialCard.itemIds[0]
+    if (initialItems && initialItems.length > 0) return initialItems[0].id
+    return ''
+  })
 
   // Listen to engine updates
   useEffect(() => {
@@ -145,7 +150,10 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
   }, [card, activeItem])
 
   // Cascade card dealing animation on initial open
-  const [isDealing, setIsDealing] = useState(true)
+  const isInitialMultiple = Boolean(
+    (initialCard && initialCard.itemIds && initialCard.itemIds.length > 1) || (initialItems && initialItems.length > 1) || (initialCard?.projectCount ?? 1) > 1
+  )
+  const [isDealing, setIsDealing] = useState<boolean>(isInitialMultiple)
   const [isGathering, setIsGathering] = useState(false)
   const [draggingItemId, setDraggingItemId] = useState<string | null>(null)
   const [dragOverItemId, setDragOverItemId] = useState<string | null>(null)
@@ -279,11 +287,15 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
   }, [taskItems.length])
 
   useEffect(() => {
+    if (!isMultiple) {
+      setIsDealing(false)
+      return
+    }
     const timer = setTimeout(() => {
       setIsDealing(false)
-    }, 550)
+    }, 420)
     return () => clearTimeout(timer)
-  }, [])
+  }, [isMultiple])
 
   // Listen to popstate for browser back/forward item navigation
   useEffect(() => {
@@ -480,7 +492,10 @@ ${cr.solution}
             @keyframes workdeskCardDeal {
               0% {
                 opacity: 0;
-                transform: translateY(-16px) scale(0.97);
+                transform: translateY(-24px) scale(0.96);
+              }
+              60% {
+                opacity: 0.9;
               }
               100% {
                 opacity: 1;
@@ -494,7 +509,7 @@ ${cr.solution}
               }
               100% {
                 opacity: 0;
-                transform: translateY(-20px) scale(0.95);
+                transform: translateY(-24px) scale(0.96);
               }
             }
             @keyframes workdeskStackDealMiddle {
@@ -726,7 +741,7 @@ ${cr.solution}
         </div>
 
         {/* Right Column: Evidence Details (Single Unified Block) */}
-        <WorkdeskEvidencePanel card={card} activeItem={activeItem} isGathering={isGathering} locale={locale} t={t} handleSendToAgent={handleSendToAgent} />
+        <WorkdeskEvidencePanel card={card} activeItem={activeItem} isGathering={isGathering} isDealing={isDealing} locale={locale} t={t} handleSendToAgent={handleSendToAgent} />
       </div>
     </div>
   )

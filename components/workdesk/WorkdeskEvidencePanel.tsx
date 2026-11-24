@@ -16,12 +16,13 @@ interface WorkdeskEvidencePanelProps {
   card: WorkCard
   activeItem?: WorkItem
   isGathering: boolean
+  isDealing?: boolean
   locale: string
   t: (key: MessageKey, params?: MessageParams) => string
   handleSendToAgent: (item?: WorkItem) => void
 }
 
-export function WorkdeskEvidencePanel({ card, activeItem, isGathering, locale, t, handleSendToAgent }: WorkdeskEvidencePanelProps) {
+export function WorkdeskEvidencePanel({ card, activeItem, isGathering, isDealing, locale, t, handleSendToAgent }: WorkdeskEvidencePanelProps) {
   const renderStateBadge = (state: 'safe' | 'warn' | 'bad') => {
     if (state === 'safe') {
       return (
@@ -47,8 +48,8 @@ export function WorkdeskEvidencePanel({ card, activeItem, isGathering, locale, t
   return (
     <div
       className={cn(
-        'custom-scrollbar relative flex min-h-0 flex-1 flex-col overflow-y-auto bg-panel-2/20 p-3 pb-20 transition-opacity duration-200',
-        isGathering ? 'pointer-events-none opacity-0' : 'opacity-100'
+        'custom-scrollbar relative flex min-h-0 flex-1 flex-col overflow-y-auto bg-panel-2/20 p-3 pb-20 transition-all duration-200',
+        isGathering || isDealing ? 'pointer-events-none opacity-0 translate-x-2' : 'opacity-100 translate-x-0'
       )}
     >
       {activeItem ? (

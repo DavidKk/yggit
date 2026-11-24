@@ -563,9 +563,7 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
         <div
           className={cn(
             'absolute inset-0 flex flex-col overflow-hidden bg-paper z-20 transition-opacity duration-200',
-            transition && (transition.phase === 'collapsing-start' || transition.phase === 'collapsing')
-              ? 'pointer-events-none opacity-0'
-              : 'opacity-100 animate-in fade-in duration-200'
+            transition && (transition.phase === 'collapsing-start' || transition.phase === 'collapsing') ? 'pointer-events-none opacity-0' : 'opacity-100'
           )}
         >
           <WorkdeskTaskDetailView
