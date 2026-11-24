@@ -415,6 +415,7 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
               <div className="relative z-10 flex h-[62px] min-h-[62px] flex-col justify-center rounded-xl border border-line bg-panel p-2.5 shadow-xs dark:border-line dark:bg-panel">
                 <div className="flex w-full items-start justify-between gap-2">
                   <span className="line-clamp-1 text-xs font-semibold leading-tight text-ink">{title}</span>
+                  <div className="size-5 shrink-0" aria-hidden="true" />
                 </div>
                 <div className="mt-1 flex items-center gap-3 text-[11px] font-medium leading-tight text-ink-muted">
                   <span className="inline-flex items-center gap-1">

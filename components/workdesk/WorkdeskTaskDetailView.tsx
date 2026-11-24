@@ -489,91 +489,30 @@ ${cr.solution}
 
           {/* Keyframes for Dealing Downwards and Gathering Upwards */}
           <style>{`
-            @keyframes workdeskCardDeal {
+            @keyframes workdeskCardDealDown {
               0% {
-                opacity: 0;
-                transform: translateY(-24px) scale(0.96);
+                transform: translate(var(--deal-x, 0px), var(--deal-y, 0px)) rotate(var(--deal-rot, 0deg));
+                opacity: var(--deal-start-opacity, 1);
               }
-              60% {
-                opacity: 0.9;
+              25% {
+                opacity: 1;
               }
               100% {
+                transform: translate(0px, 0px) rotate(0deg);
                 opacity: 1;
-                transform: translateY(0) scale(1);
               }
             }
-            @keyframes workdeskCardGather {
+            @keyframes workdeskCardGatherUp {
               0% {
+                transform: translate(0px, 0px) rotate(0deg);
                 opacity: 1;
-                transform: translateY(0) scale(1);
-              }
-              100% {
-                opacity: 0;
-                transform: translateY(-24px) scale(0.96);
-              }
-            }
-            @keyframes workdeskStackDealMiddle {
-              0% {
-                opacity: 0.9;
-                transform: translate(4px, 4px) rotate(0.6deg);
-              }
-              45% {
-                opacity: 0.9;
-                transform: translate(4px, 4px) rotate(0.6deg);
               }
               75% {
-                opacity: 0.5;
-                transform: translate(2px, 2px) rotate(0.3deg);
+                opacity: var(--gather-mid-opacity, 1);
               }
               100% {
-                opacity: 0;
-                transform: translate(0px, 0px) rotate(0deg);
-              }
-            }
-            @keyframes workdeskStackDealBottom {
-              0% {
-                opacity: 0.8;
-                transform: translate(6px, 6px) rotate(1.2deg);
-              }
-              45% {
-                opacity: 0.8;
-                transform: translate(6px, 6px) rotate(1.2deg);
-              }
-              75% {
-                opacity: 0.4;
-                transform: translate(3px, 3px) rotate(0.6deg);
-              }
-              100% {
-                opacity: 0;
-                transform: translate(0px, 0px) rotate(0deg);
-              }
-            }
-            @keyframes workdeskStackGatherMiddle {
-              0% {
-                opacity: 0;
-                transform: translate(0px, 0px) rotate(0deg);
-              }
-              30% {
-                opacity: 0.4;
-                transform: translate(2px, 2px) rotate(0.3deg);
-              }
-              100% {
-                opacity: 0.9;
-                transform: translate(4px, 4px) rotate(0.6deg);
-              }
-            }
-            @keyframes workdeskStackGatherBottom {
-              0% {
-                opacity: 0;
-                transform: translate(0px, 0px) rotate(0deg);
-              }
-              30% {
-                opacity: 0.3;
-                transform: translate(3px, 3px) rotate(0.6deg);
-              }
-              100% {
-                opacity: 0.8;
-                transform: translate(6px, 6px) rotate(1.2deg);
+                transform: translate(var(--deal-x, 0px), var(--deal-y, 0px)) rotate(var(--deal-rot, 0deg));
+                opacity: var(--gather-end-opacity, 1);
               }
             }
           `}</style>
@@ -585,48 +524,38 @@ ${cr.solution}
               const isItemDragging = draggingItemId === item.id
               const isItemOver = dragOverItemId === item.id
 
+              // Deal geometry: Items 1 and 2 start stacked directly behind item 0 (offsets +4px, +6px)
+              // and physically deal downwards out of the deck rather than shrinking inside.
+              const dealX = itemIndex === 1 ? '4px' : itemIndex >= 2 ? '6px' : '0px'
+              const dealY = itemIndex === 1 ? '-70px' : itemIndex >= 2 ? `${-(itemIndex * 74) + 6}px` : '0px'
+              const dealRot = itemIndex === 1 ? '0.6deg' : itemIndex >= 2 ? '1.2deg' : '0deg'
+              const dealStartOpacity = itemIndex <= 2 ? '1' : '0'
+              const gatherMidOpacity = itemIndex <= 2 ? '1' : '0.4'
+              const gatherEndOpacity = itemIndex <= 2 ? '1' : '0'
+
               return (
                 <div
                   key={item.id}
-                  className="relative shrink-0 select-none"
-                  style={{
-                    animation: isGathering
-                      ? `workdeskCardGather 200ms cubic-bezier(0.2, 0.8, 0.2, 1) ${Math.min(itemIndex, 4) * 8}ms both`
-                      : isDealing && itemIndex > 0
-                        ? `workdeskCardDeal 240ms cubic-bezier(0.16, 1, 0.3, 1) ${Math.min(itemIndex, 8) * 35}ms both`
-                        : undefined,
-                  }}
+                  data-testid={itemIndex === 1 && isMultiple ? 'card-stack-layer-middle' : itemIndex === 2 && isMultiple ? 'card-stack-layer-bottom' : undefined}
+                  className="relative shrink-0 select-none origin-top-left"
+                  style={
+                    {
+                      zIndex: Math.max(1, 30 - itemIndex),
+                      '--deal-x': dealX,
+                      '--deal-y': dealY,
+                      '--deal-rot': dealRot,
+                      '--deal-start-opacity': dealStartOpacity,
+                      '--gather-mid-opacity': gatherMidOpacity,
+                      '--gather-end-opacity': gatherEndOpacity,
+                      animation:
+                        isGathering && itemIndex > 0
+                          ? `workdeskCardGatherUp 220ms cubic-bezier(0.2, 0.8, 0.2, 1) ${Math.max(0, 3 - Math.min(itemIndex, 3)) * 20}ms both`
+                          : isDealing && itemIndex > 0
+                            ? `workdeskCardDealDown 340ms cubic-bezier(0.16, 1, 0.3, 1) ${Math.min(itemIndex - 1, 5) * 45}ms both`
+                            : undefined,
+                    } as React.CSSProperties
+                  }
                 >
-                  {/* Stacked Card Deck underlayers: preserved during flight, dealing and gathering */}
-                  {itemIndex === 0 && isMultiple && (isDealing || isGathering) && (
-                    <>
-                      <div
-                        data-testid="card-stack-layer-bottom"
-                        style={{
-                          animation: isGathering
-                            ? 'workdeskStackGatherBottom 220ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards'
-                            : isDealing
-                              ? 'workdeskStackDealBottom 380ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards'
-                              : undefined,
-                        }}
-                        className="absolute inset-0 rounded-xl border border-line/60 bg-panel shadow-2xs pointer-events-none origin-top-left dark:border-line/40 dark:bg-panel"
-                        aria-hidden="true"
-                      />
-                      <div
-                        data-testid="card-stack-layer-middle"
-                        style={{
-                          animation: isGathering
-                            ? 'workdeskStackGatherMiddle 220ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards'
-                            : isDealing
-                              ? 'workdeskStackDealMiddle 380ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards'
-                              : undefined,
-                        }}
-                        className="absolute inset-0 rounded-xl border border-line/80 bg-panel shadow-2xs pointer-events-none origin-top-left dark:border-line/60 dark:bg-panel"
-                        aria-hidden="true"
-                      />
-                    </>
-                  )}
-
                   <div
                     draggable={true}
                     onDragStart={(e) => {
@@ -661,7 +590,7 @@ ${cr.solution}
                     }}
                     onClick={() => handleSelectItem(item.id)}
                     className={cn(
-                      'group relative z-10 flex h-[62px] min-h-[62px] w-full cursor-pointer items-center justify-between gap-3 rounded-xl border p-2.5 shadow-xs transition-all duration-150 select-none shrink-0',
+                      'group relative z-10 flex h-[62px] min-h-[62px] w-full cursor-pointer flex-col justify-center rounded-xl border p-2.5 shadow-xs transition-all duration-150 select-none shrink-0',
                       isSelected
                         ? 'border-[#b5ddd4] bg-[#f8fcfa] shadow-xs dark:border-emerald-700/60 dark:bg-emerald-950/30'
                         : 'border-line bg-panel hover:border-[#b5ddd4] hover:bg-[#f8fcfa] hover:shadow-sm dark:hover:border-emerald-700/50 dark:hover:bg-emerald-950/20',
@@ -679,34 +608,39 @@ ${cr.solution}
                     }}
                     aria-label={`${item.repoAlias ? `${item.repoAlias} · ${item.name}` : item.name} - ${item.summary}`}
                   >
-                    <div className="flex min-w-0 flex-1 flex-col justify-center text-left">
+                    {/* Top row: Title + Quick Quote to Agent + Status Dot (Identical alignment to WorkdeskCard) */}
+                    <div className="flex w-full items-start justify-between gap-2">
                       <span className="line-clamp-1 text-xs font-semibold leading-tight text-ink transition-colors group-hover:text-ink-vivid">
                         {item.repoAlias ? `${item.repoAlias} · ${item.name}` : item.name}
                       </span>
-                      <span className="mt-1 line-clamp-1 text-[11px] leading-tight text-ink-muted">{getItemCardSummary(item.summary)}</span>
+
+                      {/* Right Status Dot & Agent Quick Action */}
+                      <div className="flex shrink-0 items-center gap-1.5 -mr-0.5">
+                        <Tooltip content={t('git.operations.quoteToAgent') || 'Quote to Git Agent'} placement="top">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleSendToAgent(item)
+                            }}
+                            className="flex size-5 items-center justify-center rounded-md text-ink-muted opacity-0 group-hover:opacity-100 hover:bg-accent/15 hover:text-accent transition-all duration-150 cursor-pointer"
+                            aria-label={t('git.operations.quoteToAgent') || 'Quote to Git Agent'}
+                          >
+                            <LuBot className="size-3" aria-hidden="true" />
+                          </button>
+                        </Tooltip>
+                        <Tooltip
+                          content={item.state === 'safe' ? '状态正常 / 可快速合并' : item.state === 'warn' ? '需关注 /存在分支分叉或未同步' : '待处理异常 / 需人工介入'}
+                          placement="top"
+                        >
+                          <span className="inline-flex items-center cursor-default">{renderStateDot(item.state)}</span>
+                        </Tooltip>
+                      </div>
                     </div>
 
-                    {/* Right Status Dot & Agent Quick Action */}
-                    <div className="flex shrink-0 items-center gap-1.5">
-                      <Tooltip content={t('git.operations.quoteToAgent') || 'Quote to Git Agent'} placement="top">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleSendToAgent(item)
-                          }}
-                          className="flex size-5 items-center justify-center rounded-md text-ink-muted opacity-0 group-hover:opacity-100 hover:bg-accent/15 hover:text-accent transition-all duration-150 cursor-pointer"
-                          aria-label={t('git.operations.quoteToAgent') || 'Quote to Git Agent'}
-                        >
-                          <LuBot className="size-3" aria-hidden="true" />
-                        </button>
-                      </Tooltip>
-                      <Tooltip
-                        content={item.state === 'safe' ? '状态正常 / 可快速合并' : item.state === 'warn' ? '需关注 /存在分支分叉或未同步' : '待处理异常 / 需人工介入'}
-                        placement="top"
-                      >
-                        <span className="inline-flex items-center cursor-default">{renderStateDot(item.state)}</span>
-                      </Tooltip>
+                    {/* Bottom row: Item summary (Identical font size, weight, and mt-1 margin to WorkdeskCard) */}
+                    <div className="mt-1 flex items-center gap-3 text-[11px] font-medium leading-tight text-ink-muted">
+                      <span className="line-clamp-1">{getItemCardSummary(item.summary)}</span>
                     </div>
                   </div>
                 </div>
