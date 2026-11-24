@@ -1,44 +1,67 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
+import { LuMonitor } from 'react-icons/lu'
 
 import { YggitOfficialPreview } from '@/components/homepage/YggitOfficialPreview'
+import { useT } from '@/components/i18n/LocaleProvider'
 import { LandingHeader } from '@/components/landing/LandingHeader'
 import { LandingHero } from '@/components/landing/LandingHero'
 
+import styles from './LandingPage.module.css'
+
+const desktopViewport = '(min-width: 900px) and (min-aspect-ratio: 6/5)'
+
+function subscribeToViewport(onChange: () => void) {
+  const media = window.matchMedia(desktopViewport)
+  media.addEventListener('change', onChange)
+  return () => media.removeEventListener('change', onChange)
+}
+
+function getDesktopViewport() {
+  return window.matchMedia(desktopViewport).matches
+}
+
+function getServerDesktopViewport() {
+  return false
+}
+
 function getAutoTimePreset(): 'day' | 'night' {
-  if (typeof window === 'undefined') return 'day'
   const hour = new Date().getHours()
-  // Daytime from 06:00 to 18:00, nighttime from 18:00 to 06:00
   return hour >= 6 && hour < 18 ? 'day' : 'night'
 }
 
 export function LandingPage() {
+  const t = useT()
+  const isDesktopViewport = useSyncExternalStore(subscribeToViewport, getDesktopViewport, getServerDesktopViewport)
   const [timePresetId, setTimePresetId] = useState<'day' | 'night'>('day')
 
-  // Automatically follow user's current local wall-clock time
   useEffect(() => {
     setTimePresetId(getAutoTimePreset())
   }, [])
 
   return (
-    <main className="relative min-h-screen w-full overflow-hidden bg-[#03090d] text-slate-100 selection:bg-accent selection:text-white">
-      {/* 1. 独立半透明毛玻璃页头 */}
+    <main className={styles.page} data-scene={timePresetId}>
       <LandingHeader timePresetId={timePresetId} onToggleDayNight={() => setTimePresetId((prev) => (prev === 'day' ? 'night' : 'day'))} />
-
-      {/* 2. 左侧 HERO 标题、描述与操作按钮 */}
-      <LandingHero timePresetId={timePresetId} />
-
-      {/* 3. 完整 60 FPS 世界树风景 + Git UI 交互卡片舞台 */}
-      <YggitOfficialPreview
-        view="official-site"
-        compactBannerMode
-        hideTopNav
-        hideLeftCopy
-        fullScreenStage
-        timePresetId={timePresetId}
-        onSelectTimePreset={(p) => setTimePresetId(p.id === 'night' ? 'night' : 'day')}
-      />
+      <LandingHero />
+      <div className={styles.stage}>
+        {isDesktopViewport && (
+          <YggitOfficialPreview
+            view="official-site"
+            compactBannerMode
+            hideTopNav
+            hideLeftCopy
+            fullScreenStage
+            timePresetId={timePresetId}
+            onSelectTimePreset={(preset) => setTimePresetId(preset.id === 'night' ? 'night' : 'day')}
+          />
+        )}
+      </div>
+      <div className={styles.desktopNotice}>
+        <LuMonitor aria-hidden />
+        <h1>Yggit</h1>
+        <p>{t('landing.desktopNotice')}</p>
+      </div>
     </main>
   )
 }

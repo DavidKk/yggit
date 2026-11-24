@@ -2,6 +2,7 @@ import type { LandingMessages } from './types'
 
 export const landingZh: { landing: LandingMessages } = {
   landing: {
+    desktopNotice: '请使用桌面浏览器查看 Yggit 首页。',
     header: {
       gitWorkspace: 'Git 仓库',
       devStudio: '官网工坊',

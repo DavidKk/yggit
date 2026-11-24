@@ -2,6 +2,7 @@ import type { LandingMessages } from './types'
 
 export const landingEn: { landing: LandingMessages } = {
   landing: {
+    desktopNotice: 'Open Yggit in a desktop browser to view this page.',
     header: {
       gitWorkspace: 'Git Workspace',
       devStudio: 'Dev Studio',

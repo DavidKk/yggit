@@ -1,0 +1,502 @@
+@property --yggit-landing-button-light-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+.page {
+  --unit: clamp(0.64px, min(0.05981vw, 0.116dvh), 1.42px);
+  --header-height: max(44px, calc(57 * var(--unit)));
+  --header-shade: linear-gradient(180deg, rgb(3 25 28 / 82%), rgb(3 25 28 / 54%) 36%, transparent);
+  --header-ink: #f6fbff;
+  --header-accent: #32f4d3;
+  --header-control-fill: rgb(10 32 40 / 47%);
+  --header-control-border: rgb(169 221 230 / 42%);
+  --header-control-hover: #123b43;
+  --page-fill: #04141c;
+  --highlight: #32e6b7;
+  --control-accent: #32f4d3;
+  --secondary-fill: rgb(4 27 38 / 74%);
+  --secondary-border: rgb(107 206 207 / 41%);
+  --description: #d6e6ed;
+  --copy-shade: rgb(0 10 17 / 42%);
+  --theme-icon: #20fbe0;
+  --theme-shadow: inset 1px 0 5px #00e1c184, 0 0 9px #00e1c128;
+  --button-light: 0.78;
+  --scene-image: url('/world-tree-assets/hero/landing-night-scene.webp');
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  width: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--page-fill);
+  color: #f6fbff;
+  font-family: Arial, ui-sans-serif, sans-serif;
+}
+
+.page[data-scene='day'] {
+  --header-shade: linear-gradient(180deg, rgb(3 42 43 / 91%), rgb(4 53 62 / 72%) 34%, transparent);
+  --header-accent: #a2f7de;
+  --header-control-fill: transparent;
+  --header-control-border: transparent;
+  --header-control-hover: rgb(7 50 52 / 55%);
+  --page-fill: #125380;
+  --highlight: #3cf0ba;
+  --secondary-fill: rgb(12 43 57 / 71%);
+  --secondary-border: rgb(198 242 250 / 47%);
+  --description: #fff;
+  --copy-shade: rgb(5 34 53 / 40%);
+  --theme-icon: var(--header-ink);
+  --theme-shadow: none;
+  --button-light: 0.65;
+  --scene-image: url('/world-tree-assets/hero/landing-day-scene.webp');
+}
+
+.header {
+  position: absolute;
+  z-index: 3;
+  isolation: isolate;
+  inset: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  height: var(--header-height);
+  padding-inline: max(14px, 2.05%);
+  color: var(--header-ink);
+}
+
+.header::before {
+  position: absolute;
+  z-index: -1;
+  inset: 0 0 auto;
+  height: calc(var(--header-height) * 2);
+  background: var(--header-shade);
+  pointer-events: none;
+  content: '';
+}
+
+.navigation,
+.links,
+.controls,
+.control,
+.studio {
+  display: flex;
+  align-items: center;
+}
+
+.navigation {
+  gap: calc(45 * var(--unit));
+}
+
+.mark {
+  width: calc(36 * var(--unit));
+  height: calc(36 * var(--unit));
+}
+
+.wordmark {
+  color: var(--header-ink);
+  font-family: inherit;
+  font-size: calc(23 * var(--unit));
+  font-weight: 700;
+  letter-spacing: -0.035em;
+}
+
+.wordmark > span {
+  color: var(--header-accent);
+}
+
+.links {
+  gap: calc(35 * var(--unit));
+  font-size: calc(17 * var(--unit));
+  white-space: nowrap;
+}
+
+.header a {
+  text-decoration: none;
+}
+
+.links a:hover,
+.studio {
+  color: var(--header-accent);
+}
+
+.studio {
+  gap: 0.45em;
+}
+
+.controls {
+  gap: calc(12 * var(--unit));
+}
+
+.control {
+  justify-content: center;
+  gap: 0.45em;
+  min-height: max(36px, calc(37 * var(--unit)));
+  padding-inline: calc(13 * var(--unit));
+  border: 1px solid var(--header-control-border);
+  border-radius: 999px;
+  background: var(--header-control-fill);
+  color: var(--header-ink);
+  font-size: max(13px, calc(16 * var(--unit)));
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+
+.control:hover {
+  background: var(--header-control-hover);
+  border-color: #39d6bf;
+}
+
+.theme {
+  --button-light-delay: -5.6s;
+  box-shadow: var(--theme-shadow);
+}
+
+.theme svg {
+  color: var(--theme-icon);
+  font-size: 1.2em;
+}
+
+.page[data-scene='day'] .theme::after {
+  opacity: 0;
+}
+
+.action,
+.theme {
+  position: relative;
+}
+
+.action:not(.primary)::after,
+.theme::after {
+  position: absolute;
+  inset: 0;
+  padding: var(--button-light-width, 1.5px);
+  border-radius: inherit;
+  background: conic-gradient(from var(--yggit-landing-button-light-angle), #28f9dc00 0deg, #28f9dc32 30deg, #21eaca96 64deg, #b5fff1 81deg, #23f2d183 95deg, #28f9dc00 132deg);
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  opacity: var(--button-light);
+  animation: buttonBorderLight 9s linear var(--button-light-delay, -0.5s) infinite;
+  pointer-events: none;
+  content: '';
+}
+
+.action:not(.primary):hover::after {
+  opacity: 0.42;
+}
+
+.theme:hover::after {
+  opacity: 1;
+}
+
+.action:focus-visible {
+  outline: 2px solid #a9fff0;
+  outline-offset: 3px;
+}
+
+.control:focus-visible {
+  outline: 2px solid #a9fff0;
+  outline-offset: 3px;
+}
+
+@keyframes buttonBorderLight {
+  to {
+    --yggit-landing-button-light-angle: 1turn;
+  }
+}
+
+.stage {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: var(--scene-image) center / cover no-repeat;
+}
+
+.copy {
+  position: absolute;
+  inset: 25.4% auto auto 4.2%;
+  z-index: 2;
+  width: 34.5%;
+}
+
+.copy::before {
+  position: absolute;
+  z-index: -1;
+  inset: -11% -10% 8% -15%;
+  background: radial-gradient(ellipse closest-side at 46% 48%, var(--copy-shade), transparent 100%);
+  pointer-events: none;
+  content: '';
+}
+
+.category {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(9 * var(--unit));
+  min-height: calc(33 * var(--unit));
+  padding: calc(4 * var(--unit)) calc(15 * var(--unit));
+  border: 1px solid #16c7aa99;
+  border-radius: 999px;
+  background: rgb(4 54 58 / 88%);
+  color: #d0fff3;
+  font-size: max(12px, calc(15 * var(--unit)));
+  line-height: 1.25;
+  box-shadow:
+    inset 0 0 12px #16c7aa1c,
+    0 0 12px #16c7aa24;
+}
+
+.category svg {
+  flex: none;
+  color: var(--control-accent);
+  font-size: 1.12em;
+}
+
+.headline {
+  margin: calc(14 * var(--unit)) 0 0;
+  font-size: calc(51 * var(--unit));
+  font-weight: 750;
+  letter-spacing: -0.014em;
+  line-height: 1.09;
+  text-shadow: 0 2px 9px rgb(0 13 22 / 42%);
+}
+
+.headline > span {
+  display: block;
+}
+
+.highlight {
+  color: var(--highlight);
+}
+
+.ribbon {
+  display: block;
+  width: min(53%, calc(224 * var(--unit)));
+  height: calc(14 * var(--unit));
+  margin-top: calc(8 * var(--unit));
+  filter: drop-shadow(0 0 3px #16eccce6) drop-shadow(0 0 5px #16eccc70);
+}
+
+.ribbonLight {
+  animation: ribbonSweep 5.6s linear infinite;
+}
+
+@keyframes ribbonSweep {
+  from {
+    transform: translateX(-64px);
+  }
+
+  75%,
+  to {
+    transform: translateX(224px);
+  }
+}
+
+.description {
+  max-width: calc(493 * var(--unit));
+  margin: calc(10 * var(--unit)) 0 0;
+  color: var(--description);
+  font-size: max(15px, calc(19 * var(--unit)));
+  line-height: 1.32;
+  text-shadow: 0 1px 4px rgb(1 29 45 / 78%);
+}
+
+.actions,
+.platforms {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.actions {
+  gap: calc(16 * var(--unit));
+  margin-top: calc(27 * var(--unit));
+}
+
+.action {
+  --button-light: 0.26;
+  --button-light-width: 1px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(9 * var(--unit));
+  min-height: max(42px, calc(48 * var(--unit)));
+  padding-inline: calc(15 * var(--unit));
+  border: 1px solid var(--secondary-border);
+  border-radius: calc(10 * var(--unit));
+  background: linear-gradient(180deg, #6cf9e70a, transparent 36%, transparent 70%, #46d6ca0a), var(--secondary-fill);
+  color: #f6fbff;
+  font-size: max(14px, calc(18 * var(--unit)));
+  font-weight: 600;
+  text-decoration: none;
+  user-select: none;
+  text-shadow: 0 1px 3px #001416;
+  box-shadow:
+    inset 0 0 5px #74fce216,
+    inset 0 1px 1px #b5fff117;
+  transition:
+    background-color 180ms,
+    border-color 180ms,
+    filter 180ms;
+}
+
+.actions > :last-child {
+  --button-light-delay: -2.2s;
+}
+
+.action svg {
+  flex: none;
+  color: var(--control-accent);
+}
+
+.action:hover {
+  border-color: #36f2d2;
+  background-color: #0b4248;
+}
+
+.primary {
+  isolation: isolate;
+  padding-inline: calc(22 * var(--unit));
+  border-color: #2ce7c6;
+  background:
+    radial-gradient(ellipse 66% 135% at 0% 78%, #05efc3c9, #00c9a56b 36%, transparent 75%), radial-gradient(ellipse 105% 82% at 52% -17%, #00dfae9c, transparent 92%),
+    linear-gradient(105deg, #007b66c7, #004c40a6 48%, #005e4cc7);
+  box-shadow:
+    inset 0 1px 4px #42ffe07d,
+    inset 1px -1px 5px #02d7ad59,
+    0 0 12px #04e5c061;
+}
+
+.primary::after {
+  position: absolute;
+  z-index: -1;
+  inset: 1px;
+  border-radius: inherit;
+  background: radial-gradient(ellipse at 34% 50%, #a0ffe48c 0%, #20f4c859 25%, transparent 69%) 0% 84% / 52% 38% no-repeat;
+  animation: primaryLightSweep 5s ease-in-out infinite;
+  pointer-events: none;
+  content: '';
+}
+
+@keyframes primaryLightSweep {
+  0% {
+    background-position-x: 108%;
+    opacity: 0;
+  }
+
+  18% {
+    opacity: 0.7;
+  }
+
+  70%,
+  100% {
+    background-position-x: -12%;
+    opacity: 0;
+  }
+}
+
+.primary:hover {
+  filter: brightness(1.16);
+}
+
+.platforms {
+  gap: calc(23 * var(--unit));
+  margin-top: calc(21 * var(--unit));
+  color: #ecf7fa;
+  font-size: max(12px, calc(14 * var(--unit)));
+  text-shadow: 0 1px 3px #04242f;
+}
+
+.platforms > span {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(8 * var(--unit));
+}
+
+.platforms svg {
+  font-size: calc(22 * var(--unit));
+}
+
+.gitlab {
+  color: #ff8b20;
+}
+
+.platforms .platformBadge {
+  padding: 0.21em 0.65em;
+  border-radius: 999px;
+  background: #c9e1eeed;
+  color: #10313f;
+  text-shadow: none;
+}
+
+.platformBadge::before {
+  width: 3px;
+  height: 3px;
+  border-radius: 100%;
+  background: currentColor;
+  content: '';
+}
+
+.desktopNotice {
+  display: none;
+}
+
+@media not all and (min-width: 900px) and (min-aspect-ratio: 6/5) {
+  .page,
+  .page[data-scene='day'] {
+    background: #04141c;
+  }
+
+  .header,
+  .copy,
+  .stage {
+    display: none;
+  }
+
+  .desktopNotice {
+    display: grid;
+    flex: 1;
+    place-content: center;
+    justify-items: center;
+    gap: 12px;
+    padding: 24px;
+    text-align: center;
+  }
+
+  .desktopNotice svg {
+    color: #32f4d3;
+    font-size: 32px;
+  }
+
+  .desktopNotice h1 {
+    font-size: 24px;
+    font-weight: 700;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .action {
+    transition: none;
+  }
+
+  .action:not(.primary)::after,
+  .theme::after {
+    --yggit-landing-button-light-angle: 210deg;
+    animation: none;
+  }
+
+  .primary::after {
+    animation: none;
+  }
+
+  .ribbonLight {
+    display: none;
+    animation: none;
+  }
+}

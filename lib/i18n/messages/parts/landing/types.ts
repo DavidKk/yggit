@@ -1,4 +1,5 @@
 export interface LandingMessages {
+  desktopNotice: string
   header: {
     gitWorkspace: string
     devStudio: string

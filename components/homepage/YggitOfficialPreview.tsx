@@ -482,7 +482,7 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
       new Set([
         CARD_SHELL_PATH,
         CARD_DAY_FOREGROUND_PATH,
-        DAY_PREVIEW_BG_PATH,
+        fullScreenStage ? HERO_ASSETS.landingDayBase : DAY_PREVIEW_BG_PATH,
         WATER_MASK_PATH,
         WATER_FLOW_MAP_PATH,
         WATER_NORMAL_MAP_PATH,
@@ -491,7 +491,7 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
       ])
     )
 
-    const tier2NightHeroUrls = [NIGHT_PREVIEW_BG_PATH, CARD_NIGHT_FOREGROUND_PATH]
+    const tier2NightHeroUrls = [fullScreenStage ? HERO_ASSETS.landingNightBase : NIGHT_PREVIEW_BG_PATH, CARD_NIGHT_FOREGROUND_PATH]
 
     const tier3SecondaryUrls = Array.from(
       new Set([
@@ -531,8 +531,9 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
     const loadBatch = (urls: string[]) => {
       urls.forEach((u) => {
         if (loadedImgsRef.current[u]) return
+        const isLandingBase = u === HERO_ASSETS.landingDayBase || u === HERO_ASSETS.landingNightBase
         const img = new Image()
-        img.crossOrigin = 'anonymous'
+        if (!isLandingBase) img.crossOrigin = 'anonymous'
         img.decoding = 'async'
         img.onload = () => {
           if (!cancelled) {
@@ -541,7 +542,8 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
             tryUploadWaterTextures()
           }
         }
-        img.src = u.startsWith('/world-tree-assets/') || u.startsWith('/assets/world-tree/') ? `${u}${HERO_ASSET_VERSION}` : u
+        const isVersionedAsset = u.startsWith('/world-tree-assets/') || u.startsWith('/assets/world-tree/')
+        img.src = isVersionedAsset && !isLandingBase ? `${u}${HERO_ASSET_VERSION}` : u
       })
     }
 
@@ -555,7 +557,7 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
 
     // Start Tier 3 (Module 02 & Inspector layers) once initial hero settles
     const t3Timer = window.setTimeout(() => {
-      if (!cancelled) loadBatch(tier3SecondaryUrls)
+      if (!cancelled) loadBatch(fullScreenStage ? [GLOW_RGBA_PATH] : tier3SecondaryUrls)
     }, 450)
 
     return () => {
@@ -566,7 +568,7 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
       waterRendererRef.current = null
       waterTexturesReadyRef.current = false
     }
-  }, [])
+  }, [fullScreenStage])
 
   // =========================================================================
   // High-Performance 60 FPS Render Loop:
@@ -663,6 +665,9 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
       const glowBlend = smoothstepJS(0.42, 1.0, dnProgress)
       const twilightPulse = Math.sin(dnProgress * Math.PI)
 
+      const dayBaseImg = imgs[fullScreenStage ? HERO_ASSETS.landingDayBase : DAY_PREVIEW_BG_PATH]
+      const nightBaseImg = imgs[fullScreenStage ? HERO_ASSETS.landingNightBase : NIGHT_PREVIEW_BG_PATH]
+      if (fullScreenStage && !(dnProgress >= 0.5 ? nightBaseImg : dayBaseImg)) return
       ctx.clearRect(0, 0, W, H)
 
       // Single-element isolation mode on dark checkerboard
@@ -691,9 +696,6 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
       // ---------------------------------------------------------------------
       // STEP 1: Staggered Base Scene Rendering (Distant Sky -> World Tree & Foreground)
       // ---------------------------------------------------------------------
-      const dayBaseImg = imgs[DAY_PREVIEW_BG_PATH]
-      const nightBaseImg = imgs[NIGHT_PREVIEW_BG_PATH]
-
       const sceneFilter = s.seasonId === 'default' ? 'none' : `hue-rotate(${SEASON_HUE_OFFSETS[s.seasonId] ?? 0}deg) saturate(${s.activeSeason.saturate})`
       ctx.save()
       ctx.filter = sceneFilter
@@ -761,7 +763,7 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
       // ---------------------------------------------------------------------
       // STEP 2: Left & Middle-Left Ambient Animations (Solar Corona in Day <-> Aurora Rays in Night)
       // ---------------------------------------------------------------------
-      if (s.leftAmbientStrength > 0.02) {
+      if (!fullScreenStage && s.leftAmbientStrength > 0.02) {
         ctx.save()
         ctx.globalCompositeOperation = 'screen'
 
@@ -1083,7 +1085,8 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
     }
 
     const renderLoop = (now: number) => {
-      const dt = Math.min(0.05, Math.max(0.001, (now - lastTime) * 0.001))
+      const frameSeconds = Math.max(0.001, (now - lastTime) * 0.001)
+      const dt = Math.min(0.05, frameSeconds)
       lastTime = now
       frameCount++
 
@@ -1098,7 +1101,7 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
       const targetProgress = s.dayNightMode === 'night' ? 1.0 : 0.0
       const isTransitioning = Math.abs(currentDayNightProgress - targetProgress) > 0.0005
       if (isTransitioning) {
-        const step = dt / 1.15
+        const step = (fullScreenStage ? frameSeconds : dt) / 1.15
         if (currentDayNightProgress < targetProgress) {
           currentDayNightProgress = Math.min(targetProgress, currentDayNightProgress + step)
         } else {
@@ -1143,7 +1146,7 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
       cancelAnimationFrame(rafId)
       windRenderer?.dispose()
     }
-  }, [])
+  }, [fullScreenStage])
 
   const handleDownloadStagePng = (canvas: HTMLCanvasElement | null, filename: string) => {
     if (!canvas) return
@@ -1631,7 +1634,7 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
           translate="no"
           className={
             fullScreenStage
-              ? 'notranslate relative w-full h-screen min-h-[640px] overflow-hidden bg-[#03090d] select-none [container-type:size]'
+              ? 'notranslate absolute inset-0 overflow-hidden select-none [container-type:size]'
               : 'notranslate relative w-full aspect-[16/9] min-h-[560px] rounded-2xl overflow-hidden border border-teal-900/70 bg-[#03090d] shadow-2xl select-none [container-type:size]'
           }
         >
