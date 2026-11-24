@@ -33,6 +33,8 @@ import { copyToClipboard } from '@/lib/clipboard'
 import { saveLastGitUrl } from '@/lib/git/last-git-url'
 import { cn } from '@/lib/utils'
 
+import { GitAgentAssistiveReminder } from './GitAgentAssistiveReminder'
+
 interface Props {
   repoPath?: string
   className?: string
@@ -257,6 +259,8 @@ export function AgentWorkspace({ repoPath, className }: Props) {
 
       {/* Message List */}
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
+        <GitAgentAssistiveReminder variant="embedded" />
+
         {messages.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 text-center px-2 py-6">
             <div className="flex size-10 items-center justify-center rounded-2xl bg-accent/15 text-accent shadow-xs">

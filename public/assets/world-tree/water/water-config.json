@@ -1,0 +1,12 @@
+{
+  "version": "2.2",
+  "canvasSize": [1672, 941],
+  "waterBounds": [330, 730, 915, 941],
+  "flowDirection": "downward-45deg-toward-screen",
+  "unifiedParams": {
+    "flowStrength": 0.011,
+    "flowSpeed": 0.34,
+    "normalStrength": 0.014,
+    "highlightStrength": 0.2
+  }
+}

@@ -211,24 +211,35 @@ export async function readClientLogFallback(reader: EdgeRepositoryReader, option
     const stashLog = (await fs.promises.readFile('/.git/logs/refs/stash', 'utf8').catch(() => '')) as string
     if (stashLog) {
       const lines = stashLog.trim().split('\n').filter(Boolean)
-      stashes = lines
-        .map((line, idx) => {
-          const [header, ...rest] = line.split('\t')
-          const subject = rest.join('\t')
-          const parts = header.trim().split(' ')
-          const hash = parts[1] || ''
-          const timestamp = parts[parts.length - 2]
-          const date = timestamp ? new Date(parseInt(timestamp, 10) * 1000).toISOString() : new Date().toISOString()
-          const reverseIndex = lines.length - 1 - idx
-          return {
-            name: `stash@{${reverseIndex}}`,
-            hash,
-            base: '',
-            date,
-            subject: subject || `WIP on ${currentBranch}`,
-          }
-        })
-        .reverse()
+      stashes = (
+        await Promise.all(
+          lines.map(async (line, idx) => {
+            const [header, ...rest] = line.split('\t')
+            const subject = rest.join('\t')
+            const parts = header.trim().split(' ')
+            const hash = parts[1] || ''
+            const timestamp = parts[parts.length - 2]
+            const date = timestamp ? new Date(parseInt(timestamp, 10) * 1000).toISOString() : new Date().toISOString()
+            const reverseIndex = lines.length - 1 - idx
+            let base = ''
+            if (hash) {
+              try {
+                const c = await git.readCommit({ fs, cache, dir: '/', oid: hash })
+                base = c.commit.parent?.[0] || ''
+              } catch {
+                // ignore
+              }
+            }
+            return {
+              name: `stash@{${reverseIndex}}`,
+              hash,
+              base,
+              date,
+              subject: subject || `WIP on ${currentBranch}`,
+            }
+          })
+        )
+      ).reverse()
     }
   } catch {
     stashes = []

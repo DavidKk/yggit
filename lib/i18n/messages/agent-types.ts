@@ -182,4 +182,24 @@ export type GitAgentMessages = {
   skillUpdateFailed?: string
   skillSaved?: string
   skillRemoved?: string
+  proactiveBadge?: string
+  proactiveTitle?: string
+  proactiveSyncQuestion?: string
+  proactiveSyncPrompt?: string
+  proactiveMergeQuestion?: string
+  proactiveMergePrompt?: string
+  proactiveReviewQuestion?: string
+  proactiveReviewPrompt?: string
+  proactiveWorktreeQuestion?: string
+  proactiveWorktreePrompt?: string
+  proactiveHygieneQuestion?: string
+  proactiveHygienePrompt?: string
+  proactiveActionSync?: string
+  proactiveActionMerge?: string
+  proactiveActionReview?: string
+  proactiveActionWorktree?: string
+  proactiveActionHygiene?: string
+  proactiveActionAssist?: string
+  proactiveActionView?: string
+  proactiveDismiss?: string
 }

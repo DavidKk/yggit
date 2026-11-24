@@ -11,6 +11,7 @@ import { isModelAllowed } from '@/lib/agent/model-filter'
 import { cn } from '@/lib/utils'
 
 import { AgentQuickModelPopover } from './AgentQuickModelPopover'
+import { GitAgentAssistiveReminder } from './GitAgentAssistiveReminder'
 import { GitAgentBarGhosts } from './GitAgentBarGhosts'
 import { GitAgentQuickCard } from './GitAgentQuickCard'
 
@@ -517,6 +518,8 @@ export function GitAgentBar({ repoPath, className }: Props) {
   return (
     <>
       <GitAgentBarGhosts vanishGhost={vanishGhost} reappearGhost={reappearGhost} />
+
+      <GitAgentAssistiveReminder variant="floating" barPosition={position} isBarExpanded={expanded || quickCardOpen} />
 
       <GitAgentQuickCard
         ref={containerRef}

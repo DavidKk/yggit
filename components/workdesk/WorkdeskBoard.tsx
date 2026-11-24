@@ -1,5 +1,6 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { LuCircleCheck, LuFlag, LuFolderGit2, LuGitBranch, LuGitFork, LuGitMerge, LuTrash2, LuUndo2 } from 'react-icons/lu'
 
@@ -42,6 +43,7 @@ interface TransitionState {
 
 export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: WorkdeskBoardProps) {
   const t = useT()
+  const router = useRouter()
   const containerRef = useRef<HTMLDivElement>(null)
   const cardOriginMapRef = useRef<Record<string, CardRect>>({})
 
@@ -138,7 +140,11 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
           setTransition(null)
         })
         if (typeof window !== 'undefined') {
-          window.history.pushState(null, '', '/git')
+          if (window.location.pathname.startsWith('/workdesk')) {
+            router.replace('/git')
+          } else {
+            window.history.pushState(null, '', '/git')
+          }
         }
       }, 350)
       return
@@ -146,9 +152,13 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
 
     setActiveTaskId(null)
     if (typeof window !== 'undefined') {
-      window.history.pushState(null, '', '/git')
+      if (window.location.pathname.startsWith('/workdesk')) {
+        router.replace('/git')
+      } else {
+        window.history.pushState(null, '', '/git')
+      }
     }
-  }, [activeTaskId])
+  }, [activeTaskId, router])
 
   // Listen to popstate for browser back/forward navigation
   useEffect(() => {
@@ -163,6 +173,20 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
     window.addEventListener('popstate', handlePopState)
     return () => window.removeEventListener('popstate', handlePopState)
   }, [handleCollapseCard])
+
+  // Listen to logo click or close task event
+  useEffect(() => {
+    const handleCloseTask = () => {
+      const closeBtn = document.querySelector<HTMLButtonElement>('[data-testid="workdesk-detail-close-btn"]')
+      if (closeBtn) {
+        closeBtn.click()
+      } else if (activeTaskId) {
+        handleCollapseCard()
+      }
+    }
+    window.addEventListener('yggit:close_task', handleCloseTask)
+    return () => window.removeEventListener('yggit:close_task', handleCloseTask)
+  }, [activeTaskId, handleCollapseCard])
 
   useEffect(() => {
     const handleModeChanged = () => {

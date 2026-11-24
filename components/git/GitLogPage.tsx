@@ -1162,10 +1162,10 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
           const handle = await window.showDirectoryPicker({ mode: 'readwrite' })
           if (handle) {
             const driver = getGitDriver('edge')
-            await driver.addProject({ pathOrUrl: handle.name, handle, name: handle.name })
+            const project = await driver.addProject({ pathOrUrl: handle.name, handle, name: handle.name })
             await refreshProjects()
             closeMenu()
-            await load(handle.name)
+            await load(project.id || handle.name)
             return
           }
         } catch (e: unknown) {
@@ -1174,7 +1174,35 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
           return
         }
       } else {
-        setError(t('git.errors.unsupportedFileSystemAccess'))
+        // Fall back to companion folder picker on localhost / desktop if Web FS is unavailable
+        const picked = await pickFolders(t('git.pickFolder.multi'), true)
+        if (picked.length === 0) return
+        setBusy(true)
+        try {
+          const response = await fetch('/api/git/projects', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ paths: picked, discover: true }),
+          })
+          const body = (await response.json()) as {
+            ok?: boolean
+            projects?: GitProjectView[]
+            folders?: string[]
+            openPath?: string
+            count?: number
+          }
+          if (!response.ok || body.ok === false || !body.openPath) {
+            setError(readApiErrorMessage(body, t('git.errors.noReposFound')))
+            return
+          }
+          applyCatalog(body)
+          closeMenu()
+          await load(body.openPath)
+        } catch {
+          setError(t('git.errors.unsupportedFileSystemAccess'))
+        } finally {
+          setBusy(false)
+        }
         return
       }
       return

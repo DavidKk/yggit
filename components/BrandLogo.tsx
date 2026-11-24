@@ -53,12 +53,31 @@ export function BrandLogo({ className, markClassName, wordmarkClassName, priorit
 
   const logoClassName = cn('inline-flex min-w-0 items-center gap-2', className)
 
-  const effectiveHref = href && href !== '/' ? href : pathname?.startsWith('/git') ? '/git' : href || '/'
+  const effectiveHref = href && href !== '/' ? href : pathname?.startsWith('/git') || pathname?.startsWith('/workdesk') ? '/git' : href || '/'
+
+  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (onClick) {
+      onClick(e)
+      if (e.defaultPrevented) return
+    }
+
+    // If inside a Workdesk task detail view, clicking the logo triggers the exact same collapse effect as the close button
+    const closeBtn = typeof document !== 'undefined' ? document.querySelector<HTMLButtonElement>('[data-testid="workdesk-detail-close-btn"]') : null
+    if (closeBtn) {
+      e.preventDefault()
+      closeBtn.click()
+      return
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('yggit:close_task'))
+    }
+  }
 
   return (
     <Link
       href={effectiveHref}
-      onClick={onClick}
+      onClick={handleClick}
       aria-label={`${PRODUCT_DISPLAY_NAME} 首页`}
       className={cn(
         logoClassName,

@@ -1,93 +1,17 @@
 'use client'
 
 import Link from 'next/link'
-import React, { useState } from 'react'
-import { LuArrowRight, LuCheck, LuCompass, LuEye, LuFolderGit2, LuGitBranch, LuGlobe, LuHardDrive, LuLock, LuSettings, LuShieldCheck, LuSparkles, LuZap } from 'react-icons/lu'
+import React from 'react'
+import { LuArrowRight, LuCheck, LuFolderGit2, LuGitBranch, LuGlobe, LuHardDrive, LuLock, LuSettings, LuShieldCheck, LuZap } from 'react-icons/lu'
 
 import { BrandLogo } from '@/components/BrandLogo'
+import { YggitOfficialPreview } from '@/components/homepage/YggitOfficialPreview'
 import { useT } from '@/components/i18n/LocaleProvider'
 import { LocaleSwitcher } from '@/components/i18n/LocaleSwitcher'
 import { ThemeSwitcher } from '@/components/theme/ThemeSwitcher'
-import { cn } from '@/lib/utils'
 
 export function LandingPage() {
   const t = useT()
-  const [activeBranchHover, setActiveBranchHover] = useState<string | null>(null)
-  const [selectedCommit, setSelectedCommit] = useState<string>('3baadda')
-
-  // Sample DAG commit nodes for the hero interactive simulation
-  const commits = [
-    {
-      hash: '3baadda',
-      branch: 'main',
-      color: '#10b981', // emerald
-      cx: 140,
-      cy: 60,
-      parents: ['3633aff'],
-      subject: 'feat(git): add branch click selection & 3s hover dimming',
-      author: 'David Jones',
-      time: '10 分钟前',
-      isHead: true,
-    },
-    {
-      hash: '3633aff',
-      branch: 'main',
-      color: '#10b981',
-      cx: 260,
-      cy: 60,
-      parents: ['c735e9a', 'a91b2c4'],
-      subject: 'merge: feat/agent-system into main',
-      author: 'David Jones',
-      time: '1 小时前',
-      isMerge: true,
-    },
-    {
-      hash: 'a91b2c4',
-      branch: 'feat/agent-system',
-      color: '#06b6d4', // cyan
-      cx: 380,
-      cy: 140,
-      parents: ['f8290be'],
-      subject: 'feat(agent): zero-storage client-side reversible redaction',
-      author: 'AI Agent',
-      time: '2 小时前',
-    },
-    {
-      hash: 'f8290be',
-      branch: 'feat/agent-system',
-      color: '#06b6d4',
-      cx: 500,
-      cy: 140,
-      parents: ['c735e9a'],
-      subject: 'feat(model): multi-channel provider router',
-      author: 'AI Agent',
-      time: '3 小时前',
-    },
-    {
-      hash: 'd48e102',
-      branch: 'hotfix/edge-driver',
-      color: '#f59e0b', // amber
-      cx: 380,
-      cy: 220,
-      parents: ['c735e9a'],
-      subject: 'fix(edge): file system access directory permission fallback',
-      author: 'Ops Team',
-      time: '4 小时前',
-    },
-    {
-      hash: 'c735e9a',
-      branch: 'main',
-      color: '#10b981',
-      cx: 620,
-      cy: 60,
-      parents: ['9f10a82'],
-      subject: 'chore: initial dual-driver architecture setup',
-      author: 'David Jones',
-      time: '昨天',
-    },
-  ]
-
-  const activeCommitObj = commits.find((c) => c.hash === selectedCommit) || commits[0]
 
   return (
     <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden bg-paper text-ink selection:bg-accent selection:text-white">
@@ -103,8 +27,8 @@ export function LandingPage() {
           <a href="#features" className="transition-colors hover:text-ink">
             特性矩阵
           </a>
-          <a href="#interactive-dag" className="transition-colors hover:text-ink">
-            图谱交互
+          <a href="#living-banner" className="transition-colors hover:text-ink">
+            生命画卷
           </a>
           <a href="#architecture" className="transition-colors hover:text-ink">
             双引擎架构
@@ -115,6 +39,11 @@ export function LandingPage() {
           <Link href="/settings" className="transition-colors hover:text-ink">
             {t('gitAgent.settingsTitle')}
           </Link>
+          {process.env.NODE_ENV === 'development' && (
+            <Link href="/dev/studio" className="transition-colors text-accent hover:text-accent/80 font-mono font-medium">
+              动效工坊
+            </Link>
+          )}
         </nav>
 
         {/* Header Right Actions */}
@@ -133,198 +62,9 @@ export function LandingPage() {
         </div>
       </header>
 
-      {/* 2. Hero Section */}
-      <section className="relative flex flex-col items-center justify-center overflow-hidden px-4 pt-16 pb-12 text-center sm:px-6 lg:pt-24 lg:pb-16">
-        {/* Glow ambient background elements */}
-        <div className="pointer-events-none absolute top-1/4 -left-32 size-96 rounded-full bg-accent/15 blur-3xl" />
-        <div className="pointer-events-none absolute top-1/3 -right-32 size-96 rounded-full bg-[#10b981]/15 blur-3xl" />
-
-        {/* Announcement Tag */}
-        <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-line bg-panel-2/80 px-3.5 py-1 text-xs font-medium text-ink-soft shadow-xs backdrop-blur-sm">
-          <LuSparkles className="size-3.5 text-accent animate-pulse" aria-hidden="true" />
-          <span>新一代 Git 图谱拓扑 · 双引擎原生驱动 · 端侧可逆脱敏</span>
-        </div>
-
-        {/* Main Hero Headline */}
-        <h1 className="max-w-4xl text-3xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl">
-          让每一次提交与合并脉络，
-          <br />
-          <span className="bg-gradient-to-r from-accent via-[#06b6d4] to-[#10b981] bg-clip-text text-transparent">都清晰可见</span>
-        </h1>
-
-        {/* Subtitle */}
-        <p className="mt-5 max-w-2xl text-sm leading-relaxed text-ink-soft sm:text-base lg:text-lg">
-          专为复杂多分支与团队研发打造的现代化 Git 交互式图谱工作区。 支持 Node.js 本地极速与 Edge 纯浏览器双引擎驱动，毫秒级 DAG 拓扑渲染，内置端侧零存留 AI 代码审查与可逆脱敏。
-        </p>
-
-        {/* CTA Actions */}
-        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-          <Link
-            href="/git"
-            className="flex items-center gap-2 rounded-xl bg-accent px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-accent/20 transition-all hover:bg-[color-mix(in_oklab,var(--accent)_88%,black)] hover:shadow-accent/30 active:scale-95"
-          >
-            <LuFolderGit2 className="size-4" aria-hidden="true" />
-            <span>进入 Git 工作区</span>
-            <LuArrowRight className="size-4" aria-hidden="true" />
-          </Link>
-
-          <Link
-            href="/settings"
-            className="flex items-center gap-2 rounded-xl border border-line bg-panel-2 px-5 py-3 text-sm font-medium text-ink transition-all hover:bg-panel hover:border-ink/20 active:scale-95"
-          >
-            <LuSettings className="size-4 text-ink-soft" aria-hidden="true" />
-            <span>配置中心</span>
-          </Link>
-
-          <Link
-            href="/git?url=https%3A%2F%2Fgithub.com%2FDavidKk%2Fyggit.git"
-            className="flex items-center gap-2 rounded-xl border border-line/60 bg-transparent px-4 py-3 text-sm font-medium text-ink-soft hover:text-ink transition-colors"
-          >
-            <LuCompass className="size-4" aria-hidden="true" />
-            <span>浏览开源示例</span>
-          </Link>
-        </div>
-      </section>
-
-      {/* 3. Interactive DAG Topology Preview Showcase */}
-      <section id="interactive-dag" className="relative mx-auto w-full max-w-5xl px-4 py-8 sm:px-6">
-        <div className="rounded-2xl border border-line bg-paper-2/90 shadow-2xl overflow-hidden backdrop-blur-sm">
-          {/* Mock Window Top Bar */}
-          <div className="flex items-center justify-between border-b border-line bg-panel-2/60 px-4 py-2.5">
-            <div className="flex items-center gap-2">
-              <span className="size-3 rounded-full bg-fail/60" />
-              <span className="size-3 rounded-full bg-warn/60" />
-              <span className="size-3 rounded-full bg-ok/60" />
-              <span className="ml-2 text-xs font-semibold text-ink-soft">yggit-workspace · DAG 拓扑模拟预览</span>
-            </div>
-
-            {/* Simulated branch filter buttons */}
-            <div className="flex items-center gap-1.5 text-[0.72rem]">
-              <span className="text-ink-soft mr-1">分支聚焦:</span>
-              {['all', 'main', 'feat/agent-system', 'hotfix/edge-driver'].map((b) => (
-                <button
-                  key={b}
-                  type="button"
-                  onClick={() => setActiveBranchHover(b === 'all' ? null : b)}
-                  className={cn(
-                    'rounded-md px-2 py-0.5 font-mono transition-colors cursor-pointer',
-                    activeBranchHover === b || (b === 'all' && !activeBranchHover)
-                      ? 'bg-accent/20 text-accent font-semibold border border-accent/40'
-                      : 'text-ink-soft hover:bg-panel hover:text-ink'
-                  )}
-                >
-                  {b}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Graph Visual Area */}
-          <div className="relative p-6">
-            <div className="mb-4 flex items-center justify-between text-xs text-ink-soft">
-              <div className="flex items-center gap-2">
-                <LuEye className="size-3.5 text-accent" />
-                <span>交互提示：点击提交节点查看详情；悬停分支查看 3 秒聚光灯聚焦效果</span>
-              </div>
-              <div className="flex items-center gap-3 font-mono text-[0.7rem]">
-                <span className="flex items-center gap-1">
-                  <span className="size-2 rounded-full bg-[#10b981]" /> main
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="size-2 rounded-full bg-[#06b6d4]" /> feat/agent-system
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="size-2 rounded-full bg-[#f59e0b]" /> hotfix/edge-driver
-                </span>
-              </div>
-            </div>
-
-            {/* SVG Tree */}
-            <div className="relative overflow-x-auto rounded-xl border border-line/60 bg-paper p-4">
-              <svg viewBox="0 0 760 280" className="w-full h-auto min-w-[680px]">
-                {/* Branch Lines */}
-                <g strokeWidth="2.5" fill="none">
-                  {/* main line */}
-                  <path
-                    d="M 620 60 L 260 60 L 140 60"
-                    stroke="#10b981"
-                    strokeOpacity={activeBranchHover && activeBranchHover !== 'main' ? 0.2 : 0.85}
-                    className="transition-opacity duration-300"
-                  />
-                  {/* feat/agent-system curve to merge */}
-                  <path
-                    d="M 620 60 C 560 60, 560 140, 500 140 L 380 140 C 320 140, 320 60, 260 60"
-                    stroke="#06b6d4"
-                    strokeOpacity={activeBranchHover && activeBranchHover !== 'feat/agent-system' ? 0.2 : 0.85}
-                    className="transition-opacity duration-300"
-                  />
-                  {/* hotfix/edge-driver branch curve */}
-                  <path
-                    d="M 620 60 C 500 60, 500 220, 380 220"
-                    stroke="#f59e0b"
-                    strokeOpacity={activeBranchHover && activeBranchHover !== 'hotfix/edge-driver' ? 0.2 : 0.85}
-                    className="transition-opacity duration-300"
-                  />
-                </g>
-
-                {/* Commit Nodes */}
-                {commits.map((commit) => {
-                  const isDimmed = activeBranchHover && activeBranchHover !== commit.branch
-                  const isSelected = selectedCommit === commit.hash
-
-                  return (
-                    <g
-                      key={commit.hash}
-                      onClick={() => setSelectedCommit(commit.hash)}
-                      className="cursor-pointer transition-transform hover:scale-110"
-                      style={{ opacity: isDimmed ? 0.25 : 1, transition: 'all 0.3s ease' }}
-                    >
-                      {/* Outer pulse for HEAD commit */}
-                      {commit.isHead ? <circle cx={commit.cx} cy={commit.cy} r="14" fill="#10b981" opacity="0.2" className="animate-ping" /> : null}
-
-                      {/* Main node circle */}
-                      <circle
-                        cx={commit.cx}
-                        cy={commit.cy}
-                        r={isSelected ? '9' : '7'}
-                        fill={commit.color}
-                        stroke={isSelected ? '#ffffff' : 'var(--paper)'}
-                        strokeWidth={isSelected ? '3' : '2'}
-                      />
-
-                      {/* Commit Label */}
-                      <text x={commit.cx} y={commit.cy - 14} textAnchor="middle" fill="currentColor" className="text-[10px] font-mono font-medium fill-ink-soft select-none">
-                        {commit.hash}
-                      </text>
-
-                      {commit.isHead ? (
-                        <rect x={commit.cx - 24} y={commit.cy + 12} width="48" height="16" rx="4" fill="#10b981" className="text-[9px] font-bold font-mono" />
-                      ) : null}
-                      {commit.isHead ? (
-                        <text x={commit.cx} y={commit.cy + 24} textAnchor="middle" fill="#ffffff" className="text-[9px] font-bold font-mono select-none">
-                          HEAD
-                        </text>
-                      ) : null}
-                    </g>
-                  )
-                })}
-              </svg>
-            </div>
-
-            {/* Selected Commit Details Banner */}
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-paper p-3 text-xs">
-              <div className="flex items-center gap-2">
-                <span className="font-mono font-bold text-accent">{activeCommitObj.hash}</span>
-                <span className="rounded bg-panel-2 px-1.5 py-0.5 font-mono text-[0.7rem] text-ink-soft">{activeCommitObj.branch}</span>
-                <span className="font-medium text-ink">{activeCommitObj.subject}</span>
-              </div>
-              <div className="flex items-center gap-3 text-ink-soft text-[0.72rem]">
-                <span>{activeCommitObj.author}</span>
-                <span>{activeCommitObj.time}</span>
-              </div>
-            </div>
-          </div>
-        </div>
+      {/* 2. Official Living World Tree Hero Banner */}
+      <section id="living-banner" className="relative w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-4 pb-12">
+        <YggitOfficialPreview view="official-site" compactBannerMode />
       </section>
 
       {/* 4. Core Features Grid */}

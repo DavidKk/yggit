@@ -101,18 +101,40 @@ export class EdgeGitDriver implements IGitDriver {
       }
 
       // Match by remote / httpsUrl
-      const targetIdentity = remoteIdentity(edgeProj?.httpsUrl || edgeProj?.remotes?.[0]?.url || repo)
+      const rawTarget = edgeProj?.httpsUrl || edgeProj?.remotes?.[0]?.url || repo
+      const targetIdentity = (remoteIdentity(rawTarget) || remoteIdentity(`https://${rawTarget}`) || rawTarget).toLowerCase()
       if (targetIdentity) {
-        const byRemote = companionProjects.find((p) => remoteIdentity(p.httpsUrl || p.remotes?.[0]?.url || '') === targetIdentity)
+        const byRemote = companionProjects.find((p) => {
+          const pIdentity = (remoteIdentity(p.httpsUrl || p.remotes?.[0]?.url || '') || p.httpsUrl || '').toLowerCase()
+          return (
+            pIdentity === targetIdentity || (targetIdentity.includes('/') && pIdentity.endsWith(targetIdentity)) || (pIdentity.includes('/') && targetIdentity.endsWith(pIdentity))
+          )
+        })
         if (byRemote?.localPath) {
           this.repoPathCache.set(repo, byRemote.localPath)
           return byRemote.localPath
         }
       }
 
-      // Match by name
-      const targetName = (edgeProj?.name || repo).toLowerCase()
-      const byName = companionProjects.find((p) => p.name.toLowerCase() === targetName)
+      // Match by name or basename
+      const rawBasename = (
+        edgeProj?.name ||
+        repo
+          .split(/[/\\?#]/)
+          .filter(Boolean)
+          .pop() ||
+        repo
+      ).toLowerCase()
+      const byName = companionProjects.find((p) => {
+        const pName = (p.name || '').toLowerCase()
+        const pBase =
+          (p.localPath || '')
+            .split(/[/\\?#]/)
+            .filter(Boolean)
+            .pop()
+            ?.toLowerCase() || ''
+        return pName === rawBasename || pBase === rawBasename
+      })
       if (byName?.localPath) {
         this.repoPathCache.set(repo, byName.localPath)
         return byName.localPath
@@ -658,7 +680,20 @@ export class EdgeGitDriver implements IGitDriver {
     }
 
     if (payload.handle) {
+      // 1. Verify that .git exists in handle
+      try {
+        const { createDirectoryHandleFs } = await import('./handle-fs')
+        const fs = createDirectoryHandleFs(payload.handle)
+        await fs.promises.stat('/.git')
+      } catch {
+        throw new Error(`所选目录 "${payload.handle.name}" 不是一个有效的 Git 仓库（未找到 .git 目录）`)
+      }
+
       await saveDirectoryHandle(id, payload.handle, payload.name, group)
+      const { saveRepoAlias } = await import('@/lib/git/indexeddb-handles')
+      await saveRepoAlias(payload.handle.name, id).catch(() => {})
+      await saveRepoAlias(id, payload.handle.name).catch(() => {})
+
       return {
         id,
         name: payload.name || payload.handle.name || id,
@@ -669,6 +704,14 @@ export class EdgeGitDriver implements IGitDriver {
         local: true,
         remote: false,
         authorized: true,
+      }
+    }
+
+    if (!payload.handle && (payload.pathOrUrl.startsWith('/') || payload.pathOrUrl.includes(':\\'))) {
+      try {
+        return await this.companion.addProject(payload)
+      } catch {
+        // Fallback
       }
     }
 
