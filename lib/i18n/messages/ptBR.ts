@@ -3,6 +3,7 @@ import { debugPtBR } from '@/lib/i18n/messages/parts/debug'
 import { eventCurrentPtBR } from '@/lib/i18n/messages/parts/event-current'
 import { floatingBallPtBR } from '@/lib/i18n/messages/parts/floating-ball'
 import { gitPtBR } from '@/lib/i18n/messages/parts/git'
+import { landingEn } from '@/lib/i18n/messages/parts/landing'
 import { mcpGatewayPtBR } from '@/lib/i18n/messages/parts/mcp-gateway'
 import { playPtBR } from '@/lib/i18n/messages/parts/play'
 import { workdeskEn } from '@/lib/i18n/messages/parts/workdesk'
@@ -1410,6 +1411,7 @@ export const ptBR: MessageTree = {
   ...mcpGatewayPtBR,
   ...gitAgentPtBR,
   ...workdeskEn,
+  ...landingEn,
   downloads: {
     title: 'Downloads',
     triggerAria: 'Downloads',

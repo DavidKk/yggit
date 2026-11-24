@@ -13,10 +13,11 @@ type Props = {
   className?: string
   /** 营销页等窄位：更紧凑 */
   compact?: boolean
+  triggerClassName?: string
 }
 
 /** 界面语言切换：首项跟随系统，其余用母语标签（不随 locale 翻译） */
-export function LocaleSwitcher({ className }: Props) {
+export function LocaleSwitcher({ className, compact, triggerClassName }: Props) {
   const { locale, preference, ready, setLocale, t } = useLocale()
   const anchorRef = useRef<HTMLSpanElement>(null)
   const [container, setContainer] = useState<ShadowRoot>()
@@ -34,9 +35,9 @@ export function LocaleSwitcher({ className }: Props) {
   return (
     <span ref={anchorRef} className={cn('inline-flex', !ready && 'invisible', className)}>
       <Menu.Root>
-        <Menu.Trigger aria-label={t('locale.switch')} className={dropdownTriggerClass}>
+        <Menu.Trigger aria-label={t('locale.switch')} className={triggerClassName || dropdownTriggerClass}>
           <IoGlobeOutline size={15} aria-hidden className="shrink-0" />
-          <span className="whitespace-nowrap">{LOCALE_NATIVE_LABEL[locale]}</span>
+          <span className={cn('whitespace-nowrap', compact && 'hidden sm:inline')}>{LOCALE_NATIVE_LABEL[locale]}</span>
         </Menu.Trigger>
         <Menu.Portal container={container}>
           <Menu.Positioner side="bottom" align="end" sideOffset={6} collisionPadding={8} positionMethod="fixed" className="z-[70]">

@@ -3,6 +3,7 @@ import { debugDe } from '@/lib/i18n/messages/parts/debug'
 import { eventCurrentDe } from '@/lib/i18n/messages/parts/event-current'
 import { floatingBallDe } from '@/lib/i18n/messages/parts/floating-ball'
 import { gitDe } from '@/lib/i18n/messages/parts/git'
+import { landingEn } from '@/lib/i18n/messages/parts/landing'
 import { mcpGatewayDe } from '@/lib/i18n/messages/parts/mcp-gateway'
 import { playDe } from '@/lib/i18n/messages/parts/play'
 import { workdeskEn } from '@/lib/i18n/messages/parts/workdesk'
@@ -1410,6 +1411,7 @@ export const de: MessageTree = {
   ...mcpGatewayDe,
   ...gitAgentDe,
   ...workdeskEn,
+  ...landingEn,
   downloads: {
     title: 'Downloads',
     triggerAria: 'Downloads',

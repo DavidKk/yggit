@@ -5,6 +5,8 @@ import Link from 'next/link'
 import React, { useEffect, useRef, useState } from 'react'
 import { LuArrowRight, LuDownload, LuEye, LuEyeOff, LuLayers, LuMoon, LuPlay, LuSlidersHorizontal, LuSparkles, LuStar, LuSun, LuWaves, LuWind } from 'react-icons/lu'
 
+import { useT } from '@/components/i18n/LocaleProvider'
+
 import { HERO_ASSETS } from './data/heroAssets'
 import { SEASON_THEMES, SeasonThemePack, TIME_OF_DAY_PRESETS, TimeOfDayPreset } from './data/worldTreeData'
 import {
@@ -12,6 +14,7 @@ import {
   CARD_INNER_ORBS,
   CARD_ROOT_BOUNDS,
   CARD_UI_BOUNDS,
+  type CardUiLabels,
   DEFAULT_CARD_UI_STATE,
   drawHeroCardBranches,
   drawHeroCardUi,
@@ -300,6 +303,25 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
   // Daytime vs Nighttime (Dark) Mode — defaults to 'day'
   const [dayNightMode, setDayNightMode] = useState<'day' | 'night'>(timePresetId === 'night' ? 'night' : 'day')
   const [dualDayNightCompare, setDualDayNightCompare] = useState<boolean>(false)
+
+  const t = useT()
+  const cardLabelsRef = useRef<CardUiLabels>({
+    allRepos: t('landing.card.allRepos'),
+    favorites: t('landing.card.favorites'),
+    recentlyViewed: t('landing.card.recentlyViewed'),
+    workspace: t('landing.card.workspace'),
+    searchCommits: t('landing.card.searchCommits'),
+  })
+
+  useEffect(() => {
+    cardLabelsRef.current = {
+      allRepos: t('landing.card.allRepos'),
+      favorites: t('landing.card.favorites'),
+      recentlyViewed: t('landing.card.recentlyViewed'),
+      workspace: t('landing.card.workspace'),
+      searchCommits: t('landing.card.searchCommits'),
+    }
+  }, [t])
 
   useEffect(() => {
     if (timePresetId === 'day') setDayNightMode('day')
@@ -859,7 +881,7 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
           ctx.save()
           if (hasForeground) ctx.clip(cardOccludedEdge)
           ctx.drawImage(shell, 0, 0, W, H)
-          if (s.showCardInteractiveUi) drawHeroCardUi(ctx, s, treeBlend)
+          if (s.showCardInteractiveUi) drawHeroCardUi(ctx, s, treeBlend, cardLabelsRef.current)
           ctx.restore()
         }
 

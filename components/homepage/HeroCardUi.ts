@@ -129,11 +129,26 @@ function text(ctx: CanvasRenderingContext2D, label: string, x: number, y: number
   ctx.fillText(label, x, y)
 }
 
-export function drawHeroCardUi(ctx: CanvasRenderingContext2D, state: CardUiState, night: number) {
+export interface CardUiLabels {
+  allRepos?: string
+  favorites?: string
+  recentlyViewed?: string
+  workspace?: string
+  searchCommits?: string
+}
+
+export function drawHeroCardUi(ctx: CanvasRenderingContext2D, state: CardUiState, night: number, labels?: CardUiLabels) {
   const { x, y, width, height } = CARD_UI_BOUNDS
   const ink = '#eaf9fc'
   const muted = '#a5c6cf'
   const accent = '#6ef9d4'
+  const cardLabels = {
+    allRepos: labels?.allRepos ?? 'All repositories',
+    favorites: labels?.favorites ?? 'Favorites',
+    recentlyViewed: labels?.recentlyViewed ?? 'Recently viewed',
+    workspace: labels?.workspace ?? 'Workspace',
+    searchCommits: labels?.searchCommits ?? 'Search commits',
+  }
   const chrome = ctx.createLinearGradient(x, y, x, y + height)
   chrome.addColorStop(0, `rgb(${12 - 5 * night} ${47 - 14 * night} ${58 - 15 * night})`)
   chrome.addColorStop(1, `rgb(${8 - 3 * night} ${33 - 10 * night} ${45 - 13 * night})`)
@@ -167,7 +182,8 @@ export function drawHeroCardUi(ctx: CanvasRenderingContext2D, state: CardUiState
     const highlighted = control.id === state.activeToolbarId || control.id === state.hoveredToolbarId
     surface(ctx, control.box, 7, highlighted ? '#1a514f' : '#10313d', highlighted ? '#4abda8' : '#234754')
     drawIcon(ctx, control.icon, left + 10, top + 8, 17, highlighted ? accent : muted)
-    text(ctx, control.label, left + 34, top + controlHeight / 2, 14, control.chevron ? ink : muted, 550)
+    const labelText = control.id === 'tb-search' ? cardLabels.searchCommits : control.label
+    text(ctx, labelText, left + 34, top + controlHeight / 2, 14, control.chevron ? ink : muted, 550)
     if (control.chevron) drawIcon(ctx, 'chevron', left + controlWidth - 22, top + 9, 15, muted)
   }
 
@@ -178,11 +194,15 @@ export function drawHeroCardUi(ctx: CanvasRenderingContext2D, state: CardUiState
       surface(ctx, control.box, 6, selected ? '#124c48' : '#103844', selected ? '#378f86' : undefined)
     }
     drawIcon(ctx, control.icon, left + 10, top + (controlHeight - 17) / 2, 17, selected ? accent : muted)
-    text(ctx, control.label, left + 37, top + controlHeight / 2, 15, selected ? accent : ink, selected ? 650 : 500)
+    let labelText = control.label
+    if (control.id === 'repos') labelText = cardLabels.allRepos
+    else if (control.id === 'saved') labelText = cardLabels.favorites
+    else if (control.id === 'recent') labelText = cardLabels.recentlyViewed
+    text(ctx, labelText, left + 37, top + controlHeight / 2, 15, selected ? accent : ink, selected ? 650 : 500)
   }
   ctx.fillStyle = '#30545c'
   ctx.fillRect(698, 480, 159, 1)
-  text(ctx, 'Workspace', 698, 496, 13, muted, 600)
+  text(ctx, cardLabels.workspace, 698, 496, 13, muted, 600)
 
   for (const commit of CARD_INNER_ORBS) {
     const active = commit.commitIdx === state.activeCommitIdx

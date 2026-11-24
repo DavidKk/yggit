@@ -3,6 +3,7 @@ import { debugCht } from '@/lib/i18n/messages/parts/debug'
 import { eventCurrentCht } from '@/lib/i18n/messages/parts/event-current'
 import { floatingBallCht } from '@/lib/i18n/messages/parts/floating-ball'
 import { gitCht } from '@/lib/i18n/messages/parts/git'
+import { landingCht } from '@/lib/i18n/messages/parts/landing'
 import { mcpGatewayCht } from '@/lib/i18n/messages/parts/mcp-gateway'
 import { playCht } from '@/lib/i18n/messages/parts/play'
 import { workdeskCht } from '@/lib/i18n/messages/parts/workdesk'
@@ -1396,6 +1397,7 @@ export const cht: MessageTree = {
   ...mcpGatewayCht,
   ...gitAgentCht,
   ...workdeskCht,
+  ...landingCht,
   downloads: {
     title: '下載',
     triggerAria: '下載管理',

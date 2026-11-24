@@ -12,6 +12,7 @@ import type { McpGatewayMessages } from '@/lib/i18n/messages/mcp-gateway-types'
 import type { DebugMessages } from '@/lib/i18n/messages/parts/debug'
 import type { FloatingBallMessages } from '@/lib/i18n/messages/parts/floating-ball'
 import type { GitMessages } from '@/lib/i18n/messages/parts/git'
+import type { LandingMessages } from '@/lib/i18n/messages/parts/landing'
 import type { PlayMessages } from '@/lib/i18n/messages/parts/play'
 import type { WorkdeskMessages } from '@/lib/i18n/messages/parts/workdesk'
 import type { SavesMessages } from '@/lib/i18n/messages/saves-types'
@@ -935,6 +936,7 @@ export type MessageTree = {
   mcpGateway: McpGatewayMessages
   gitAgent: GitAgentMessages
   workdesk: WorkdeskMessages
+  landing: LandingMessages
   downloads: DownloadsMessages
   about: AboutMessages
   credits: CreditsMessages

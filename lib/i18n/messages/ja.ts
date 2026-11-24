@@ -11,6 +11,7 @@ import { eventsJa } from '@/lib/i18n/messages/parts/events.ja'
 import { floatingBallJa } from '@/lib/i18n/messages/parts/floating-ball'
 import { gitJa } from '@/lib/i18n/messages/parts/git'
 import { integrationJa } from '@/lib/i18n/messages/parts/integration'
+import { landingJa } from '@/lib/i18n/messages/parts/landing'
 import { legalJa } from '@/lib/i18n/messages/parts/legal'
 import { mcpGatewayJa } from '@/lib/i18n/messages/parts/mcp-gateway'
 import { panelsJa } from '@/lib/i18n/messages/parts/panels'
@@ -349,6 +350,7 @@ export const ja: MessageTree = {
   ...mcpGatewayJa,
   ...gitAgentJa,
   ...workdeskEn,
+  ...landingJa,
   ...downloadsJa,
   ...aboutJa,
   ...agentAuthJa,
