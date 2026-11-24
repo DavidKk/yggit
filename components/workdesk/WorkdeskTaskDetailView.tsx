@@ -588,38 +588,7 @@ ${cr.solution}
               return (
                 <div
                   key={item.id}
-                  draggable={true}
-                  onDragStart={(e) => {
-                    e.stopPropagation()
-                    e.dataTransfer.setData('text/plain', item.id)
-                    e.dataTransfer.effectAllowed = 'move'
-                    setDraggingItemId(item.id)
-                  }}
-                  onDragEnd={() => {
-                    setDraggingItemId(null)
-                    setDragOverItemId(null)
-                  }}
-                  onDragOver={(e) => {
-                    e.preventDefault()
-                    e.dataTransfer.dropEffect = 'move'
-                    if (dragOverItemId !== item.id) {
-                      setDragOverItemId(item.id)
-                    }
-                  }}
-                  onDragLeave={() => {
-                    setDragOverItemId(null)
-                  }}
-                  onDrop={(e) => {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    const srcId = e.dataTransfer.getData('text/plain') || draggingItemId
-                    if (srcId && srcId !== item.id) {
-                      handleReorderItems(srcId, item.id)
-                    }
-                    setDraggingItemId(null)
-                    setDragOverItemId(null)
-                  }}
-                  onClick={() => handleSelectItem(item.id)}
+                  className="relative shrink-0 select-none"
                   style={{
                     animation: isGathering
                       ? `workdeskCardGather 200ms cubic-bezier(0.2, 0.8, 0.2, 1) ${Math.min(itemIndex, 4) * 8}ms both`
@@ -627,25 +596,6 @@ ${cr.solution}
                         ? `workdeskCardDeal 240ms cubic-bezier(0.16, 1, 0.3, 1) ${Math.min(itemIndex, 8) * 35}ms both`
                         : undefined,
                   }}
-                  className={cn(
-                    'group relative flex h-[62px] min-h-[62px] w-full cursor-pointer items-center justify-between gap-3 rounded-xl border p-2.5 shadow-xs transition-all duration-150 select-none shrink-0',
-                    itemIndex === 0 && isMultiple && (isDealing || isGathering) && 'z-10',
-                    isSelected
-                      ? 'border-[#b5ddd4] bg-[#f8fcfa] shadow-xs dark:border-emerald-700/60 dark:bg-emerald-950/30'
-                      : 'border-line bg-panel hover:border-[#b5ddd4] hover:bg-[#f8fcfa] hover:shadow-sm dark:hover:border-emerald-700/50 dark:hover:bg-emerald-950/20',
-                    isItemDragging && 'opacity-40 scale-[0.98]',
-                    isItemOver && 'ring-1 ring-accent',
-                    'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent/40'
-                  )}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault()
-                      handleSelectItem(item.id)
-                    }
-                  }}
-                  aria-label={`${item.repoAlias ? `${item.repoAlias} · ${item.name}` : item.name} - ${item.summary}`}
                 >
                   {/* Stacked Card Deck underlayers: preserved during flight, dealing and gathering */}
                   {itemIndex === 0 && isMultiple && (isDealing || isGathering) && (
@@ -659,7 +609,7 @@ ${cr.solution}
                               ? 'workdeskStackDealBottom 380ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards'
                               : undefined,
                         }}
-                        className="absolute inset-0 -z-10 rounded-xl border border-line/60 bg-panel shadow-2xs pointer-events-none origin-top-left dark:border-line/40 dark:bg-panel"
+                        className="absolute inset-0 rounded-xl border border-line/60 bg-panel shadow-2xs pointer-events-none origin-top-left dark:border-line/40 dark:bg-panel"
                         aria-hidden="true"
                       />
                       <div
@@ -671,39 +621,93 @@ ${cr.solution}
                               ? 'workdeskStackDealMiddle 380ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards'
                               : undefined,
                         }}
-                        className="absolute inset-0 -z-10 rounded-xl border border-line/80 bg-panel shadow-2xs pointer-events-none origin-top-left dark:border-line/60 dark:bg-panel"
+                        className="absolute inset-0 rounded-xl border border-line/80 bg-panel shadow-2xs pointer-events-none origin-top-left dark:border-line/60 dark:bg-panel"
                         aria-hidden="true"
                       />
                     </>
                   )}
-                  <div className="flex min-w-0 flex-1 flex-col justify-center text-left">
-                    <span className="line-clamp-1 text-xs font-semibold leading-tight text-ink transition-colors group-hover:text-ink-vivid">
-                      {item.repoAlias ? `${item.repoAlias} · ${item.name}` : item.name}
-                    </span>
-                    <span className="mt-1 line-clamp-1 text-[11px] leading-tight text-ink-muted">{getItemCardSummary(item.summary)}</span>
-                  </div>
 
-                  {/* Right Status Dot & Agent Quick Action */}
-                  <div className="flex shrink-0 items-center gap-1.5">
-                    <Tooltip content={t('git.operations.quoteToAgent') || 'Quote to Git Agent'} placement="top">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleSendToAgent(item)
-                        }}
-                        className="flex size-5 items-center justify-center rounded-md text-ink-muted opacity-0 group-hover:opacity-100 hover:bg-accent/15 hover:text-accent transition-all duration-150 cursor-pointer"
-                        aria-label={t('git.operations.quoteToAgent') || 'Quote to Git Agent'}
+                  <div
+                    draggable={true}
+                    onDragStart={(e) => {
+                      e.stopPropagation()
+                      e.dataTransfer.setData('text/plain', item.id)
+                      e.dataTransfer.effectAllowed = 'move'
+                      setDraggingItemId(item.id)
+                    }}
+                    onDragEnd={() => {
+                      setDraggingItemId(null)
+                      setDragOverItemId(null)
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault()
+                      e.dataTransfer.dropEffect = 'move'
+                      if (dragOverItemId !== item.id) {
+                        setDragOverItemId(item.id)
+                      }
+                    }}
+                    onDragLeave={() => {
+                      setDragOverItemId(null)
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      const srcId = e.dataTransfer.getData('text/plain') || draggingItemId
+                      if (srcId && srcId !== item.id) {
+                        handleReorderItems(srcId, item.id)
+                      }
+                      setDraggingItemId(null)
+                      setDragOverItemId(null)
+                    }}
+                    onClick={() => handleSelectItem(item.id)}
+                    className={cn(
+                      'group relative z-10 flex h-[62px] min-h-[62px] w-full cursor-pointer items-center justify-between gap-3 rounded-xl border p-2.5 shadow-xs transition-all duration-150 select-none shrink-0',
+                      isSelected
+                        ? 'border-[#b5ddd4] bg-[#f8fcfa] shadow-xs dark:border-emerald-700/60 dark:bg-emerald-950/30'
+                        : 'border-line bg-panel hover:border-[#b5ddd4] hover:bg-[#f8fcfa] hover:shadow-sm dark:hover:border-emerald-700/50 dark:hover:bg-emerald-950/20',
+                      isItemDragging && 'opacity-40 scale-[0.98]',
+                      isItemOver && 'ring-1 ring-accent',
+                      'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent/40'
+                    )}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        handleSelectItem(item.id)
+                      }
+                    }}
+                    aria-label={`${item.repoAlias ? `${item.repoAlias} · ${item.name}` : item.name} - ${item.summary}`}
+                  >
+                    <div className="flex min-w-0 flex-1 flex-col justify-center text-left">
+                      <span className="line-clamp-1 text-xs font-semibold leading-tight text-ink transition-colors group-hover:text-ink-vivid">
+                        {item.repoAlias ? `${item.repoAlias} · ${item.name}` : item.name}
+                      </span>
+                      <span className="mt-1 line-clamp-1 text-[11px] leading-tight text-ink-muted">{getItemCardSummary(item.summary)}</span>
+                    </div>
+
+                    {/* Right Status Dot & Agent Quick Action */}
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <Tooltip content={t('git.operations.quoteToAgent') || 'Quote to Git Agent'} placement="top">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleSendToAgent(item)
+                          }}
+                          className="flex size-5 items-center justify-center rounded-md text-ink-muted opacity-0 group-hover:opacity-100 hover:bg-accent/15 hover:text-accent transition-all duration-150 cursor-pointer"
+                          aria-label={t('git.operations.quoteToAgent') || 'Quote to Git Agent'}
+                        >
+                          <LuBot className="size-3" aria-hidden="true" />
+                        </button>
+                      </Tooltip>
+                      <Tooltip
+                        content={item.state === 'safe' ? '状态正常 / 可快速合并' : item.state === 'warn' ? '需关注 /存在分支分叉或未同步' : '待处理异常 / 需人工介入'}
+                        placement="top"
                       >
-                        <LuBot className="size-3" aria-hidden="true" />
-                      </button>
-                    </Tooltip>
-                    <Tooltip
-                      content={item.state === 'safe' ? '状态正常 / 可快速合并' : item.state === 'warn' ? '需关注 / 存在分支分叉或未同步' : '待处理异常 / 需人工介入'}
-                      placement="top"
-                    >
-                      <span className="inline-flex items-center cursor-default">{renderStateDot(item.state)}</span>
-                    </Tooltip>
+                        <span className="inline-flex items-center cursor-default">{renderStateDot(item.state)}</span>
+                      </Tooltip>
+                    </div>
                   </div>
                 </div>
               )

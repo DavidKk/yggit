@@ -387,7 +387,7 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
                 zIndex: 50,
                 transition: transition.phase === 'moving' || transition.phase === 'collapsing' ? 'all 350ms cubic-bezier(0.2, 0.8, 0.2, 1)' : 'none',
               }}
-              className="pointer-events-none flex h-[62px] min-h-[62px] flex-col justify-center rounded-xl border border-line bg-panel p-2.5 shadow-md dark:border-line dark:bg-panel"
+              className="pointer-events-none relative select-none"
             >
               {isMultiple && (
                 <>
@@ -397,7 +397,7 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
                       transform: 'translate(6px, 6px) rotate(1.2deg)',
                       opacity: 0.8,
                     }}
-                    className="absolute inset-0 -z-10 rounded-xl border border-line/60 bg-panel shadow-2xs pointer-events-none origin-top-left dark:border-line/40 dark:bg-panel"
+                    className="absolute inset-0 rounded-xl border border-line/60 bg-panel shadow-2xs pointer-events-none origin-top-left dark:border-line/40 dark:bg-panel"
                     aria-hidden="true"
                   />
                   <div
@@ -406,26 +406,28 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
                       transform: 'translate(4px, 4px) rotate(0.6deg)',
                       opacity: 0.9,
                     }}
-                    className="absolute inset-0 -z-10 rounded-xl border border-line/80 bg-panel shadow-2xs pointer-events-none origin-top-left dark:border-line/60 dark:bg-panel"
+                    className="absolute inset-0 rounded-xl border border-line/80 bg-panel shadow-2xs pointer-events-none origin-top-left dark:border-line/60 dark:bg-panel"
                     aria-hidden="true"
                   />
                 </>
               )}
 
-              <div className="flex w-full items-start justify-between gap-2">
-                <span className="line-clamp-1 text-xs font-semibold leading-tight text-ink">{title}</span>
-              </div>
-              <div className="mt-1 flex items-center gap-3 text-[11px] font-medium leading-tight text-ink-muted">
-                <span className="inline-flex items-center gap-1">
-                  <LuFolderGit2 className="size-3 text-ink-muted" aria-hidden="true" />
-                  <span>{displayProjectCount}</span>
-                </span>
-                {extraCount !== null && (
+              <div className="relative z-10 flex h-[62px] min-h-[62px] flex-col justify-center rounded-xl border border-line bg-panel p-2.5 shadow-xs dark:border-line dark:bg-panel">
+                <div className="flex w-full items-start justify-between gap-2">
+                  <span className="line-clamp-1 text-xs font-semibold leading-tight text-ink">{title}</span>
+                </div>
+                <div className="mt-1 flex items-center gap-3 text-[11px] font-medium leading-tight text-ink-muted">
                   <span className="inline-flex items-center gap-1">
-                    {isWorktree ? <LuGitFork className="size-3 text-ink-muted" aria-hidden="true" /> : <LuGitBranch className="size-3 text-ink-muted" aria-hidden="true" />}
-                    <span>{extraCount > 99 ? '99+' : extraCount}</span>
+                    <LuFolderGit2 className="size-3 text-ink-muted" aria-hidden="true" />
+                    <span>{displayProjectCount}</span>
                   </span>
-                )}
+                  {extraCount !== null && (
+                    <span className="inline-flex items-center gap-1">
+                      {isWorktree ? <LuGitFork className="size-3 text-ink-muted" aria-hidden="true" /> : <LuGitBranch className="size-3 text-ink-muted" aria-hidden="true" />}
+                      <span>{extraCount > 99 ? '99+' : extraCount}</span>
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           )
