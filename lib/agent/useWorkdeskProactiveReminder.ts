@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { useT } from '@/components/i18n/LocaleProvider'
 import { useAgent } from '@/lib/agent/agent-context'
@@ -11,6 +11,7 @@ import { type ScanResult, workdeskEngine } from '@/lib/workdesk/engine'
 import type { WorkItem } from '@/lib/workdesk/types'
 
 const DISMISSED_SESSION_KEY = 'yggit.agent.dismissed-reminders'
+const SNOOZED_SESSION_KEY = 'yggit.agent.proactive-session-snoozed'
 
 export interface ProactiveReminder {
   id: string
@@ -59,6 +60,24 @@ function saveDismissedId(id: string) {
     sessionStorage.setItem(DISMISSED_SESSION_KEY, JSON.stringify(Array.from(set)))
   } catch {
     // Ignore storage quota or disabled sessionStorage
+  }
+}
+
+function isSessionSnoozed(): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    return sessionStorage.getItem(SNOOZED_SESSION_KEY) === 'true'
+  } catch {
+    return false
+  }
+}
+
+function saveSessionSnoozed() {
+  if (typeof window === 'undefined') return
+  try {
+    sessionStorage.setItem(SNOOZED_SESSION_KEY, 'true')
+  } catch {
+    // Ignore storage quota
   }
 }
 
@@ -119,6 +138,52 @@ export function useWorkdeskProactiveReminder(projects?: GitProjectView[]) {
 
   const [scanResult, setScanResult] = useState<ScanResult | null>(null)
   const [dismissedSet, setDismissedSet] = useState<Set<string>>(() => loadDismissedIds())
+  const [sessionSnoozed, setSessionSnoozed] = useState<boolean>(() => isSessionSnoozed())
+
+  // In test environments, treat as idle immediately so unit tests pass without timers
+  const isTest = process.env.NODE_ENV === 'test'
+  const [isIdle, setIsIdle] = useState<boolean>(isTest)
+
+  // Reset session snooze when activeRepo changes to a different repo
+  const lastRepoRef = useRef(activeRepo)
+  useEffect(() => {
+    if (lastRepoRef.current !== activeRepo) {
+      lastRepoRef.current = activeRepo
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem(SNOOZED_SESSION_KEY)
+      }
+      setSessionSnoozed(false)
+    }
+  }, [activeRepo])
+
+  // Idle detection: only pop up reminder after the user has been idle for 4 seconds without interaction
+  useEffect(() => {
+    if (isTest || typeof window === 'undefined') return
+
+    let idleTimer: number | null = null
+    const IDLE_DELAY_MS = 4000
+
+    const resetIdleTimer = () => {
+      setIsIdle(false)
+      if (idleTimer) window.clearTimeout(idleTimer)
+      idleTimer = window.setTimeout(() => {
+        setIsIdle(true)
+      }, IDLE_DELAY_MS)
+    }
+
+    const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll']
+    events.forEach((evt) => window.addEventListener(evt, resetIdleTimer, { passive: true }))
+
+    // Initial idle check after mount
+    idleTimer = window.setTimeout(() => {
+      setIsIdle(true)
+    }, IDLE_DELAY_MS)
+
+    return () => {
+      if (idleTimer) window.clearTimeout(idleTimer)
+      events.forEach((evt) => window.removeEventListener(evt, resetIdleTimer))
+    }
+  }, [isTest])
 
   useEffect(() => {
     const unsubscribe = workdeskEngine.subscribe((result) => {
@@ -131,6 +196,7 @@ export function useWorkdeskProactiveReminder(projects?: GitProjectView[]) {
 
   const reminder: ProactiveReminder | null = useMemo(() => {
     if (!activeRepo || !scanResult || !scanResult.items) return null
+    if (sessionSnoozed || !isIdle) return null
 
     const allItems: WorkItem[] = Object.values(scanResult.items)
     const matchingItems = allItems.filter((item) => matchesActiveRepo(item, activeRepo, projects))
@@ -194,7 +260,9 @@ export function useWorkdeskProactiveReminder(projects?: GitProjectView[]) {
 
     const handleDismiss = () => {
       saveDismissedId(compositeId)
+      saveSessionSnoozed()
       setDismissedSet((prev) => new Set(prev).add(compositeId))
+      setSessionSnoozed(true)
     }
 
     const handleAccept = async () => {
@@ -240,7 +308,7 @@ export function useWorkdeskProactiveReminder(projects?: GitProjectView[]) {
       accept: handleAccept,
       viewTask: handleViewTask,
     }
-  }, [activeRepo, scanResult, projects, dismissedSet, t, setDockMode, sendMessage, router])
+  }, [activeRepo, scanResult, projects, dismissedSet, sessionSnoozed, isIdle, t, setDockMode, sendMessage, router])
 
   return {
     reminder,

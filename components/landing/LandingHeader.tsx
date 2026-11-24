@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import React from 'react'
-import { LuArrowRight, LuCompass, LuMoon, LuStar, LuSun } from 'react-icons/lu'
+import { LuArrowRight, LuCompass, LuMoon, LuSun } from 'react-icons/lu'
 
 import { BrandLogo } from '@/components/BrandLogo'
 import { useLocaleCode, useT } from '@/components/i18n/LocaleProvider'
@@ -72,16 +72,6 @@ export function LandingHeader({ timePresetId = 'day', onToggleDayNight, classNam
             )}
           </button>
         )}
-
-        <a
-          href="https://github.com/DavidKk/yggit"
-          target="_blank"
-          rel="noreferrer"
-          className="hidden sm:flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 hover:bg-white/10 px-3 py-1.5 text-xs font-mono font-medium text-slate-200 transition-colors no-underline"
-        >
-          <LuStar className="size-3.5 text-amber-300 fill-amber-300" />
-          <span>Star 3.4k</span>
-        </a>
 
         <Link href="/workdesk" className="no-underline">
           <Button variant="accent" size="sm" className="gap-1.5 shadow-sm font-semibold">

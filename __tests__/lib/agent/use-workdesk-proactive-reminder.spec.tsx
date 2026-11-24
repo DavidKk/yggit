@@ -211,6 +211,36 @@ describe('useWorkdeskProactiveReminder', () => {
 
       expect(latestReminder).toBeNull()
       expect(sessionStorage.getItem('yggit.agent.dismissed-reminders')).toContain(mockItemSync.repoId)
+      expect(sessionStorage.getItem('yggit.agent.proactive-session-snoozed')).toBe('true')
+    })
+
+    it('does not pop up subsequent reminders after user dismisses once (session snooze)', () => {
+      const scanData: ScanResult = {
+        lastChecked: Date.now(),
+        findings: [],
+        cards: [],
+        items: {
+          sync: mockItemSync,
+          rev: mockItemReview,
+        },
+      }
+
+      // @ts-expect-error accessing private notify for testing
+      workdeskEngine.notify(scanData)
+
+      act(() => {
+        root.render(<TestComponent projects={sampleProjects} />)
+      })
+      expect(latestReminder).not.toBeNull()
+      expect(latestReminder?.cardId).toBe('sync-default-branches')
+
+      act(() => {
+        latestReminder?.dismiss()
+      })
+
+      // When user dismissed, session snooze prevents the second item (mockItemReview) from popping up
+      expect(latestReminder).toBeNull()
+      expect(sessionStorage.getItem('yggit.agent.proactive-session-snoozed')).toBe('true')
     })
 
     it('accepts reminder, opens drawer and dispatches agent message', async () => {
