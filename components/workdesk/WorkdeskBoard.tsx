@@ -396,7 +396,6 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
                     style={{
                       transform: 'translate(6px, 6px) rotate(1.2deg)',
                       opacity: 0.8,
-                      transition: transition.phase === 'moving' || transition.phase === 'collapsing' ? 'transform 350ms cubic-bezier(0.2, 0.8, 0.2, 1)' : 'none',
                     }}
                     className="absolute inset-0 -z-10 rounded-xl border border-line/60 bg-panel shadow-2xs pointer-events-none origin-top-left dark:border-line/40 dark:bg-panel"
                     aria-hidden="true"
@@ -404,9 +403,8 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
                   <div
                     data-testid="card-stack-layer-middle"
                     style={{
-                      transform: isAtDetail ? 'translate(4px, -4px) rotate(-0.8deg)' : 'translate(4px, 4px) rotate(0.6deg)',
+                      transform: 'translate(4px, 4px) rotate(0.6deg)',
                       opacity: 0.9,
-                      transition: transition.phase === 'moving' || transition.phase === 'collapsing' ? 'transform 350ms cubic-bezier(0.2, 0.8, 0.2, 1)' : 'none',
                     }}
                     className="absolute inset-0 -z-10 rounded-xl border border-line/80 bg-panel shadow-2xs pointer-events-none origin-top-left dark:border-line/60 dark:bg-panel"
                     aria-hidden="true"

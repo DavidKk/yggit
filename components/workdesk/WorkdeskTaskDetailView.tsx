@@ -500,15 +500,15 @@ ${cr.solution}
             @keyframes workdeskStackDealMiddle {
               0% {
                 opacity: 0.9;
-                transform: translate(4px, -4px) rotate(-0.8deg);
+                transform: translate(4px, 4px) rotate(0.6deg);
               }
               45% {
                 opacity: 0.9;
-                transform: translate(4px, -4px) rotate(-0.8deg);
+                transform: translate(4px, 4px) rotate(0.6deg);
               }
               75% {
                 opacity: 0.5;
-                transform: translate(2px, -2px) rotate(-0.4deg);
+                transform: translate(2px, 2px) rotate(0.3deg);
               }
               100% {
                 opacity: 0;
@@ -540,11 +540,11 @@ ${cr.solution}
               }
               30% {
                 opacity: 0.4;
-                transform: translate(2px, -2px) rotate(-0.4deg);
+                transform: translate(2px, 2px) rotate(0.3deg);
               }
               100% {
                 opacity: 0.9;
-                transform: translate(4px, -4px) rotate(-0.8deg);
+                transform: translate(4px, 4px) rotate(0.6deg);
               }
             }
             @keyframes workdeskStackGatherBottom {
