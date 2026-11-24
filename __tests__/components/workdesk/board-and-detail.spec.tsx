@@ -328,6 +328,9 @@ describe('Workdesk Components', () => {
     })
 
     expect(host.textContent).toContain('同步默认分支')
+    // During lifting transition, proxy floating card renders stack underlayers
+    const middleLayer = host.querySelector('[data-testid="card-stack-layer-middle"]') as HTMLElement | null
+    expect(middleLayer).not.toBeNull()
   })
 
   it('dispatches yggit:agent_open with reference structure when Git Agent button is clicked', () => {
