@@ -2,6 +2,8 @@
  * Type definitions for ephemeral agent interaction, providers, and settings.
  */
 
+import { LOCAL_BROWSER_MODELS } from './local-models'
+
 export type AgentProviderType =
   | 'chatgpt'
   | 'openai'
@@ -18,6 +20,9 @@ export type AgentProviderType =
   | 'magpie'
   | 'byop'
   | 'vercel-free'
+  | 'browser-ai'
+  | 'browser-local'
+  | 'kilo-free'
 
 export type AgentCliAdapter = 'claude' | 'codex' | 'antigravity' | 'cursor' | 'gemini'
 
@@ -317,6 +322,44 @@ export const AGENT_PRESETS: Record<AgentProviderType, ModelPresetDefinition> = {
     requiresKey: false,
     noZdrNotice: true,
     description: '开箱即用免配置的免费测试服务。',
+  },
+  'browser-ai': {
+    name: 'Browser AI',
+    provider: 'browser-ai',
+    baseUrl: 'browser://language-model',
+    defaultModel: 'gemini-nano',
+    models: [{ id: 'gemini-nano', name: 'Gemini Nano (Browser Built-in)' }],
+    requiresKey: false,
+    noZdrNotice: false,
+    isLocal: true,
+    description: 'Chrome 内置端侧大模型，跨站点共享模型缓存，无需 API Key 与外部网络。',
+  },
+  'browser-local': {
+    name: 'Browser Local AI',
+    provider: 'browser-local',
+    baseUrl: 'browser://local-transformers',
+    defaultModel: 'qwen3.5-0.8b-q4',
+    models: LOCAL_BROWSER_MODELS.map((m) => ({
+      id: m.id,
+      name: m.name,
+    })),
+    requiresKey: false,
+    noZdrNotice: false,
+    isLocal: true,
+    description: '基于 WebGPU / WASM 在浏览器本地下载并运行开源小模型，仅缓存在当前站点，无需 API Key。',
+  },
+  'kilo-free': {
+    name: 'Kilo AI Gateway (Free)',
+    provider: 'kilo-free',
+    baseUrl: 'https://ai-gateway.kilo.ai/api/v1',
+    defaultModel: 'kilo-auto/free',
+    models: [
+      { id: 'kilo-auto/free', name: 'Kilo Auto Free (Nemotron / GLM / MiniMax)' },
+      { id: 'nvidia/nemotron-3.5-super-vl:free', name: 'NVIDIA Nemotron 3.5 Super VL (Free)' },
+    ],
+    requiresKey: false,
+    noZdrNotice: true,
+    description: 'Kilo AI Gateway 免费试用网关，通过本地代理转发，开箱即用无需配置 Key。',
   },
 }
 

@@ -178,7 +178,12 @@ it('allows continuous key entry, saves multiple connections, keeps saved keys on
   await act(async () => key.blur())
   await save()
   expect(host.querySelector('output')!.textContent).toContain('session-key')
-  await click('gitAgent.useModel')
+  const switches = Array.from(host.querySelectorAll<HTMLButtonElement>('[role="switch"]'))
+  expect(switches).toHaveLength(2)
+  expect(switches.every((sw) => sw.getAttribute('aria-checked') === 'true')).toBe(true)
+  await act(async () => {
+    switches[1].click()
+  })
   expect(host.querySelector('output')!.textContent).toContain('reflection/beam-free')
 })
 

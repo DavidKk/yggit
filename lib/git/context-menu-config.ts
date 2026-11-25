@@ -33,8 +33,8 @@ export const CONTEXT_MENU_PRESETS: Record<ContextMenuPresetId, ContextMenuPreset
   standard: {
     id: 'standard',
     name: '标准模式',
-    desc: '按右键列智能聚焦首要操作，核心功能置顶，完整高级操作收纳于二级菜单',
-    badge: '默认推荐',
+    desc: '常用分支操作置顶，其余收纳于二级菜单',
+    badge: '推荐',
     quickActions: ['checkout-branch', 'new-branch', 'merge-branch', 'rebase-branch'],
     enabledGroups: {
       copy: true,
@@ -49,8 +49,7 @@ export const CONTEXT_MENU_PRESETS: Record<ContextMenuPresetId, ContextMenuPreset
   minimal: {
     id: 'minimal',
     name: '极简模式',
-    desc: '极致简洁，一级仅保留最高频操作与快捷引用，最大化减少视觉干扰',
-    badge: '极简',
+    desc: '仅保留高频操作，减少视觉干扰',
     quickActions: ['checkout-branch', 'new-branch'],
     enabledGroups: {
       copy: true,
@@ -65,8 +64,7 @@ export const CONTEXT_MENU_PRESETS: Record<ContextMenuPresetId, ContextMenuPreset
   review: {
     id: 'review',
     name: '审查模式',
-    desc: '侧重代码审查、提交对比、工单卡片复制与远程仓库直达',
-    badge: '代码审查',
+    desc: '侧重对比、复制哈希与远程打开',
     quickActions: ['checkout-branch', 'merge-branch', 'compare-workdir', 'copy-hash', 'open-remote'],
     enabledGroups: {
       copy: true,
@@ -81,8 +79,7 @@ export const CONTEXT_MENU_PRESETS: Record<ContextMenuPresetId, ContextMenuPreset
   expert: {
     id: 'expert',
     name: '专家模式',
-    desc: '展开变基、遴选、暂存等丰富快捷动作，适合高效键盘与鼠标流用户',
-    badge: '全能',
+    desc: '展开变基、遴选与暂存等完整快捷动作',
     quickActions: ['checkout-branch', 'merge-branch', 'rebase-branch', 'cherry-pick', 'new-branch', 'stash-changes'],
     enabledGroups: {
       copy: true,

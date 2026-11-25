@@ -16,6 +16,7 @@ module.exports = {
     '\\.(css|less|scss)(\\?.*)?$': '<rootDir>/__tests__/mocks/style-mock.js',
     // Specific mocks before `@/*` so they win (Jest uses first matching pattern)
     '^@/constants/paths$': '<rootDir>/__tests__/mocks/constants-paths.ts',
+    '.*[/\\\\]browser-local$': '<rootDir>/__tests__/mocks/browser-local.ts',
     '^shiki$': '<rootDir>/__tests__/mocks/shiki.ts',
     '^marked$': '<rootDir>/__tests__/mocks/marked.ts',
     ...pathsToModuleNameMapper(paths, { prefix: '<rootDir>/' }),

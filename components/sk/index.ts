@@ -12,7 +12,7 @@ export { FilterToggle, type FilterToggleProps, type FilterToggleTone } from '@/c
 export { FormMessageDropdown } from '@/components/sk/FormMessageDropdown'
 export { GateButton, type GateButtonProps } from '@/components/sk/GateButton'
 export { GradientButton, type GradientButtonProps } from '@/components/sk/GradientButton'
-export { InputSuggestion, type InputSuggestionAction, type InputSuggestionOption, type InputSuggestionProps } from '@/components/sk/InputSuggestion'
+export { InputSuggestion, type InputSuggestionAction, type InputSuggestionOption, type InputSuggestionProgress, type InputSuggestionProps } from '@/components/sk/InputSuggestion'
 export { Modal, type ModalProps } from '@/components/sk/Modal'
 export { formatCompactNumber, formatExactNumber, NumberInput, type NumberInputProps } from '@/components/sk/NumberInput'
 export { NumberSliderInput, type NumberSliderInputProps } from '@/components/sk/NumberSliderInput'

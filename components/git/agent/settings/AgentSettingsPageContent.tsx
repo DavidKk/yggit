@@ -201,7 +201,7 @@ export function AgentSettingsPageContent({ section = 'models', menuActionId, ski
                     <AgentMenuActionEditor key={menuActionId} actionId={menuActionId} />
                   </div>
                 ) : (
-                  <SettingsColumns tools={<ContextMenuPreviewToolbar />}>
+                  <SettingsColumns className="max-w-[1400px] @min-[960px]/settings:grid-cols-[minmax(0,1fr)_360px]" tools={<ContextMenuPreviewToolbar />}>
                     <MenuSettingsSection />
                   </SettingsColumns>
                 ))}

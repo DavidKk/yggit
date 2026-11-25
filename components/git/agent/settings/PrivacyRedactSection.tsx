@@ -61,7 +61,7 @@ export function PrivacyRedactSection() {
   }
 
   return (
-    <SettingsColumns tools={<RuleDebugger redactionOptions={draft} />}>
+    <SettingsColumns className="@min-[960px]/settings:grid-cols-[minmax(0,580px)_340px]" tools={<RuleDebugger redactionOptions={draft} />}>
       <form onSubmit={handleSave} className="flex flex-col gap-3">
         {/* Card 1: Master Redaction Engine Switch */}
         <SettingsSectionCard

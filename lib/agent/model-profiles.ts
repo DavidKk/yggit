@@ -6,12 +6,25 @@ export interface AgentModelProfile {
   name: string
   config: EphemeralAgentConfig
   filter?: ModelFilterOptions
+  enabled?: boolean
 }
 
 export const DEFAULT_MODEL_PROFILE: AgentModelProfile = {
   id: 'default',
   name: 'Vercel AI Gateway',
   config: DEFAULT_AGENT_CONFIG,
+}
+
+export const DEFAULT_BROWSER_AI_PROFILE: AgentModelProfile = {
+  id: 'browser-ai-default',
+  name: 'Browser AI',
+  config: {
+    provider: 'browser-ai',
+    model: 'gemini-nano',
+    baseUrl: 'browser://language-model',
+    temperature: 0.2,
+    stream: true,
+  },
 }
 
 export const MODEL_PROFILES_STORAGE_KEY = 'yggit.agent.model-profiles.v1'
@@ -87,7 +100,13 @@ export function parseModelProfiles(raw: string | null): { profiles: AgentModelPr
               blacklist: item.filter.blacklist.filter((s) => typeof s === 'string'),
             }
           : undefined
-      return { id: item.id, name: item.name, config: { ...config, apiKey: undefined, hasApiKey: false }, filter }
+      return {
+        id: item.id,
+        name: item.name,
+        config: { ...config, apiKey: undefined, hasApiKey: false },
+        filter,
+        ...(typeof item.enabled === 'boolean' ? { enabled: item.enabled } : {}),
+      }
     })
     return { profiles, activeId: profiles.some((profile) => profile.id === data.activeId) ? data.activeId : profiles[0].id }
   } catch {

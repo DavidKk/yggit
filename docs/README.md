@@ -16,6 +16,8 @@ Welcome to the Yggit documentation repository. Yggit is a high-performance, orga
 - [Agent Settings Tools](technical/agent-settings-tools.md) - Live rule previews and dedicated custom menu action editors.
 - [Remote Group Import](technical/remote-group-import.md) - Import GitLab groups and GitHub organizations into project folders.
 - [Agent Model Connections](technical/agent-model-connections.md) - Model connection list, draft editing, testing, selection, and in-memory credentials.
+- [Browser Local & Free Online AI PRD](prd/browser-local-and-free-online-ai.md) - Product requirements for current-origin browser model downloads (Qwen3.5 0.8B / LFM2.5 350M), cache cleanup, and free online endpoint evaluation.
+- [Browser Local & Free Online AI Architecture](technical/browser-local-and-free-online-ai.md) - Technical design for Transformers.js Web Worker inference, CacheStorage cleanup, and DownloadCenter integration.
 - [Agent Dockable Workspace UX Specification](ux/agent-dockable-workspace-ux.md) - Interaction design for the bottom floating pill, in-place quick response cards, dockable side/bottom workspaces, and explicit dual-track context.
 - [Agent Git Graph Annotation & Spotlight PRD (Sub-Req 2)](prd/agent-git-graph-annotation-and-spotlight.md) - Sub-requirement 2: Product requirements for Agent-driven precise commit focusing, multi-target highlighting, graph annotation badges, multi-result stepper navigation, and evidence grading.
 - [Agent Git Graph Annotation & Spotlight Technical Architecture (Sub-Req 2)](technical/agent-git-graph-annotation-and-spotlight.md) - Sub-requirement 2: Technical specification for the spotlight context state machine, virtual window scroll coordination, annotation popover badges, and impact resolvers.

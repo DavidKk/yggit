@@ -26,9 +26,11 @@ export function AgentQuickModelPopover({ tabIndex, className }: Props) {
 
   const activeProfile = profiles.find((p) => p.id === activeProfileId) || profiles[0]
 
-  // Build platform options: ONLY configured profiles, never unconfigured presets
+  // Build platform options: only enabled configured profiles
   const platformOptions: SelectOption[] = useMemo(() => {
-    return profiles.map((p) => {
+    const enabled = profiles.filter((p) => p.enabled !== false)
+    const source = enabled.length > 0 ? enabled : profiles
+    return source.map((p) => {
       const preset = AGENT_PRESETS[p.config.provider]
       const label = p.name || preset?.name || p.config.provider
       return { value: p.id, label }
@@ -146,13 +148,15 @@ export function AgentQuickModelPopover({ tabIndex, className }: Props) {
               <Select aria-label={t('gitAgent.modelProvider')} className="w-full" value={currentPlatformValue} options={platformOptions} onChange={handlePlatformChange} />
             </div>
 
-            {/* Dropdown 2: Model Selection */}
-            <div className="flex flex-col gap-1">
-              <span className="text-[11px] font-medium text-ink-soft" id="agent-model-label">
-                {t('gitAgent.modelName')}
-              </span>
-              <Select aria-label={t('gitAgent.modelName')} className="w-full" value={activeProfile?.config.model || ''} options={modelOptions} onChange={handleModelChange} />
-            </div>
+            {/* Dropdown 2: Model Selection (hidden for Browser AI since model is built-in) */}
+            {activeProfile?.config.provider !== 'browser-ai' && (
+              <div className="flex flex-col gap-1">
+                <span className="text-[11px] font-medium text-ink-soft" id="agent-model-label">
+                  {t('gitAgent.modelName')}
+                </span>
+                <Select aria-label={t('gitAgent.modelName')} className="w-full" value={activeProfile?.config.model || ''} options={modelOptions} onChange={handleModelChange} />
+              </div>
+            )}
 
             {/* Blocked model alert */}
             {isCurrentModelBlocked && (

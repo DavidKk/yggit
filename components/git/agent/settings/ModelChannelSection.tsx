@@ -35,7 +35,7 @@ export function ModelChannelSection({ inline = false, onAdd, onEdit }: ModelChan
     // Graceful fallback for test environments without Next navigation context
   }
 
-  const { profiles, activeProfileId, selectProfile, modelFilter, setModelFilter } = useAgent()
+  const { profiles, activeProfileId, toggleProfileEnabled, modelFilter, setModelFilter } = useAgent()
   const notify = useNotification()
   const [inlineEditing, setInlineEditing] = useState<AgentModelProfile | null>(null)
   const [draftFilter, setDraftFilter] = useState(modelFilter)
@@ -92,7 +92,7 @@ export function ModelChannelSection({ inline = false, onAdd, onEdit }: ModelChan
         }
       >
         {getDriverMode() === 'edge' && (
-          <div className="mb-3 flex items-start gap-2.5 rounded-lg border border-accent/30 bg-accent/8 px-3 py-2.5 text-xs text-ink">
+          <div className="flex items-start gap-2.5 rounded-lg border border-accent/30 bg-accent/8 px-3 py-2.5 text-xs text-ink">
             <LuShieldCheck className="mt-0.5 size-4 shrink-0 text-accent" aria-hidden="true" />
             <div className="space-y-0.5 leading-relaxed">
               <p className="font-semibold text-accent">{t('gitAgent.edgeSecurityNoticeTitle') || '密钥安全与隐私说明'}</p>
@@ -103,13 +103,13 @@ export function ModelChannelSection({ inline = false, onAdd, onEdit }: ModelChan
             </div>
           </div>
         )}
-        <ul className="divide-y divide-line">
+        <ul className="divide-y divide-line overflow-hidden rounded-lg border border-line bg-panel-2/35">
           {profiles.map((profile) => {
             const hasBlacklist = Boolean(profile.filter?.blacklist?.length)
             const hasWhitelist = Boolean(profile.filter?.whitelist?.length)
 
             return (
-              <li key={profile.id} className="flex flex-wrap items-center gap-3 py-3 first:pt-0 last:pb-0">
+              <li key={profile.id} className="flex flex-wrap items-center gap-3 px-3.5 py-2.5">
                 <button
                   type="button"
                   aria-label={t('gitAgent.editModel')}
@@ -134,52 +134,51 @@ export function ModelChannelSection({ inline = false, onAdd, onEdit }: ModelChan
 
                 <SwitchToggle
                   size="sm"
-                  checked={activeProfileId === profile.id}
-                  aria-label={activeProfileId === profile.id ? t('gitAgent.activeModel') : t('gitAgent.useModel')}
-                  tooltip={activeProfileId === profile.id ? t('gitAgent.activeModel') : t('gitAgent.useModel')}
-                  onCheckedChange={(checked) => {
-                    if (checked) selectProfile(profile.id)
-                  }}
+                  checked={profile.enabled !== false}
+                  aria-label={profile.enabled !== false ? t('gitAgent.skillEnabled') || '已启用' : t('gitAgent.skillDisabled') || '已禁用'}
+                  tooltip={profile.enabled !== false ? t('gitAgent.skillEnabled') || '已启用' : t('gitAgent.skillDisabled') || '已禁用'}
+                  onCheckedChange={(checked) => toggleProfileEnabled(profile.id, checked)}
                 />
               </li>
             )
           })}
         </ul>
-      </SettingsSectionCard>
 
-      {/* Active Model Channel Filter Card */}
-      <ModelFilterInputs
-        whitelistId="agent-model-whitelist"
-        blacklistId="agent-model-blacklist"
-        whitelist={draftFilter.whitelist}
-        blacklist={draftFilter.blacklist}
-        onWhitelistChange={(whitelist) => setDraftFilter((prev) => ({ ...prev, whitelist }))}
-        onBlacklistChange={(blacklist) => setDraftFilter((prev) => ({ ...prev, blacklist }))}
-        conflicts={filterConflicts}
-        blockedModel={isCurrentModelBlocked && currentProfile ? currentProfile.config.model : null}
-        scopeLabel={currentProfile?.name || currentProfile?.config?.model || 'Default'}
-      />
+        {/* Active Model Channel Filter (merged into same card) */}
+        <ModelFilterInputs
+          embedded
+          whitelistId="agent-model-whitelist"
+          blacklistId="agent-model-blacklist"
+          whitelist={draftFilter.whitelist}
+          blacklist={draftFilter.blacklist}
+          onWhitelistChange={(whitelist) => setDraftFilter((prev) => ({ ...prev, whitelist }))}
+          onBlacklistChange={(blacklist) => setDraftFilter((prev) => ({ ...prev, blacklist }))}
+          conflicts={filterConflicts}
+          blockedModel={isCurrentModelBlocked && currentProfile ? currentProfile.config.model : null}
+          scopeLabel={currentProfile?.name || currentProfile?.config?.model || 'Default'}
+        />
 
-      <div className="flex items-center justify-end gap-2 pt-1">
-        {isFilterDirty && (
-          <Button type="button" variant="ghost" onClick={() => setDraftFilter(modelFilter)}>
-            <LuRotateCcw aria-hidden="true" />
-            {t('common.cancel')}
+        <div className="flex items-center justify-end gap-2 border-t border-line/60 pt-3">
+          {isFilterDirty && (
+            <Button type="button" variant="ghost" onClick={() => setDraftFilter(modelFilter)}>
+              <LuRotateCcw aria-hidden="true" />
+              {t('common.cancel')}
+            </Button>
+          )}
+          <Button
+            type="button"
+            variant="accent"
+            disabled={!isFilterDirty}
+            onClick={() => {
+              setModelFilter(draftFilter)
+              notify.success(`${t('gitAgent.modelFilterTitle')} · ${t('common.save')}`)
+            }}
+          >
+            <LuSave aria-hidden="true" />
+            {t('common.save')}
           </Button>
-        )}
-        <Button
-          type="button"
-          variant="accent"
-          disabled={!isFilterDirty}
-          onClick={() => {
-            setModelFilter(draftFilter)
-            notify.success(`${t('gitAgent.modelFilterTitle')} · ${t('common.save')}`)
-          }}
-        >
-          <LuSave aria-hidden="true" />
-          {t('common.save')}
-        </Button>
-      </div>
+        </div>
+      </SettingsSectionCard>
     </div>
   )
   return inline ? content : <SettingsColumns tools={<RuleDebugger filter={draftFilter} modelId={currentProfile?.config.model} />}>{content}</SettingsColumns>

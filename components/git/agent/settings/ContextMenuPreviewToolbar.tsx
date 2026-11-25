@@ -22,7 +22,7 @@ export function ContextMenuPreviewToolbar() {
           <span>右键菜单实时效果预览</span>
         </div>
       }
-      description="右键任意分支时的弹出菜单视图，修改左侧配置实时联动。"
+      description="右键分支弹出效果，随左侧配置实时更新。"
       titleAction={
         <Badge tone="accent" size="mini">
           Live

@@ -245,4 +245,48 @@ export type GitAgentMessages = {
   toolStatusGeneric?: string
   edgeSecurityNoticeTitle?: string
   edgeSecurityNoticeBody?: string
+  browserAiTitle?: string
+  browserAiSharedNote?: string
+  browserAiStatusAvailable?: string
+  browserAiStatusDownloadable?: string
+  browserAiStatusDownloading?: string
+  browserAiStatusPreparing?: string
+  browserAiStatusUnavailable?: string
+  browserAiStatusUnsupported?: string
+  browserAiDownloadingHint?: string
+  browserAiInstallBtn?: string
+  browserAiRefreshBtn?: string
+  browserAiInstallSuccess?: string
+  browserAiInstallFailed?: string
+  debugBrowserAiTitle?: string
+  debugBrowserAiDownloadable?: string
+  debugBrowserAiUnavailable?: string
+  debugBrowserAiUnsupported?: string
+  browserLocalDesc?: string
+  browserLocalRuntimeWebGpu?: string
+  browserLocalRuntimeWasm?: string
+  browserLocalChecking?: string
+  browserLocalStatusCached?: string
+  browserLocalStatusNotCached?: string
+  browserLocalStatusDownloading?: string
+  browserLocalStatusLoading?: string
+  browserLocalStatusError?: string
+  browserLocalDownloadingHint?: string
+  browserLocalCacheInfo?: string
+  browserLocalDownloadBtn?: string
+  browserLocalDownloadBtnShort?: string
+  browserLocalClearBtn?: string
+  browserLocalClearSuccess?: string
+  browserLocalClearEmpty?: string
+  browserLocalClearFailed?: string
+  browserLocalDownloadSuccess?: string
+  browserLocalDownloadFailed?: string
+  openSidebar?: string
+  closeSidebar?: string
+  resizeSidebar?: string
+  sidebarButton?: string
+  toolStatusLocalWarmup?: string
+  sidebarQuickSettings?: string
+  sidebarActiveChannel?: string
+  sidebarOpenFullSettings?: string
 }

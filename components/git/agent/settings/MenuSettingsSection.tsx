@@ -67,7 +67,7 @@ export const AVAILABLE_QUICK_ACTIONS: QuickActionDef[] = [
     category: 'branch',
     categoryLabel: '常用分支',
     description: '检出并切换工作区到目标分支，支持双击直接检出',
-    badge: '默认推荐',
+    badge: '推荐',
     badgeTone: 'accent',
     shortcut: '双击',
     icon: LuGitPullRequest,
@@ -77,8 +77,8 @@ export const AVAILABLE_QUICK_ACTIONS: QuickActionDef[] = [
     label: '合并到当前分支 (Merge)',
     category: 'branch',
     categoryLabel: '常用分支',
-    description: '将所选分支快速合并进当前所在分支，支持自动冲突保护与提示',
-    badge: '默认推荐',
+    description: '将所选分支快速合并进当前所在分支',
+    badge: '推荐',
     badgeTone: 'accent',
     icon: LuGitMerge,
   },
@@ -87,8 +87,8 @@ export const AVAILABLE_QUICK_ACTIONS: QuickActionDef[] = [
     label: '变基到所选分支 (Rebase)',
     category: 'branch',
     categoryLabel: '常用分支',
-    description: '以目标分支为最新基线重新应用当前分支提交，保持整洁线性提交历史',
-    badge: '默认推荐',
+    description: '以目标分支为基线重新应用当前分支提交',
+    badge: '推荐',
     badgeTone: 'accent',
     icon: LuGitCommitHorizontal,
   },
@@ -98,7 +98,7 @@ export const AVAILABLE_QUICK_ACTIONS: QuickActionDef[] = [
     category: 'branch',
     categoryLabel: '常用分支',
     description: '以当前选中的分支或提交为起点创建新分支',
-    badge: '默认推荐',
+    badge: '推荐',
     badgeTone: 'accent',
     icon: LuGitBranchPlus,
   },
@@ -115,9 +115,7 @@ export const AVAILABLE_QUICK_ACTIONS: QuickActionDef[] = [
     label: '删除此分支 (Delete)',
     category: 'branch',
     categoryLabel: '常用分支',
-    description: '删除指定的本地分支（当前所在分支受安全保护禁止删除）',
-    badge: '危险操作',
-    badgeTone: 'fail',
+    description: '删除指定的本地分支',
     icon: LuTrash2,
   },
   {
@@ -159,9 +157,7 @@ export const AVAILABLE_QUICK_ACTIONS: QuickActionDef[] = [
     label: '从远端拉取 (Pull)',
     category: 'sync',
     categoryLabel: '远端同步',
-    description: '从远程对应上游分支拉取最新提交并合并到本地分支',
-    badge: '同步',
-    badgeTone: 'ok',
+    description: '从远程对应上游分支拉取最新提交并合并',
     icon: LuArrowDownToLine,
   },
   {
@@ -169,9 +165,7 @@ export const AVAILABLE_QUICK_ACTIONS: QuickActionDef[] = [
     label: '推送到远程 (Push)',
     category: 'sync',
     categoryLabel: '远端同步',
-    description: '将本地分支推送到对应的远程仓库分支（自动关联 upstream）',
-    badge: '同步',
-    badgeTone: 'ok',
+    description: '将本地分支推送到对应的远程仓库分支',
     icon: LuArrowUpFromLine,
   },
   {
@@ -187,7 +181,7 @@ export const AVAILABLE_QUICK_ACTIONS: QuickActionDef[] = [
     label: '在远程仓库打开 (Web)',
     category: 'sync',
     categoryLabel: '远端同步',
-    description: '在浏览器新标签页中直接打开 GitHub / GitLab 对应提交或分支网页',
+    description: '在浏览器新标签页中打开对应的远程仓库页面',
     icon: LuPanelTop,
   },
 
@@ -197,9 +191,7 @@ export const AVAILABLE_QUICK_ACTIONS: QuickActionDef[] = [
     label: '暂存当前更改 (Stash)',
     category: 'workspace',
     categoryLabel: '工作区与提交',
-    description: '一键将工作区所有未提交修改暂存保存起来，随时可恢复',
-    badge: '常用',
-    badgeTone: 'neutral',
+    description: '将工作区未提交修改暂存保存',
     icon: LuArchive,
   },
   {
@@ -216,8 +208,6 @@ export const AVAILABLE_QUICK_ACTIONS: QuickActionDef[] = [
     category: 'workspace',
     categoryLabel: '工作区与提交',
     description: '将当前分支指针重置到所选提交位置',
-    badge: '注意',
-    badgeTone: 'warn',
     icon: LuRotateCcw,
   },
   {
@@ -440,50 +430,17 @@ export function MenuSettingsSection() {
   return (
     <div className="flex flex-col gap-3">
       {/* 1. 快捷区 (Quick Actions Zone) */}
-      <SettingsSectionCard
-        title="快捷区（一级主菜单置顶直达）"
-        description="选择在右键主菜单中置顶直达的高频能力。按您的操作偏好自由组合切分支、Merge、Rebase、推送/拉取等核心工具。"
-        descriptionTooltip="勾选的操作将直接展示在右键菜单顶部，无需展开二级子菜单，点击即执行。"
-      >
+      <SettingsSectionCard title="快捷区（主菜单置顶直达）" description="选择在右键主菜单顶部直达的高频操作。">
         <div className="flex flex-col gap-3">
-          {/* 智能侧重点感知说明条 */}
-          <div className="flex flex-col gap-2 rounded-lg border border-accent/30 bg-accent/5 p-3 text-xs leading-relaxed text-ink">
-            <div className="flex items-center gap-2 font-semibold text-accent">
-              <LuSparkles className="size-4 shrink-0" />
-              <span>智能侧重点感知（内置自适应，无需繁琐单独配置）</span>
-            </div>
-            <p className="text-ink-soft">右键菜单会根据点击的目标列自动调整功能权重与一级引用项，保证高频直达且菜单紧凑：</p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-0.5 font-sans text-[11px]">
-              <div className="flex flex-col gap-0.5 rounded-md border border-line/60 bg-panel p-2 shadow-2xs">
-                <span className="font-semibold text-ink flex items-center gap-1.5">
-                  <LuGitBranch className="size-3 text-accent" /> 分支列右键
-                </span>
-                <span className="text-ink-soft leading-normal">一级菜单直出「引用分支到 Agent」及常用分支操作；提交相关操作自动收纳进二级菜单。</span>
-              </div>
-              <div className="flex flex-col gap-0.5 rounded-md border border-line/60 bg-panel p-2 shadow-2xs">
-                <span className="font-semibold text-ink flex items-center gap-1.5">
-                  <LuGitCommitHorizontal className="size-3 text-accent" /> Commit 列右键
-                </span>
-                <span className="text-ink-soft leading-normal">一级菜单直出「引用提交到 Agent」及提交操作；关联分支操作自动收纳进二级菜单。</span>
-              </div>
-              <div className="flex flex-col gap-0.5 rounded-md border border-line/60 bg-panel p-2 shadow-2xs">
-                <span className="font-semibold text-ink flex items-center gap-1.5">
-                  <LuGitMerge className="size-3 text-accent" /> 关系图 / 泳道右键
-                </span>
-                <span className="text-ink-soft leading-normal">聚焦图线关联、合并分析、作者信息核对与多分支拓扑比对。</span>
-              </div>
-            </div>
-          </div>
-
           {/* 预设切换栏 */}
           <div className="flex flex-col gap-2 rounded-lg border border-line/70 bg-panel-2/30 p-2.5">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-medium text-ink-soft flex items-center gap-1.5">
                 <LuSparkles className="size-3.5 text-accent" />
-                <span>预设方案模式（一键切换菜单风格与分组）：</span>
+                <span>预设方案</span>
               </span>
               <span className="text-[11px] text-ink-soft">
-                当前已置顶 <span className="font-semibold text-accent">{currentQuickActions.length}</span> 项常用工具
+                已置顶 <span className="font-semibold text-accent">{currentQuickActions.length}</span> 项
               </span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
@@ -601,11 +558,7 @@ export function MenuSettingsSection() {
       </SettingsSectionCard>
 
       {/* 2. 分组区 (Grouped / Cascading Area) */}
-      <SettingsSectionCard
-        title="分组区（二级子菜单分类收纳）"
-        description="通过二级子菜单聚合归类操作，使主菜单始终保持紧凑尺寸，避免菜单项过多导致屏幕溢出或视觉杂乱。"
-        descriptionTooltip="开启的二级子菜单将显示在主菜单中，鼠标悬停时平滑滑出二级子菜单。"
-      >
+      <SettingsSectionCard title="分组区（二级子菜单）" description="按类别收纳次高频操作，保持主菜单简洁。">
         <div className="flex flex-col divide-y divide-line/60">
           {AVAILABLE_GROUPS.map((group) => {
             const isEnabled = Boolean(config.enabledGroups[group.key])

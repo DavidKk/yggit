@@ -46,6 +46,8 @@ export function getToolExecutionStatus(toolName: string, args?: Record<string, u
   switch (toolName) {
     case '__synthesizing__':
       return tr('gitAgent.toolStatusSynthesizing', 'Synthesizing final response...')
+    case '__local_warmup__':
+      return tr('gitAgent.toolStatusLocalWarmup', '正在唤醒本地 AI 助手，首次打开需要几秒钟准备，请稍候...')
     case 'sync_branch':
       return branch
         ? tr('gitAgent.toolStatusSyncBranch', `Syncing branch "${branch}" with remote...`, { branch })

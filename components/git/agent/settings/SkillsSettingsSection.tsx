@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import React, { useEffect, useState } from 'react'
-import { LuBookOpen, LuChevronRight, LuPlus, LuSparkles } from 'react-icons/lu'
+import { LuBookOpen, LuPlus, LuSparkles } from 'react-icons/lu'
 
 import { useT } from '@/components/i18n/LocaleProvider'
 import { useNotification } from '@/components/notification/useNotification'
@@ -72,29 +72,22 @@ export function SkillsSettingsSection() {
               <div
                 key={s.id}
                 className={cn(
-                  'flex items-center justify-between gap-3 p-3 rounded-lg border transition-colors',
+                  'flex flex-col gap-1.5 p-3 rounded-lg border transition-colors',
                   s.enabled ? 'border-line bg-panel hover:border-line-solid' : 'border-line/40 bg-paper-2/60 opacity-60'
                 )}
               >
-                <Link
-                  href={`/settings/skills/${encodeURIComponent(s.id)}`}
-                  className="min-w-0 flex-1 group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-sm"
-                  aria-label={`查看或配置 ${s.name}`}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-ink group-hover:text-accent transition-colors">{s.name}</span>
+                <div className="flex items-center justify-between gap-3">
+                  <Link
+                    href={`/settings/skills/${encodeURIComponent(s.id)}`}
+                    className="min-w-0 flex-1 flex items-center gap-2 group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-sm"
+                    aria-label={`查看或配置 ${s.name}`}
+                  >
+                    <span className="text-xs font-bold text-ink group-hover:text-accent transition-colors truncate">{s.name}</span>
                     <Badge tone={isBuiltin ? 'info' : s.source.type === 'github' ? 'accent' : 'neutral'} size="mini">
                       {isBuiltin ? '内置' : s.source.type === 'github' ? 'GitHub' : '本地'}
                     </Badge>
-                  </div>
-                  <p className="text-xs text-ink-soft mt-1 line-clamp-2 leading-relaxed">{s.description}</p>
-                  <div className="flex items-center gap-3 mt-1.5 text-[10px] text-ink-soft/80 font-mono">
-                    <span>来源: {s.source.uri}</span>
-                    {s.source.branch ? <span>分支: {s.source.branch}</span> : null}
-                  </div>
-                </Link>
+                  </Link>
 
-                <div className="flex items-center gap-3 shrink-0">
                   <SwitchToggle
                     checked={s.enabled}
                     onCheckedChange={() => void handleToggle(s.id, s.enabled)}
@@ -102,10 +95,8 @@ export function SkillsSettingsSection() {
                     tooltip={s.enabled ? '停用此技能' : '启用此技能'}
                     aria-label={`启用或停用 ${s.name}`}
                   />
-                  <Link href={`/settings/skills/${encodeURIComponent(s.id)}`} className="text-ink-soft/40 hover:text-ink transition-colors p-1" title="查看详情">
-                    <LuChevronRight className="size-4" />
-                  </Link>
                 </div>
+                {s.description && <p className="text-xs text-ink-soft line-clamp-2 leading-relaxed">{s.description}</p>}
               </div>
             )
           })}

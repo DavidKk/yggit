@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import React, { useEffect, useRef, useState } from 'react'
-import { LuBookOpen, LuCheck, LuFolderOpen, LuGithub, LuPlus, LuRefreshCw, LuSparkles, LuTrash2 } from 'react-icons/lu'
+import { LuBookOpen, LuCheck, LuClock, LuCode, LuEye, LuFolderOpen, LuGithub, LuPlus, LuRefreshCw, LuSparkles, LuTrash2 } from 'react-icons/lu'
 
 import { useConfirm } from '@/components/confirm/ConfirmProvider'
 import { useT } from '@/components/i18n/LocaleProvider'
@@ -15,6 +15,7 @@ import type { SkillDescriptor } from '@/lib/skills/types'
 import { cn } from '@/lib/utils'
 
 import { SettingsSectionCard } from './SettingsSectionCard'
+import { SkillMarkdownEditor, SkillMarkdownPreview } from './SkillMarkdownEditor'
 
 interface SkillEditorProps {
   skillId: string
@@ -35,6 +36,7 @@ export function SkillEditor({ skillId }: SkillEditorProps) {
   const [loading, setLoading] = useState(!isNew)
   const [isUpdating, setIsUpdating] = useState(false)
   const [editedContent, setEditedContent] = useState('')
+  const [viewMode, setViewMode] = useState<'preview' | 'code'>('preview')
 
   // New Local Skill form
   const [localName, setLocalName] = useState('')
@@ -405,13 +407,13 @@ export function SkillEditor({ skillId }: SkillEditorProps) {
     )
   }
 
-  // 2. Existing Skill Detail & Configuration Subpage
+  // 2. Existing Skill Detail & Configuration Subpage (Single Merged Card)
   const isBuiltin = skill?.source.type === 'builtin'
   const isGitHub = skill?.source.type === 'github'
+  const activeContent = isBuiltin ? skill?.content || '' : editedContent
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Overview & Status Card */}
       <SettingsSectionCard
         title={
           <div className="flex items-center gap-2">
@@ -423,78 +425,90 @@ export function SkillEditor({ skillId }: SkillEditorProps) {
         }
         description={skill?.description}
         titleAction={
-          <div className="flex items-center gap-2">
-            <SwitchToggle
-              checked={skill?.enabled ?? true}
-              onCheckedChange={() => void handleToggle()}
-              size="sm"
-              tooltip={skill?.enabled ? '停用此技能' : '启用此技能'}
-              aria-label={`启用或停用 ${skill?.name}`}
-            />
-            <Button variant="plain" size="sm" onClick={handleBack}>
-              返回
-            </Button>
-          </div>
+          <SwitchToggle
+            checked={skill?.enabled ?? true}
+            onCheckedChange={() => void handleToggle()}
+            size="sm"
+            tooltip={skill?.enabled ? '停用此技能' : '启用此技能'}
+            aria-label={`启用或停用 ${skill?.name}`}
+          />
         }
       >
-        <div className="flex flex-col gap-2 rounded-lg border border-line bg-paper-2/40 p-3 text-xs">
-          <div className="flex flex-wrap items-center gap-4 text-ink-soft font-mono">
-            <span>来源: {skill?.source.uri}</span>
-            {skill?.source.branch && <span>分支: {skill?.source.branch}</span>}
-            {skill?.commitSha && <span>Commit: {skill?.commitSha.slice(0, 7)}</span>}
-            {skill?.updatedAt && <span>更新时间: {new Date(skill.updatedAt).toLocaleString()}</span>}
-          </div>
+        <div className="flex flex-col gap-3">
+          {/* View mode switcher (Preview / Code) + GitHub sync button */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="inline-flex items-center rounded-md border border-line bg-paper-2 p-0.5">
+              <button
+                type="button"
+                onClick={() => setViewMode('preview')}
+                className={cn(
+                  'inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer',
+                  viewMode === 'preview' ? 'bg-panel text-accent font-semibold shadow-xs' : 'text-ink-soft hover:text-ink'
+                )}
+              >
+                <LuEye className="size-3.5" aria-hidden="true" />
+                <span>预览</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('code')}
+                className={cn(
+                  'inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer',
+                  viewMode === 'code' ? 'bg-panel text-accent font-semibold shadow-xs' : 'text-ink-soft hover:text-ink'
+                )}
+              >
+                <LuCode className="size-3.5" aria-hidden="true" />
+                <span>代码</span>
+              </button>
+            </div>
 
-          {isGitHub && (
-            <div className="pt-2 flex items-center gap-2 border-t border-line/60">
-              <Button variant="default" disabled={isUpdating} loading={isUpdating} onClick={() => void handleCheckUpdate()} title="检查并同步 GitHub 最新版本">
+            {isGitHub && (
+              <Button variant="default" size="sm" disabled={isUpdating} loading={isUpdating} onClick={() => void handleCheckUpdate()} title="检查并同步 GitHub 最新版本">
                 <LuRefreshCw className={cn('size-3.5 mr-1', isUpdating && 'animate-spin')} />
                 <span>检查更新</span>
               </Button>
-            </div>
+            )}
+          </div>
+
+          {/* Unboxed Preview or Highlighted Code Editor */}
+          {viewMode === 'preview' ? (
+            <SkillMarkdownPreview value={activeContent} />
+          ) : (
+            <SkillMarkdownEditor value={activeContent} onChange={isBuiltin ? undefined : setEditedContent} readOnly={isBuiltin} height={420} />
           )}
+
+          {/* Clean bottom footer for Source, UpdatedAt & custom skill actions */}
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line/60 pt-3">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-ink-soft">
+              <span className="inline-flex items-center gap-1 font-mono">
+                {isGitHub ? <LuGithub className="size-3 shrink-0" aria-hidden="true" /> : <LuFolderOpen className="size-3 shrink-0" aria-hidden="true" />}
+                <span>来源：{skill?.source.uri}</span>
+                {skill?.source.branch && <span className="text-ink-soft/70">({skill.source.branch})</span>}
+                {skill?.commitSha && <span className="text-ink-soft/70">@{skill.commitSha.slice(0, 7)}</span>}
+              </span>
+              {skill?.updatedAt && (
+                <span className="inline-flex items-center gap-1 tabular-nums">
+                  <LuClock className="size-3 shrink-0" aria-hidden="true" />
+                  <span>更新时间：{new Date(skill.updatedAt).toLocaleString()}</span>
+                </span>
+              )}
+            </div>
+
+            {!isBuiltin && (
+              <div className="flex items-center gap-2 ml-auto">
+                <Button variant="outline-fail" onClick={handleDelete}>
+                  <LuTrash2 className="size-3.5 mr-1" />
+                  <span>删除</span>
+                </Button>
+                <Button variant="accent" onClick={() => void handleSaveContentEdit()}>
+                  <LuCheck className="size-3.5 mr-1" />
+                  <span>保存</span>
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
       </SettingsSectionCard>
-
-      {/* Content / Instructions Card */}
-      <SettingsSectionCard
-        title="SKILL.md 规范与指令内容"
-        description={isBuiltin ? '内置技能指令只读，由系统版本维护。' : '您可以根据团队需求修改工作流指令与规范。'}
-        titleAction={
-          !isBuiltin ? (
-            <Button variant="accent" size="sm" onClick={() => void handleSaveContentEdit()}>
-              <LuCheck className="size-3.5 mr-1" />
-              <span>保存</span>
-            </Button>
-          ) : undefined
-        }
-      >
-        {!isBuiltin ? (
-          <textarea
-            rows={16}
-            value={editedContent}
-            onChange={(e) => setEditedContent(e.target.value)}
-            className="w-full rounded border border-line bg-surface-panel p-3 font-mono text-xs text-ink outline-none focus:border-accent leading-relaxed"
-          />
-        ) : (
-          <pre className="max-h-[50vh] overflow-y-auto rounded border border-line bg-surface-panel p-3 font-mono text-xs text-ink leading-relaxed whitespace-pre-wrap">
-            {skill?.content}
-          </pre>
-        )}
-      </SettingsSectionCard>
-
-      {/* Danger Zone Card */}
-      {!isBuiltin && (
-        <SettingsSectionCard title="危险操作" description="移除后此技能将不再对 Agent 生效，可重新导入。">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-ink-soft">移除此技能定义及本地缓存</span>
-            <Button variant="outline-fail" onClick={handleDelete}>
-              <LuTrash2 className="size-3.5 mr-1" />
-              <span>删除</span>
-            </Button>
-          </div>
-        </SettingsSectionCard>
-      )}
     </div>
   )
 }

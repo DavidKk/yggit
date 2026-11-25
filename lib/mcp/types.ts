@@ -24,14 +24,34 @@ export interface McpPromptInfo {
   arguments?: Array<{ name: string; description?: string; required?: boolean }>
 }
 
+export interface McpHeaderEntry {
+  key: string
+  value: string
+}
+
+export interface McpOAuthConfig {
+  clientId?: string
+  clientSecret?: string
+  authorizationEndpoint?: string
+  tokenEndpoint?: string
+  registrationEndpoint?: string
+  scope?: string
+  accessToken?: string
+  refreshToken?: string
+  tokenType?: string
+  expiresAt?: number
+}
+
 export interface McpServerConfig {
   id: string
   name: string
   url: string
   transport: 'streamable-http'
   auth: {
-    type: 'none' | 'bearer'
+    type: 'none' | 'bearer' | 'headers' | 'oauth'
     token?: string
+    headers?: McpHeaderEntry[]
+    oauth?: McpOAuthConfig
   }
   enabled: boolean
   tools?: McpToolInfo[]

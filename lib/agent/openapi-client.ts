@@ -1,3 +1,5 @@
+import { ensureBrowserAiSession, runBrowserAiCompletion } from './browser-ai'
+import { ensureBrowserLocalModel, runBrowserLocalCompletion } from './browser-local'
 import { RedactionEngine } from './redact/engine'
 import { StreamingUnmasker, unmaskText, unmaskToolArguments } from './redact/unmask'
 import { AGENT_PRESETS, type AgentChatMessage, type AgentCompletionResponse, type AgentToolCall, type AgentToolDefinition, type EphemeralAgentConfig } from './types'
@@ -21,6 +23,17 @@ export interface CompletionOptions {
 export async function testAgentConnection(config: EphemeralAgentConfig, profileId?: string): Promise<{ ok: boolean; latencyMs: number; error?: string }> {
   const start = performance.now()
   try {
+    if (config.provider === 'browser-ai') {
+      const session = await ensureBrowserAiSession({ openProgressPopover: true })
+      session.destroy?.()
+      return { ok: true, latencyMs: Math.round(performance.now() - start) }
+    }
+
+    if (config.provider === 'browser-local') {
+      await ensureBrowserLocalModel(config.model, { openProgressPopover: true })
+      return { ok: true, latencyMs: Math.round(performance.now() - start) }
+    }
+
     if (AGENT_PRESETS[config.provider]?.isCli) {
       const res = await fetch('/api/git/agent/cli', {
         method: 'POST',
@@ -94,6 +107,26 @@ export async function sendAgentCompletion(options: CompletionOptions): Promise<A
       tool_call_id: m.tool_call_id,
     }
   })
+
+  if (config.provider === 'browser-ai') {
+    return runBrowserAiCompletion({
+      messages: sanitizedMessages,
+      temperature: config.temperature,
+      redactionEngine,
+      onDelta,
+      signal,
+    })
+  }
+
+  if (config.provider === 'browser-local') {
+    return runBrowserLocalCompletion({
+      modelId: config.model,
+      messages: sanitizedMessages,
+      redactionEngine,
+      onDelta,
+      signal,
+    })
+  }
 
   if (AGENT_PRESETS[config.provider]?.isCli) {
     const response = await fetch('/api/git/agent/cli', {

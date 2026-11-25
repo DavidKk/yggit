@@ -1322,7 +1322,7 @@ export const cht: MessageTree = {
     agentApiKeyClear: '清除',
     agentApiKeyCleared: 'API Key 已清除。',
     agentModelsEndpoint: '模型列表接口',
-    agentModelsEndpointDesc: '可選。預設請求 /models。若代理網關使用不同模型列表接口（如 Magpie 的 /codex/models），可在在此填寫相對路徑或完整 URL。',
+    agentModelsEndpointDesc: '可選，預設 /models，支援相對路徑或完整 URL。',
     agentModelManualInput: '手動輸入模型名稱',
     agentModelSelectFromList: '從模型列表選擇',
     agentModelComboboxEmpty: '無匹配模型，可直接輸入名稱',

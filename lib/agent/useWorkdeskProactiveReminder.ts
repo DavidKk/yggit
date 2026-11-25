@@ -104,6 +104,19 @@ function saveHandledCount(count: number) {
   }
 }
 
+export function matchesActiveBranch(item: WorkItem, activeBranch?: string): boolean {
+  if (!activeBranch || !item?.name) return false
+  const normalize = (name: string) =>
+    name
+      .trim()
+      .toLowerCase()
+      .replace(/^refs\/heads\//, '')
+      .replace(/^origin\//, '')
+  const target = normalize(activeBranch)
+  if (!target) return false
+  return normalize(item.name) === target
+}
+
 export function matchesActiveRepo(item: WorkItem, activeRepo: string, projects?: GitProjectView[]): boolean {
   if (!activeRepo || !item) return false
 
@@ -157,7 +170,7 @@ function useOptionalRouter(): ReturnType<typeof useRouter> | null {
 export function useWorkdeskProactiveReminder(projects?: GitProjectView[]) {
   const t = useT()
   const router = useOptionalRouter()
-  const { activeRepo, sendMessage, isProcessing, setDockMode } = useAgent()
+  const { activeRepo, activeBranch = '', sendMessage, isProcessing, setDockMode } = useAgent()
 
   const [scanResult, setScanResult] = useState<ScanResult | null>(null)
   const [dismissedSet, setDismissedSet] = useState<Set<string>>(() => loadDismissedIds())
@@ -230,8 +243,11 @@ export function useWorkdeskProactiveReminder(projects?: GitProjectView[]) {
     const matchingItems = allItems.filter((item) => matchesActiveRepo(item, activeRepo, projects))
     if (matchingItems.length === 0) return null
 
-    // Sort matching items according to priority (simplest tasks first)
+    // Sort matching items: current branch first, then simplest task first
     const sorted = matchingItems.slice().sort((a, b) => {
+      const branchRankA = matchesActiveBranch(a, activeBranch) ? 0 : 1
+      const branchRankB = matchesActiveBranch(b, activeBranch) ? 0 : 1
+      if (branchRankA !== branchRankB) return branchRankA - branchRankB
       const priorityA = CARD_PRIORITY[a.cardId] ?? 99
       const priorityB = CARD_PRIORITY[b.cardId] ?? 99
       return priorityA - priorityB
@@ -254,7 +270,7 @@ export function useWorkdeskProactiveReminder(projects?: GitProjectView[]) {
         return !dismissedSet.has(compositeId)
       }) ?? null
     )
-  }, [activeRepo, scanResult, projects, dismissedSet, sessionSnoozed, handledCount, pinnedId, isIdle])
+  }, [activeRepo, activeBranch, scanResult, projects, dismissedSet, sessionSnoozed, handledCount, pinnedId, isIdle])
 
   // Latch/pin the reminder once shown, and unpin if the underlying item was resolved/removed
   useEffect(() => {
@@ -322,7 +338,7 @@ export function useWorkdeskProactiveReminder(projects?: GitProjectView[]) {
       agentPrompt = `请协助处理任务【${targetItem.repoAlias} / ${targetItem.name}】: ${targetItem.summary}`
     }
 
-    const detailsUrl = `/workdesk/tasks/${encodeURIComponent(targetItem.cardId)}`
+    const detailsUrl = `/workdesk/tasks/${encodeURIComponent(targetItem.cardId)}/items/${encodeURIComponent(targetItem.id)}`
 
     const handleDismiss = () => {
       saveDismissedId(compositeId)

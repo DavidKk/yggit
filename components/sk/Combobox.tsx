@@ -181,7 +181,7 @@ export function Combobox({
           <div
             ref={panelRef}
             className={cn(
-              'fixed z-[60] flex flex-col overflow-hidden rounded-[0.2rem] border border-line bg-[var(--panel-2)] shadow-[0_12px_32px_rgb(0_0_0/0.35)]',
+              'fixed z-[60] flex flex-col overflow-hidden rounded-md border border-line bg-[var(--panel-2)] shadow-[0_12px_32px_rgb(0_0_0/0.35)]',
               panelWidth === 'content' ? 'w-max min-w-full' : 'w-full'
             )}
             style={{ ...panelStyle, maxHeight: PANEL_MAX_HEIGHT_PX }}
@@ -220,7 +220,7 @@ export function Combobox({
                         aria-selected={isSelected}
                         aria-disabled={opt.disabled || undefined}
                         className={cn(
-                          'flex cursor-pointer items-center justify-between gap-2 rounded-[0.12rem] px-2 py-2 text-[0.8125rem] whitespace-nowrap text-ink',
+                          'flex cursor-pointer items-center justify-between gap-2 rounded-[0.25rem] px-2.5 py-1.5 text-xs whitespace-nowrap text-ink',
                           isSelected && 'text-accent',
                           isHi && 'bg-[color-mix(in_oklab,var(--accent)_14%,transparent)]',
                           opt.disabled && 'pointer-events-none opacity-45'

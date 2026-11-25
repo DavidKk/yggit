@@ -467,6 +467,7 @@ describe('GitAgentBar', () => {
       saveProfile: jest.fn(),
       deleteProfile: jest.fn(),
       selectProfile: jest.fn(),
+      toggleProfileEnabled: jest.fn(),
       redactionOptions: DEFAULT_REDACTION_OPTIONS,
       setRedactionOptions: jest.fn(),
       dockMode: 'collapsed',
@@ -568,6 +569,7 @@ describe('GitAgentBar', () => {
       saveProfile: jest.fn(),
       deleteProfile: jest.fn(),
       selectProfile: jest.fn(),
+      toggleProfileEnabled: jest.fn(),
       redactionOptions: DEFAULT_REDACTION_OPTIONS,
       setRedactionOptions: jest.fn(),
       dockMode: 'collapsed',
@@ -681,6 +683,7 @@ describe('GitAgentBar', () => {
       saveProfile: jest.fn(),
       deleteProfile: jest.fn(),
       selectProfile: jest.fn(),
+      toggleProfileEnabled: jest.fn(),
       redactionOptions: DEFAULT_REDACTION_OPTIONS,
       setRedactionOptions: jest.fn(),
       dockMode: 'dock-right', // Sidebar is open

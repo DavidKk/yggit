@@ -149,7 +149,11 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
     if (view?.repo && agent?.setActiveRepo) {
       agent.setActiveRepo(view.repo)
     }
-  }, [view?.repo, agent])
+    const currentBranch = view?.head || view?.branch || ''
+    if (currentBranch && agent?.setActiveBranch) {
+      agent.setActiveBranch(currentBranch)
+    }
+  }, [view?.repo, view?.head, view?.branch, agent])
   useEffect(() => {
     if (spotlight?.registerNavigateHandler) {
       return spotlight.registerNavigateHandler((hash) => {

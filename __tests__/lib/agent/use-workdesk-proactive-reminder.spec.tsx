@@ -23,11 +23,13 @@ jest.mock('next/navigation', () => ({
 const mockSendMessage = jest.fn().mockResolvedValue(undefined)
 const mockSetDockMode = jest.fn()
 let mockActiveRepo = '/Users/davidjones/Develop/backend/admin'
+let mockActiveBranch = ''
 let mockIsProcessing = false
 
 jest.mock('@/lib/agent/agent-context', () => ({
   useAgent: () => ({
     activeRepo: mockActiveRepo,
+    activeBranch: mockActiveBranch,
     sendMessage: mockSendMessage,
     setDockMode: mockSetDockMode,
     isProcessing: mockIsProcessing,
@@ -290,7 +292,7 @@ describe('useWorkdeskProactiveReminder', () => {
         latestReminder?.viewTask()
       })
 
-      expect(mockPush).toHaveBeenCalledWith('/workdesk/tasks/sync-default-branches')
+      expect(mockPush).toHaveBeenCalledWith('/workdesk/tasks/sync-default-branches/items/item_sync_admin')
       expect(latestReminder).toBeNull()
     })
 
@@ -376,6 +378,32 @@ describe('useWorkdeskProactiveReminder', () => {
       // After 2 handled items, session limit reached -> no 3rd reminder
       expect(latestReminder).toBeNull()
       expect(sessionStorage.getItem('yggit.agent.proactive-handled-count')).toBe('2')
+    })
+
+    it('links detailsUrl directly to the single project item and prioritizes activeBranch', () => {
+      mockActiveBranch = 'feature/auth'
+      const scanData: ScanResult = {
+        lastChecked: Date.now(),
+        findings: [],
+        cards: [],
+        items: {
+          sync: mockItemSync,
+          rev: mockItemReview,
+        },
+      }
+
+      // @ts-expect-error accessing private notify for testing
+      workdeskEngine.notify(scanData)
+
+      act(() => {
+        root.render(<TestComponent projects={sampleProjects} />)
+      })
+
+      expect(latestReminder?.cardId).toBe('code-review-pending-push')
+      expect(latestReminder?.branchName).toBe('feature/auth')
+      expect(latestReminder?.detailsUrl).toBe('/workdesk/tasks/code-review-pending-push/items/item_review_admin')
+
+      mockActiveBranch = ''
     })
   })
 })

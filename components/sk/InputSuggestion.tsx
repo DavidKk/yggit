@@ -25,7 +25,15 @@ export interface InputSuggestionAction {
   icon?: ReactNode
   loading?: boolean
   disabled?: boolean
-  onClick: () => void | Promise<void>
+  statusOnly?: boolean
+  tone?: 'default' | 'accent' | 'ok' | 'warn'
+  onClick?: () => void | Promise<void>
+}
+
+export interface InputSuggestionProgress {
+  active: boolean
+  percent?: number
+  indeterminate?: boolean
 }
 
 export interface InputSuggestionProps {
@@ -36,6 +44,8 @@ export interface InputSuggestionProps {
   onChange: (value: string) => void
   placeholder?: string
   disabled?: boolean
+  readOnly?: boolean
+  hideDropdown?: boolean
   invalid?: boolean
   error?: React.ReactNode
   warn?: React.ReactNode
@@ -45,6 +55,7 @@ export interface InputSuggestionProps {
   panelWidth?: FloatingPanelWidthMode
   fullWidth?: boolean
   action?: InputSuggestionAction
+  progress?: InputSuggestionProgress
 }
 
 function optionMatches(option: InputSuggestionOption, needle: string) {
@@ -65,6 +76,8 @@ export function InputSuggestion({
   onChange,
   placeholder = '选择或输入...',
   disabled = false,
+  readOnly = false,
+  hideDropdown = false,
   invalid = false,
   error,
   warn,
@@ -74,6 +87,7 @@ export function InputSuggestion({
   panelWidth = 'anchor',
   fullWidth = true,
   action,
+  progress,
 }: InputSuggestionProps) {
   const generatedId = useId()
   const inputId = id || generatedId
@@ -87,8 +101,9 @@ export function InputSuggestion({
 
   const needle = value.trim().toLowerCase()
   const filteredOptions = useMemo(() => {
+    if (readOnly) return options
     return options.filter((opt) => optionMatches(opt, needle))
-  }, [needle, options])
+  }, [needle, options, readOnly])
 
   const hasExactMatch = useMemo(() => {
     return options.some((opt) => opt.value.toLowerCase() === needle)
@@ -111,10 +126,17 @@ export function InputSuggestion({
     setHighlight(-1)
   }, [])
 
+  const canOpenDropdown = !disabled && !hideDropdown
+
   const openPanel = useCallback(() => {
-    if (disabled) return
+    if (!canOpenDropdown) return
     setOpen(true)
-  }, [disabled])
+  }, [canOpenDropdown])
+
+  const displayValue = useMemo(() => {
+    if (!readOnly) return value
+    return options.find((opt) => opt.value === value)?.label || value
+  }, [readOnly, options, value])
 
   useEffect(() => {
     if (!open) return
@@ -201,20 +223,28 @@ export function InputSuggestion({
       <div
         className={cn(
           formControlChrome,
-          'relative flex h-9 items-center justify-between pl-3 pr-1.5 cursor-text focus-within:border-accent transition-colors',
+          'relative flex h-9 items-center justify-between overflow-hidden pl-3 pr-1.5 focus-within:border-accent transition-colors',
+          readOnly ? (hideDropdown ? 'cursor-default' : 'cursor-pointer') : 'cursor-text',
           (invalid || Boolean(error)) && '!border-fail ring-1 !ring-fail/30 focus-within:!border-fail',
           !(invalid || Boolean(error)) && Boolean(warn) && '!border-warn ring-1 !ring-warn/30 focus-within:!border-warn',
           disabled && controlDisabledShell
         )}
+        onClick={() => {
+          if (readOnly && canOpenDropdown) {
+            if (open) close()
+            else openPanel()
+          }
+        }}
       >
         <input
           ref={inputRef}
           id={inputId}
           name={name || 'agent_model_query'}
           type="text"
-          value={value}
+          value={displayValue}
+          readOnly={readOnly}
           disabled={disabled}
-          onChange={handleInputChange}
+          onChange={readOnly ? undefined : handleInputChange}
           onFocus={openPanel}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
@@ -225,56 +255,97 @@ export function InputSuggestion({
           data-bwignore="true"
           data-form-type="other"
           role="combobox"
-          aria-autocomplete="list"
-          aria-expanded={open}
+          aria-autocomplete={readOnly ? 'none' : 'list'}
+          aria-expanded={canOpenDropdown ? open : undefined}
           aria-controls={open ? listboxId : undefined}
           spellCheck={false}
-          className={cn('w-full min-w-0 bg-transparent pr-2 text-xs text-ink placeholder:text-ink-soft/70 outline-none', disabled && controlDisabled)}
+          className={cn(
+            'w-full min-w-0 bg-transparent pr-2 text-xs text-ink placeholder:text-ink-soft/70 outline-none',
+            readOnly && (hideDropdown ? 'cursor-default' : 'cursor-pointer'),
+            disabled && controlDisabled
+          )}
         />
         <div className="flex items-center shrink-0 gap-1 ml-1">
-          <button
-            type="button"
-            tabIndex={-1}
-            disabled={disabled}
-            aria-expanded={open}
-            onClick={(e) => {
-              e.stopPropagation()
-              if (open) close()
-              else {
-                openPanel()
-                inputRef.current?.focus()
-              }
-            }}
-            className="p-1 text-ink-soft hover:text-ink hover:bg-[var(--overlay-06)] rounded-sm cursor-pointer disabled:cursor-not-allowed transition-colors"
-            aria-label="Toggle suggestions"
-          >
-            <IoChevronDown className={cn('size-3.5 transition-transform duration-150', open && 'rotate-180')} />
-          </button>
+          {!hideDropdown && (
+            <button
+              type="button"
+              tabIndex={-1}
+              disabled={disabled}
+              aria-expanded={open}
+              onClick={(e) => {
+                e.stopPropagation()
+                if (open) close()
+                else {
+                  openPanel()
+                  inputRef.current?.focus()
+                }
+              }}
+              className="p-1 text-ink-soft hover:text-ink hover:bg-[var(--overlay-06)] rounded-sm cursor-pointer disabled:cursor-not-allowed transition-colors"
+              aria-label="Toggle suggestions"
+            >
+              <IoChevronDown className={cn('size-3.5 transition-transform duration-150', open && 'rotate-180')} />
+            </button>
+          )}
           {action ? (
             <>
-              <div className="h-4 w-px bg-line/80 my-auto shrink-0" aria-hidden="true" />
-              <button
-                type="button"
-                tabIndex={0}
-                disabled={disabled || action.disabled || action.loading}
-                title={action.title}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  close()
-                  void action.onClick()
-                }}
-                className={cn(
-                  'inline-flex items-center justify-center font-medium leading-none rounded text-ink-soft hover:text-ink hover:bg-[var(--overlay-08)] active:bg-[var(--overlay-12)] cursor-pointer transition-colors shrink-0 select-none',
-                  action.label ? 'gap-1.5 px-2 py-1 text-[12px]' : 'size-6 p-1',
-                  (disabled || action.disabled || action.loading) && 'cursor-not-allowed opacity-50'
-                )}
-              >
-                {action.icon}
-                {action.label ? <span>{action.label}</span> : null}
-              </button>
+              {!hideDropdown && <div className="h-4 w-px bg-line/80 my-auto shrink-0" aria-hidden="true" />}
+              {action.statusOnly ? (
+                <span
+                  title={action.title}
+                  className={cn(
+                    'inline-flex items-center justify-center gap-1.5 px-2 py-1 text-xs font-medium leading-none shrink-0 select-none',
+                    action.tone === 'ok' && 'text-ok',
+                    action.tone === 'warn' && 'text-warn',
+                    action.tone === 'accent' && 'text-accent',
+                    (!action.tone || action.tone === 'default') && 'text-ink-soft'
+                  )}
+                >
+                  {action.icon}
+                  {action.label ? <span>{action.label}</span> : null}
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  tabIndex={0}
+                  disabled={disabled || action.disabled || action.loading}
+                  title={action.title}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    close()
+                    void action.onClick?.()
+                  }}
+                  className={cn(
+                    'inline-flex items-center justify-center font-medium leading-none rounded cursor-pointer transition-colors shrink-0 select-none',
+                    action.label ? 'gap-1.5 px-2 py-1 text-xs' : 'size-6 p-1',
+                    action.tone === 'accent' && 'text-accent hover:bg-accent/10 active:bg-accent/15',
+                    action.tone === 'warn' && 'text-warn hover:bg-warn/10',
+                    action.tone === 'ok' && 'text-ok hover:bg-ok/10',
+                    (!action.tone || action.tone === 'default') && 'text-ink-soft hover:text-ink hover:bg-[var(--overlay-08)] active:bg-[var(--overlay-12)]',
+                    (disabled || action.disabled || action.loading) && 'cursor-not-allowed opacity-50'
+                  )}
+                >
+                  {action.icon}
+                  {action.label ? <span>{action.label}</span> : null}
+                </button>
+              )}
             </>
           ) : null}
         </div>
+        {progress?.active ? (
+          <div
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={progress.indeterminate ? undefined : progress.percent}
+            className="pointer-events-none absolute inset-x-0 bottom-0 h-[2px] bg-inset"
+          >
+            {progress.indeterminate ? (
+              <div className="h-full w-full animate-pulse bg-accent/70" />
+            ) : (
+              <div className="h-full bg-accent transition-[width] duration-300 ease-out" style={{ width: `${progress.percent ?? 0}%` }} />
+            )}
+          </div>
+        ) : null}
       </div>
       {!open && <FormMessageDropdown error={error} warn={warn} />}
 

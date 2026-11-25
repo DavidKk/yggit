@@ -61,7 +61,7 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(function Tag
   const [inputValue, setInputValue] = useState('')
 
   const isMultiline = multiline || (typeof rows === 'number' && rows > 1)
-  const multilineHeightClass = rows ? (rows >= 5 ? 'min-h-36' : rows === 4 ? 'min-h-32' : rows === 3 ? 'min-h-24' : 'min-h-16') : isMultiline ? 'min-h-24' : 'min-h-9'
+  const multilineHeightClass = rows ? (rows >= 5 ? 'min-h-36' : rows === 4 ? 'min-h-32' : rows === 3 ? 'min-h-24' : 'min-h-16') : isMultiline ? 'min-h-24' : 'min-h-8'
 
   const commitValue = useCallback(
     (raw: string) => {

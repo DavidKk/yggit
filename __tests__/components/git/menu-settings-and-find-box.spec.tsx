@@ -95,12 +95,12 @@ describe('MenuSettingsSection component', () => {
     })
 
     // Zone 1: 快捷区
-    expect(host.textContent).toContain('快捷区（一级主菜单置顶直达）')
+    expect(host.textContent).toContain('快捷区（主菜单置顶直达）')
     expect(host.textContent).toContain('复制分支名')
     expect(host.textContent).toContain('复制 Commit Hash')
 
     // Zone 2: 分组区
-    expect(host.textContent).toContain('分组区（二级子菜单分类收纳）')
+    expect(host.textContent).toContain('分组区（二级子菜单）')
     expect(host.textContent).toContain('「复制 ›」二级菜单')
     expect(host.textContent).toContain('「分支操作 ›」二级菜单')
     expect(host.textContent).toContain('「Worktree ›」二级菜单')

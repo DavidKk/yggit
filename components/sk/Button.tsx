@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils'
 /** default：浅底+描边；ghost：透明底+描边；plain：无底无描边；彩色变体：大按钮深色渐变配白字，小按钮淡底+彩色描边 */
 export type ButtonVariant = 'default' | 'accent' | 'ok' | 'warn' | 'fail' | 'ghost' | 'plain' | 'outline-accent' | 'outline-ok' | 'outline-warn' | 'outline-fail'
 
-/** md：36px 标准按钮；sm：28px 紧凑/次级按钮（卡片标题等）；lg：44px 大按钮（卡片主操作/CTA）；gate：入口大按钮；icon：32px 图标按钮；mini：24px 图标按钮；xs：20px 文字按钮 */
+/** md: 32px standard; sm: 28px compact/toolbar; lg: 40px primary CTA; gate: landing CTA; icon: 32px square; mini/xs: 24px */
 export type ButtonSize = 'md' | 'sm' | 'lg' | 'icon' | 'mini' | 'xs' | 'gate'
 
 export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -89,7 +89,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       data-size={size === 'md' ? undefined : size}
       data-sheen={sheen ? 'true' : undefined}
       className={cn(
-        'relative isolate box-border inline-flex h-9 cursor-pointer appearance-none items-center justify-center gap-2 overflow-hidden rounded-md border border-line bg-[var(--panel-2)] px-3.5 font-inherit text-xs font-medium leading-none text-ink transition-[background-color,border-color,opacity,box-shadow] duration-100 ease-out',
+        'relative isolate box-border inline-flex h-8 cursor-pointer appearance-none items-center justify-center gap-1.5 overflow-hidden rounded-md border border-line bg-[var(--panel-2)] px-3 font-inherit text-xs font-medium leading-none text-ink transition-[background-color,border-color,opacity,box-shadow] duration-100 ease-out',
         'outline-none focus:outline-none focus-visible:outline-none',
         'hover:enabled:bg-[color-mix(in_oklab,var(--panel-2)_80%,var(--ink))]',
         variant !== 'plain' && !isGradient && 'hover:enabled:border-[var(--overlay-12)]',
@@ -128,10 +128,10 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
         variant === 'plain' &&
           'border-transparent bg-transparent text-ink-soft shadow-none hover:enabled:border-transparent hover:enabled:bg-[var(--overlay-06)] hover:enabled:text-ink',
         size === 'icon' && 'h-8 w-8 shrink-0 px-0 rounded-md',
-        size === 'mini' && 'h-6 w-6 shrink-0 px-0',
-        size === 'xs' && 'h-5 gap-1 px-1.5 text-[11px] font-normal shadow-none',
-        size === 'sm' && 'h-7 gap-1.5 px-2.5 text-xs font-medium',
-        size === 'lg' && 'h-11 min-h-11 shrink-0 px-4 text-sm font-semibold rounded-[0.25rem] gap-2',
+        size === 'mini' && 'h-6 w-6 shrink-0 px-0 rounded-md',
+        size === 'xs' && 'h-6 gap-1 px-2 text-xs font-normal shadow-none rounded-md',
+        size === 'sm' && 'h-7 gap-1.5 px-2.5 text-xs font-medium rounded-md',
+        size === 'lg' && 'h-10 min-h-10 shrink-0 px-4 text-sm font-semibold rounded-md gap-2',
         isGate &&
           cn(
             'relative mt-3 h-[2.85rem] min-w-[11rem] justify-center gap-0 rounded-[0.3rem] px-6 text-[0.95rem] leading-normal shadow-[0_8px_32px_var(--accent-glow)] motion-safe:animate-[kit-rise_0.4s_0.12s_ease_backwards] hover:enabled:shadow-[0_10px_40px_var(--accent-glow)]',

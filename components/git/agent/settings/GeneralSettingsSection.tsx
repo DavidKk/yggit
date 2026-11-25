@@ -45,12 +45,12 @@ export function GeneralSettingsSection() {
       <SettingsSectionCard title="界面与偏好" description="自定义应用程序的显示主题与系统语言。">
         <fieldset className="divide-y divide-line/60">
           {/* Row 1: Theme Mode */}
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 first:pt-0 items-start">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 first:pt-0 items-center">
             <div className="md:col-span-5 min-w-0">
               <span className="text-xs font-semibold text-ink">主题外观</span>
               <p className="text-xs text-ink-soft leading-relaxed mt-0.5">选择偏好的显示模式或跟随操作系统。</p>
             </div>
-            <div className="md:col-span-7 min-w-0 max-w-[460px]">
+            <div className="md:col-span-7 min-w-0 max-w-[460px] md:ml-auto w-full">
               <div className="grid grid-cols-3 gap-2">
                 {themeOptions.map((opt) => {
                   const selected = themePref === opt.value
@@ -77,14 +77,14 @@ export function GeneralSettingsSection() {
           </div>
 
           {/* Row 2: Locale */}
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 items-start">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 items-center">
             <div className="md:col-span-5 min-w-0">
               <label htmlFor="general-locale-select" className="text-xs font-semibold text-ink">
                 界面语言
               </label>
               <p className="text-xs text-ink-soft leading-relaxed mt-0.5">多语言显示偏好。</p>
             </div>
-            <div className="md:col-span-7 min-w-0 max-w-[460px]">
+            <div className="md:col-span-7 min-w-0 max-w-[460px] md:ml-auto w-full">
               <Select id="general-locale-select" className="w-full" value={localePref} options={localeOptions} onChange={(val) => setLocale(val as LocalePreference)} />
             </div>
           </div>

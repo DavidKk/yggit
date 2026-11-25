@@ -48,7 +48,7 @@ export function FilterToggle({ pressed, onPressedChange, children, role = 'switc
         if (!event.defaultPrevented) onPressedChange(!pressed)
       }}
       className={cn(
-        'relative inline-flex h-8 shrink-0 cursor-pointer items-center justify-center gap-1 rounded-[0.2rem] border px-3 text-[0.75rem] leading-none transition-colors',
+        'relative inline-flex h-8 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-md border px-2.5 text-xs leading-none transition-colors',
         'border-line bg-transparent text-ink-soft',
         !pressed && 'hover:enabled:border-[rgb(230_238_248/0.18)] hover:enabled:text-ink',
         pressed && toneClass[tone],
