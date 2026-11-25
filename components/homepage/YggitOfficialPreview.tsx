@@ -42,28 +42,28 @@ export interface YggitOfficialPreviewProps {
 }
 
 // Separated Distant Background & Dedicated Foreground Layers (1672x941)
-const DAY_DISTANT_BG_PATH = '/world-tree-assets/hero/hero_day_distant_bg_1672x941.png'
-const NIGHT_DISTANT_BG_PATH = '/world-tree-assets/hero/hero_night_distant_bg_1672x941.png'
-const DAY_FOREGROUND_RGBA_PATH = '/world-tree-assets/hero/hero_day_foreground_rgba.png'
-const NIGHT_FOREGROUND_RGBA_PATH = '/world-tree-assets/hero/hero_night_foreground_rgba.png'
+const DAY_DISTANT_BG_PATH = '/world-tree-assets/hero/hero_day_distant_bg_1672x941.webp'
+const NIGHT_DISTANT_BG_PATH = '/world-tree-assets/hero/hero_night_distant_bg_1672x941.webp'
+const DAY_FOREGROUND_RGBA_PATH = '/world-tree-assets/hero/hero_day_foreground_rgba.webp'
+const NIGHT_FOREGROUND_RGBA_PATH = '/world-tree-assets/hero/hero_night_foreground_rgba.webp'
 
 // Full Pure Backgrounds (Distant + Unified Foreground)
-const NIGHT_PURE_BG_PATH = '/world-tree-assets/hero/hero_night_pure_bg_1672x941.png'
-const DAY_PURE_BG_PATH = '/world-tree-assets/hero/hero_day_pure_bg_1672x941.png'
+const NIGHT_PURE_BG_PATH = '/world-tree-assets/hero/hero_night_pure_bg_1672x941.webp'
+const DAY_PURE_BG_PATH = '/world-tree-assets/hero/hero_day_pure_bg_1672x941.webp'
 
 // Master Stages (with Lush World Tree + Unified Foreground, no Card)
 const NIGHT_PREVIEW_BG_PATH = HERO_ASSETS.nightBase
 const DAY_PREVIEW_BG_PATH = HERO_ASSETS.dayBase
 
 // Empty Card Stages (with Lush World Tree + Unified Foreground + Physical Shadow Card Shell)
-const NIGHT_EMPTY_CARD_STAGE_PATH = '/world-tree-assets/hero/hero_empty_card_stage_v2.png'
-const DAY_EMPTY_CARD_STAGE_PATH = '/world-tree-assets/hero/hero_day_empty_card_stage_v2.png'
+const NIGHT_EMPTY_CARD_STAGE_PATH = '/world-tree-assets/hero/hero_empty_card_stage_v2.webp'
+const DAY_EMPTY_CARD_STAGE_PATH = '/world-tree-assets/hero/hero_day_empty_card_stage_v2.webp'
 
 // Standalone World Tree RGBA
-const NIGHT_TREE_RGBA_PATH = '/world-tree-assets/hero/hero_night_tree_rgba.png'
-const DAY_TREE_RGBA_PATH = '/world-tree-assets/hero/hero_day_tree_rgba.png'
+const NIGHT_TREE_RGBA_PATH = '/world-tree-assets/hero/hero_night_tree_rgba.webp'
+const DAY_TREE_RGBA_PATH = '/world-tree-assets/hero/hero_day_tree_rgba.webp'
 
-const GLOW_RGBA_PATH = '/world-tree-assets/hero/hero_tree_glow_rgba.png'
+const GLOW_RGBA_PATH = '/world-tree-assets/hero/hero_tree_glow_rgba.webp'
 const CARD_ROOTS_LAYER_ID = 'card-el-03'
 const CARD_SHELL_LAYER_ID = 'card-el-01'
 const CARD_SHELL_PATH = HERO_ASSETS.cardShell
@@ -134,7 +134,7 @@ const WATER_FLOW_MAP_PATH = HERO_ASSETS.waterFlow
 const WATER_NORMAL_MAP_PATH = HERO_ASSETS.waterNormal
 const WATER_FG_OCCLUSION_PATH = HERO_ASSETS.dayWaterBanks
 const WATER_NIGHT_FG_OCCLUSION_PATH = HERO_ASSETS.nightWaterBanks
-const USER_FG_OVERLAY_PATH = '/assets/aistudio/Transparent_Anime_Grass_and_Flowers_Overlay_29d73ad4.png'
+const USER_FG_OVERLAY_PATH = '/assets/aistudio/Transparent_Anime_Grass_and_Flowers_Overlay_29d73ad4.webp'
 
 // Decomposed RGBA Elements of the Scene (Distant, Foreground, APP Card & Water Shader)
 const CARD_DECOMPOSED_ELEMENTS = [
@@ -2069,7 +2069,7 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
 
               <button
                 onClick={() =>
-                  handleDownloadStagePng(pureStageCanvasRef.current, isDay ? 'yggit_hero_day_animated_background_no_card.png' : 'yggit_hero_night_animated_background_no_card.png')
+                  handleDownloadStagePng(pureStageCanvasRef.current, isDay ? 'yggit_hero_day_animated_background_no_card.webp' : 'yggit_hero_night_animated_background_no_card.png')
                 }
                 disabled={isExportingComposite}
                 className="px-3 py-1 rounded bg-[#08151a] hover:bg-teal-950 text-teal-200 border border-teal-800/60 text-xs font-mono flex items-center gap-1.5 transition-colors cursor-pointer"
@@ -2181,20 +2181,20 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
             {[
               {
                 title: '01 · 独立统一近景层 (双岸岩石+溪流+右巨石白花)',
-                sub: isDay ? 'hero_day_foreground_rgba.png' : 'hero_night_foreground_rgba.png',
+                sub: isDay ? 'hero_day_foreground_rgba.webp' : 'hero_night_foreground_rgba.webp',
                 img: `${isDay ? DAY_FOREGROUND_RGBA_PATH : NIGHT_FOREGROUND_RGBA_PATH}?v=fg_water_v6`,
                 mode: 'foreground-rgba' as const,
                 checker: true,
               },
               {
                 title: '02 · 独立远景背景层 (天空+雪山+林谷)',
-                sub: isDay ? 'hero_day_distant_bg_1672x941.png' : 'hero_night_distant_bg_1672x941.png',
+                sub: isDay ? 'hero_day_distant_bg_1672x941.webp' : 'hero_night_distant_bg_1672x941.webp',
                 img: `${isDay ? DAY_DISTANT_BG_PATH : NIGHT_DISTANT_BG_PATH}?v=fg_water_v6`,
                 mode: 'distant-bg' as const,
                 checker: false,
               },
               {
-                title: '03 · 溪流流向与速度贴图 (water-flow-map.png)',
+                title: '03 · 溪流流向与速度贴图 (water-flow-map.webp)',
                 sub: 'R=流向X, G=流向Y, B=局部流速, A=水域遮罩',
                 img: `${WATER_FLOW_MAP_PATH}?v=fg_water_v6`,
                 mode: 'water-flow-map' as const,
@@ -2202,7 +2202,7 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
               },
               {
                 title: '04 · 独立雄伟繁茂世界树 RGBA',
-                sub: isDay ? 'hero_day_tree_rgba.png' : 'hero_night_tree_rgba.png',
+                sub: isDay ? 'hero_day_tree_rgba.webp' : 'hero_night_tree_rgba.webp',
                 img: `${isDay ? DAY_TREE_RGBA_PATH : NIGHT_TREE_RGBA_PATH}?v=fg_water_v6`,
                 mode: 'tree-rgba' as const,
                 checker: true,

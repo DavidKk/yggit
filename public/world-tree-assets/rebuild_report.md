@@ -15,19 +15,19 @@
 
 ---
 
-## 2. 差异图 (`previews/difference.png`) 区域解读
+## 2. 差异图 (`previews/difference.webp`) 区域解读
 
 1. **世界树主体区域（树冠、主干、根系、发光节点）**：
    - 差异热图呈纯暗底色，未遮挡像素的 RGB 均方误差小于 `0.5 / 255`（仅存在 8-bit 整数舍入误差）。
-   - 证明 `base_trunk.png` + `branch_flex_01..04.png` + `cluster_01..12.png` 的 Alpha 权重分解完全守恒，未产生任何接缝过亮或边缘黑边。
+   - 证明 `base_trunk.webp` + `branch_flex_01..04.png` + `cluster_01..12.png` 的 Alpha 权重分解完全守恒，未产生任何接缝过亮或边缘黑边。
 2. **左上角角标移除区 `[6, 6, 156, 44]`**：
-   - 在 `difference.png` 左上角可见明显的紫红色差异高亮块，对应从原图剥离的 `01 永恒·默认` UI 胶囊文字框。
-   - 该区域已在 `masks/inpainted_mask.png` 中完整标注，符合 PRD 9.1「记录生成式补全/未知区域，不能把推断内容描述为原图精准提取」的铁律。
+   - 在 `difference.webp` 左上角可见明显的紫红色差异高亮块，对应从原图剥离的 `01 永恒·默认` UI 胶囊文字框。
+   - 该区域已在 `masks/inpainted_mask.webp` 中完整标注，符合 PRD 9.1「记录生成式补全/未知区域，不能把推断内容描述为原图精准提取」的铁律。
 
 ---
 
 ## 3. 多背景边缘检查（深色 / 浅色 / 透明棋盘）
 
-- **深色森林背景 (`previews/preview_rebuild.png`)**：细枝、叶尖与根系流光自然融入环境，无光晕翻倍。
-- **透明棋盘格 (`previews/transparent_checkerboard.png`)**：去背景反预乘（Un-premultiplied Alpha）处理消除了暗色抠图黑边与白边残留。
+- **深色森林背景 (`previews/preview_rebuild.webp`)**：细枝、叶尖与根系流光自然融入环境，无光晕翻倍。
+- **透明棋盘格 (`previews/transparent_checkerboard.webp`)**：去背景反预乘（Un-premultiplied Alpha）处理消除了暗色抠图黑边与白边残留。
 - **四季/节日对齐复核**：利用同一套主干骨架与锚点叠加六宫格 02–06 面板提取的外观层，树干与根系重合度达 100%，切换季节时零跳动。

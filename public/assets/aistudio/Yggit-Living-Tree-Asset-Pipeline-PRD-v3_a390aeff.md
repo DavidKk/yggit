@@ -73,20 +73,20 @@ AI 先检查并记录：
 
 > 为了后期进行 Mesh Deformation，必须采用 **固定骨架 + 不规则叶簇 + 发光遮罩 + 粒子** 的组合。避免把整张原图当做一张可变形矩形。
 
-| 层       | 文件 / 目录                          | 内容                                         | 运行时是否运动   | 强制程度             |
-| -------- | ------------------------------------ | -------------------------------------------- | ---------------- | -------------------- |
-| 背景     | `background/scene_clean.png`         | 去掉树后的森林/天空（如有）                  | 环境可变化       | 有背景才需要         |
-| 固定骨架 | `base/base_trunk.png`                | 树干、粗枝、根系及稳定纹理                   | **不动**         | 必须                 |
-| 细枝     | `branches/branch_flex_XX.png`        | 有可感知弯曲需求的小分枝                     | 轻微形变         | 建议                 |
-| 树冠     | `canopy/cluster_01.png` …            | 独立不规则叶簇，目标 8–15 簇，按实际结构调整 | 独立风动         | 必须                 |
-| 前景叶片 | `canopy/front_cluster_XX.png`        | 少量近景叶簇，提升景深                       | 更明显但仍克制   | 可选                 |
-| 纹理发光 | `masks/glow_mask.png`                | 能量纹理发光区域的灰度权重                   | 代码驱动         | 必须                 |
-| Git 节点 | `masks/node_mask.png` + `nodes.json` | 发光节点像素及逻辑中心点                     | 闪烁/脉冲        | 必须（若源图有节点） |
-| 光效参考 | `reference/baked_lighting.png`       | 原图现有光晕参考，不默认重复叠加             | 仅视觉参考       | 建议                 |
-| 粒子     | `particles/`                         | 可复用叶片、花瓣、小光点                     | 自由运动         | P1/P3                |
-| 季节     | `seasons/`                           | 春花、秋叶、冬雪等外观覆盖                   | 跟随相应叶簇运动 | P3                   |
+| 层       | 文件 / 目录                           | 内容                                         | 运行时是否运动   | 强制程度             |
+| -------- | ------------------------------------- | -------------------------------------------- | ---------------- | -------------------- |
+| 背景     | `background/scene_clean.webp`         | 去掉树后的森林/天空（如有）                  | 环境可变化       | 有背景才需要         |
+| 固定骨架 | `base/base_trunk.webp`                | 树干、粗枝、根系及稳定纹理                   | **不动**         | 必须                 |
+| 细枝     | `branches/branch_flex_XX.png`         | 有可感知弯曲需求的小分枝                     | 轻微形变         | 建议                 |
+| 树冠     | `canopy/cluster_01.webp` …            | 独立不规则叶簇，目标 8–15 簇，按实际结构调整 | 独立风动         | 必须                 |
+| 前景叶片 | `canopy/front_cluster_XX.png`         | 少量近景叶簇，提升景深                       | 更明显但仍克制   | 可选                 |
+| 纹理发光 | `masks/glow_mask.webp`                | 能量纹理发光区域的灰度权重                   | 代码驱动         | 必须                 |
+| Git 节点 | `masks/node_mask.webp` + `nodes.json` | 发光节点像素及逻辑中心点                     | 闪烁/脉冲        | 必须（若源图有节点） |
+| 光效参考 | `reference/baked_lighting.webp`       | 原图现有光晕参考，不默认重复叠加             | 仅视觉参考       | 建议                 |
+| 粒子     | `particles/`                          | 可复用叶片、花瓣、小光点                     | 自由运动         | P1/P3                |
+| 季节     | `seasons/`                            | 春花、秋叶、冬雪等外观覆盖                   | 跟随相应叶簇运动 | P3                   |
 
-### 4.1 固定骨架 `base_trunk.png`
+### 4.1 固定骨架 `base_trunk.webp`
 
 - 包括主体树干、主要分叉、粗枝、根系，不能跟随风场移动。
 - 保留原有树皮质感与可见细节。
@@ -111,22 +111,22 @@ AI 先检查并记录：
 - 对每根细枝标记 `rootAnchor`、`tipAnchor` 和刚度值。
 - 如分层会造成不可接受的断裂，可以将细枝和对应叶簇合并，统一受约束变形。
 
-### 4.4 发光 `masks/glow_mask.png`
+### 4.4 发光 `masks/glow_mask.webp`
 
 - 单通道灰度：黑=不发光，白=允许强发光，中灰=中等强度。
 - 包括树干上的能量线、根系流光、树冠少量高光，不包含普通所有亮叶。
-- 建议额外导出 `glow_emission.png`（可选）：RGB 发光颜色参考，支持代码按昼夜或季节着色。
+- 建议额外导出 `glow_emission.webp`（可选）：RGB 发光颜色参考，支持代码按昼夜或季节着色。
 - **不要直接在颜色贴图上叠加大面积白色模糊辉光**；但无法无损移除的原图烘焙高光可以保留并注明。
 - Bloom、呼吸、强弱、昼夜变化由前端代码完成。
 
-### 4.5 节点 `node_mask.png`、`nodes.json`
+### 4.5 节点 `node_mask.webp`、`nodes.json`
 
 - 仅识别真实存在的发光节点；每个节点输出唯一 ID、中心点、半径和默认颜色。
 - 节点位置在**母版坐标系**中记录，不以截图显示缩放后的坐标表示。
 - 避免既在底图保留强节点光晕、又在代码叠加同等级光晕造成重复曝光。
 - 允许保留节点实体/纹理底色，但动态光晕和闪烁由前端绘制。
 
-### 4.6 背景 `background/scene_clean.png`
+### 4.6 背景 `background/scene_clean.webp`
 
 - 如果源图有背景，拆成背景与树两个独立层；如本身是透明树图，不必虚构背景。
 - 移除树木后的背景区域需要有限补绘，记录哪些像素属于 AI 推断。
@@ -165,7 +165,7 @@ AI 先检查并记录：
   "schemaVersion": "1.0.0",
   "treeId": "yggit-world-tree-default",
   "source": {
-    "filename": "default_world_tree_original.png",
+    "filename": "default_world_tree_original.webp",
     "width": 2048,
     "height": 2048,
     "sourceSha256": "REPLACE_WITH_REAL_HASH"
@@ -174,14 +174,14 @@ AI 先检查并记录：
   "layers": [
     {
       "id": "base-trunk",
-      "file": "base/base_trunk.png",
+      "file": "base/base_trunk.webp",
       "type": "static",
       "depth": 20,
       "offset": [0, 0]
     },
     {
       "id": "canopy-01",
-      "file": "canopy/cluster_01.png",
+      "file": "canopy/cluster_01.webp",
       "type": "deformable",
       "depth": 30,
       "bounds": [120, 80, 420, 340],
@@ -191,12 +191,12 @@ AI 先检查并记录：
       "stiffness": 0.76,
       "phaseOffset": 0.15,
       "maxDisplacementPx": 7,
-      "deformMask": "masks/cluster_01_deform.png",
+      "deformMask": "masks/cluster_01_deform.webp",
       "overlapGroup": "left-canopy"
     }
   ],
   "nodesFile": "nodes.json",
-  "glowMask": "masks/glow_mask.png"
+  "glowMask": "masks/glow_mask.webp"
 }
 ```
 
@@ -218,7 +218,7 @@ AI 先检查并记录：
 - **遮罩**：8-bit 灰度 PNG（必要时可提高位深）；请明确 gamma/色彩空间，避免阈值偏差。
 - **交付给网页**：可压缩为 WebP/AVIF，前提是透明边缘与细枝细节经对比验证。
 - **数据**：UTF-8 JSON，稳定 ID 与相对路径。
-- **预览**：完整母版重组 `preview_rebuild.png`、透明棋盘预览、关键区域局部放大图。
+- **预览**：完整母版重组 `preview_rebuild.webp`、透明棋盘预览、关键区域局部放大图。
 
 ### 6.2 Alpha 与边缘
 
@@ -243,11 +243,11 @@ AI 先检查并记录：
 
 ### Task 1：提取世界树主体
 
-从背景移除树，生成 `tree_full_rgba.png`，尽可能保持树冠细叶、主干、根系和发光细线。
+从背景移除树，生成 `tree_full_rgba.webp`，尽可能保持树冠细叶、主干、根系和发光细线。
 
 ### Task 2：生成固定骨架
 
-制作 `base_trunk.png`，保留树皮与主枝、根系。清除浮动叶簇，但不得过度平滑或篡改结构。
+制作 `base_trunk.webp`，保留树皮与主枝、根系。清除浮动叶簇，但不得过度平滑或篡改结构。
 
 ### Task 3：分解自然叶簇
 
@@ -255,11 +255,11 @@ AI 先检查并记录：
 
 ### Task 4：抽取发光与节点
 
-分别提供 `glow_mask.png`、`node_mask.png`、`nodes.json`。明确原图中哪些光已被烘焙，避免后续重复叠加。
+分别提供 `glow_mask.webp`、`node_mask.webp`、`nodes.json`。明确原图中哪些光已被烘焙，避免后续重复叠加。
 
 ### Task 5：重组验证
 
-利用同一画布/偏移/图层深度重组出 `preview_rebuild.png`；同时导出 `difference.png`（重组图与原图差异可视化）、`rebuild_report.md`。
+利用同一画布/偏移/图层深度重组出 `preview_rebuild.webp`；同时导出 `difference.webp`（重组图与原图差异可视化）、`rebuild_report.md`。
 
 ### Task 6：交付文件与异常说明
 
@@ -274,31 +274,31 @@ world-tree-assets/
 ├── README.md
 ├── audit.md
 ├── original/
-│   └── default_world_tree_original.png
+│   └── default_world_tree_original.webp
 ├── extracted/
-│   └── tree_full_rgba.png
+│   └── tree_full_rgba.webp
 ├── base/
-│   └── base_trunk.png
+│   └── base_trunk.webp
 ├── branches/
-│   ├── branch_flex_01.png
+│   ├── branch_flex_01.webp
 │   └── ...
 ├── canopy/
-│   ├── cluster_01.png
-│   ├── cluster_02.png
+│   ├── cluster_01.webp
+│   ├── cluster_02.webp
 │   └── ...
 ├── masks/
-│   ├── glow_mask.png
-│   ├── node_mask.png
-│   ├── cluster_01_deform.png
+│   ├── glow_mask.webp
+│   ├── node_mask.webp
+│   ├── cluster_01_deform.webp
 │   └── ...
 ├── reference/
-│   └── baked_lighting.png
+│   └── baked_lighting.webp
 ├── background/
-│   └── scene_clean.png
+│   └── scene_clean.webp
 ├── previews/
-│   ├── preview_rebuild.png
-│   ├── difference.png
-│   ├── transparent_checkerboard.png
+│   ├── preview_rebuild.webp
+│   ├── difference.webp
+│   ├── transparent_checkerboard.webp
 │   └── closeups/
 ├── tree_meta.json
 ├── nodes.json
@@ -412,7 +412,7 @@ P0 的最小演示不是“动画”，而是一个切换视图：原图 / 重�
 >
 > 请先审计源图并输出 `audit.md`，再尽可能保留原始像素提取固定树干/主枝/根系、自然叶簇、发光遮罩和节点数据。叶簇按自然分枝拆成约 8–15 个可独立运动图层，实际数量以质量优先；每簇必须有稳定 ID、连接锚点、绘制层级、形变权重蒙版和建议风动参数。
 >
-> 所有透明图层保持母版统一坐标与画布尺寸，或者提供明确 offset 以实现无损重组。输出 `tree_meta.json`、`nodes.json`、`preview_rebuild.png`、差异图和 `rebuild_report.md`。对被遮挡和 AI 补绘的区域必须标注，禁止宣称像素级原始还原。
+> 所有透明图层保持母版统一坐标与画布尺寸，或者提供明确 offset 以实现无损重组。输出 `tree_meta.json`、`nodes.json`、`preview_rebuild.webp`、差异图和 `rebuild_report.md`。对被遮挡和 AI 补绘的区域必须标注，禁止宣称像素级原始还原。
 >
 > **关键验收**：拼装静止图尽可能等于原图，树干/主枝/根系和树冠轮廓不改变；不出现明显接缝、重影、发光翻倍、透明黑边。若原素材质量或分辨率无法支撑，应报告具体原因，不能替换成另一棵新生成的树。
 >
@@ -431,14 +431,14 @@ P0 的最小演示不是“动画”，而是一个切换视图：原图 / 重�
 ### 素材 Agent 必须输出
 
 - [ ] `audit.md`
-- [ ] `tree_full_rgba.png`
-- [ ] `base_trunk.png`
+- [ ] `tree_full_rgba.webp`
+- [ ] `base_trunk.webp`
 - [ ] `canopy/cluster_XX.png` 多个
 - [ ] `masks/cluster_XX_deform.png` 对应每个簇
-- [ ] `masks/glow_mask.png`
-- [ ] `masks/node_mask.png` 和 `nodes.json`（若源图有节点）
+- [ ] `masks/glow_mask.webp`
+- [ ] `masks/node_mask.webp` 和 `nodes.json`（若源图有节点）
 - [ ] `tree_meta.json`
-- [ ] `preview_rebuild.png`、`difference.png`
+- [ ] `preview_rebuild.webp`、`difference.webp`
 - [ ] `rebuild_report.md`
 
 ### 验收通过后才启动

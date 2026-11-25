@@ -58,31 +58,31 @@ const DELIVERABLE_FILES: DeliverableFile[] = [
   { path: '/world-tree-assets/tree_meta.json', category: 'json', desc: '世界树分层坐标、锚点、绘制深度与风场权重元数据', resolution: 'Schema v1.0.0', format: 'JSON' },
   { path: '/world-tree-assets/nodes.json', category: 'json', desc: '16 个真实 Git 发光节点的母版坐标与脉冲配置', resolution: 'Schema v1.0.0', format: 'JSON' },
   {
-    path: '/world-tree-assets/original/default_world_tree_original.png',
+    path: '/world-tree-assets/original/default_world_tree_original.webp',
     category: 'base',
     desc: '01 永恒·默认 原始未修补母版裁切图',
     resolution: '492 × 412',
-    format: 'PNG 32-bit',
+    format: 'WebP',
   },
-  { path: '/world-tree-assets/background/scene_clean.png', category: 'base', desc: '移除世界树与左上角 UI 角标后的森林底图', resolution: '492 × 412', format: 'PNG 32-bit' },
+  { path: '/world-tree-assets/background/scene_clean.webp', category: 'base', desc: '移除世界树与左上角 UI 角标后的森林底图', resolution: '492 × 412', format: 'WebP' },
   {
-    path: '/world-tree-assets/extracted/tree_full_rgba.png',
+    path: '/world-tree-assets/extracted/tree_full_rgba.webp',
     category: 'base',
     desc: 'Task 1 提取的完整世界树透明图层 (Un-premultiplied)',
     resolution: '492 × 412',
-    format: 'PNG 32-bit RGBA',
+    format: 'WebP RGBA',
   },
   {
-    path: '/world-tree-assets/base/base_trunk.png',
+    path: '/world-tree-assets/base/base_trunk.webp',
     category: 'base',
     desc: 'Task 2 固定骨架层 (树干/主枝/根系，无浮动叶簇幽灵)',
     resolution: '492 × 412',
-    format: 'PNG 32-bit RGBA',
+    format: 'WebP RGBA',
   },
-  { path: '/world-tree-assets/branches/branch_flex_01.png', category: 'base', desc: '左侧外延可微弯细枝图层', resolution: '492 × 412', format: 'PNG 32-bit RGBA' },
-  { path: '/world-tree-assets/branches/branch_flex_02.png', category: 'base', desc: '左上分叉可微弯细枝图层', resolution: '492 × 412', format: 'PNG 32-bit RGBA' },
-  { path: '/world-tree-assets/branches/branch_flex_03.png', category: 'base', desc: '右上分叉可微弯细枝图层', resolution: '492 × 412', format: 'PNG 32-bit RGBA' },
-  { path: '/world-tree-assets/branches/branch_flex_04.png', category: 'base', desc: '右侧横展可微弯细枝图层', resolution: '492 × 412', format: 'PNG 32-bit RGBA' },
+  { path: '/world-tree-assets/branches/branch_flex_01.webp', category: 'base', desc: '左侧外延可微弯细枝图层', resolution: '492 × 412', format: 'WebP RGBA' },
+  { path: '/world-tree-assets/branches/branch_flex_02.webp', category: 'base', desc: '左上分叉可微弯细枝图层', resolution: '492 × 412', format: 'WebP RGBA' },
+  { path: '/world-tree-assets/branches/branch_flex_03.webp', category: 'base', desc: '右上分叉可微弯细枝图层', resolution: '492 × 412', format: 'WebP RGBA' },
+  { path: '/world-tree-assets/branches/branch_flex_04.webp', category: 'base', desc: '右侧横展可微弯细枝图层', resolution: '492 × 412', format: 'WebP RGBA' },
   ...Array.from({ length: 12 }, (_, i) => {
     const num = String(i + 1).padStart(2, '0')
     return {
@@ -90,7 +90,7 @@ const DELIVERABLE_FILES: DeliverableFile[] = [
       category: 'canopy' as const,
       desc: `Task 3 独立不规则 Alpha 叶簇 #${num} (${TREE_LAYERS.find((l) => l.id === `canopy-${num}`)?.name || ''})`,
       resolution: '492 × 412',
-      format: 'PNG 32-bit RGBA',
+      format: 'WebP RGBA',
     }
   }),
   ...Array.from({ length: 12 }, (_, i) => {
@@ -100,66 +100,66 @@ const DELIVERABLE_FILES: DeliverableFile[] = [
       category: 'mask' as const,
       desc: `叶簇 #${num} 局部网格形变权重蒙版 (锚点=0, 叶尖=255)`,
       resolution: '492 × 412',
-      format: 'PNG 8-bit Gray',
+      format: 'WebP Lossless',
     }
   }),
-  { path: '/world-tree-assets/masks/glow_mask.png', category: 'mask', desc: 'Task 4 树干能量线与树冠发光灰度权重遮罩', resolution: '492 × 412', format: 'PNG 8-bit Gray' },
-  { path: '/world-tree-assets/masks/glow_emission.png', category: 'mask', desc: '动态发光色彩参考贴图 (供昼夜/季节着色)', resolution: '492 × 412', format: 'PNG 32-bit RGBA' },
-  { path: '/world-tree-assets/masks/node_mask.png', category: 'mask', desc: 'Task 4 Git 发光节点像素级遮罩', resolution: '492 × 412', format: 'PNG 8-bit Gray' },
+  { path: '/world-tree-assets/masks/glow_mask.webp', category: 'mask', desc: 'Task 4 树干能量线与树冠发光灰度权重遮罩', resolution: '492 × 412', format: 'WebP Lossless' },
+  { path: '/world-tree-assets/masks/glow_emission.webp', category: 'mask', desc: '动态发光色彩参考贴图 (供昼夜/季节着色)', resolution: '492 × 412', format: 'WebP RGBA' },
+  { path: '/world-tree-assets/masks/node_mask.webp', category: 'mask', desc: 'Task 4 Git 发光节点像素级遮罩', resolution: '492 × 412', format: 'WebP Lossless' },
   {
-    path: '/world-tree-assets/masks/inpainted_mask.png',
+    path: '/world-tree-assets/masks/inpainted_mask.webp',
     category: 'mask',
     desc: '左上角 UI 角标移除与下层遮挡补绘显式记录遮罩',
     resolution: '492 × 412',
-    format: 'PNG 8-bit Gray',
+    format: 'WebP Lossless',
   },
   {
-    path: '/world-tree-assets/reference/baked_lighting.png',
+    path: '/world-tree-assets/reference/baked_lighting.webp',
     category: 'preview',
     desc: '原图已烘焙环境光晕参考图 (不重复叠加)',
     resolution: '492 × 412',
-    format: 'PNG 32-bit RGBA',
+    format: 'WebP RGBA',
   },
-  { path: '/world-tree-assets/previews/preview_rebuild.png', category: 'preview', desc: 'Task 5 全图层无损重组预览图', resolution: '492 × 412', format: 'PNG 32-bit' },
+  { path: '/world-tree-assets/previews/preview_rebuild.webp', category: 'preview', desc: 'Task 5 全图层无损重组预览图', resolution: '492 × 412', format: 'WebP' },
   {
-    path: '/world-tree-assets/previews/difference.png',
+    path: '/world-tree-assets/previews/difference.webp',
     category: 'preview',
     desc: 'Task 5 重组图与原图逐像素差异热图 (8× 增益可视化)',
     resolution: '492 × 412',
-    format: 'PNG 32-bit',
+    format: 'WebP',
   },
-  { path: '/world-tree-assets/previews/transparent_checkerboard.png', category: 'preview', desc: '透明棋盘格背景边缘抗锯齿核查图', resolution: '492 × 412', format: 'PNG 32-bit' },
+  { path: '/world-tree-assets/previews/transparent_checkerboard.webp', category: 'preview', desc: '透明棋盘格背景边缘抗锯齿核查图', resolution: '492 × 412', format: 'WebP' },
   {
-    path: '/world-tree-assets/previews/closeups/closeup_canopy_edge.png',
+    path: '/world-tree-assets/previews/closeups/closeup_canopy_edge.webp',
     category: 'preview',
     desc: '2× 微距放大：树冠顶部叶缘与发光节点',
     resolution: '280 × 220',
-    format: 'PNG 32-bit',
+    format: 'WebP',
   },
   {
-    path: '/world-tree-assets/previews/closeups/closeup_trunk_veins.png',
+    path: '/world-tree-assets/previews/closeups/closeup_trunk_veins.webp',
     category: 'preview',
     desc: '2× 微距放大：主干烘焙流光与分叉锚点',
     resolution: '280 × 240',
-    format: 'PNG 32-bit',
+    format: 'WebP',
   },
   {
-    path: '/world-tree-assets/previews/closeups/closeup_root_nodes.png',
+    path: '/world-tree-assets/previews/closeups/closeup_root_nodes.webp',
     category: 'preview',
     desc: '2× 微距放大：左侧根系流光与青色 Commit 节点',
     resolution: '320 × 220',
-    format: 'PNG 32-bit',
+    format: 'WebP',
   },
-  { path: '/world-tree-assets/seasons/spring_sakura_rgba.png', category: 'season', desc: '02 春·樱花 同骨架对齐透明外观层', resolution: '492 × 412', format: 'PNG 32-bit RGBA' },
-  { path: '/world-tree-assets/seasons/summer_lush_rgba.png', category: 'season', desc: '03 夏·繁盛 同骨架对齐透明外观层', resolution: '492 × 412', format: 'PNG 32-bit RGBA' },
-  { path: '/world-tree-assets/seasons/autumn_maple_rgba.png', category: 'season', desc: '04 秋·红叶 同骨架对齐透明外观层', resolution: '492 × 412', format: 'PNG 32-bit RGBA' },
-  { path: '/world-tree-assets/seasons/winter_frost_rgba.png', category: 'season', desc: '05 冬·霜雪 同骨架对齐透明外观层', resolution: '492 × 412', format: 'PNG 32-bit RGBA' },
+  { path: '/world-tree-assets/seasons/spring_sakura_rgba.webp', category: 'season', desc: '02 春·樱花 同骨架对齐透明外观层', resolution: '492 × 412', format: 'WebP RGBA' },
+  { path: '/world-tree-assets/seasons/summer_lush_rgba.webp', category: 'season', desc: '03 夏·繁盛 同骨架对齐透明外观层', resolution: '492 × 412', format: 'WebP RGBA' },
+  { path: '/world-tree-assets/seasons/autumn_maple_rgba.webp', category: 'season', desc: '04 秋·红叶 同骨架对齐透明外观层', resolution: '492 × 412', format: 'WebP RGBA' },
+  { path: '/world-tree-assets/seasons/winter_frost_rgba.webp', category: 'season', desc: '05 冬·霜雪 同骨架对齐透明外观层', resolution: '492 × 412', format: 'WebP RGBA' },
   {
-    path: '/world-tree-assets/seasons/festival_lanterns_only.png',
+    path: '/world-tree-assets/seasons/festival_lanterns_only.webp',
     category: 'season',
     desc: '06 节日·夜樱祭 独立暖光灯笼挂载层',
     resolution: '492 × 412',
-    format: 'PNG 32-bit RGBA',
+    format: 'WebP RGBA',
   },
 ]
 
@@ -169,7 +169,7 @@ export const AuditAndDeliverablesView: React.FC = () => {
     path: HERO_ASSETS.dayBase,
     label: '白天底图 · 首页使用',
   })
-  const [previewAssetUrl, setPreviewAssetUrl] = useState<string>('/world-tree-assets/previews/preview_rebuild.png')
+  const [previewAssetUrl, setPreviewAssetUrl] = useState<string>('/world-tree-assets/previews/preview_rebuild.webp')
 
   const filteredFiles =
     categoryFilter === 'all'
@@ -269,11 +269,11 @@ export const AuditAndDeliverablesView: React.FC = () => {
                   <td className="py-3 px-3 font-mono text-slate-300">8-bit RGB</td>
                   <td className="py-3 px-3 text-emerald-300 font-medium">唯一确认母版 (01 永恒·默认)</td>
                   <td className="py-3 px-3 text-slate-300">
-                    左上角 [6, 6, 156, 44] 存在胶囊角标遮挡暗林背景（已无痕修补并记录于 inpainted_mask.png）；树干流光已与树皮烘焙，保留底纹并导出 glow_mask.png。
+                    左上角 [6, 6, 156, 44] 存在胶囊角标遮挡暗林背景（已无痕修补并记录于 inpainted_mask.webp）；树干流光已与树皮烘焙，保留底纹并导出 glow_mask.webp。
                   </td>
                 </tr>
                 <tr>
-                  <td className="py-3 px-3 font-mono text-slate-300">Glowing_Teal_World_Tree_6d2f1e18.png</td>
+                  <td className="py-3 px-3 font-mono text-slate-300">Glowing_Teal_World_Tree_6d2f1e18.webp</td>
                   <td className="py-3 px-3 font-mono tabular-nums text-slate-300">1122 × 1402</td>
                   <td className="py-3 px-3 font-mono text-slate-300">8-bit RGBA</td>
                   <td className="py-3 px-3 text-amber-300 font-medium flex items-center gap-1.5">
@@ -285,7 +285,7 @@ export const AuditAndDeliverablesView: React.FC = () => {
                   </td>
                 </tr>
                 <tr>
-                  <td className="py-3 px-3 font-mono text-slate-300">Yggit_____Git______f7021535.png</td>
+                  <td className="py-3 px-3 font-mono text-slate-300">Yggit_____Git______f7021535.webp</td>
                   <td className="py-3 px-3 font-mono tabular-nums text-slate-300">1024 × 1536</td>
                   <td className="py-3 px-3 font-mono text-slate-300">8-bit RGB</td>
                   <td className="py-3 px-3 text-slate-300">官网默认布局参考</td>
@@ -312,7 +312,7 @@ export const AuditAndDeliverablesView: React.FC = () => {
                 <span className="font-mono text-[11px] text-slate-400">492×412</span>
               </div>
               <img
-                src="/world-tree-assets/original/default_world_tree_original.png"
+                src="/world-tree-assets/original/default_world_tree_original.webp"
                 alt="01 永恒·默认 母版"
                 referrerPolicy="no-referrer"
                 className="w-full h-36 object-contain rounded bg-[#040a0d]"
@@ -335,7 +335,7 @@ export const AuditAndDeliverablesView: React.FC = () => {
                 <span className="font-mono text-[11px] text-slate-400">100% 检视</span>
               </div>
               <img
-                src="/world-tree-assets/previews/closeups/closeup_canopy_edge.png"
+                src="/world-tree-assets/previews/closeups/closeup_canopy_edge.webp"
                 alt="树冠叶缘放大"
                 referrerPolicy="no-referrer"
                 className="w-full h-36 object-cover rounded"
@@ -349,7 +349,7 @@ export const AuditAndDeliverablesView: React.FC = () => {
                 <span className="font-mono text-[11px] text-slate-400">烘焙纹理</span>
               </div>
               <img
-                src="/world-tree-assets/previews/closeups/closeup_trunk_veins.png"
+                src="/world-tree-assets/previews/closeups/closeup_trunk_veins.webp"
                 alt="主干流光放大"
                 referrerPolicy="no-referrer"
                 className="w-full h-36 object-cover rounded"
@@ -362,7 +362,12 @@ export const AuditAndDeliverablesView: React.FC = () => {
                 <span>2× 局部放大：根系节点</span>
                 <span className="font-mono text-[11px] text-slate-400">Git 锚点</span>
               </div>
-              <img src="/world-tree-assets/previews/closeups/closeup_root_nodes.png" alt="根系节点放大" referrerPolicy="no-referrer" className="w-full h-36 object-cover rounded" />
+              <img
+                src="/world-tree-assets/previews/closeups/closeup_root_nodes.webp"
+                alt="根系节点放大"
+                referrerPolicy="no-referrer"
+                className="w-full h-36 object-cover rounded"
+              />
               <div className="text-[11px] text-slate-400">精确对应 nodes.json 中 (80, 338) 与 (115, 353) 根节点。</div>
             </div>
           </div>

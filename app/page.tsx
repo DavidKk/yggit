@@ -35,7 +35,7 @@ export const metadata: Metadata = {
     siteName: PRODUCT_DISPLAY_NAME,
     images: [
       {
-        url: '/world-tree-assets/hero/hero_day_master_1672x941.png',
+        url: '/world-tree-assets/hero/hero_day_master_1672x941.webp',
         width: 1672,
         height: 941,
         alt: 'Yggit World Tree Git Visualization',
@@ -48,7 +48,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: `${PRODUCT_DISPLAY_NAME} — 现代化生命树架构 Git 图谱与版本管理工作台`,
     description: '让每一次代码提交、分支演进与合并脉络都清晰可见。双引擎原生驱动，毫秒级 DAG 拓扑渲染。',
-    images: ['/world-tree-assets/hero/hero_day_master_1672x941.png'],
+    images: ['/world-tree-assets/hero/hero_day_master_1672x941.webp'],
   },
   robots: {
     index: true,

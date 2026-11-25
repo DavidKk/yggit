@@ -87,23 +87,23 @@ export const LivingTreeCanvas: React.FC<LivingTreeCanvasProps> = ({
   // Preload all required PNG layers & masks
   useEffect(() => {
     const urlsToLoad = new Set<string>([
-      '/world-tree-assets/original/default_world_tree_original.png',
-      '/world-tree-assets/background/scene_clean.png',
-      '/world-tree-assets/extracted/tree_full_rgba.png',
-      '/world-tree-assets/base/base_trunk.png',
-      '/world-tree-assets/masks/glow_mask.png',
-      '/world-tree-assets/masks/glow_emission.png',
-      '/world-tree-assets/masks/node_mask.png',
-      '/world-tree-assets/masks/inpainted_mask.png',
-      '/world-tree-assets/reference/baked_lighting.png',
-      '/world-tree-assets/previews/preview_rebuild.png',
-      '/world-tree-assets/previews/difference.png',
-      '/world-tree-assets/seasons/spring_sakura_rgba.png',
-      '/world-tree-assets/seasons/summer_lush_rgba.png',
-      '/world-tree-assets/seasons/autumn_maple_rgba.png',
-      '/world-tree-assets/seasons/winter_frost_rgba.png',
-      '/world-tree-assets/seasons/festival_night_sakura_rgba.png',
-      '/world-tree-assets/seasons/festival_lanterns_only.png',
+      '/world-tree-assets/original/default_world_tree_original.webp',
+      '/world-tree-assets/background/scene_clean.webp',
+      '/world-tree-assets/extracted/tree_full_rgba.webp',
+      '/world-tree-assets/base/base_trunk.webp',
+      '/world-tree-assets/masks/glow_mask.webp',
+      '/world-tree-assets/masks/glow_emission.webp',
+      '/world-tree-assets/masks/node_mask.webp',
+      '/world-tree-assets/masks/inpainted_mask.webp',
+      '/world-tree-assets/reference/baked_lighting.webp',
+      '/world-tree-assets/previews/preview_rebuild.webp',
+      '/world-tree-assets/previews/difference.webp',
+      '/world-tree-assets/seasons/spring_sakura_rgba.webp',
+      '/world-tree-assets/seasons/summer_lush_rgba.webp',
+      '/world-tree-assets/seasons/autumn_maple_rgba.webp',
+      '/world-tree-assets/seasons/winter_frost_rgba.webp',
+      '/world-tree-assets/seasons/festival_night_sakura_rgba.webp',
+      '/world-tree-assets/seasons/festival_lanterns_only.webp',
     ])
 
     for (const layer of TREE_LAYERS) {
@@ -167,7 +167,7 @@ export const LivingTreeCanvas: React.FC<LivingTreeCanvasProps> = ({
 
       // 1. Draw Backdrop
       if (backdrop === 'forest') {
-        const bgImg = imgs['/world-tree-assets/background/scene_clean.png']
+        const bgImg = imgs['/world-tree-assets/background/scene_clean.webp']
         if (bgImg) {
           ctx.save()
           ctx.filter = `brightness(${lighting.ambientBrightness})`
@@ -268,7 +268,7 @@ export const LivingTreeCanvas: React.FC<LivingTreeCanvasProps> = ({
         ctx.filter = `brightness(${lighting.ambientBrightness}) saturate(${activeSeason.saturate}) sepia(${tempSepia}) hue-rotate(${tempHue}deg)`
 
         // 1. Static Trunk & Root Skeleton (NEVER moves with wind)
-        const trunkImg = imgs['/world-tree-assets/base/base_trunk.png']
+        const trunkImg = imgs['/world-tree-assets/base/base_trunk.webp']
         if (trunkImg) {
           ctx.drawImage(trunkImg, 0, 0, W, H)
         }
@@ -331,8 +331,8 @@ export const LivingTreeCanvas: React.FC<LivingTreeCanvasProps> = ({
 
         ctx.restore()
 
-        // 5. Dynamic Code-Driven Vein Glow (`masks/glow_emission.png`)
-        const glowEmitImg = imgs['/world-tree-assets/masks/glow_emission.png']
+        // 5. Dynamic Code-Driven Vein Glow (`masks/glow_emission.webp`)
+        const glowEmitImg = imgs['/world-tree-assets/masks/glow_emission.webp']
         if (glowEmitImg && lighting.glowIntensity > 0.05) {
           ctx.save()
           ctx.globalCompositeOperation = 'lighter'
@@ -379,10 +379,10 @@ export const LivingTreeCanvas: React.FC<LivingTreeCanvasProps> = ({
 
       // --- Switch by InspectMode ---
       if (inspectMode === 'original') {
-        const origImg = imgs['/world-tree-assets/original/default_world_tree_original.png']
+        const origImg = imgs['/world-tree-assets/original/default_world_tree_original.webp']
         if (origImg) ctx.drawImage(origImg, 0, 0, W, H)
       } else if (inspectMode === 'difference') {
-        const diffImg = imgs['/world-tree-assets/previews/difference.png']
+        const diffImg = imgs['/world-tree-assets/previews/difference.webp']
         if (diffImg) ctx.drawImage(diffImg, 0, 0, W, H)
         // Highlight badge rectangle [6, 6, 156, 44]
         ctx.save()
@@ -396,15 +396,15 @@ export const LivingTreeCanvas: React.FC<LivingTreeCanvasProps> = ({
         ctx.restore()
       } else if (inspectMode === 'single-layer') {
         const layer = TREE_LAYERS.find((l) => l.id === selectedLayerId)
-        if (selectedLayerId === 'glow-mask' && imgs['/world-tree-assets/masks/glow_mask.png']) {
-          ctx.drawImage(imgs['/world-tree-assets/masks/glow_mask.png'], 0, 0, W, H)
-        } else if (selectedLayerId === 'node-mask' && imgs['/world-tree-assets/masks/node_mask.png']) {
-          ctx.drawImage(imgs['/world-tree-assets/masks/node_mask.png'], 0, 0, W, H)
-        } else if (selectedLayerId === 'inpainted-mask' && imgs['/world-tree-assets/masks/inpainted_mask.png']) {
-          ctx.drawImage(imgs['/world-tree-assets/masks/inpainted_mask.png'], 0, 0, W, H)
+        if (selectedLayerId === 'glow-mask' && imgs['/world-tree-assets/masks/glow_mask.webp']) {
+          ctx.drawImage(imgs['/world-tree-assets/masks/glow_mask.webp'], 0, 0, W, H)
+        } else if (selectedLayerId === 'node-mask' && imgs['/world-tree-assets/masks/node_mask.webp']) {
+          ctx.drawImage(imgs['/world-tree-assets/masks/node_mask.webp'], 0, 0, W, H)
+        } else if (selectedLayerId === 'inpainted-mask' && imgs['/world-tree-assets/masks/inpainted_mask.webp']) {
+          ctx.drawImage(imgs['/world-tree-assets/masks/inpainted_mask.webp'], 0, 0, W, H)
         } else if (layer && imgs[layer.file]) {
           // Faint ghost trunk reference so user sees where this isolated cluster sits on the skeleton
-          const trunkImg = imgs['/world-tree-assets/base/base_trunk.png']
+          const trunkImg = imgs['/world-tree-assets/base/base_trunk.webp']
           if (trunkImg && layer.id !== 'base-trunk') {
             ctx.save()
             ctx.globalAlpha = 0.16
@@ -444,7 +444,7 @@ export const LivingTreeCanvas: React.FC<LivingTreeCanvasProps> = ({
       } else if (inspectMode === 'split-compare') {
         const splitX = Math.round(splitPos * W)
         // Left side: Original panel
-        const origImg = imgs['/world-tree-assets/original/default_world_tree_original.png']
+        const origImg = imgs['/world-tree-assets/original/default_world_tree_original.webp']
         if (origImg) {
           ctx.save()
           ctx.beginPath()
@@ -489,11 +489,11 @@ export const LivingTreeCanvas: React.FC<LivingTreeCanvasProps> = ({
       }
 
       // Optional Inpainted Region Mask Overlay
-      if (showInpaintedOverlay && imgs['/world-tree-assets/masks/inpainted_mask.png']) {
+      if (showInpaintedOverlay && imgs['/world-tree-assets/masks/inpainted_mask.webp']) {
         ctx.save()
         ctx.globalAlpha = 0.55
         ctx.globalCompositeOperation = 'screen'
-        ctx.drawImage(imgs['/world-tree-assets/masks/inpainted_mask.png'], 0, 0, W, H)
+        ctx.drawImage(imgs['/world-tree-assets/masks/inpainted_mask.webp'], 0, 0, W, H)
         ctx.strokeStyle = '#f43f5e'
         ctx.lineWidth = 1.5
         ctx.strokeRect(6, 6, 156, 44)

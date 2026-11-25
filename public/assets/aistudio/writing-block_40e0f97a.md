@@ -138,10 +138,10 @@ WorldTreeScene
 ```text
 public/assets/world-tree/water/
 ├── background.webp
-├── water-mask.png
-├── water-flow-map.png
-├── water-normal.png
-├── water-foreground.png
+├── water-mask.webp
+├── water-flow-map.webp
+├── water-normal.webp
+├── water-foreground.webp
 └── water-config.json
 ```
 

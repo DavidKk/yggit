@@ -2,8 +2,8 @@
   "schemaVersion": "1.0.0",
   "treeId": "yggit-world-tree-default",
   "source": {
-    "filename": "original/default_world_tree_original.png",
-    "parentGridFilename": "ChatGPT_Image_Nov_16__2026__11_37_37_PM_33b467c5.png",
+    "filename": "original/default_world_tree_original.webp",
+    "parentGridFilename": "ChatGPT_Image_Nov_16__2026__11_37_37_PM_33b467c5.webp",
     "parentGridCropRect": [16, 100, 492, 412],
     "width": 492,
     "height": 412,
@@ -22,7 +22,7 @@
     {
       "id": "background-scene",
       "name": "森林环境底图 (去树与去标签)",
-      "file": "background/scene_clean.png",
+      "file": "background/scene_clean.webp",
       "type": "background",
       "depth": 10,
       "bounds": [0, 0, 492, 412],
@@ -31,7 +31,7 @@
     {
       "id": "base-trunk",
       "name": "固定世界树骨架 (主干/粗枝/根系)",
-      "file": "base/base_trunk.png",
+      "file": "base/base_trunk.webp",
       "type": "static",
       "depth": 20,
       "bounds": [12, 102, 480, 406],
@@ -40,7 +40,7 @@
     {
       "id": "branch-flex-01",
       "name": "左侧外延细枝",
-      "file": "branches/branch_flex_01.png",
+      "file": "branches/branch_flex_01.webp",
       "type": "branch-flex",
       "depth": 24,
       "bounds": [492, 412, 0, 0],
@@ -55,7 +55,7 @@
     {
       "id": "branch-flex-02",
       "name": "左上分叉细枝",
-      "file": "branches/branch_flex_02.png",
+      "file": "branches/branch_flex_02.webp",
       "type": "branch-flex",
       "depth": 25,
       "bounds": [249, 104, 272, 139],
@@ -70,7 +70,7 @@
     {
       "id": "branch-flex-03",
       "name": "右上分叉细枝",
-      "file": "branches/branch_flex_03.png",
+      "file": "branches/branch_flex_03.webp",
       "type": "branch-flex",
       "depth": 26,
       "bounds": [338, 105, 395, 138],
@@ -85,7 +85,7 @@
     {
       "id": "branch-flex-04",
       "name": "右侧横展细枝",
-      "file": "branches/branch_flex_04.png",
+      "file": "branches/branch_flex_04.webp",
       "type": "branch-flex",
       "depth": 27,
       "bounds": [345, 129, 402, 175],
@@ -100,7 +100,7 @@
     {
       "id": "canopy-01",
       "name": "左侧外缘垂叶簇",
-      "file": "canopy/cluster_01.png",
+      "file": "canopy/cluster_01.webp",
       "type": "deformable",
       "depth": 36,
       "bounds": [1, 98, 156, 196],
@@ -110,13 +110,13 @@
       "stiffness": 0.58,
       "phaseOffset": 0,
       "maxDisplacementPx": 6.5,
-      "deformMask": "masks/cluster_01_deform.png",
+      "deformMask": "masks/cluster_01_deform.webp",
       "overlapGroup": "left-canopy"
     },
     {
       "id": "canopy-02",
       "name": "左中主枝叶簇",
-      "file": "canopy/cluster_02.png",
+      "file": "canopy/cluster_02.webp",
       "type": "deformable",
       "depth": 38,
       "bounds": [51, 48, 216, 150],
@@ -126,13 +126,13 @@
       "stiffness": 0.64,
       "phaseOffset": 0.45,
       "maxDisplacementPx": 5.5,
-      "deformMask": "masks/cluster_02_deform.png",
+      "deformMask": "masks/cluster_02_deform.webp",
       "overlapGroup": "left-canopy"
     },
     {
       "id": "canopy-03",
       "name": "左上树冠叶簇",
-      "file": "canopy/cluster_03.png",
+      "file": "canopy/cluster_03.webp",
       "type": "deformable",
       "depth": 40,
       "bounds": [106, 10, 266, 119],
@@ -142,13 +142,13 @@
       "stiffness": 0.62,
       "phaseOffset": 0.85,
       "maxDisplacementPx": 6,
-      "deformMask": "masks/cluster_03_deform.png",
+      "deformMask": "masks/cluster_03_deform.webp",
       "overlapGroup": "left-canopy"
     },
     {
       "id": "canopy-04",
       "name": "左内侧分枝叶簇",
-      "file": "canopy/cluster_04.png",
+      "file": "canopy/cluster_04.webp",
       "type": "deformable",
       "depth": 32,
       "bounds": [122, 86, 263, 180],
@@ -158,13 +158,13 @@
       "stiffness": 0.76,
       "phaseOffset": 1.15,
       "maxDisplacementPx": 4,
-      "deformMask": "masks/cluster_04_deform.png",
+      "deformMask": "masks/cluster_04_deform.webp",
       "overlapGroup": "left-canopy"
     },
     {
       "id": "canopy-05",
       "name": "中左顶冠叶簇",
-      "file": "canopy/cluster_05.png",
+      "file": "canopy/cluster_05.webp",
       "type": "deformable",
       "depth": 42,
       "bounds": [193, 0, 346, 121],
@@ -174,13 +174,13 @@
       "stiffness": 0.6,
       "phaseOffset": 1.55,
       "maxDisplacementPx": 6,
-      "deformMask": "masks/cluster_05_deform.png",
+      "deformMask": "masks/cluster_05_deform.webp",
       "overlapGroup": "center-crown"
     },
     {
       "id": "canopy-06",
       "name": "中央主冠核心叶簇",
-      "file": "canopy/cluster_06.png",
+      "file": "canopy/cluster_06.webp",
       "type": "deformable",
       "depth": 46,
       "bounds": [255, 0, 433, 88],
@@ -190,13 +190,13 @@
       "stiffness": 0.56,
       "phaseOffset": 1.95,
       "maxDisplacementPx": 7,
-      "deformMask": "masks/cluster_06_deform.png",
+      "deformMask": "masks/cluster_06_deform.webp",
       "overlapGroup": "center-crown"
     },
     {
       "id": "canopy-07",
       "name": "中内侧荧光叶簇",
-      "file": "canopy/cluster_07.png",
+      "file": "canopy/cluster_07.webp",
       "type": "deformable",
       "depth": 34,
       "bounds": [237, 46, 373, 145],
@@ -206,13 +206,13 @@
       "stiffness": 0.75,
       "phaseOffset": 2.25,
       "maxDisplacementPx": 4.2,
-      "deformMask": "masks/cluster_07_deform.png",
+      "deformMask": "masks/cluster_07_deform.webp",
       "overlapGroup": "center-crown"
     },
     {
       "id": "canopy-08",
       "name": "中右高光叶簇",
-      "file": "canopy/cluster_08.png",
+      "file": "canopy/cluster_08.webp",
       "type": "deformable",
       "depth": 48,
       "bounds": [299, 8, 462, 120],
@@ -222,13 +222,13 @@
       "stiffness": 0.6,
       "phaseOffset": 2.65,
       "maxDisplacementPx": 6.2,
-      "deformMask": "masks/cluster_08_deform.png",
+      "deformMask": "masks/cluster_08_deform.webp",
       "overlapGroup": "right-canopy"
     },
     {
       "id": "canopy-09",
       "name": "右上外展叶簇",
-      "file": "canopy/cluster_09.png",
+      "file": "canopy/cluster_09.webp",
       "type": "deformable",
       "depth": 44,
       "bounds": [375, 0, 491, 111],
@@ -238,13 +238,13 @@
       "stiffness": 0.55,
       "phaseOffset": 3.05,
       "maxDisplacementPx": 7.2,
-      "deformMask": "masks/cluster_09_deform.png",
+      "deformMask": "masks/cluster_09_deform.webp",
       "overlapGroup": "right-canopy"
     },
     {
       "id": "canopy-10",
       "name": "右中层叠叶簇",
-      "file": "canopy/cluster_10.png",
+      "file": "canopy/cluster_10.webp",
       "type": "deformable",
       "depth": 41,
       "bounds": [363, 63, 491, 166],
@@ -254,13 +254,13 @@
       "stiffness": 0.63,
       "phaseOffset": 3.45,
       "maxDisplacementPx": 5.8,
-      "deformMask": "masks/cluster_10_deform.png",
+      "deformMask": "masks/cluster_10_deform.webp",
       "overlapGroup": "right-canopy"
     },
     {
       "id": "canopy-11",
       "name": "右下垂枝叶簇",
-      "file": "canopy/cluster_11.png",
+      "file": "canopy/cluster_11.webp",
       "type": "deformable",
       "depth": 39,
       "bounds": [375, 121, 491, 200],
@@ -270,13 +270,13 @@
       "stiffness": 0.6,
       "phaseOffset": 3.85,
       "maxDisplacementPx": 6,
-      "deformMask": "masks/cluster_11_deform.png",
+      "deformMask": "masks/cluster_11_deform.webp",
       "overlapGroup": "right-canopy"
     },
     {
       "id": "canopy-12",
       "name": "左下近景小叶簇",
-      "file": "canopy/cluster_12.png",
+      "file": "canopy/cluster_12.webp",
       "type": "deformable",
       "depth": 52,
       "bounds": [69, 127, 202, 199],
@@ -286,22 +286,22 @@
       "stiffness": 0.66,
       "phaseOffset": 4.2,
       "maxDisplacementPx": 5,
-      "deformMask": "masks/cluster_12_deform.png",
+      "deformMask": "masks/cluster_12_deform.webp",
       "overlapGroup": "left-canopy"
     }
   ],
   "nodesFile": "nodes.json",
-  "glowMask": "masks/glow_mask.png",
-  "glowEmission": "masks/glow_emission.png",
-  "inpaintedMask": "masks/inpainted_mask.png",
-  "bakedLightingRef": "reference/baked_lighting.png",
+  "glowMask": "masks/glow_mask.webp",
+  "glowEmission": "masks/glow_emission.webp",
+  "inpaintedMask": "masks/inpainted_mask.webp",
+  "bakedLightingRef": "reference/baked_lighting.webp",
   "seasonalAlignedLayers": {
-    "default": "extracted/tree_full_rgba.png",
-    "spring": "seasons/spring_sakura_rgba.png",
-    "summer": "seasons/summer_lush_rgba.png",
-    "autumn": "seasons/autumn_maple_rgba.png",
-    "winter": "seasons/winter_frost_rgba.png",
-    "festivalNightSakura": "seasons/festival_night_sakura_rgba.png",
-    "festivalLanternsOnly": "seasons/festival_lanterns_only.png"
+    "default": "extracted/tree_full_rgba.webp",
+    "spring": "seasons/spring_sakura_rgba.webp",
+    "summer": "seasons/summer_lush_rgba.webp",
+    "autumn": "seasons/autumn_maple_rgba.webp",
+    "winter": "seasons/winter_frost_rgba.webp",
+    "festivalNightSakura": "seasons/festival_night_sakura_rgba.webp",
+    "festivalLanternsOnly": "seasons/festival_lanterns_only.webp"
   }
 }

@@ -3,7 +3,7 @@
   "treeId": "yggit-world-tree-default",
   "coordinateSystem": "top-left-pixels",
   "canvasSize": [492, 412],
-  "nodeMask": "masks/node_mask.png",
+  "nodeMask": "masks/node_mask.webp",
   "nodes": [
     {
       "id": "node-root-left-01",
