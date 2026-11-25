@@ -76,13 +76,23 @@ export function useGitFindShortcut(rootRef: RefObject<HTMLElement | null>) {
         active.select()
         return
       }
+
+      const openProjectMenu = document.querySelector<HTMLElement>(`[${GIT_FIND_ATTR}="project-menu"]`)
       let scope = active instanceof Element ? active.closest(`[${GIT_FIND_ATTR}]`) : null
-      if (!scope || !root.contains(scope)) {
-        const hovered = Array.from(root.querySelectorAll(`[${GIT_FIND_ATTR}]:hover`))
+      if (!scope) {
+        const hovered = Array.from(document.querySelectorAll(`[${GIT_FIND_ATTR}]:hover`))
         scope = hovered.at(-1) || null
       }
 
-      if (!scope || !root.contains(scope)) return
+      // When the project switcher menu is open and focus/hover is on the switcher or menu, target the menu search directly
+      if (openProjectMenu && (!scope || scope.getAttribute(GIT_FIND_ATTR) === 'project-switcher' || openProjectMenu.contains(scope))) {
+        scope = openProjectMenu
+      }
+
+      if (!scope) return
+      if (!root.contains(scope) && scope.getAttribute(GIT_FIND_ATTR) !== 'project-switcher' && scope.getAttribute(GIT_FIND_ATTR) !== 'project-menu') {
+        return
+      }
       event.preventDefault()
       event.stopPropagation()
       scope.dispatchEvent(new CustomEvent(GIT_FIND_EVENT, { bubbles: false }))

@@ -743,6 +743,9 @@ export function GitFileDiff({
   const showDiffViewports = resolvedKind === 'text' || resolvedKind === 'markdown' || resolvedKind === 'svg'
   const showFilePane = currentView === 'file' && (resolvedKind === 'svg' || resolvedKind === 'markdown')
 
+  const tRef = useRef(t)
+  tRef.current = t
+
   useEffect(() => {
     let cancelled = false
     setLoading(true)
@@ -754,13 +757,13 @@ export function GitFileDiff({
       .then((body) => {
         if (cancelled) return
         if (!body || typeof body.patch !== 'string') {
-          setError(t('git.errors.readChanges'))
+          setError(tRef.current('git.errors.readChanges'))
           return
         }
         setChanges(body)
       })
       .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : t('git.errors.readChanges'))
+        if (!cancelled) setError(err instanceof Error ? err.message : tRef.current('git.errors.readChanges'))
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -768,7 +771,7 @@ export function GitFileDiff({
     return () => {
       cancelled = true
     }
-  }, [repo, hash, path, t])
+  }, [repo, hash, path])
 
   const hunks = useMemo(() => parseHunks(changes?.patch || ''), [changes])
   const counts = useMemo(() => countChanges(hunks), [hunks])

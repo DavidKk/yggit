@@ -33,6 +33,7 @@ function Harness() {
         </div>,
         document.body
       )}
+      {createPortal(<Panel name="project-menu" />, document.body)}
     </div>
   )
 }
@@ -83,4 +84,11 @@ it('selects an already open portaled search without switching panels', async () 
   expect(document.activeElement).toBe(input)
   expect(input.selectionStart).toBe(0)
   expect(input.selectionEnd).toBe(input.value.length)
+})
+
+it('opens search on portaled project-menu outside root', async () => {
+  const menu = document.querySelector<HTMLElement>('[data-git-find="project-menu"]')!
+  await find(menu, 'metaKey')
+  const input = document.querySelector<HTMLInputElement>('input[aria-label="project-menu"]')!
+  expect(document.activeElement).toBe(input)
 })

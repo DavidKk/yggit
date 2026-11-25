@@ -153,6 +153,10 @@ export function GitCommitPanel({
   expandDefaultRef.current = expandDefault
   const selectedPathRef = useRef(selectedPath)
   selectedPathRef.current = selectedPath
+  const onFilesLoadedRef = useRef(onFilesLoaded)
+  onFilesLoadedRef.current = onFilesLoaded
+  const tRef = useRef(t)
+  tRef.current = t
   const prevCommitHashRef = useRef(commit.hash)
 
   const handleToggleLayout = (nextMode: WorktreeLayout) => {
@@ -181,11 +185,11 @@ export function GitCommitPanel({
       .then((body) => {
         if (cancelled) return
         if (!body || !body.files) {
-          setError(t('git.errors.readChanges'))
+          setError(tRef.current('git.errors.readChanges'))
           return
         }
         setChanges(body)
-        onFilesLoaded?.(body.files || [])
+        onFilesLoadedRef.current?.(body.files || [])
         const allFolderPaths = folderPaths(buildTree(body.files))
         setOpenPaths((prev) => {
           const next = new Set<string>()
@@ -203,12 +207,12 @@ export function GitCommitPanel({
         })
       })
       .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : t('git.errors.readChanges'))
+        if (!cancelled) setError(err instanceof Error ? err.message : tRef.current('git.errors.readChanges'))
       })
     return () => {
       cancelled = true
     }
-  }, [repo, commit.hash, t, onFilesLoaded])
+  }, [repo, commit.hash])
 
   useEffect(() => {
     if (view !== 'all' || allFiles || !changes) return
@@ -219,7 +223,7 @@ export function GitCommitPanel({
       .then((body) => {
         if (cancelled) return
         if (!body || !body.files) {
-          setError(t('git.errors.readTree'))
+          setError(tRef.current('git.errors.readTree'))
           return
         }
         setAllFiles(body.files)
@@ -240,12 +244,12 @@ export function GitCommitPanel({
         })
       })
       .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : t('git.errors.readTree'))
+        if (!cancelled) setError(err instanceof Error ? err.message : tRef.current('git.errors.readTree'))
       })
     return () => {
       cancelled = true
     }
-  }, [view, allFiles, changes, repo, commit.hash, t])
+  }, [view, allFiles, changes, repo, commit.hash])
 
   // Auto-expand ancestors whenever selectedPath changes
   useEffect(() => {
