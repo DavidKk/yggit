@@ -37,6 +37,7 @@ import { getDriverMode, getGitDriver, type GitDriverMode } from '@/lib/git/drive
 import type { AddRemoteProjectOptions } from '@/lib/git/driver/types'
 import { isFileSystemAccessSupported } from '@/lib/git/indexeddb-handles'
 import { saveLastGitUrl } from '@/lib/git/last-git-url'
+import { areCommitListsEquivalent, hasGitLogViewMetadataChanged, reconcileCommitsPreservingRefs } from '@/lib/git/refresh-diff'
 import { gitSelectionHash } from '@/lib/git/scope'
 import { addTemporaryRepo, parseRemoteUrl } from '@/lib/git/temporary-store'
 import {
@@ -346,31 +347,6 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
   const filePanelRef = useRef(filePanel)
   filePanelRef.current = filePanel
 
-  function areCommitListsEquivalent(a: GitLogView['commits'], b: GitLogView['commits']): boolean {
-    if (a.length !== b.length) return false
-    for (let i = 0; i < a.length; i += 1) {
-      if (a[i].hash !== b[i].hash) return false
-      if (a[i].refs.length !== b[i].refs.length) return false
-      for (let j = 0; j < a[i].refs.length; j += 1) {
-        if (a[i].refs[j] !== b[i].refs[j]) return false
-      }
-    }
-    return true
-  }
-
-  function hasGitLogViewMetadataChanged(prev: GitLogView, next: GitLogView): boolean {
-    if (prev.head !== next.head || prev.branch !== next.branch) return true
-    if (JSON.stringify(prev.worktree ?? null) !== JSON.stringify(next.worktree ?? null)) return true
-    if (JSON.stringify(prev.branches) !== JSON.stringify(next.branches)) return true
-    if (JSON.stringify(prev.remotes) !== JSON.stringify(next.remotes)) return true
-    if (JSON.stringify(prev.tags) !== JSON.stringify(next.tags)) return true
-    if (JSON.stringify(prev.stashes) !== JSON.stringify(next.stashes)) return true
-    if (JSON.stringify(prev.worktrees) !== JSON.stringify(next.worktrees)) return true
-    if (JSON.stringify(prev.submodules) !== JSON.stringify(next.submodules)) return true
-    if (JSON.stringify(prev.marks) !== JSON.stringify(next.marks)) return true
-    return false
-  }
-
   const silentRefreshingRef = useRef(false)
   const silentRefresh = useCallback(async () => {
     if (silentRefreshingRef.current || busy) return
@@ -409,7 +385,7 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
       if (startIndexRef.current === 0) {
         if (commitsRef.current.length <= next.commits.length) {
           if (!areCommitListsEquivalent(commitsRef.current, next.commits)) {
-            setCommits(next.commits)
+            setCommits((prev) => reconcileCommitsPreservingRefs(prev, next.commits))
             setHasMore(next.hasMore)
             setHasPrev(Boolean(next.hasPrev))
             setStartIndex(next.startIndex ?? 0)
@@ -485,20 +461,63 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
     [busy, silentRefresh]
   )
 
-  useEffect(() => {
-    if (!view?.repo) return
-    let debounceTimer: ReturnType<typeof setTimeout> | null = null
+  const isMainOverview = !selectedFile && !filePanel && !conflictViewActive
+  const isMainOverviewRef = useRef(isMainOverview)
+  isMainOverviewRef.current = isMainOverview
 
-    // 1. Initial background fetch 2s after repository is ready
+  useEffect(() => {
+    const repoName = view?.repo
+    if (!repoName) return
+
+    const IDLE_DELAY_MS = 8000
+    const EDGE_POLL_MS = 15_000
+    const REMOTE_FETCH_MS = 300_000 // 5 minutes
+
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null
+    let idleTimer: ReturnType<typeof setTimeout> | null = null
+    let isIdle = process.env.NODE_ENV === 'test'
+    let pendingWatchRefresh = false
+    let eventSource: EventSource | null = null
+
+    const flushPendingIfReady = () => {
+      if (pendingWatchRefresh && isIdle && isMainOverviewRef.current && document.visibilityState === 'visible') {
+        pendingWatchRefresh = false
+        void silentRefresh()
+      }
+    }
+
+    const scheduleIdle = () => {
+      if (idleTimer) clearTimeout(idleTimer)
+      idleTimer = setTimeout(() => {
+        isIdle = true
+        flushPendingIfReady()
+      }, IDLE_DELAY_MS)
+    }
+
+    const handleUserActivity = () => {
+      isIdle = false
+      scheduleIdle()
+    }
+
+    const activityEvents = ['pointerdown', 'keydown', 'touchstart', 'scroll', 'wheel'] as const
+    for (const evt of activityEvents) {
+      window.addEventListener(evt, handleUserActivity, { capture: true, passive: true })
+    }
+    scheduleIdle()
+
+    // 1. Initial background fetch 2s after repository is ready (only on main overview)
     const initTimer = setTimeout(() => {
-      void autoFetch()
+      if (isMainOverviewRef.current) {
+        void autoFetch()
+      }
     }, 2000)
 
-    // 2. Focus / Visibility trigger (avoid duplicate refresh when autoFetch runs)
+    // 2. Focus / Visibility trigger (only when on Branches + Commit Log main overview)
     const handleTrigger = () => {
-      if (document.visibilityState !== 'visible') return
+      if (document.visibilityState !== 'visible' || !isMainOverviewRef.current) return
       if (debounceTimer) clearTimeout(debounceTimer)
       debounceTimer = setTimeout(() => {
+        if (!isMainOverviewRef.current) return
         if (Date.now() - lastFetchTimeRef.current >= 45_000) {
           void autoFetch()
         } else {
@@ -510,27 +529,52 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
     window.addEventListener('focus', handleTrigger)
     document.addEventListener('visibilitychange', handleTrigger)
 
-    // 3. Local polling every 5s & Remote autoFetch every 3 minutes (180s)
-    let tickCount = 0
-    const pollInterval = window.setInterval(() => {
-      if (document.visibilityState === 'visible') {
-        void silentRefresh()
-        tickCount++
-        if (tickCount >= 36) {
-          tickCount = 0
-          void autoFetch()
+    // 3. Local mode: filesystem watcher via SSE; Edge mode: 15s idle polling
+    const mode = getDriverMode()
+    if (mode === 'local' && isMainOverview && typeof EventSource !== 'undefined') {
+      eventSource = new EventSource(`/api/git/watch?repo=${encodeURIComponent(repoName)}`)
+      eventSource.addEventListener('change', () => {
+        if (document.visibilityState !== 'visible' || !isMainOverviewRef.current) return
+        if (isIdle) {
+          void silentRefresh()
+        } else {
+          pendingWatchRefresh = true
         }
+      })
+    }
+
+    const edgePollInterval =
+      mode === 'edge'
+        ? window.setInterval(() => {
+            if (document.visibilityState === 'visible' && isIdle && isMainOverviewRef.current) {
+              void silentRefresh()
+            }
+          }, EDGE_POLL_MS)
+        : null
+
+    // 4. Remote autoFetch every 5 minutes (only when visible, idle, and on main overview)
+    const fetchInterval = window.setInterval(() => {
+      if (document.visibilityState === 'visible' && isIdle && isMainOverviewRef.current) {
+        void autoFetch()
       }
-    }, 5000)
+    }, REMOTE_FETCH_MS)
 
     return () => {
       clearTimeout(initTimer)
       if (debounceTimer) clearTimeout(debounceTimer)
-      window.clearInterval(pollInterval)
+      if (idleTimer) clearTimeout(idleTimer)
+      if (edgePollInterval !== null) window.clearInterval(edgePollInterval)
+      window.clearInterval(fetchInterval)
+      if (eventSource) {
+        eventSource.close()
+      }
+      for (const evt of activityEvents) {
+        window.removeEventListener(evt, handleUserActivity, true)
+      }
       window.removeEventListener('focus', handleTrigger)
       document.removeEventListener('visibilitychange', handleTrigger)
     }
-  }, [silentRefresh, autoFetch, view?.repo])
+  }, [silentRefresh, autoFetch, view?.repo, isMainOverview])
 
   function applyView(next: GitLogView) {
     const nextSelection = readGitUiPref(repoPrefKey(next.repo, 'selection'), isGitSelection) || selectionFor(next)

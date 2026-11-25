@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { useOptionalConfirm } from '@/components/confirm/ConfirmProvider'
 import { FloatingMenu, type FloatingMenuItem } from '@/components/git/RefChipsCell'
@@ -52,7 +52,7 @@ type Props = {
   onRefresh?: () => Promise<void> | void
 }
 
-export function GitCommitPanel({
+function GitCommitPanelInner({
   repo,
   commit,
   width,
@@ -764,3 +764,23 @@ export function GitCommitPanel({
     </aside>
   )
 }
+
+function areCommitPanelPropsEqual(prev: Props, next: Props): boolean {
+  if (prev.repo !== next.repo) return false
+  if (prev.remoteUrl !== next.remoteUrl) return false
+  if (prev.width !== next.width) return false
+  if (prev.title !== next.title) return false
+  if (prev.selectedPath !== next.selectedPath) return false
+  if (prev.commit.hash !== next.commit.hash || prev.commit.subject !== next.commit.subject) return false
+  if (prev.commit.refs.length !== next.commit.refs.length || prev.commit.refs.some((r, i) => r !== next.commit.refs[i])) return false
+  if (prev.conflictFiles !== next.conflictFiles) {
+    if (!prev.conflictFiles || !next.conflictFiles) return false
+    if (prev.conflictFiles.length !== next.conflictFiles.length || prev.conflictFiles.some((f, i) => f !== next.conflictFiles![i])) return false
+  }
+  if (prev.conflictFileCounts !== next.conflictFileCounts) {
+    if (JSON.stringify(prev.conflictFileCounts ?? null) !== JSON.stringify(next.conflictFileCounts ?? null)) return false
+  }
+  return true
+}
+
+export const GitCommitPanel = memo(GitCommitPanelInner, areCommitPanelPropsEqual)
