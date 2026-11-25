@@ -462,11 +462,7 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
                   <label htmlFor="agent-api-key" className="text-xs font-semibold text-ink">
                     {t('gitAgent.apiKey')}
                   </label>
-                  <p className="text-xs text-ink-soft leading-relaxed mt-0.5">
-                    {getDriverMode() === 'local'
-                      ? '使用 AES-256-GCM 加密保存至本机安全库，前端不保留明文。'
-                      : '使用浏览器 Web Crypto 不可导出密钥加密保存，仅在发起请求瞬间解密使用，不常驻内存。'}
-                  </p>
+                  <p className="text-xs text-ink-soft leading-relaxed mt-0.5">所有 Token 均经高强度加密后保存在本地安全库中，不保留明文。</p>
                 </div>
                 <div className="md:col-span-7 min-w-0 max-w-[460px] md:ml-auto w-full">
                   <ConfiguredSecretInput
@@ -490,10 +486,10 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
                     <div className="mt-2 flex items-start gap-2 rounded-lg border border-accent/30 bg-accent/8 px-3 py-2 text-[11px] text-ink">
                       <LuShieldCheck className="mt-0.5 size-3.5 shrink-0 text-accent" aria-hidden="true" />
                       <div className="space-y-0.5 leading-relaxed">
-                        <p className="font-semibold text-accent">{t('gitAgent.edgeSecurityNoticeTitle') || 'Edge 模式密钥安全与隐私说明'}</p>
+                        <p className="font-semibold text-accent">{t('gitAgent.edgeSecurityNoticeTitle') || '密钥安全与隐私说明'}</p>
                         <p className="text-ink-soft">
                           {t('gitAgent.edgeSecurityNoticeBody') ||
-                            '在 Edge（纯浏览器）模式下，建议通过代理层转发请求以避免真实 Key 泄露；若直接填写 Key，请务必为本服务单独签发专用 Key，切勿与其他服务共用。本服务所有 Token 均加密后仅保存在您的本地浏览器中，不会收集任何相关配置信息。'}
+                            '建议通过代理层转发请求以避免真实 Key 泄露；若直接填写 Key，请务必为本服务单独签发专用 Key，切勿与其他服务共用。本服务所有 Token 均加密后仅保存在您的本地环境中，不会收集任何相关配置信息。'}
                         </p>
                       </div>
                     </div>

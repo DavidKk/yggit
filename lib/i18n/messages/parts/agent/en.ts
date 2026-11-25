@@ -225,8 +225,8 @@ export const gitAgentEn: { gitAgent: GitAgentMessages } = {
     toolStatusInspectCode: 'Locating code diff...',
     toolStatusSynthesizing: 'Synthesizing final response...',
     toolStatusGeneric: 'Running {tool}...',
-    edgeSecurityNoticeTitle: 'Edge Mode Key Security & Privacy',
+    edgeSecurityNoticeTitle: 'API Key Security & Privacy',
     edgeSecurityNoticeBody:
-      'In Edge (browser-only) mode, we recommend routing requests through a proxy gateway to avoid exposing your primary key, or issuing a dedicated key exclusively for this service rather than sharing it with other services. All tokens are encrypted locally in your browser via Web Crypto and are never collected or uploaded.',
+      'We recommend routing requests through a proxy gateway to avoid exposing your primary key, or issuing a dedicated key exclusively for this service rather than sharing it with other services. All tokens are encrypted and stored strictly in your local environment, and no configuration data is collected or uploaded.',
   },
 }

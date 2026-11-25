@@ -224,8 +224,8 @@ export const gitAgentZh: { gitAgent: GitAgentMessages } = {
     toolStatusInspectCode: '正在定位代码差异位置...',
     toolStatusSynthesizing: '正在整理结果并生成回答...',
     toolStatusGeneric: '正在执行 {tool}...',
-    edgeSecurityNoticeTitle: 'Edge 模式密钥安全与隐私说明',
+    edgeSecurityNoticeTitle: '密钥安全与隐私说明',
     edgeSecurityNoticeBody:
-      '在 Edge（纯浏览器）模式下，建议通过代理层转发请求以避免真实 Key 泄露；若直接填写 Key，请务必为本服务单独签发专用 Key，切勿与其他服务共用。本服务所有 Token 均加密后仅保存在您的本地浏览器中，不会收集任何相关配置信息。',
+      '建议通过代理层转发请求以避免真实 Key 泄露；若直接填写 Key，请务必为本服务单独签发专用 Key，切勿与其他服务共用。本服务所有 Token 均加密后仅保存在您的本地环境中，不会收集任何相关配置信息。',
   },
 }

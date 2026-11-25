@@ -85,10 +85,10 @@ export function ModelChannelSection({ inline = false, onAdd, onEdit }: ModelChan
           <div className="mb-3 flex items-start gap-2.5 rounded-lg border border-accent/30 bg-accent/8 px-3 py-2.5 text-xs text-ink">
             <LuShieldCheck className="mt-0.5 size-4 shrink-0 text-accent" aria-hidden="true" />
             <div className="space-y-0.5 leading-relaxed">
-              <p className="font-semibold text-accent">{t('gitAgent.edgeSecurityNoticeTitle') || 'Edge 模式密钥安全与隐私说明'}</p>
+              <p className="font-semibold text-accent">{t('gitAgent.edgeSecurityNoticeTitle') || '密钥安全与隐私说明'}</p>
               <p className="text-ink-soft">
                 {t('gitAgent.edgeSecurityNoticeBody') ||
-                  '在 Edge（纯浏览器）模式下，建议通过代理层转发请求以避免真实 Key 泄露；若直接填写 Key，请务必为本服务单独签发专用 Key，切勿与其他服务共用。本服务所有 Token 均加密后仅保存在您的本地浏览器中，不会收集任何相关配置信息。'}
+                  '建议通过代理层转发请求以避免真实 Key 泄露；若直接填写 Key，请务必为本服务单独签发专用 Key，切勿与其他服务共用。本服务所有 Token 均加密后仅保存在您的本地环境中，不会收集任何相关配置信息。'}
               </p>
             </div>
           </div>
