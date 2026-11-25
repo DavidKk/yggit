@@ -224,4 +224,6 @@ export type GitAgentMessages = {
   toolStatusInspectCode?: string
   toolStatusSynthesizing?: string
   toolStatusGeneric?: string
+  edgeSecurityNoticeTitle?: string
+  edgeSecurityNoticeBody?: string
 }

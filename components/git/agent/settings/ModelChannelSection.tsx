@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import React, { useState } from 'react'
-import { LuCheck, LuPencil, LuPlus, LuShieldAlert, LuTriangleAlert } from 'react-icons/lu'
+import { LuCheck, LuPencil, LuPlus, LuShieldAlert, LuShieldCheck, LuTriangleAlert } from 'react-icons/lu'
 
 import { useT } from '@/components/i18n/LocaleProvider'
 import { Badge, Button, TagInput } from '@/components/sk'
@@ -10,6 +10,7 @@ import { useAgent } from '@/lib/agent/agent-context'
 import { getModelFilterConflicts, isModelAllowed } from '@/lib/agent/model-filter'
 import type { AgentModelProfile } from '@/lib/agent/model-profiles'
 import { AGENT_PRESETS, DEFAULT_AGENT_CONFIG } from '@/lib/agent/types'
+import { getDriverMode } from '@/lib/git/driver'
 
 import { ModelChannelEditor } from './ModelChannelEditor'
 import { RuleDebugger } from './RuleDebugger'
@@ -80,6 +81,18 @@ export function ModelChannelSection({ inline = false, onAdd, onEdit }: ModelChan
           </Button>
         }
       >
+        {getDriverMode() === 'edge' && (
+          <div className="mb-3 flex items-start gap-2.5 rounded-lg border border-accent/30 bg-accent/8 px-3 py-2.5 text-xs text-ink">
+            <LuShieldCheck className="mt-0.5 size-4 shrink-0 text-accent" aria-hidden="true" />
+            <div className="space-y-0.5 leading-relaxed">
+              <p className="font-semibold text-accent">{t('gitAgent.edgeSecurityNoticeTitle') || 'Edge 模式密钥安全与隐私说明'}</p>
+              <p className="text-ink-soft">
+                {t('gitAgent.edgeSecurityNoticeBody') ||
+                  '在 Edge（纯浏览器）模式下，建议通过代理层转发请求以避免真实 Key 泄露；若直接填写 Key，请务必为本服务单独签发专用 Key，切勿与其他服务共用。本服务所有 Token 均加密后仅保存在您的本地浏览器中，不会收集任何相关配置信息。'}
+              </p>
+            </div>
+          </div>
+        )}
         <ul className="divide-y divide-line">
           {profiles.map((profile) => {
             const hasBlacklist = Boolean(profile.filter?.blacklist?.length)

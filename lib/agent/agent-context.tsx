@@ -7,7 +7,7 @@ import { getDriverMode } from '@/lib/git/driver'
 import { logError, logInfo } from '@/lib/logger'
 import { listMcpServers } from '@/lib/mcp/storage'
 import { isAllowedAgentPath } from '@/lib/security/agent-paths'
-import { deleteEdgeSecret, openEdgeSecret, sealEdgeSecret } from '@/lib/security/edge-vault'
+import { deleteEdgeSecret, isWebCryptoVaultSupported, listEdgeSecretIds, openEdgeSecret, sealEdgeSecret } from '@/lib/security/edge-vault'
 import { buildSkillsSystemPrompt, matchSkillsForPrompt } from '@/lib/skills/matcher'
 import { listSkills } from '@/lib/skills/storage'
 import { type ThemePreference, writeStoredTheme } from '@/lib/theme'
@@ -187,19 +187,9 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
     } else {
       void (async () => {
         try {
-          const stored = parseModelProfiles(localStorage.getItem(MODEL_PROFILES_STORAGE_KEY))
-          const targets = stored?.profiles || [DEFAULT_MODEL_PROFILE]
-          const entries = await Promise.all(
-            targets.map(async (p) => ({
-              id: p.id,
-              key: await openEdgeSecret(p.id),
-            }))
-          )
-          if (cancelled) return
-          const keyMap = new Map(entries.filter((e) => Boolean(e.key)).map((e) => [e.id, e.key!]))
-          if (keyMap.size > 0) {
-            setProfiles((prev) => prev.map((p) => (keyMap.has(p.id) ? { ...p, config: { ...p.config, apiKey: keyMap.get(p.id), hasApiKey: true } } : p)))
-          }
+          const secretIds = await listEdgeSecretIds()
+          if (cancelled || secretIds.size === 0) return
+          setProfiles((prev) => prev.map((p) => (secretIds.has(p.id) ? { ...p, config: { ...p.config, apiKey: undefined, hasApiKey: true } } : p)))
         } catch {
           // Edge Web Crypto vault unavailable
         }
@@ -233,11 +223,17 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
   }, [])
 
   const saveProfile = useCallback((profile: AgentModelProfile, options?: { clearApiKey?: boolean }) => {
+    const mode = getDriverMode()
+    const edgeVaultReady = mode === 'edge' && isWebCryptoVaultSupported()
     const hasApiKey = Boolean(profile.config.apiKey?.trim() || (profile.config.hasApiKey && !options?.clearApiKey))
+    const trimmedKey = profile.config.apiKey?.trim()
     const normalized: AgentModelProfile = {
       ...profile,
       config: {
         ...profile.config,
+        // Never retain plaintext apiKey in React state when sealed into Local or Edge encrypted vault
+        ...(mode === 'local' && typeof fetch === 'function' ? { apiKey: undefined } : {}),
+        ...(edgeVaultReady ? { apiKey: undefined } : {}),
         ...(hasApiKey ? { hasApiKey: true } : { hasApiKey: false }),
       },
     }
@@ -246,13 +242,13 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
     )
     setActiveProfileId(normalized.id)
 
-    if (getDriverMode() === 'local') {
+    if (mode === 'local') {
       if (typeof fetch === 'function') {
         void fetch('/api/git/agent/profiles', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            profile: normalized,
+            profile: { ...normalized, config: { ...normalized.config, apiKey: trimmedKey } },
             clearApiKey: Boolean(options?.clearApiKey),
             setActive: true,
           }),
@@ -261,8 +257,8 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
     } else {
       if (options?.clearApiKey) {
         void deleteEdgeSecret(normalized.id)
-      } else if (normalized.config.apiKey?.trim()) {
-        void sealEdgeSecret(normalized.id, normalized.config.apiKey.trim())
+      } else if (trimmedKey) {
+        void sealEdgeSecret(normalized.id, trimmedKey)
       }
     }
   }, [])
@@ -426,10 +422,17 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
 
       try {
         let accumulatedDelta = ''
+        let effectiveConfig = config
+        if (getDriverMode() === 'edge' && !config.apiKey && config.hasApiKey) {
+          const ephemeralKey = await openEdgeSecret(activeProfileId)
+          if (ephemeralKey) {
+            effectiveConfig = { ...config, apiKey: ephemeralKey }
+          }
+        }
 
         // 1. Send first turn to LLM
         const res = await sendAgentCompletion({
-          config,
+          config: effectiveConfig,
           profileId: activeProfileId,
           messages: buildSystemHistory(updatedHistory),
           tools: combinedTools,
@@ -594,7 +597,7 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
 
           let secondTurnDelta = ''
           const finalRes = await sendAgentCompletion({
-            config,
+            config: effectiveConfig,
             profileId: activeProfileId,
             messages: buildSystemHistory(turnTwoMessages),
             redactionEngine: engine,

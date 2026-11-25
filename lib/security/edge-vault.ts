@@ -12,7 +12,7 @@ interface EdgeSealedPayload {
   ciphertext: string
 }
 
-function isWebCryptoVaultSupported(): boolean {
+export function isWebCryptoVaultSupported(): boolean {
   return typeof window !== 'undefined' && typeof window.indexedDB !== 'undefined' && typeof window.crypto?.subtle !== 'undefined'
 }
 
@@ -169,4 +169,27 @@ export async function deleteEdgeSecret(profileId: string): Promise<void> {
   } catch {
     // Ignore errors when storage is unavailable
   }
+}
+
+/** Lists profile IDs that have an encrypted secret in IndexedDB without decrypting them. */
+export async function listEdgeSecretIds(): Promise<Set<string>> {
+  const ids = new Set<string>()
+  if (!isWebCryptoVaultSupported()) return ids
+  try {
+    const db = await openVaultDb()
+    const keys = await new Promise<IDBValidKey[]>((resolve, reject) => {
+      const tx = db.transaction(SECRETS_STORE, 'readonly')
+      const store = tx.objectStore(SECRETS_STORE)
+      const req = store.getAllKeys()
+      req.onsuccess = () => resolve(req.result)
+      req.onerror = () => reject(req.error)
+    })
+    db.close()
+    for (const k of keys) {
+      if (typeof k === 'string') ids.add(k)
+    }
+  } catch {
+    // Ignore errors when storage is unavailable
+  }
+  return ids
 }
