@@ -293,5 +293,89 @@ describe('useWorkdeskProactiveReminder', () => {
       expect(mockPush).toHaveBeenCalledWith('/workdesk/tasks/sync-default-branches')
       expect(latestReminder).toBeNull()
     })
+
+    it('prioritizes simple tasks (hygiene/review) before complex merge-diverged-branches', () => {
+      const itemMerge: WorkItem = {
+        id: 'item_merge_admin',
+        cardId: 'merge-diverged-branches',
+        repoId: 'proj_admin',
+        repoAlias: 'admin',
+        name: 'feature/complex',
+        summary: '与主分支分叉',
+        state: 'warn',
+        findingIds: ['f_merge_1'],
+      }
+      const itemHygiene: WorkItem = {
+        id: 'item_hygiene_admin',
+        cardId: 'standard-repo-hygiene',
+        repoId: 'proj_admin',
+        repoAlias: 'admin',
+        name: 'temp-branch',
+        summary: '命名规范建议',
+        state: 'warn',
+        findingIds: ['f_hygiene_1'],
+      }
+      const scanData: ScanResult = {
+        lastChecked: Date.now(),
+        findings: [],
+        cards: [],
+        items: {
+          merge: itemMerge,
+          hygiene: itemHygiene,
+        },
+      }
+
+      // @ts-expect-error accessing private notify for testing
+      workdeskEngine.notify(scanData)
+
+      act(() => {
+        root.render(<TestComponent projects={sampleProjects} />)
+      })
+
+      expect(latestReminder?.cardId).toBe('standard-repo-hygiene')
+    })
+
+    it('stops popping up after handling 2 tasks in the same session', async () => {
+      const itemHygiene: WorkItem = {
+        id: 'item_hygiene_admin',
+        cardId: 'standard-repo-hygiene',
+        repoId: 'proj_admin',
+        repoAlias: 'admin',
+        name: 'temp-branch',
+        summary: '命名规范建议',
+        state: 'warn',
+        findingIds: ['f_hygiene_1'],
+      }
+      const scanData: ScanResult = {
+        lastChecked: Date.now(),
+        findings: [],
+        cards: [],
+        items: {
+          sync: mockItemSync,
+          hygiene: itemHygiene,
+          rev: mockItemReview,
+        },
+      }
+
+      // @ts-expect-error accessing private notify for testing
+      workdeskEngine.notify(scanData)
+
+      act(() => {
+        root.render(<TestComponent projects={sampleProjects} />)
+      })
+      expect(latestReminder?.cardId).toBe('sync-default-branches')
+
+      await act(async () => {
+        await latestReminder?.accept()
+      })
+      expect(latestReminder?.cardId).toBe('standard-repo-hygiene')
+
+      await act(async () => {
+        await latestReminder?.accept()
+      })
+      // After 2 handled items, session limit reached -> no 3rd reminder
+      expect(latestReminder).toBeNull()
+      expect(sessionStorage.getItem('yggit.agent.proactive-handled-count')).toBe('2')
+    })
   })
 })

@@ -12,6 +12,9 @@ import type { WorkItem } from '@/lib/workdesk/types'
 
 const DISMISSED_SESSION_KEY = 'yggit.agent.dismissed-reminders'
 const SNOOZED_SESSION_KEY = 'yggit.agent.proactive-session-snoozed'
+const HANDLED_COUNT_SESSION_KEY = 'yggit.agent.proactive-handled-count'
+const MAX_HANDLED_PER_SESSION = 2
+const IDLE_DELAY_MS = 8000
 
 export interface ProactiveReminder {
   id: string
@@ -30,14 +33,14 @@ export interface ProactiveReminder {
   viewTask: () => void
 }
 
-/** Priority rank for Workdesk card types (lower number = higher precedence) */
+/** Priority rank for Workdesk card types (lower number = higher precedence; simplest first) */
 const CARD_PRIORITY: Record<string, number> = {
   'sync-default-branches': 1,
-  'merge-diverged-branches': 2,
-  'code-review-pending-push': 3,
-  'worktree-parallel-dev': 4,
-  'standard-repo-hygiene': 5,
-  'standard-project-organization': 6,
+  'standard-repo-hygiene': 2,
+  'standard-project-organization': 3,
+  'code-review-pending-push': 4,
+  'worktree-parallel-dev': 5,
+  'merge-diverged-branches': 6,
 }
 
 function loadDismissedIds(): Set<string> {
@@ -76,6 +79,26 @@ function saveSessionSnoozed() {
   if (typeof window === 'undefined') return
   try {
     sessionStorage.setItem(SNOOZED_SESSION_KEY, 'true')
+  } catch {
+    // Ignore storage quota
+  }
+}
+
+function loadHandledCount(): number {
+  if (typeof window === 'undefined') return 0
+  try {
+    const raw = sessionStorage.getItem(HANDLED_COUNT_SESSION_KEY)
+    const parsed = raw ? Number.parseInt(raw, 10) : 0
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
+  } catch {
+    return 0
+  }
+}
+
+function saveHandledCount(count: number) {
+  if (typeof window === 'undefined') return
+  try {
+    sessionStorage.setItem(HANDLED_COUNT_SESSION_KEY, String(count))
   } catch {
     // Ignore storage quota
   }
@@ -139,49 +162,54 @@ export function useWorkdeskProactiveReminder(projects?: GitProjectView[]) {
   const [scanResult, setScanResult] = useState<ScanResult | null>(null)
   const [dismissedSet, setDismissedSet] = useState<Set<string>>(() => loadDismissedIds())
   const [sessionSnoozed, setSessionSnoozed] = useState<boolean>(() => isSessionSnoozed())
+  const [handledCount, setHandledCount] = useState<number>(() => loadHandledCount())
+  const [pinnedId, setPinnedId] = useState<string | null>(null)
 
   // In test environments, treat as idle immediately so unit tests pass without timers
   const isTest = process.env.NODE_ENV === 'test'
   const [isIdle, setIsIdle] = useState<boolean>(isTest)
+  const pinnedIdRef = useRef<string | null>(null)
+  pinnedIdRef.current = pinnedId
 
-  // Reset session snooze when activeRepo changes to a different repo
+  // Clear pinned popup if activeRepo changes (only show reminders for current project)
   const lastRepoRef = useRef(activeRepo)
   useEffect(() => {
     if (lastRepoRef.current !== activeRepo) {
       lastRepoRef.current = activeRepo
-      if (typeof window !== 'undefined') {
-        sessionStorage.removeItem(SNOOZED_SESSION_KEY)
-      }
-      setSessionSnoozed(false)
+      setPinnedId(null)
     }
   }, [activeRepo])
 
-  // Idle detection: only pop up reminder after the user has been idle for 4 seconds without interaction
+  // Idle detection: listen only to real user operations (clicks, keys, scrolls, navigation), NOT hover/mousemove.
+  // Once a reminder is pinned/shown, keep it visible until the user explicitly closes or acts on it.
   useEffect(() => {
     if (isTest || typeof window === 'undefined') return
 
     let idleTimer: number | null = null
-    const IDLE_DELAY_MS = 4000
 
-    const resetIdleTimer = () => {
-      setIsIdle(false)
+    const scheduleIdle = () => {
       if (idleTimer) window.clearTimeout(idleTimer)
       idleTimer = window.setTimeout(() => {
         setIsIdle(true)
       }, IDLE_DELAY_MS)
     }
 
-    const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll']
-    events.forEach((evt) => window.addEventListener(evt, resetIdleTimer, { passive: true }))
+    const handleUserActivity = () => {
+      // Never auto-close a reminder that is already displayed
+      if (!pinnedIdRef.current) {
+        setIsIdle(false)
+      }
+      scheduleIdle()
+    }
 
-    // Initial idle check after mount
-    idleTimer = window.setTimeout(() => {
-      setIsIdle(true)
-    }, IDLE_DELAY_MS)
+    const events = ['pointerdown', 'keydown', 'touchstart', 'scroll', 'wheel']
+    events.forEach((evt) => window.addEventListener(evt, handleUserActivity, { passive: true, capture: true }))
+
+    scheduleIdle()
 
     return () => {
       if (idleTimer) window.clearTimeout(idleTimer)
-      events.forEach((evt) => window.removeEventListener(evt, resetIdleTimer))
+      events.forEach((evt) => window.removeEventListener(evt, handleUserActivity, { capture: true }))
     }
   }, [isTest])
 
@@ -194,30 +222,53 @@ export function useWorkdeskProactiveReminder(projects?: GitProjectView[]) {
     }
   }, [])
 
-  const reminder: ProactiveReminder | null = useMemo(() => {
+  const candidateItem: WorkItem | null = useMemo(() => {
     if (!activeRepo || !scanResult || !scanResult.items) return null
-    if (sessionSnoozed || !isIdle) return null
+    if (sessionSnoozed || handledCount >= MAX_HANDLED_PER_SESSION) return null
 
     const allItems: WorkItem[] = Object.values(scanResult.items)
     const matchingItems = allItems.filter((item) => matchesActiveRepo(item, activeRepo, projects))
-
     if (matchingItems.length === 0) return null
 
-    // Sort matching items according to priority
+    // Sort matching items according to priority (simplest tasks first)
     const sorted = matchingItems.slice().sort((a, b) => {
       const priorityA = CARD_PRIORITY[a.cardId] ?? 99
       const priorityB = CARD_PRIORITY[b.cardId] ?? 99
       return priorityA - priorityB
     })
 
+    // If a reminder is already pinned and still valid, keep showing it regardless of idle state
+    if (pinnedId) {
+      const pinned = sorted.find((item) => `${item.repoId}:${item.cardId}:${item.name}` === pinnedId)
+      if (pinned && !dismissedSet.has(pinnedId)) {
+        return pinned
+      }
+    }
+
+    if (!isIdle) return null
+
     // Find the first non-dismissed item
-    const targetItem: WorkItem | undefined = sorted.find((item) => {
-      const compositeId = `${item.repoId}:${item.cardId}:${item.name}`
-      return !dismissedSet.has(compositeId)
-    })
+    return (
+      sorted.find((item) => {
+        const compositeId = `${item.repoId}:${item.cardId}:${item.name}`
+        return !dismissedSet.has(compositeId)
+      }) ?? null
+    )
+  }, [activeRepo, scanResult, projects, dismissedSet, sessionSnoozed, handledCount, pinnedId, isIdle])
 
-    if (!targetItem) return null
+  // Latch/pin the reminder once shown so subsequent mouse/click/scroll never auto-closes it
+  useEffect(() => {
+    if (!candidateItem) return
+    const compositeId = `${candidateItem.repoId}:${candidateItem.cardId}:${candidateItem.name}`
+    if (pinnedId !== compositeId) {
+      setPinnedId(compositeId)
+    }
+  }, [candidateItem, pinnedId])
 
+  const reminder: ProactiveReminder | null = useMemo(() => {
+    if (!candidateItem || !activeRepo) return null
+
+    const targetItem = candidateItem
     const compositeId = `${targetItem.repoId}:${targetItem.cardId}:${targetItem.name}`
     const branchName = targetItem.name || 'main'
 
@@ -263,10 +314,22 @@ export function useWorkdeskProactiveReminder(projects?: GitProjectView[]) {
       saveSessionSnoozed()
       setDismissedSet((prev) => new Set(prev).add(compositeId))
       setSessionSnoozed(true)
+      setPinnedId(null)
     }
 
     const handleAccept = async () => {
-      handleDismiss()
+      const nextHandled = handledCount + 1
+      saveDismissedId(compositeId)
+      saveHandledCount(nextHandled)
+      setDismissedSet((prev) => new Set(prev).add(compositeId))
+      setHandledCount(nextHandled)
+      setPinnedId(null)
+      if (nextHandled >= MAX_HANDLED_PER_SESSION) {
+        saveSessionSnoozed()
+        setSessionSnoozed(true)
+      } else if (!isTest) {
+        setIsIdle(false)
+      }
       // Open right drawer dock for dedicated workspace experience
       setDockMode('dock-right')
       quoteWorkdeskTaskToAgent({
@@ -306,7 +369,7 @@ export function useWorkdeskProactiveReminder(projects?: GitProjectView[]) {
       accept: handleAccept,
       viewTask: handleViewTask,
     }
-  }, [activeRepo, scanResult, projects, dismissedSet, sessionSnoozed, isIdle, t, setDockMode, sendMessage, router])
+  }, [candidateItem, activeRepo, handledCount, isTest, t, setDockMode, sendMessage, router])
 
   return {
     reminder,
