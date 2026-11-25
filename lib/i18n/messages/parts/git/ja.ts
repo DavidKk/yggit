@@ -54,6 +54,7 @@ export const gitJa: GitMessages = {
     closeFind: '検索を閉じる',
     findZero: '0 件',
     allLoaded: 'すべての履歴コミットを読み込みました',
+    loadMore: 'さらにコミットを読み込む',
   },
   graph: {
     colBranch: 'ブランチ',

@@ -47,6 +47,7 @@ export type GitMessages = {
     closeFind: string
     findZero: string
     allLoaded: string
+    loadMore: string
   }
   graph: {
     colBranch: string

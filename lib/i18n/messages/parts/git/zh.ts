@@ -54,6 +54,7 @@ export const gitZh: GitMessages = {
     closeFind: '关闭查找',
     findZero: '0 条',
     allLoaded: '已加载全部历史提交',
+    loadMore: '加载更多提交',
   },
   graph: {
     colBranch: '分支',

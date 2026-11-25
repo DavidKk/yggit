@@ -54,6 +54,7 @@ export const gitEs: GitMessages = {
     closeFind: 'Cerrar búsqueda',
     findZero: '0 coincidencias',
     allLoaded: 'Todos los commits históricos cargados',
+    loadMore: 'Cargar más commits',
   },
   graph: {
     colBranch: 'Rama',

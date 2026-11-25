@@ -54,6 +54,7 @@ export const gitRu: GitMessages = {
     closeFind: 'Закрыть поиск',
     findZero: '0 совпадений',
     allLoaded: 'Все коммиты истории загружены',
+    loadMore: 'Загрузить ещё коммиты',
   },
   graph: {
     colBranch: 'Ветка',

@@ -512,8 +512,18 @@ export function GitHistory({
         header={hasPrev ? <div ref={topSentinelRef} className="h-px" aria-hidden /> : null}
         footer={
           hasMore ? (
-            <div ref={sentinelRef} className="flex min-h-[56px] w-full items-center justify-center">
-              {showFooterLoading ? <GitExploreStrip className="w-full py-1" /> : null}
+            <div ref={sentinelRef} className="flex min-h-[56px] w-full items-center justify-center border-t border-[color-mix(in_oklab,var(--ink)_8%,transparent)]">
+              {showFooterLoading ? (
+                <GitExploreStrip className="w-full py-1" />
+              ) : (
+                <button
+                  type="button"
+                  onClick={loadMore}
+                  className="cursor-pointer rounded-md px-3 py-1.5 text-xs font-medium text-ink-soft transition-colors hover:bg-[color-mix(in_oklab,var(--ink)_6%,transparent)] hover:text-ink"
+                >
+                  {t('git.history.loadMore')}
+                </button>
+              )}
             </div>
           ) : commits.length > 0 ? (
             <div

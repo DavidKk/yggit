@@ -55,6 +55,7 @@ export const gitDe: GitMessages = {
     closeFind: 'Suche schließen',
     findZero: '0 Treffer',
     allLoaded: 'Alle historischen Commits geladen',
+    loadMore: 'Weitere Commits laden',
   },
   graph: {
     colBranch: 'Zweig',

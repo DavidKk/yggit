@@ -54,6 +54,7 @@ export const gitCht: GitMessages = {
     closeFind: '關閉搜尋',
     findZero: '0 筆',
     allLoaded: '已載入全部歷史提交',
+    loadMore: '載入更多提交',
   },
   graph: {
     colBranch: '分支',
