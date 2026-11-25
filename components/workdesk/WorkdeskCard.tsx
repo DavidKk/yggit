@@ -56,7 +56,7 @@ export function WorkdeskCard({ card, className, noWrapperMargin = false, onSelec
       return {
         icon: <LuGitBranch className="size-3 text-ink-muted" aria-hidden="true" />,
         display: count > 99 ? '99+' : count,
-        title: `${count} 个分支`,
+        title: t('workdesk.ui.branchesCount' as MessageKey, { count }),
       }
     }
 
@@ -65,12 +65,12 @@ export function WorkdeskCard({ card, className, noWrapperMargin = false, onSelec
       return {
         icon: <LuGitBranch className="size-3 text-ink-muted" aria-hidden="true" />,
         display: count > 99 ? '99+' : count,
-        title: `${count} 个分支`,
+        title: t('workdesk.ui.branchesCount' as MessageKey, { count }),
       }
     }
 
     return null
-  }, [card.scope, card.id, card.itemIds])
+  }, [card.scope, card.id, card.itemIds, t])
 
   return (
     <div
@@ -152,11 +152,11 @@ export function WorkdeskCard({ card, className, noWrapperMargin = false, onSelec
 
         {/* Bottom row: Meta stats with icon + number (>99 formatted as 99+) with Tooltips */}
         <div className="mt-1 flex items-center gap-3 text-[11px] font-medium leading-tight text-ink-muted">
-          <Tooltip content={`涉及 ${projectCount} 个项目`} placement="top">
+          <Tooltip content={t('workdesk.ui.projectsInvolved' as MessageKey, { count: projectCount })} placement="top">
             <span className="inline-flex items-center gap-1 cursor-default">
               <LuFolderGit2 className="size-3 text-ink-muted" aria-hidden="true" />
               <span>{displayProjectCount}</span>
-              <span className="sr-only">{projectCount} 个项目</span>
+              <span className="sr-only">{t('workdesk.scope.projects' as MessageKey, { count: projectCount })}</span>
             </span>
           </Tooltip>
           {extraMeta && (

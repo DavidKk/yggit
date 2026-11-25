@@ -35,3 +35,50 @@ export function getAgentProcessingStatus(userPrompt?: string, t?: (key: any, par
   }
   return t ? t('gitAgent.processingDefault') || 'Agent 正在思考并执行操作...' : 'Agent 正在思考并执行操作...'
 }
+
+/**
+ * Resolves a localized in-bubble status string for an active tool call.
+ */
+export function getToolExecutionStatus(toolName: string, args?: Record<string, unknown>, t?: (key: any, params?: any) => string): string {
+  const branch = typeof args?.branch === 'string' && args.branch.trim() ? args.branch.trim() : ''
+  const tr = (key: string, fallback: string, params?: Record<string, string | number>) => (t ? t(key, params) || fallback : fallback)
+
+  switch (toolName) {
+    case '__synthesizing__':
+      return tr('gitAgent.toolStatusSynthesizing', 'Synthesizing final response...')
+    case 'sync_branch':
+      return branch
+        ? tr('gitAgent.toolStatusSyncBranch', `Syncing branch "${branch}" with remote...`, { branch })
+        : tr('gitAgent.toolStatusSync', 'Syncing local and remote branches...')
+    case 'get_unmerged_branches':
+      return tr('gitAgent.toolStatusUnmerged', 'Checking unmerged branches...')
+    case 'check_branch_containment':
+      return tr('gitAgent.toolStatusContainment', 'Verifying branch merge status...')
+    case 'get_branches':
+      return tr('gitAgent.toolStatusBranches', 'Loading repository branches...')
+    case 'get_repo_summary':
+      return tr('gitAgent.toolStatusSummary', 'Reading repository overview...')
+    case 'get_today_merges':
+      return tr('gitAgent.toolStatusMerges', 'Querying recent merge commits...')
+    case 'find_commits':
+      return tr('gitAgent.toolStatusCommits', 'Searching commit history...')
+    case 'get_commit_details':
+      return tr('gitAgent.toolStatusCommitDetails', 'Reading commit details and diff...')
+    case 'focus_branch':
+      return tr('gitAgent.toolStatusFocusBranch', 'Locating target branch...')
+    case 'spotlight_commits':
+      return tr('gitAgent.toolStatusSpotlight', 'Highlighting matching commits...')
+    case 'open_project':
+      return tr('gitAgent.toolStatusOpenProject', 'Opening target project...')
+    case 'list_projects':
+      return tr('gitAgent.toolStatusListProjects', 'Loading project list...')
+    case 'navigate_ui':
+      return tr('gitAgent.toolStatusNavigate', 'Opening target page...')
+    case 'set_ui_theme':
+      return tr('gitAgent.toolStatusTheme', 'Switching appearance theme...')
+    case 'inspect_code_issue':
+      return tr('gitAgent.toolStatusInspectCode', 'Locating code diff...')
+    default:
+      return tr('gitAgent.toolStatusGeneric', `Running ${toolName}...`, { tool: toolName })
+  }
+}

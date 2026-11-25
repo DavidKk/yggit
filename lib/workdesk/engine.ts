@@ -132,6 +132,61 @@ class WorkdeskEngine {
   }
 
   /**
+   * Optimistically clear resolved `sync-default-branches` findings for a repo/branch
+   * after `sync_branch` succeeds, then trigger a background rescan.
+   */
+  public markBranchSynced(repoTarget: string, branchName?: string): void {
+    const normalizedTarget = repoTarget.trim().toLowerCase()
+    if (this.cachedResult && normalizedTarget) {
+      const targetSegments = normalizedTarget.split(/[/\\?#]/).filter(Boolean)
+      const matchesRepo = (repoId: string, repoAlias: string): boolean => {
+        const id = repoId.toLowerCase()
+        const alias = repoAlias.toLowerCase()
+        return (
+          id === normalizedTarget ||
+          alias === normalizedTarget ||
+          normalizedTarget.endsWith(`/${alias}`) ||
+          normalizedTarget.endsWith(`\\${alias}`) ||
+          targetSegments.includes(alias) ||
+          targetSegments.includes(id)
+        )
+      }
+
+      let changed = false
+      const nextFindings = this.cachedResult.findings.map((f) => {
+        if (f.kind !== 'sync' || f.scenarioId !== 'default-branch-sync' || f.lifecycle !== 'open') return f
+        if (!matchesRepo(f.repoId, f.repoAlias)) return f
+        if (branchName && f.target?.name && f.target.name !== branchName) return f
+        changed = true
+        return { ...f, lifecycle: 'resolved' as const }
+      })
+
+      if (changed) {
+        const dismissedIds = getDismissedCardIds()
+        const { cards, items } = clusterFindingsToCards(nextFindings, dismissedIds)
+        const now = Date.now()
+        const nextResult: ScanResult = {
+          lastChecked: now,
+          findings: nextFindings,
+          cards,
+          items,
+        }
+        const storeData: WorkdeskStoreData = {
+          version: 1,
+          lastChecked: now,
+          findings: nextFindings,
+          cards,
+          items: Object.values(items),
+        }
+        void saveWorkdeskStore(storeData)
+        this.notify(nextResult)
+      }
+    }
+
+    void this.scan().catch(() => {})
+  }
+
+  /**
    * Run full scan across all connected projects
    */
   public async scan(specificProjects?: GitProjectView[]): Promise<ScanResult> {

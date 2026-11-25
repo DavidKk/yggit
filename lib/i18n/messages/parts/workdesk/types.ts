@@ -126,4 +126,46 @@ export interface WorkdeskMessages {
   minutesAgo: string
   trashRelease?: string
   trashDrop?: string
+  findings?: {
+    branchNaming: string
+    commitConvention: string
+    syncUpToDate: string
+    syncUnverified: string
+    syncDiverged: string
+    dirtyWorkspace: string
+    checkedOutElsewhere: string
+    remoteAhead: string
+    localAhead: string
+    mergeDiverged: string
+    pendingCommits: string
+    uncommittedChanges: string
+    activeWorktree: string
+    staleBranch: string
+    featureBranchDelta: string
+    bloatedGroupDetail: string
+    bloatedGroup: string
+    parallelInProgress: string
+    mergeDivergedFallback: string
+    standardFallback: string
+    reviewFallback: string
+  }
+  ui?: {
+    pendingTasksCount: string
+    noPendingTasks: string
+    dismissedCardToast: string
+    branchesCount: string
+    projectsInvolved: string
+    loadingTaskDetails: string
+    taskNotFound: string
+    stateSafeTooltip: string
+    stateWarnTooltip: string
+    stateBadTooltip: string
+    switchSingleRepo: string
+    addNewProject: string
+    pasteRecipeHint: string
+    pasteRecipePlaceholder: string
+    parseRecipe: string
+    recipeRepoList: string
+    projectIndex: string
+  }
 }

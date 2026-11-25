@@ -243,6 +243,7 @@ export interface AgentChatMessage {
   createdAt?: number
   isStreaming?: boolean
   isError?: boolean
+  statusTool?: { name: string; branch?: string }
 }
 
 export interface AgentToolDefinition {

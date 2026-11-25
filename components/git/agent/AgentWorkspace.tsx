@@ -21,7 +21,6 @@ import {
   LuSparkles,
   LuTrash2,
   LuUser,
-  LuWrench,
   LuX,
 } from 'react-icons/lu'
 
@@ -30,7 +29,7 @@ import { Button, Spinner, Tooltip } from '@/components/sk'
 import { useAgent } from '@/lib/agent/agent-context'
 import type { AgentOpenEventDetail, AgentReference } from '@/lib/agent/agent-quote'
 import { isModelAllowed } from '@/lib/agent/model-filter'
-import { getAgentProcessingStatus } from '@/lib/agent/status-helper'
+import { getAgentProcessingStatus, getToolExecutionStatus } from '@/lib/agent/status-helper'
 import { copyToClipboard } from '@/lib/clipboard'
 import { saveLastGitUrl } from '@/lib/git/last-git-url'
 import { cn } from '@/lib/utils'
@@ -300,15 +299,7 @@ export function AgentWorkspace({ repoPath, className }: Props) {
             const isTool = m.role === 'tool'
 
             if (isTool) {
-              return (
-                <div key={m.id} className="flex items-center gap-2 rounded border border-line bg-panel-2/50 px-2.5 py-1.5 text-[11px] text-ink-soft">
-                  <LuWrench className="size-3 text-accent shrink-0" />
-                  <span>
-                    {t('gitAgent.executedTool')}
-                    <code className="font-mono text-accent font-medium">{m.name}</code>
-                  </span>
-                </div>
-              )
+              return null
             }
 
             // Do not render empty assistant bubble (e.g. intermediate turn with tool calls)
@@ -371,13 +362,15 @@ export function AgentWorkspace({ repoPath, className }: Props) {
                     <div className="flex items-center gap-1.5 text-ink-soft py-0.5">
                       <Spinner className="size-3 text-accent shrink-0" />
                       <span>
-                        {getAgentProcessingStatus(
-                          messages
-                            .slice(0, index)
-                            .reverse()
-                            .find((item) => item.role === 'user')?.content,
-                          t
-                        )}
+                        {m.statusTool
+                          ? getToolExecutionStatus(m.statusTool.name, m.statusTool.branch ? { branch: m.statusTool.branch } : undefined, t)
+                          : getAgentProcessingStatus(
+                              messages
+                                .slice(0, index)
+                                .reverse()
+                                .find((item) => item.role === 'user')?.content,
+                              t
+                            )}
                       </span>
                     </div>
                   ) : null}

@@ -1,5 +1,11 @@
 import { POST } from '@/app/api/git/agent/models/route'
 
+const ALLOWED_HEADERS = {
+  origin: 'http://localhost',
+  referer: 'http://localhost/settings/models',
+  'sec-fetch-site': 'same-origin',
+}
+
 describe('Agent models API route', () => {
   const originalFetch = globalThis.fetch
 
@@ -7,9 +13,24 @@ describe('Agent models API route', () => {
     globalThis.fetch = originalFetch
   })
 
+  it('rejects requests from disallowed paths such as homepage "/"', async () => {
+    const req = new Request('http://localhost/api/git/agent/models', {
+      method: 'POST',
+      headers: {
+        origin: 'http://localhost',
+        referer: 'http://localhost/',
+        'sec-fetch-site': 'same-origin',
+      },
+      body: JSON.stringify({ baseUrl: 'https://api.openai.com/v1' }),
+    })
+    const res = await POST(req as any, {} as any)
+    expect(res.status).toBe(403)
+  })
+
   it('rejects missing or invalid baseUrl', async () => {
     const req = new Request('http://localhost/api/git/agent/models', {
       method: 'POST',
+      headers: ALLOWED_HEADERS,
       body: JSON.stringify({}),
     })
     const res = await POST(req as any, {} as any)
@@ -26,6 +47,7 @@ describe('Agent models API route', () => {
 
     const req = new Request('http://localhost/api/git/agent/models', {
       method: 'POST',
+      headers: ALLOWED_HEADERS,
       body: JSON.stringify({
         baseUrl: 'https://api.openai.com/v1',
         apiKey: 'sk-test',
@@ -57,6 +79,7 @@ describe('Agent models API route', () => {
 
     const req = new Request('http://localhost/api/git/agent/models', {
       method: 'POST',
+      headers: ALLOWED_HEADERS,
       body: JSON.stringify({
         baseUrl: 'https://magpie.corp.com/v1',
         modelsEndpoint: '/codex/models',
@@ -83,6 +106,7 @@ describe('Agent models API route', () => {
 
     const req = new Request('http://localhost/api/git/agent/models', {
       method: 'POST',
+      headers: ALLOWED_HEADERS,
       body: JSON.stringify({
         baseUrl: 'https://magpie.corp.com/v1',
         modelsEndpoint: 'https://magpie.corp.com/v1/models',

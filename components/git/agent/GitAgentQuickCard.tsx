@@ -5,7 +5,7 @@ import { LuCircleAlert, LuMinus, LuPanelRight, LuRotateCcw, LuSparkles, LuX } fr
 
 import { useT } from '@/components/i18n/LocaleProvider'
 import { Spinner, Tooltip } from '@/components/sk'
-import { getAgentProcessingStatus } from '@/lib/agent/status-helper'
+import { getAgentProcessingStatus, getToolExecutionStatus } from '@/lib/agent/status-helper'
 import type { AgentChatMessage } from '@/lib/agent/types'
 import { cn } from '@/lib/utils'
 
@@ -123,7 +123,15 @@ export const GitAgentQuickCard = forwardRef<HTMLDivElement, GitAgentQuickCardPro
         ) : isProcessing ? (
           <div className="flex items-center gap-1.5 text-ink-soft py-1">
             <Spinner className="size-3 text-accent shrink-0" />
-            <span>{getAgentProcessingStatus(lastUserMessage?.content, t)}</span>
+            <span>
+              {lastAssistantMessage?.statusTool
+                ? getToolExecutionStatus(
+                    lastAssistantMessage.statusTool.name,
+                    lastAssistantMessage.statusTool.branch ? { branch: lastAssistantMessage.statusTool.branch } : undefined,
+                    t
+                  )
+                : getAgentProcessingStatus(lastUserMessage?.content, t)}
+            </span>
           </div>
         ) : null}
       </div>

@@ -131,21 +131,97 @@ export function getCrAnalysis(cardId: string, _item: WorkItem, locale = 'zh'): C
       }
 }
 
-export function getItemCardSummary(summary: string): string {
-  const aheadBehindMatch = summary.match(/((?:领先|ahead)\s*\d+\s*(?:\/|\band\b)?\s*(?:落后|behind)\s*\d+)/i)
+export function localizeWorkdeskSummary(summary: string, t: (key: MessageKey, params?: Record<string, string | number>) => string): string {
+  const s = summary.trim()
+  if (!s) return s
+
+  if (s.startsWith('分支命名未遵循规范')) {
+    return t('workdesk.findings.branchNaming' as MessageKey)
+  }
+  if (s === '已与远程保持同步') return t('workdesk.findings.syncUpToDate' as MessageKey)
+  if (s.startsWith('待核查（缺少远程跟踪分支')) return t('workdesk.findings.syncUnverified' as MessageKey)
+  if (s.startsWith('本地与远程分叉')) return t('workdesk.findings.syncDiverged' as MessageKey)
+  if (s === '本地工作区有未提交变更') return t('workdesk.findings.dirtyWorkspace' as MessageKey)
+  if (s.startsWith('分支已被其他活动 Worktree 检出')) return t('workdesk.findings.checkedOutElsewhere' as MessageKey)
+  if (s.startsWith('远程领先，可安全快进')) return t('workdesk.findings.remoteAhead' as MessageKey)
+  if (s.startsWith('本地领先，包含未推送提交')) return t('workdesk.findings.localAhead' as MessageKey)
+  if (s === '并行开发进行中') return t('workdesk.findings.parallelInProgress' as MessageKey)
+  if (s.startsWith('本地分支与远端分叉')) return t('workdesk.findings.mergeDivergedFallback' as MessageKey)
+  if (s === '未遵循团队研发规范') return t('workdesk.findings.standardFallback' as MessageKey)
+  if (s === '待复核的提交或工作区改动') return t('workdesk.findings.reviewFallback' as MessageKey)
+
+  const commitConvMatch = s.match(/^未推送提交不符合 Conventional Commits 规范 \("(.+)"\)$/)
+  if (commitConvMatch) {
+    return t('workdesk.findings.commitConvention' as MessageKey, { subject: commitConvMatch[1] })
+  }
+
+  const mergeDivMatch = s.match(/^本地与远端分支分叉 \(领先 (\d+) \/ 落后 (\d+)\)/)
+  if (mergeDivMatch) {
+    return t('workdesk.findings.mergeDiverged' as MessageKey, { ahead: mergeDivMatch[1], behind: mergeDivMatch[2] })
+  }
+
+  const pendingMatch = s.match(/^包含 (\d+) 个待推送提交/)
+  if (pendingMatch) {
+    return t('workdesk.findings.pendingCommits' as MessageKey, { count: pendingMatch[1] })
+  }
+
+  const uncommittedMatch = s.match(/^工作区有 (\d+) 个未提交修改 \(\+(\d+) \/ -(\d+)\)/)
+  if (uncommittedMatch) {
+    return t('workdesk.findings.uncommittedChanges' as MessageKey, {
+      files: uncommittedMatch[1],
+      ins: uncommittedMatch[2],
+      del: uncommittedMatch[3],
+    })
+  }
+
+  const worktreeMatch = s.match(/^独立工作树正在开发 \((.+)\)$/)
+  if (worktreeMatch) {
+    return t('workdesk.findings.activeWorktree' as MessageKey, { target: worktreeMatch[1] })
+  }
+
+  const staleMatch = s.match(/^分支超过 14 天未活动 \(领先 (\d+) \/ 落后 (\d+)\)$/)
+  if (staleMatch) {
+    return t('workdesk.findings.staleBranch' as MessageKey, { ahead: staleMatch[1], behind: staleMatch[2] })
+  }
+
+  const featureMatch = s.match(/^特性分支领先 (\d+) \/ 落后 (\d+) 个提交$/)
+  if (featureMatch) {
+    return t('workdesk.findings.featureBranchDelta' as MessageKey, { ahead: featureMatch[1], behind: featureMatch[2] })
+  }
+
+  const bloatedDetailMatch = s.match(/^分组「(.+)」堆叠了 (\d+) 个项目，且涵盖 (\d+) 个不同物理目录前缀/)
+  if (bloatedDetailMatch) {
+    return t('workdesk.findings.bloatedGroupDetail' as MessageKey, {
+      group: bloatedDetailMatch[1],
+      projects: bloatedDetailMatch[2],
+      roots: bloatedDetailMatch[3],
+    })
+  }
+
+  const bloatedMatch = s.match(/^分组包含 (\d+) 个项目/)
+  if (bloatedMatch) {
+    return t('workdesk.findings.bloatedGroup' as MessageKey, { count: bloatedMatch[1] })
+  }
+
+  return summary
+}
+
+export function getItemCardSummary(summary: string, t?: (key: MessageKey, params?: Record<string, string | number>) => string): string {
+  const localized = t ? localizeWorkdeskSummary(summary, t) : summary
+  const aheadBehindMatch = localized.match(/((?:领先|ahead)\s*\d+\s*(?:\/|\band\b)?\s*(?:落后|behind)\s*\d+|\d+\s*ahead\s*\/\s*\d+\s*behind)/i)
   if (aheadBehindMatch) {
     return aheadBehindMatch[1]
   }
-  const aheadMatch = summary.match(/((?:领先|ahead)\s*\d+)/i)
+  const aheadMatch = localized.match(/((?:领先|ahead)\s*\d+|\d+\s*ahead)/i)
   if (aheadMatch) {
     return aheadMatch[1]
   }
-  const behindMatch = summary.match(/((?:落后|behind)\s*\d+)/i)
+  const behindMatch = localized.match(/((?:落后|behind)\s*\d+|\d+\s*behind)/i)
   if (behindMatch) {
     return behindMatch[1]
   }
-  const firstClause = summary.split(/[，,。；;]/)[0]?.trim()
-  return firstClause || summary
+  const firstClause = localized.split(/[，,。；;]/)[0]?.trim()
+  return firstClause || localized
 }
 
 export function getItemProblemTitle(cardId: string, item: WorkItem, t: (key: MessageKey) => string): string {

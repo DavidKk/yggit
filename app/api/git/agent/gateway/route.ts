@@ -1,5 +1,6 @@
 import { defineApiRoute } from '@/initializer/controller'
 import { apiBadRequest } from '@/initializer/response'
+import { assertAgentRequestAllowed } from '@/lib/security/agent-request-guard'
 import { resolveStoredApiKey } from '@/lib/security/credential-vault'
 import { assertSafeOutboundUrl } from '@/lib/security/ssrf'
 
@@ -10,6 +11,8 @@ export const runtime = 'nodejs'
  * when interacting with AI Gateways (e.g., Vercel AI Gateway) or external LLMs.
  */
 export const POST = defineApiRoute('post:/api/git/agent/gateway', async ({ request }) => {
+  const denied = assertAgentRequestAllowed(request)
+  if (denied) return denied
   try {
     const payload = await request.json()
     const { endpoint, apiKey, profileId, headers: customHeaders = {}, ...chatBody } = payload

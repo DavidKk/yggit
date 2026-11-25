@@ -1,5 +1,6 @@
 import { defineApiRoute } from '@/initializer/controller'
 import { apiBadRequest, apiOk } from '@/initializer/response'
+import { assertAgentRequestAllowed } from '@/lib/security/agent-request-guard'
 import { resolveStoredApiKey } from '@/lib/security/credential-vault'
 import { assertSafeOutboundUrl } from '@/lib/security/ssrf'
 
@@ -76,6 +77,8 @@ function extractModelsFromResponse(json: unknown): ModelItem[] {
  * Protects client from CORS boundaries and adheres to zero-storage for API keys.
  */
 export const POST = defineApiRoute('post:/api/git/agent/models', async ({ request }) => {
+  const denied = assertAgentRequestAllowed(request)
+  if (denied) return denied
   try {
     const payload = await request.json()
     const { baseUrl, apiKey, profileId, provider, modelsEndpoint } = payload

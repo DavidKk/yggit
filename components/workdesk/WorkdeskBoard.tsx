@@ -505,7 +505,7 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
                       <span className="flex items-center text-ink-muted">{lane.icon}</span>
                     </Tooltip>
                     <span className="text-xs font-semibold text-ink">{laneTitle}</span>
-                    <Tooltip content={`共有 ${totalTasks} 项待处理工作`} placement="top">
+                    <Tooltip content={t('workdesk.ui.pendingTasksCount' as MessageKey, { count: totalTasks })} placement="top">
                       <Badge tone="neutral" size="mini" dot={false} className="shrink-0 font-medium">
                         {displayBadge}
                       </Badge>
@@ -536,7 +536,7 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
                     })
                   ) : (
                     <div className="flex items-center justify-center rounded-lg border border-dashed border-line/40 py-4 text-center">
-                      <span className="text-[11px] text-ink-soft">无待办任务</span>
+                      <span className="text-[11px] text-ink-soft">{t('workdesk.ui.noPendingTasks' as MessageKey)}</span>
                     </div>
                   )}
                 </div>
@@ -548,7 +548,7 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
         {/* Undo Toast for dismissed cards */}
         {undoToast && (
           <div className="fixed bottom-20 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-full border border-line bg-panel px-4 py-2 shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-200">
-            <span className="text-xs text-ink">已丢弃任务【{undoToast.cardTitle}】</span>
+            <span className="text-xs text-ink">{t('workdesk.ui.dismissedCardToast' as MessageKey, { title: undoToast.cardTitle })}</span>
             <button
               type="button"
               onClick={() => handleUndoDismiss(undoToast.cardId)}

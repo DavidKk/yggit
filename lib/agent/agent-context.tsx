@@ -1,15 +1,17 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 
 import { getDriverMode } from '@/lib/git/driver'
 import { logError, logInfo } from '@/lib/logger'
 import { listMcpServers } from '@/lib/mcp/storage'
+import { isAllowedAgentPath } from '@/lib/security/agent-paths'
 import { deleteEdgeSecret, openEdgeSecret, sealEdgeSecret } from '@/lib/security/edge-vault'
 import { buildSkillsSystemPrompt, matchSkillsForPrompt } from '@/lib/skills/matcher'
 import { listSkills } from '@/lib/skills/storage'
 import { type ThemePreference, writeStoredTheme } from '@/lib/theme'
+import { workdeskEngine } from '@/lib/workdesk/engine'
 
 import { DEFAULT_MODEL_FILTER, isModelAllowed, type ModelFilterOptions } from './model-filter'
 import {
@@ -122,8 +124,17 @@ function useOptionalRouter(): ReturnType<typeof useRouter> | null {
   }
 }
 
+function useOptionalPathname(): string {
+  try {
+    return usePathname() || (typeof window !== 'undefined' ? window.location.pathname : '/')
+  } catch {
+    return typeof window !== 'undefined' ? window.location.pathname : '/'
+  }
+}
+
 export function AgentProvider({ children, currentRepo }: { children: React.ReactNode; currentRepo?: string }) {
   const router = useOptionalRouter()
+  const pathname = useOptionalPathname()
 
   const [profiles, setProfiles] = useState<AgentModelProfile[]>([DEFAULT_MODEL_PROFILE])
   const [activeProfileId, setActiveProfileId] = useState(DEFAULT_MODEL_PROFILE.id)
@@ -152,6 +163,12 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
       // Keep the in-memory defaults when browser storage is unavailable.
     }
     setProfilesLoaded(true)
+
+    if (!isAllowedAgentPath(pathname)) {
+      return () => {
+        cancelled = true
+      }
+    }
 
     if (mode === 'local' && typeof fetch === 'function') {
       void (async () => {
@@ -192,7 +209,7 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [pathname])
 
   useEffect(() => {
     if (!profilesLoaded) return
@@ -444,7 +461,8 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
                     ...m,
                     content: res.content || '',
                     tool_calls: toolCalls,
-                    isStreaming: false,
+                    isStreaming: true,
+                    statusTool: { name: toolCalls[0]?.function.name || '' },
                   }
                 : m
             )
@@ -460,7 +478,15 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
               parsedArgs = {}
             }
 
+            const branchArg = typeof parsedArgs.branch === 'string' && parsedArgs.branch.trim() ? parsedArgs.branch.trim() : undefined
+            setMessages((prev) => prev.map((m) => (m.id === assistantMsgId ? { ...m, statusTool: { name: tc.function.name, branch: branchArg } } : m)))
+
             const toolExec = await executeAgentTool(tc.function.name, parsedArgs, repo)
+
+            if (tc.function.name === 'sync_branch' && toolExec.ok) {
+              const syncedBranch = typeof parsedArgs.branch === 'string' ? parsedArgs.branch : undefined
+              workdeskEngine.markBranchSynced(repo, syncedBranch)
+            }
 
             if (activeTaskId) {
               await addStepToTask(activeTaskId, {
@@ -549,6 +575,7 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
             role: 'assistant',
             content: '',
             isStreaming: true,
+            statusTool: { name: '__synthesizing__' },
             createdAt: Date.now() + 2,
           }
 

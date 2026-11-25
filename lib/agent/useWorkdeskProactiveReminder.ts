@@ -256,9 +256,14 @@ export function useWorkdeskProactiveReminder(projects?: GitProjectView[]) {
     )
   }, [activeRepo, scanResult, projects, dismissedSet, sessionSnoozed, handledCount, pinnedId, isIdle])
 
-  // Latch/pin the reminder once shown so subsequent mouse/click/scroll never auto-closes it
+  // Latch/pin the reminder once shown, and unpin if the underlying item was resolved/removed
   useEffect(() => {
-    if (!candidateItem) return
+    if (!candidateItem) {
+      if (pinnedId !== null) {
+        setPinnedId(null)
+      }
+      return
+    }
     const compositeId = `${candidateItem.repoId}:${candidateItem.cardId}:${candidateItem.name}`
     if (pinnedId !== compositeId) {
       setPinnedId(compositeId)

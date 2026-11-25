@@ -10,7 +10,7 @@ import type { MessageKey, MessageParams } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 import type { WorkCard, WorkItem } from '@/lib/workdesk/types'
 
-import { getCrAnalysis, getItemProblemTitle } from './workdesk-detail-helpers'
+import { getCrAnalysis, getItemProblemTitle, localizeWorkdeskSummary } from './workdesk-detail-helpers'
 
 interface WorkdeskEvidencePanelProps {
   card: WorkCard
@@ -109,7 +109,9 @@ export function WorkdeskEvidencePanel({ card, activeItem, isGathering, isDealing
                       <span className="size-1.5 rounded-full bg-accent" />
                       {t('workdesk.detail.problemDesc')}
                     </span>
-                    <p className="pl-3 text-xs font-medium leading-relaxed text-ink">{activeItem.summary}</p>
+                    <p className="pl-3 text-xs font-medium leading-relaxed text-ink">
+                      {localizeWorkdeskSummary(activeItem.summary, t as (key: MessageKey, params?: Record<string, string | number>) => string)}
+                    </p>
                   </div>
 
                   {/* 产生原因 */}

@@ -1,16 +1,21 @@
 import { defineApiRoute } from '@/initializer/controller'
 import { apiBadRequest, apiOk } from '@/initializer/response'
 import type { AgentModelProfile } from '@/lib/agent/model-profiles'
+import { assertAgentRequestAllowed } from '@/lib/security/agent-request-guard'
 import { deleteStoredProfile, listStoredProfiles, saveStoredProfile, setActiveStoredProfile } from '@/lib/security/credential-vault'
 
 export const runtime = 'nodejs'
 
-export const GET = defineApiRoute('get:/api/git/agent/profiles', async () => {
+export const GET = defineApiRoute('get:/api/git/agent/profiles', async ({ request }) => {
+  const denied = assertAgentRequestAllowed(request)
+  if (denied) return denied
   const data = listStoredProfiles()
   return apiOk({ stored: data })
 })
 
 export const POST = defineApiRoute('post:/api/git/agent/profiles', async ({ request }) => {
+  const denied = assertAgentRequestAllowed(request)
+  if (denied) return denied
   try {
     const body = (await request.json()) as {
       action?: string
@@ -40,6 +45,8 @@ export const POST = defineApiRoute('post:/api/git/agent/profiles', async ({ requ
 })
 
 export const DELETE = defineApiRoute('delete:/api/git/agent/profiles', async ({ request }) => {
+  const denied = assertAgentRequestAllowed(request)
+  if (denied) return denied
   const url = new URL(request.url)
   const id = url.searchParams.get('id')?.trim()
   if (!id) {

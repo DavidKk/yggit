@@ -99,7 +99,7 @@ describe('Workdesk Components', () => {
     })
 
     expect(host.textContent).toContain('同步默认分支')
-    expect(host.textContent).toContain('5 个项目')
+    expect(host.textContent).toContain('workdesk.scope.projects')
     const link = host.querySelector('a')
     expect(link).not.toBeNull()
     expect(link?.getAttribute('href')).toBe('/workdesk/tasks/sync-default-branches')
@@ -141,7 +141,7 @@ describe('Workdesk Components', () => {
       root.render(<WorkdeskCard card={singleProjectCard} />)
     })
 
-    expect(host.textContent).toContain('1 个项目')
+    expect(host.textContent).toContain('workdesk.scope.projects')
     const wrapper = host.querySelector('[data-testid="workdesk-card-wrapper-single-repo-task"]')
     expect(wrapper?.getAttribute('data-stacked')).toBe('false')
     expect(host.querySelector('[data-testid="card-stack-layer-bottom"]')).toBeNull()
@@ -197,7 +197,7 @@ describe('Workdesk Components', () => {
 
     // Right Evidence Card: Non-repetitive problem title, direct project & branch links
     expect(host.textContent).toContain('workdesk.problemTitles.sync')
-    expect(host.textContent).toContain('远程领先，可安全快进')
+    expect(host.textContent).toContain('workdesk.findings.remoteAhead')
     expect(host.textContent).toContain('workdesk.detail.targetProject')
     expect(host.textContent).toContain('workdesk.detail.problemBranch')
     expect(host.textContent).toContain('workdesk.detail.problemDesc')
@@ -401,7 +401,7 @@ describe('Workdesk Components', () => {
     })
 
     // Undo toast appears
-    expect(host.textContent).toContain('已丢弃任务')
+    expect(host.textContent).toContain('workdesk.ui.dismissedCardToast')
     expect(host.textContent).toContain('workdesk.action.undoDismiss')
 
     // Click undo

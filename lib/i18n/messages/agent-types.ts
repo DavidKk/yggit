@@ -206,4 +206,22 @@ export type GitAgentMessages = {
   endpointQuickFill?: string
   requestFailed?: string
   retry?: string
+  toolStatusSync?: string
+  toolStatusSyncBranch?: string
+  toolStatusUnmerged?: string
+  toolStatusContainment?: string
+  toolStatusBranches?: string
+  toolStatusSummary?: string
+  toolStatusMerges?: string
+  toolStatusCommits?: string
+  toolStatusCommitDetails?: string
+  toolStatusFocusBranch?: string
+  toolStatusSpotlight?: string
+  toolStatusOpenProject?: string
+  toolStatusListProjects?: string
+  toolStatusNavigate?: string
+  toolStatusTheme?: string
+  toolStatusInspectCode?: string
+  toolStatusSynthesizing?: string
+  toolStatusGeneric?: string
 }

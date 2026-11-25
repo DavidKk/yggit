@@ -1,5 +1,6 @@
 import { defineApiRoute } from '@/initializer/controller'
 import { apiBadRequest, apiOk } from '@/initializer/response'
+import { assertAgentRequestAllowed } from '@/lib/security/agent-request-guard'
 import {
   checkBranchContainment,
   findGitCommits,
@@ -15,6 +16,8 @@ import { gitSyncBranch } from '@/services/git/operations'
 export const runtime = 'nodejs'
 
 export const POST = defineApiRoute('post:/api/git/agent/tools', async ({ request }) => {
+  const denied = assertAgentRequestAllowed(request)
+  if (denied) return denied
   try {
     const payload = await request.json()
     const { tool, args = {}, repo } = payload

@@ -14,7 +14,7 @@ import { cn } from '@/lib/utils'
 import { workdeskEngine } from '@/lib/workdesk/engine'
 import type { WorkCard, WorkItem } from '@/lib/workdesk/types'
 
-import { getCrAnalysis, getItemCardSummary, getItemProblemTitle } from './workdesk-detail-helpers'
+import { getCrAnalysis, getItemCardSummary, getItemProblemTitle, localizeWorkdeskSummary } from './workdesk-detail-helpers'
 import { WorkdeskEvidencePanel } from './WorkdeskEvidencePanel'
 
 export { getCrAnalysis, getItemCardSummary, getItemProblemTitle }
@@ -428,7 +428,7 @@ ${cr.solution}
           <div className="flex min-h-0 flex-1 items-center justify-center bg-panel-2/20">
             <div className="flex items-center gap-2 text-xs text-ink-muted">
               <span className="size-4 animate-spin rounded-full border-2 border-accent border-t-transparent" />
-              <span>正在加载任务详情...</span>
+              <span>{t('workdesk.ui.loadingTaskDetails' as MessageKey)}</span>
             </div>
           </div>
         </div>
@@ -437,7 +437,7 @@ ${cr.solution}
 
     return (
       <div className="flex flex-1 flex-col items-center justify-center p-8 text-center">
-        <p className="text-sm text-ink-muted">未找到该工作任务或任务已失效</p>
+        <p className="text-sm text-ink-muted">{t('workdesk.ui.taskNotFound' as MessageKey)}</p>
         <Link href="/workdesk" className="mt-4">
           <Button size="sm">
             <LuArrowLeft className="mr-1.5 size-3.5" aria-hidden="true" />
@@ -606,7 +606,7 @@ ${cr.solution}
                         handleSelectItem(item.id)
                       }
                     }}
-                    aria-label={`${item.repoAlias ? `${item.repoAlias} · ${item.name}` : item.name} - ${item.summary}`}
+                    aria-label={`${item.repoAlias ? `${item.repoAlias} · ${item.name}` : item.name} - ${localizeWorkdeskSummary(item.summary, t)}`}
                   >
                     {/* Top row: Title + Quick Quote to Agent + Status Dot (Identical alignment to WorkdeskCard) */}
                     <div className="flex w-full items-start justify-between gap-2">
@@ -630,7 +630,13 @@ ${cr.solution}
                           </button>
                         </Tooltip>
                         <Tooltip
-                          content={item.state === 'safe' ? '状态正常 / 可快速合并' : item.state === 'warn' ? '需关注 /存在分支分叉或未同步' : '待处理异常 / 需人工介入'}
+                          content={
+                            item.state === 'safe'
+                              ? t('workdesk.ui.stateSafeTooltip' as MessageKey)
+                              : item.state === 'warn'
+                                ? t('workdesk.ui.stateWarnTooltip' as MessageKey)
+                                : t('workdesk.ui.stateBadTooltip' as MessageKey)
+                          }
                           placement="top"
                         >
                           <span className="inline-flex items-center cursor-default">{renderStateDot(item.state)}</span>
@@ -640,7 +646,7 @@ ${cr.solution}
 
                     {/* Bottom row: Item summary (Identical font size, weight, and mt-1 margin to WorkdeskCard) */}
                     <div className="mt-1 flex items-center gap-3 text-[11px] font-medium leading-tight text-ink-muted">
-                      <span className="line-clamp-1">{getItemCardSummary(item.summary)}</span>
+                      <span className="line-clamp-1">{getItemCardSummary(item.summary, t)}</span>
                     </div>
                   </div>
                 </div>

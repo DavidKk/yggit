@@ -8,6 +8,7 @@ import { useT } from '@/components/i18n/LocaleProvider'
 import { getGitDriver } from '@/lib/git/driver'
 import { projectOpenTarget } from '@/lib/git/project-access'
 import type { GitProjectView } from '@/lib/git/types'
+import type { MessageKey } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 
 export function WorkdeskHeaderSwitcher() {
@@ -69,7 +70,7 @@ export function WorkdeskHeaderSwitcher() {
           {/* Projects Divider & List */}
           {projects.length > 0 && (
             <div className="mt-1 flex flex-col border-t border-line/60 pt-1">
-              <span className="px-2.5 py-1 text-[10px] font-semibold text-ink-muted">切换至单一仓库</span>
+              <span className="px-2.5 py-1 text-[10px] font-semibold text-ink-muted">{t('workdesk.ui.switchSingleRepo' as MessageKey)}</span>
               <div className="max-h-48 overflow-y-auto">
                 {projects.map((proj) => {
                   const target = projectOpenTarget(proj)
@@ -93,7 +94,7 @@ export function WorkdeskHeaderSwitcher() {
           <div className="mt-1 border-t border-line/60 pt-1">
             <Link href="/git" onClick={() => setOpen(false)} className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-ink-soft hover:bg-panel-2 hover:text-ink">
               <LuPlus className="size-3.5" aria-hidden="true" />
-              <span>添加新项目...</span>
+              <span>{t('workdesk.ui.addNewProject' as MessageKey)}</span>
             </Link>
           </div>
         </div>
