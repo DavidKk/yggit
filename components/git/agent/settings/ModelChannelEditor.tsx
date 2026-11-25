@@ -384,20 +384,23 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
             </div>
 
             {/* Row 3: API Endpoint */}
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 items-start">
-              <div className="md:col-span-5 min-w-0 pt-1">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 items-center">
+              <div className="md:col-span-5 min-w-0">
                 <label htmlFor="agent-model-endpoint" className="text-xs font-semibold text-ink">
                   {t('gitAgent.endpoint')}
                 </label>
                 <p className="text-xs text-ink-soft leading-relaxed mt-0.5">{t('gitAgent.endpointDesc') || 'OpenAPI 规范的服务基地址。'}</p>
               </div>
-              <div className="md:col-span-7 min-w-0 max-w-[460px] md:ml-auto w-full flex flex-col gap-1.5">
+              <div className="md:col-span-7 min-w-0 max-w-[460px] md:ml-auto w-full">
                 <InputSuggestion
                   id="agent-model-endpoint"
                   name="agent-model-endpoint"
                   fullWidth
                   value={config.baseUrl || ''}
-                  onChange={(value) => updateConfig({ baseUrl: value })}
+                  onChange={(value) => {
+                    const matched = OPENAPI_ENDPOINT_SUGGESTIONS.find((s) => s.baseUrl === value.trim())
+                    updateConfig(matched?.modelsEndpoint ? { baseUrl: value, modelsEndpoint: matched.modelsEndpoint } : { baseUrl: value })
+                  }}
                   options={[
                     ...(!OPENAPI_ENDPOINT_SUGGESTIONS.some((s) => s.baseUrl === preset.baseUrl) ? [{ value: preset.baseUrl, label: `${preset.name} (${preset.baseUrl})` }] : []),
                     ...OPENAPI_ENDPOINT_SUGGESTIONS.map((s) => ({
@@ -407,33 +410,6 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
                   ]}
                   placeholder={t('gitAgent.endpointPlaceholder')}
                 />
-                {config.provider !== 'vercel-free' && (
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="text-[11px] text-ink-soft">{t('gitAgent.endpointQuickFill') || '本地服务建议:'}</span>
-                    {OPENAPI_ENDPOINT_SUGGESTIONS.map((item) => {
-                      const active = config.baseUrl?.trim() === item.baseUrl
-                      return (
-                        <button
-                          key={item.id}
-                          type="button"
-                          onClick={() =>
-                            updateConfig({
-                              baseUrl: item.baseUrl,
-                              modelsEndpoint: item.modelsEndpoint || '',
-                            })
-                          }
-                          className={cn(
-                            'rounded-md border px-2 py-0.5 text-[11px] transition-colors cursor-pointer',
-                            active ? 'border-accent/50 bg-accent/10 text-accent font-medium' : 'border-line bg-panel-2/60 text-ink-soft hover:border-accent/40 hover:text-ink'
-                          )}
-                          title={item.baseUrl}
-                        >
-                          {item.label}
-                        </button>
-                      )
-                    })}
-                  </div>
-                )}
               </div>
             </div>
 
