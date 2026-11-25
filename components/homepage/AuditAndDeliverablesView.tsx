@@ -1,4 +1,5 @@
 'use client'
+/* eslint-disable @next/next/no-img-element */
 
 import React, { useState } from 'react'
 import { LuCheck, LuDownload, LuExternalLink, LuFileCode, LuFileImage, LuFileText, LuTriangleAlert } from 'react-icons/lu'

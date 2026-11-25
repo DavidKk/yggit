@@ -1,5 +1,6 @@
 /* eslint-disable max-lines */
 'use client'
+/* eslint-disable @next/next/no-img-element */
 
 import Link from 'next/link'
 import React, { useEffect, useRef, useState } from 'react'

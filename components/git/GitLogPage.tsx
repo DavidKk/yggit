@@ -311,6 +311,7 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
     }
     window.addEventListener('yggit:driver_mode_changed', onDriverModeChanged)
     return () => window.removeEventListener('yggit:driver_mode_changed', onDriverModeChanged)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshProjects, router])
 
   useEffect(() => {
@@ -570,8 +571,8 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
               setConflictViewActive(false)
               setFocusRequest({ hash: targetHash })
             }
-          } catch (e) {
-            console.error('Locate commit error:', e)
+          } catch {
+            // Silently fallback if locate commit encounters an error
           }
         })()
         return
@@ -1545,18 +1546,20 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
               ) : null}
             </div>
             <div className="ml-auto flex shrink-0 items-center gap-1.5">
-              <GitModeSwitcher
-                currentRepo={view?.repo}
-                currentName={view?.displayPath || (view?.repo ? repoName(view.repo, view.displayPath) : '')}
-                currentRemoteUrl={view?.remoteUrl}
-                onSwitchRepo={async (_nextMode, targetRepo) => {
-                  const repoToLoad = targetRepo || viewRef.current?.repo || ''
-                  if (repoToLoad) {
-                    await load(repoToLoad)
-                    void refreshProjects()
-                  }
-                }}
-              />
+              {process.env.NODE_ENV === 'development' && (
+                <GitModeSwitcher
+                  currentRepo={view?.repo}
+                  currentName={view?.displayPath || (view?.repo ? repoName(view.repo, view.displayPath) : '')}
+                  currentRemoteUrl={view?.remoteUrl}
+                  onSwitchRepo={async (_nextMode, targetRepo) => {
+                    const repoToLoad = targetRepo || viewRef.current?.repo || ''
+                    if (repoToLoad) {
+                      await load(repoToLoad)
+                      void refreshProjects()
+                    }
+                  }}
+                />
+              )}
               {process.env.NODE_ENV === 'development' && (
                 <Tooltip content="官网工坊与资产管理 (开发模式)" placement="bottom">
                   <Link href="/dev/studio" className={cn(dropdownTriggerClass, 'px-2 gap-1.5 text-xs font-mono font-medium')} aria-label="官网工作台">

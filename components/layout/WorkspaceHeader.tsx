@@ -57,8 +57,8 @@ export function WorkspaceHeader() {
       <div className="ml-auto flex shrink-0 items-center gap-1.5">
         <div ref={ctx?.setActionsNode} className="flex items-center gap-1.5" />
 
-        {/* Git Mode Switcher (Edge / Local) retained across both views */}
-        <GitModeSwitcher />
+        {/* Git Mode Switcher (Edge / Local) retained across development view */}
+        {process.env.NODE_ENV === 'development' && <GitModeSwitcher />}
 
         {/* Development-only Homepage Studio / Resource Editor Entry (Right of Edge, Left of ThemeSwitcher) */}
         {process.env.NODE_ENV === 'development' && (

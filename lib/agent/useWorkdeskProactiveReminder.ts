@@ -285,10 +285,8 @@ export function useWorkdeskProactiveReminder(projects?: GitProjectView[]) {
 
     const handleViewTask = () => {
       handleDismiss()
-      if (router) {
+      if (router?.push) {
         router.push(detailsUrl)
-      } else if (typeof window !== 'undefined') {
-        window.location.href = detailsUrl
       }
     }
 

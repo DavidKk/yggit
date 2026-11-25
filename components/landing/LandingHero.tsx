@@ -58,10 +58,12 @@ export function LandingHero() {
           <span>{t('landing.hero.enterWorkdesk')}</span>
           <LuArrowRight aria-hidden />
         </Link>
-        <Link href="/git" className={styles.action}>
-          <LuFolderGit2 aria-hidden />
-          <span>{t('git.project.addLocal')}</span>
-        </Link>
+        {process.env.NODE_ENV === 'development' && (
+          <Link href="/git" className={styles.action}>
+            <LuFolderGit2 aria-hidden />
+            <span>{t('git.project.addLocal')}</span>
+          </Link>
+        )}
         <Link href="/git/github/DavidKk/yggit" className={styles.action}>
           <FaPlay aria-hidden />
           <span>{t('landing.hero.onlineDemo')}</span>
@@ -77,7 +79,7 @@ export function LandingHero() {
           <FaGitlab aria-hidden className={styles.gitlab} />
           GitLab
         </span>
-        <span className={styles.platformBadge}>{t('landing.hero.edgeLocal')}</span>
+        {process.env.NODE_ENV === 'development' && <span className={styles.platformBadge}>{t('landing.hero.edgeLocal')}</span>}
       </div>
     </section>
   )
