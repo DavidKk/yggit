@@ -1,5 +1,6 @@
 import { defineApiRoute } from '@/initializer/controller'
 import { apiBadRequest } from '@/initializer/response'
+import { resolveStoredApiKey } from '@/lib/security/credential-vault'
 import { assertSafeOutboundUrl } from '@/lib/security/ssrf'
 
 export const runtime = 'nodejs'
@@ -11,7 +12,9 @@ export const runtime = 'nodejs'
 export const POST = defineApiRoute('post:/api/git/agent/gateway', async ({ request }) => {
   try {
     const payload = await request.json()
-    const { endpoint, apiKey, headers: customHeaders = {}, ...chatBody } = payload
+    const { endpoint, apiKey, profileId, headers: customHeaders = {}, ...chatBody } = payload
+    const resolvedApiKey =
+      typeof apiKey === 'string' && apiKey.trim() ? apiKey.trim() : typeof profileId === 'string' && profileId.trim() ? resolveStoredApiKey(profileId.trim()) : undefined
 
     const targetUrl = endpoint || 'https://ai-gateway.vercel.sh/v1/chat/completions'
 
@@ -24,12 +27,12 @@ export const POST = defineApiRoute('post:/api/git/agent/gateway', async ({ reque
     }
 
     if (parsedUrl.hostname.endsWith('anthropic.com')) {
-      if (apiKey) {
-        headers['x-api-key'] = apiKey
+      if (resolvedApiKey) {
+        headers['x-api-key'] = resolvedApiKey
         headers['anthropic-version'] = '2023-06-01'
       }
-    } else if (apiKey) {
-      headers['Authorization'] = `Bearer ${apiKey}`
+    } else if (resolvedApiKey) {
+      headers['Authorization'] = `Bearer ${resolvedApiKey}`
     }
 
     const upstreamResponse = await fetch(parsedUrl.toString(), {

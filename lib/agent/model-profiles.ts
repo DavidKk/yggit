@@ -63,7 +63,7 @@ export function serializeModelProfiles(profiles: AgentModelProfile[], activeId: 
   return JSON.stringify({
     activeId,
     profiles: profiles.map(({ config, filter, ...profile }) => {
-      const { apiKey: _apiKey, ...metadata } = config
+      const { apiKey: _apiKey, hasApiKey: _hasApiKey, ...metadata } = config
       return { ...profile, config: metadata, filter }
     }),
   })

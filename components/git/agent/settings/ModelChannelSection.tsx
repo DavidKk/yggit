@@ -114,7 +114,9 @@ export function ModelChannelSection({ inline = false, onAdd, onEdit }: ModelChan
                   </Button>
                 )}
 
-                {AGENT_PRESETS[profile.config.provider]?.requiresKey && !profile.config.apiKey && <Badge tone="warn">{t('gitAgent.keyRequired')}</Badge>}
+                {AGENT_PRESETS[profile.config.provider]?.requiresKey && !profile.config.apiKey && !profile.config.hasApiKey && (
+                  <Badge tone="warn">{t('gitAgent.keyRequired')}</Badge>
+                )}
               </li>
             )
           })}

@@ -14,6 +14,7 @@ import { filterAllowedModels, getModelFilterConflicts, isModelAllowed } from '@/
 import type { AgentModelProfile } from '@/lib/agent/model-profiles'
 import { testAgentConnection } from '@/lib/agent/openapi-client'
 import { AGENT_PRESETS, type AgentProviderType, DEFAULT_AGENT_CONFIG, OPENAPI_ENDPOINT_SUGGESTIONS } from '@/lib/agent/types'
+import { getDriverMode } from '@/lib/git/driver'
 import { cn } from '@/lib/utils'
 
 import { PrivacyNoticeCallout } from './PrivacyNoticeCallout'
@@ -110,7 +111,12 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
   const [modelsFetchFailed, setModelsFetchFailed] = useState(false)
 
   const preset = AGENT_PRESETS[draft.config.provider] || AGENT_PRESETS['byop']
-  const config = { ...draft.config, apiKey: keyDraft.trim() || (clearKey ? '' : draft.config.apiKey) }
+  const hasSavedApiKey = Boolean(draft.config.apiKey || draft.config.hasApiKey) && !clearKey
+  const config = {
+    ...draft.config,
+    apiKey: keyDraft.trim() || (clearKey ? '' : draft.config.apiKey),
+    hasApiKey: hasSavedApiKey || Boolean(keyDraft.trim()),
+  }
   const channelFilter = useMemo(() => draft.filter || { whitelist: [], blacklist: [] }, [draft.filter])
 
   const availableModels = useMemo(() => {
@@ -149,7 +155,7 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
       document.getElementById('agent-model-id')?.focus()
       return t('gitAgent.requiredFields')
     }
-    if (preset.requiresKey && !config.apiKey?.trim()) {
+    if (preset.requiresKey && !config.apiKey?.trim() && !hasSavedApiKey) {
       document.getElementById('agent-api-key')?.focus()
       return t('gitAgent.keyRequired')
     }
@@ -182,7 +188,7 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
     setTestState('loading')
     setTestTooltip('正在测试连接，请稍候…')
     try {
-      const res = await testAgentConnection(validatedConfig())
+      const res = !config.apiKey && hasSavedApiKey ? await testAgentConnection(validatedConfig(), draft.id) : await testAgentConnection(validatedConfig())
       if (res.ok) {
         setTestState('success')
         setTestTooltip(`连接成功${res.latencyMs ? ` (${res.latencyMs}ms)` : ''}`)
@@ -209,7 +215,7 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
       setModelsFetchMsg('请先填写接入地址')
       return
     }
-    if (preset.requiresKey && !config.apiKey) {
+    if (preset.requiresKey && !config.apiKey && !hasSavedApiKey) {
       setModelsFetchFailed(true)
       setModelsFetchMsg(`${preset.name} 需先在上方填写 API 密钥，才能拉取在线模型`)
       return
@@ -224,6 +230,7 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
         body: JSON.stringify({
           baseUrl: config.baseUrl,
           apiKey: config.apiKey,
+          ...(!config.apiKey && hasSavedApiKey ? { profileId: draft.id } : {}),
           provider: config.provider,
           modelsEndpoint: config.modelsEndpoint,
         }),
@@ -316,12 +323,16 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
             const message = validateAndFocus()
             setError(message)
             if (message) return
-            saveProfile({
-              ...draft,
-              name: draft.name.trim(),
-              config: validatedConfig(),
-              filter: channelFilter,
-            })
+            const cleared = clearKey && !keyDraft.trim()
+            saveProfile(
+              {
+                ...draft,
+                name: draft.name.trim(),
+                config: validatedConfig(),
+                filter: channelFilter,
+              },
+              cleared ? { clearApiKey: true } : undefined
+            )
             handleNavigateBack()
           }}
         >
@@ -439,12 +450,14 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
                   <label htmlFor="agent-api-key" className="text-xs font-semibold text-ink">
                     {t('gitAgent.apiKey')}
                   </label>
-                  <p className="text-xs text-ink-soft leading-relaxed mt-0.5">仅在当前浏览器会话内暂存，关闭标签页后自动清除。</p>
+                  <p className="text-xs text-ink-soft leading-relaxed mt-0.5">
+                    {getDriverMode() === 'local' ? '使用 AES-256-GCM 加密保存至本机安全库，前端不保留明文。' : '使用浏览器 Web Crypto 不可导出密钥加密保存，仅运行时解密至内存。'}
+                  </p>
                 </div>
                 <div className="md:col-span-7 min-w-0 max-w-[460px] md:ml-auto w-full">
                   <ConfiguredSecretInput
                     key={config.provider}
-                    configured={Boolean(draft.config.apiKey) && !clearKey}
+                    configured={hasSavedApiKey}
                     value={keyDraft}
                     onChange={(value) => {
                       setKeyDraft(value)
@@ -485,7 +498,7 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
                       setModelsFetchMsg('')
                     }}
                     options={availableModels.map((m) => ({ value: m.id, label: m.name }))}
-                    placeholder={preset.requiresKey && !config.apiKey ? '请先填写上方 API Key，再拉取或输入模型 ID' : '点击右侧按钮拉取，或直接输入模型 ID'}
+                    placeholder={preset.requiresKey && !config.apiKey && !hasSavedApiKey ? '请先填写上方 API Key，再拉取或输入模型 ID' : '点击右侧按钮拉取，或直接输入模型 ID'}
                     action={{
                       icon: <AiOutlineFileSync className={cn('size-3.5', fetchingModels && 'animate-spin')} />,
                       title: '从远程接口动态拉取模型列表',

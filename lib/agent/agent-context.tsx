@@ -3,8 +3,10 @@
 import { useRouter } from 'next/navigation'
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 
+import { getDriverMode } from '@/lib/git/driver'
 import { logError, logInfo } from '@/lib/logger'
 import { listMcpServers } from '@/lib/mcp/storage'
+import { deleteEdgeSecret, openEdgeSecret, sealEdgeSecret } from '@/lib/security/edge-vault'
 import { buildSkillsSystemPrompt, matchSkillsForPrompt } from '@/lib/skills/matcher'
 import { listSkills } from '@/lib/skills/storage'
 import { type ThemePreference, writeStoredTheme } from '@/lib/theme'
@@ -33,7 +35,7 @@ export interface AgentContextValue {
   config: EphemeralAgentConfig
   profiles: AgentModelProfile[]
   activeProfileId: string
-  saveProfile: (profile: AgentModelProfile) => void
+  saveProfile: (profile: AgentModelProfile, options?: { clearApiKey?: boolean }) => void
   deleteProfile: (id: string) => void
   selectProfile: (id: string) => void
   redactionOptions: RedactionOptions
@@ -124,24 +126,72 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
   const router = useOptionalRouter()
 
   const [profiles, setProfiles] = useState<AgentModelProfile[]>([DEFAULT_MODEL_PROFILE])
-  const [activeProfileId, selectProfile] = useState(DEFAULT_MODEL_PROFILE.id)
+  const [activeProfileId, setActiveProfileId] = useState(DEFAULT_MODEL_PROFILE.id)
   const [profilesLoaded, setProfilesLoaded] = useState(false)
   const config = (profiles.find((profile) => profile.id === activeProfileId) || profiles[0]).config
 
   useEffect(() => {
+    let cancelled = false
+    const mode = getDriverMode()
+
     try {
       const stored = parseModelProfiles(localStorage.getItem(MODEL_PROFILES_STORAGE_KEY))
       const sessionKeys = readSessionApiKeys()
       if (stored) {
-        setProfiles(stored.profiles.map((p) => (sessionKeys[p.id] ? { ...p, config: { ...p.config, apiKey: sessionKeys[p.id] } } : p)))
-        selectProfile(stored.activeId)
+        setProfiles(stored.profiles.map((p) => (sessionKeys[p.id] ? { ...p, config: { ...p.config, apiKey: sessionKeys[p.id], hasApiKey: true } } : p)))
+        setActiveProfileId(stored.activeId)
       } else if (sessionKeys[DEFAULT_MODEL_PROFILE.id]) {
-        setProfiles([{ ...DEFAULT_MODEL_PROFILE, config: { ...DEFAULT_MODEL_PROFILE.config, apiKey: sessionKeys[DEFAULT_MODEL_PROFILE.id] } }])
+        setProfiles([
+          {
+            ...DEFAULT_MODEL_PROFILE,
+            config: { ...DEFAULT_MODEL_PROFILE.config, apiKey: sessionKeys[DEFAULT_MODEL_PROFILE.id], hasApiKey: true },
+          },
+        ])
       }
     } catch {
       // Keep the in-memory defaults when browser storage is unavailable.
     }
     setProfilesLoaded(true)
+
+    if (mode === 'local' && typeof fetch === 'function') {
+      void (async () => {
+        try {
+          const res = await fetch('/api/git/agent/profiles')
+          if (!res.ok) return
+          const data = (await res.json()) as { stored?: { profiles: AgentModelProfile[]; activeId: string } | null }
+          if (!cancelled && data?.stored?.profiles?.length) {
+            setProfiles(data.stored.profiles)
+            setActiveProfileId(data.stored.activeId)
+          }
+        } catch {
+          // Local backend vault unavailable (e.g. unit tests)
+        }
+      })()
+    } else {
+      void (async () => {
+        try {
+          const stored = parseModelProfiles(localStorage.getItem(MODEL_PROFILES_STORAGE_KEY))
+          const targets = stored?.profiles || [DEFAULT_MODEL_PROFILE]
+          const entries = await Promise.all(
+            targets.map(async (p) => ({
+              id: p.id,
+              key: await openEdgeSecret(p.id),
+            }))
+          )
+          if (cancelled) return
+          const keyMap = new Map(entries.filter((e) => Boolean(e.key)).map((e) => [e.id, e.key!]))
+          if (keyMap.size > 0) {
+            setProfiles((prev) => prev.map((p) => (keyMap.has(p.id) ? { ...p, config: { ...p.config, apiKey: keyMap.get(p.id), hasApiKey: true } } : p)))
+          }
+        } catch {
+          // Edge Web Crypto vault unavailable
+        }
+      })()
+    }
+
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   useEffect(() => {
@@ -154,9 +204,50 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
     }
   }, [profiles, activeProfileId, profilesLoaded])
 
-  const saveProfile = useCallback((profile: AgentModelProfile) => {
-    setProfiles((previous) => (previous.some((item) => item.id === profile.id) ? previous.map((item) => (item.id === profile.id ? profile : item)) : [...previous, profile]))
-    selectProfile(profile.id)
+  const selectProfile = useCallback((id: string) => {
+    setActiveProfileId(id)
+    if (getDriverMode() === 'local' && typeof fetch === 'function') {
+      void fetch('/api/git/agent/profiles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'select', profileId: id }),
+      }).catch(() => {})
+    }
+  }, [])
+
+  const saveProfile = useCallback((profile: AgentModelProfile, options?: { clearApiKey?: boolean }) => {
+    const hasApiKey = Boolean(profile.config.apiKey?.trim() || (profile.config.hasApiKey && !options?.clearApiKey))
+    const normalized: AgentModelProfile = {
+      ...profile,
+      config: {
+        ...profile.config,
+        ...(hasApiKey ? { hasApiKey: true } : { hasApiKey: false }),
+      },
+    }
+    setProfiles((previous) =>
+      previous.some((item) => item.id === normalized.id) ? previous.map((item) => (item.id === normalized.id ? normalized : item)) : [...previous, normalized]
+    )
+    setActiveProfileId(normalized.id)
+
+    if (getDriverMode() === 'local') {
+      if (typeof fetch === 'function') {
+        void fetch('/api/git/agent/profiles', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            profile: normalized,
+            clearApiKey: Boolean(options?.clearApiKey),
+            setActive: true,
+          }),
+        }).catch(() => {})
+      }
+    } else {
+      if (options?.clearApiKey) {
+        void deleteEdgeSecret(normalized.id)
+      } else if (normalized.config.apiKey?.trim()) {
+        void sealEdgeSecret(normalized.id, normalized.config.apiKey.trim())
+      }
+    }
   }, [])
 
   const deleteProfile = useCallback(
@@ -165,10 +256,17 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
         if (previous.length <= 1) return previous
         const next = previous.filter((item) => item.id !== id)
         if (activeProfileId === id && next.length > 0) {
-          selectProfile(next[0].id)
+          setActiveProfileId(next[0].id)
         }
         return next
       })
+      if (getDriverMode() === 'local') {
+        if (typeof fetch === 'function') {
+          void fetch(`/api/git/agent/profiles?id=${encodeURIComponent(id)}`, { method: 'DELETE' }).catch(() => {})
+        }
+      } else {
+        void deleteEdgeSecret(id)
+      }
     },
     [activeProfileId]
   )
@@ -315,6 +413,7 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
         // 1. Send first turn to LLM
         const res = await sendAgentCompletion({
           config,
+          profileId: activeProfileId,
           messages: buildSystemHistory(updatedHistory),
           tools: combinedTools,
           redactionEngine: engine,
@@ -469,6 +568,7 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
           let secondTurnDelta = ''
           const finalRes = await sendAgentCompletion({
             config,
+            profileId: activeProfileId,
             messages: buildSystemHistory(turnTwoMessages),
             redactionEngine: engine,
             purpose: 'chat',
@@ -551,7 +651,7 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
         setIsProcessing(false)
       }
     },
-    [config, redactionOptions, spotlightCtx, modelFilter, router]
+    [config, activeProfileId, redactionOptions, spotlightCtx, modelFilter, router]
   )
 
   const resolveRepoTarget = useCallback(
@@ -663,6 +763,7 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
       activeProfileId,
       saveProfile,
       deleteProfile,
+      selectProfile,
       redactionOptions,
       dockMode,
       messages,

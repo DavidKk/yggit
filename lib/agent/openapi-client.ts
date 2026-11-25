@@ -4,6 +4,7 @@ import type { AgentChatMessage, AgentCompletionResponse, AgentToolCall, AgentToo
 
 export interface CompletionOptions {
   config: EphemeralAgentConfig
+  profileId?: string
   messages: AgentChatMessage[]
   tools?: AgentToolDefinition[]
   redactionEngine?: RedactionEngine
@@ -15,9 +16,9 @@ export interface CompletionOptions {
 
 /**
  * Ephemeral OpenAPI / LLM Client.
- * Adheres strictly to Zero-Storage: credentials are read directly from memory parameters.
+ * Adheres strictly to Zero-Storage: credentials are read directly from memory parameters or resolved server-side by profileId.
  */
-export async function testAgentConnection(config: EphemeralAgentConfig): Promise<{ ok: boolean; latencyMs: number; error?: string }> {
+export async function testAgentConnection(config: EphemeralAgentConfig, profileId?: string): Promise<{ ok: boolean; latencyMs: number; error?: string }> {
   const start = performance.now()
   try {
     const endpoint = config.baseUrl ? `${config.baseUrl.replace(/\/$/, '')}/chat/completions` : 'https://ai-gateway.vercel.sh/v1/chat/completions'
@@ -28,6 +29,7 @@ export async function testAgentConnection(config: EphemeralAgentConfig): Promise
       body: JSON.stringify({
         endpoint,
         apiKey: config.apiKey,
+        ...(profileId ? { profileId } : {}),
         model: config.model,
         messages: [{ role: 'user', content: 'ping' }],
         max_tokens: 2,
@@ -55,7 +57,7 @@ export async function testAgentConnection(config: EphemeralAgentConfig): Promise
  * and real-time streaming unmasking.
  */
 export async function sendAgentCompletion(options: CompletionOptions): Promise<AgentCompletionResponse> {
-  const { config, messages, tools, redactionEngine, onDelta, signal } = options
+  const { config, profileId, messages, tools, redactionEngine, onDelta, signal } = options
   const start = performance.now()
 
   // Mask outgoing messages if a redaction engine is provided
@@ -81,6 +83,7 @@ export async function sendAgentCompletion(options: CompletionOptions): Promise<A
   const payload: Record<string, unknown> = {
     endpoint,
     apiKey: config.apiKey,
+    ...(profileId ? { profileId } : {}),
     model: config.model,
     messages: sanitizedMessages,
     temperature: config.temperature ?? 0.2,

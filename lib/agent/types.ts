@@ -8,6 +8,7 @@ export interface EphemeralAgentConfig {
   provider: AgentProviderType
   model: string
   apiKey?: string
+  hasApiKey?: boolean
   baseUrl?: string
   modelsEndpoint?: string
   temperature?: number

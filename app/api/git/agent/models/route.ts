@@ -1,5 +1,6 @@
 import { defineApiRoute } from '@/initializer/controller'
 import { apiBadRequest, apiOk } from '@/initializer/response'
+import { resolveStoredApiKey } from '@/lib/security/credential-vault'
 import { assertSafeOutboundUrl } from '@/lib/security/ssrf'
 
 export const runtime = 'nodejs'
@@ -77,7 +78,9 @@ function extractModelsFromResponse(json: unknown): ModelItem[] {
 export const POST = defineApiRoute('post:/api/git/agent/models', async ({ request }) => {
   try {
     const payload = await request.json()
-    const { baseUrl, apiKey, provider, modelsEndpoint } = payload
+    const { baseUrl, apiKey, profileId, provider, modelsEndpoint } = payload
+    const resolvedApiKey =
+      typeof apiKey === 'string' && apiKey.trim() ? apiKey.trim() : typeof profileId === 'string' && profileId.trim() ? resolveStoredApiKey(profileId.trim()) : undefined
 
     if (!baseUrl || typeof baseUrl !== 'string') {
       return apiBadRequest('Missing baseUrl')
@@ -99,21 +102,21 @@ export const POST = defineApiRoute('post:/api/git/agent/models', async ({ reques
     const isVercelGateway = cleanBaseUrl.includes('ai-gateway.vercel.sh') || provider === 'vercel-free'
 
     if (isAnthropic) {
-      if (apiKey) {
-        headers['x-api-key'] = apiKey
+      if (resolvedApiKey) {
+        headers['x-api-key'] = resolvedApiKey
         headers['anthropic-version'] = '2023-06-01'
       }
     } else if (isGemini) {
-      if (apiKey) {
-        headers['x-goog-api-key'] = apiKey
+      if (resolvedApiKey) {
+        headers['x-goog-api-key'] = resolvedApiKey
       }
     } else if (isVercelGateway) {
-      if (apiKey) {
-        headers['x-ai-gateway-api-key'] = apiKey
-        headers['Authorization'] = `Bearer ${apiKey}`
+      if (resolvedApiKey) {
+        headers['x-ai-gateway-api-key'] = resolvedApiKey
+        headers['Authorization'] = `Bearer ${resolvedApiKey}`
       }
-    } else if (apiKey) {
-      headers['Authorization'] = `Bearer ${apiKey}`
+    } else if (resolvedApiKey) {
+      headers['Authorization'] = `Bearer ${resolvedApiKey}`
     }
 
     // Determine target URL for models catalogue
@@ -128,7 +131,7 @@ export const POST = defineApiRoute('post:/api/git/agent/models', async ({ reques
         targetUrl = `${cleanBaseUrl}/${ep}`
       }
     } else if (isGemini) {
-      targetUrl = `${cleanBaseUrl}/models${apiKey ? `?key=${encodeURIComponent(apiKey)}` : ''}`
+      targetUrl = `${cleanBaseUrl}/models${resolvedApiKey ? `?key=${encodeURIComponent(resolvedApiKey)}` : ''}`
     } else {
       targetUrl = `${cleanBaseUrl}/models`
     }
