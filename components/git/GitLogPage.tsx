@@ -346,6 +346,31 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
   const filePanelRef = useRef(filePanel)
   filePanelRef.current = filePanel
 
+  function areCommitListsEquivalent(a: GitLogView['commits'], b: GitLogView['commits']): boolean {
+    if (a.length !== b.length) return false
+    for (let i = 0; i < a.length; i += 1) {
+      if (a[i].hash !== b[i].hash) return false
+      if (a[i].refs.length !== b[i].refs.length) return false
+      for (let j = 0; j < a[i].refs.length; j += 1) {
+        if (a[i].refs[j] !== b[i].refs[j]) return false
+      }
+    }
+    return true
+  }
+
+  function hasGitLogViewMetadataChanged(prev: GitLogView, next: GitLogView): boolean {
+    if (prev.head !== next.head || prev.branch !== next.branch) return true
+    if (JSON.stringify(prev.worktree ?? null) !== JSON.stringify(next.worktree ?? null)) return true
+    if (JSON.stringify(prev.branches) !== JSON.stringify(next.branches)) return true
+    if (JSON.stringify(prev.remotes) !== JSON.stringify(next.remotes)) return true
+    if (JSON.stringify(prev.tags) !== JSON.stringify(next.tags)) return true
+    if (JSON.stringify(prev.stashes) !== JSON.stringify(next.stashes)) return true
+    if (JSON.stringify(prev.worktrees) !== JSON.stringify(next.worktrees)) return true
+    if (JSON.stringify(prev.submodules) !== JSON.stringify(next.submodules)) return true
+    if (JSON.stringify(prev.marks) !== JSON.stringify(next.marks)) return true
+    return false
+  }
+
   const silentRefreshingRef = useRef(false)
   const silentRefresh = useCallback(async () => {
     if (silentRefreshingRef.current || busy) return
@@ -365,6 +390,7 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
 
       setView((prev) => {
         if (!prev) return next
+        if (!hasGitLogViewMetadataChanged(prev, next)) return prev
         return {
           ...prev,
           head: next.head,
@@ -382,13 +408,20 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
 
       if (startIndexRef.current === 0) {
         if (commitsRef.current.length <= next.commits.length) {
-          setCommits(next.commits)
-          setHasMore(next.hasMore)
-          setHasPrev(Boolean(next.hasPrev))
-          setStartIndex(next.startIndex ?? 0)
+          if (!areCommitListsEquivalent(commitsRef.current, next.commits)) {
+            setCommits(next.commits)
+            setHasMore(next.hasMore)
+            setHasPrev(Boolean(next.hasPrev))
+            setStartIndex(next.startIndex ?? 0)
+          }
         } else {
           setCommits((prev) => {
-            if (prev.length <= next.commits.length) return next.commits
+            if (prev.length <= next.commits.length) {
+              return areCommitListsEquivalent(prev, next.commits) ? prev : next.commits
+            }
+            if (areCommitListsEquivalent(prev.slice(0, next.commits.length), next.commits)) {
+              return prev
+            }
             const freshHashes = new Set(next.commits.map((c) => c.hash))
             const tailHash = next.commits[next.commits.length - 1]?.hash
             const overlapIdx = tailHash ? prev.findIndex((c) => c.hash === tailHash) : -1
@@ -461,14 +494,17 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
       void autoFetch()
     }, 2000)
 
-    // 2. Focus / Visibility trigger
+    // 2. Focus / Visibility trigger (avoid duplicate refresh when autoFetch runs)
     const handleTrigger = () => {
       if (document.visibilityState !== 'visible') return
       if (debounceTimer) clearTimeout(debounceTimer)
       debounceTimer = setTimeout(() => {
-        void silentRefresh()
-        void autoFetch()
-      }, 200)
+        if (Date.now() - lastFetchTimeRef.current >= 45_000) {
+          void autoFetch()
+        } else {
+          void silentRefresh()
+        }
+      }, 250)
     }
 
     window.addEventListener('focus', handleTrigger)
