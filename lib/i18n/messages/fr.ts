@@ -19,7 +19,7 @@ export const fr: MessageTree = {
     switch: 'Changer de langue',
     auto: 'Système ({name})',
   },
-  theme: { label: 'Apparence', switch: 'Apparence', auto: 'Système', autoShort: 'Système', light: 'Clair', dark: 'Sombre' },
+  theme: { label: 'Apparence', switch: 'Apparence', auto: 'Système', autoShort: 'Système', light: 'Clair', lightShort: 'Clair', dark: 'Sombre', darkShort: 'Sombre' },
   nav: {
     main: 'Navigation',
     menu: 'Navigation',

@@ -94,4 +94,13 @@ describe('DefaultBranchSyncDetector', () => {
     expect(finding).not.toBeNull()
     expect(finding?.lifecycle).toBe('resolved')
   })
+
+  it('marks as resolved when fully in sync even if worktree has uncommitted changes', () => {
+    const logView = createLogView({ ahead: 0, behind: 0 }, true)
+    const finding = detectDefaultBranchSync({ project: baseProject, logView })
+
+    expect(finding).not.toBeNull()
+    expect(finding?.lifecycle).toBe('resolved')
+    expect(finding?.evidence?.details?.conclusion).toBe('已与远程保持同步')
+  })
 })

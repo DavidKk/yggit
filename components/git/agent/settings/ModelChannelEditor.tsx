@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { AiOutlineFileSync } from 'react-icons/ai'
 import { IoCheckmark } from 'react-icons/io5'
-import { LuActivity, LuArrowLeft, LuSave, LuShieldAlert, LuShieldCheck, LuTrash2, LuTriangleAlert } from 'react-icons/lu'
+import { LuActivity, LuArrowLeft, LuSave, LuShieldCheck, LuTrash2, LuTriangleAlert } from 'react-icons/lu'
 
 import { ConfiguredSecretInput } from '@/components/ConfiguredSecretInput/configured-secret-input'
 import { useT } from '@/components/i18n/LocaleProvider'
@@ -604,54 +604,28 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
                 <p className="text-xs text-ink-soft leading-relaxed mt-0.5">从远程拉取可用清单或直接输入模型代码。</p>
               </div>
               <div className="md:col-span-7 min-w-0 max-w-[460px] md:ml-auto w-full flex flex-col gap-1">
-                {/* Form element with integrated zero-displacement bottom error */}
-                <div className="relative w-full">
-                  <InputSuggestion
-                    id="agent-model-id"
-                    name="agent-model-id"
-                    value={config.model}
-                    invalid={modelsFetchFailed}
-                    onChange={(val) => {
-                      updateConfig({ model: val })
-                      setModelsFetchFailed(false)
-                      setModelsFetchMsg('')
-                    }}
-                    options={availableModels.map((m) => ({ value: m.id, label: m.name }))}
-                    placeholder={preset.requiresKey && !config.apiKey && !hasSavedApiKey ? '请先填写上方 API Key，再拉取或输入模型 ID' : '点击右侧按钮拉取，或直接输入模型 ID'}
-                    action={{
-                      icon: <AiOutlineFileSync className={cn('size-3.5', fetchingModels && 'animate-spin')} />,
-                      title: '从远程接口动态拉取模型列表',
-                      loading: fetchingModels,
-                      disabled: fetchingModels || testing,
-                      onClick: handleFetchModels,
-                    }}
-                  />
-                  {/* Error attached directly to bottom edge without displacing layout space */}
-                  {modelsFetchFailed && modelsFetchMsg && (
-                    <span
-                      role="alert"
-                      title={modelsFetchMsg}
-                      className="absolute -bottom-4.5 left-1 text-[10px] text-fail font-medium truncate max-w-full pointer-events-none select-none animate-in fade-in duration-150"
-                    >
-                      {modelsFetchMsg}
-                    </span>
-                  )}
-                  {!modelsFetchFailed && modelsFetchMsg && (
-                    <span
-                      title={modelsFetchMsg}
-                      className="absolute -bottom-4.5 left-1 text-[10px] text-accent font-medium truncate max-w-full pointer-events-none select-none animate-in fade-in duration-150"
-                    >
-                      {modelsFetchMsg}
-                    </span>
-                  )}
-                </div>
-
-                {isModelBlocked && (
-                  <div className="flex items-center gap-1.5 text-xs text-fail font-medium mt-1">
-                    <LuShieldAlert className="size-3.5 shrink-0" aria-hidden="true" />
-                    <span>{t('gitAgent.modelBlockedNotice')}</span>
-                  </div>
-                )}
+                <InputSuggestion
+                  id="agent-model-id"
+                  name="agent-model-id"
+                  value={config.model}
+                  invalid={modelsFetchFailed || isModelBlocked}
+                  error={modelsFetchFailed && modelsFetchMsg ? modelsFetchMsg : isModelBlocked ? t('gitAgent.modelBlockedNotice') : undefined}
+                  warn={!modelsFetchFailed && modelsFetchMsg ? modelsFetchMsg : undefined}
+                  onChange={(val) => {
+                    updateConfig({ model: val })
+                    setModelsFetchFailed(false)
+                    setModelsFetchMsg('')
+                  }}
+                  options={availableModels.map((m) => ({ value: m.id, label: m.name }))}
+                  placeholder={preset.requiresKey && !config.apiKey && !hasSavedApiKey ? '请先填写上方 API Key，再拉取或输入模型 ID' : '点击右侧按钮拉取，或直接输入模型 ID'}
+                  action={{
+                    icon: <AiOutlineFileSync className={cn('size-3.5', fetchingModels && 'animate-spin')} />,
+                    title: '从远程接口动态拉取模型列表',
+                    loading: fetchingModels,
+                    disabled: fetchingModels || testing,
+                    onClick: handleFetchModels,
+                  }}
+                />
               </div>
             </div>
           </fieldset>

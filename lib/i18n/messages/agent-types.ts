@@ -101,6 +101,19 @@ export type GitAgentMessages = {
   privacyCustomWordsPlaceholder: string
   privacyAllowList: string
   privacyAllowListPlaceholder: string
+  privacyActiveBanner?: string
+  privacyInactiveBanner?: string
+  privacyCategoriesTitle?: string
+  privacyCategoriesDesc?: string
+  privacySecretsDesc?: string
+  privacyPiiDesc?: string
+  privacyNetworkDesc?: string
+  privacyRulesTitle?: string
+  privacyRulesDesc?: string
+  privacyCustomWordsDesc?: string
+  privacyCustomWordsHint?: string
+  privacyAllowListDesc?: string
+  privacyAllowListHint?: string
   quickAnswer: string
   minimizeToPill?: string
   restoreQuickAnswer?: string
@@ -151,6 +164,12 @@ export type GitAgentMessages = {
   modelBlacklistDesc: string
   modelConflictNotice: string
   modelBlockedNotice: string
+  modelBlockedDetail?: string
+  modelConflictDetail?: string
+  modelWhitelistPlaceholder?: string
+  modelWhitelistHint?: string
+  modelBlacklistPlaceholder?: string
+  modelBlacklistHint?: string
   storageCopied?: string
   storageCopyFailed?: string
   storageOpenFailed?: string

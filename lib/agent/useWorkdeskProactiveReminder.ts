@@ -283,10 +283,20 @@ export function useWorkdeskProactiveReminder(projects?: GitProjectView[]) {
     let agentPrompt = ''
 
     if (targetItem.cardId === 'sync-default-branches') {
-      title = t('gitAgent.proactiveActionSync') || '默认分支同步'
-      message = (t('gitAgent.proactiveSyncQuestion', { branch: branchName }) || '默认分支 {branch} 检测到远端有更新，是否需要 Agent 帮忙同步？').replace('{branch}', branchName)
-      actionLabel = t('gitAgent.proactiveActionSync') || '帮忙同步'
-      agentPrompt = (t('gitAgent.proactiveSyncPrompt', { branch: branchName }) || '请帮我将默认分支 {branch} 同步更新至最新的远端提交。').replace('{branch}', branchName)
+      if (targetItem.summary?.includes('本地领先') || targetItem.summary?.includes('未推送')) {
+        title = t('gitAgent.proactiveActionReview') || '待推送代码审查'
+        message = (t('gitAgent.proactiveReviewQuestion', { branch: branchName }) || '分支 {branch} 有待推送的代码变更，是否需要 Agent 协助代码审查？').replace(
+          '{branch}',
+          branchName
+        )
+        actionLabel = t('gitAgent.proactiveActionReview') || '代码审查'
+        agentPrompt = (t('gitAgent.proactiveReviewPrompt', { branch: branchName }) || '请协助对分支 {branch} 尚未推送的本地提交进行代码审查。').replace('{branch}', branchName)
+      } else {
+        title = t('gitAgent.proactiveActionSync') || '默认分支同步'
+        message = (t('gitAgent.proactiveSyncQuestion', { branch: branchName }) || '默认分支 {branch} 检测到远端有更新，是否需要 Agent 帮忙同步？').replace('{branch}', branchName)
+        actionLabel = t('gitAgent.proactiveActionSync') || '帮忙同步'
+        agentPrompt = (t('gitAgent.proactiveSyncPrompt', { branch: branchName }) || '请帮我将默认分支 {branch} 同步更新至最新的远端提交。').replace('{branch}', branchName)
+      }
     } else if (targetItem.cardId === 'merge-diverged-branches') {
       title = t('gitAgent.proactiveActionMerge') || '分支合流变基'
       message = (t('gitAgent.proactiveMergeQuestion', { branch: branchName }) || '分支 {branch} 与主分支产生分叉偏离，是否需要协助合流变基？').replace('{branch}', branchName)

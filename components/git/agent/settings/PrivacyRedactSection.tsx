@@ -1,21 +1,33 @@
 'use client'
 
-import React from 'react'
-import { LuShieldCheck } from 'react-icons/lu'
+import React, { useEffect, useMemo, useState } from 'react'
+import { LuRotateCcw, LuSave, LuShieldCheck } from 'react-icons/lu'
 
 import { useT } from '@/components/i18n/LocaleProvider'
-import { SwitchToggle, TagInput } from '@/components/sk'
+import { useNotification } from '@/components/notification/useNotification'
+import { Button, SwitchToggle, TagInput } from '@/components/sk'
 import { useAgent } from '@/lib/agent/agent-context'
+import type { RedactionOptions } from '@/lib/agent/redact/types'
 import { cn } from '@/lib/utils'
 
+import { RuleDebugger } from './RuleDebugger'
+import { SettingsColumns } from './SettingsColumns'
 import { SettingsSectionCard } from './SettingsSectionCard'
 
 export function PrivacyRedactSection() {
   const t = useT()
+  const notify = useNotification()
   const { redactionOptions, setRedactionOptions } = useAgent()
+  const [draft, setDraft] = useState<RedactionOptions>(redactionOptions)
+
+  const isDirty = useMemo(() => JSON.stringify(draft) !== JSON.stringify(redactionOptions), [draft, redactionOptions])
+
+  useEffect(() => {
+    setDraft(redactionOptions)
+  }, [redactionOptions])
 
   const handleToggleCategory = (categoryKey: 'secrets' | 'pii' | 'network') => {
-    setRedactionOptions((prev) => ({
+    setDraft((prev) => ({
       ...prev,
       categories: {
         ...prev.categories,
@@ -25,151 +37,191 @@ export function PrivacyRedactSection() {
   }
 
   const handleCustomWordsChange = (tags: string[]) => {
-    setRedactionOptions((prev) => ({
+    setDraft((prev) => ({
       ...prev,
       customWords: tags.map((word) => ({ word, caseSensitive: false, wholeWord: false })),
     }))
   }
 
   const handleAllowListChange = (allowList: string[]) => {
-    setRedactionOptions((prev) => ({
+    setDraft((prev) => ({
       ...prev,
       allowList,
     }))
   }
 
+  const handleSave = (event: React.FormEvent) => {
+    event.preventDefault()
+    setRedactionOptions(draft)
+    notify.success(`${t('gitAgent.privacyRedactTitle')} · ${t('common.save')}`)
+  }
+
+  const handleReset = () => {
+    setDraft(redactionOptions)
+  }
+
   return (
-    <div className="flex flex-col gap-3">
-      {/* Card 1: Master Redaction Engine Switch */}
-      <SettingsSectionCard
-        title={t('gitAgent.privacyRedactTitle')}
-        description={t('gitAgent.privacyRedactDesc')}
-        titleAction={
-          <SwitchToggle
-            checked={redactionOptions.enabled}
-            onCheckedChange={(checked) => setRedactionOptions((prev) => ({ ...prev, enabled: checked }))}
-            size="sm"
-            aria-label={t('gitAgent.privacyRedactTitle')}
-          />
-        }
-      >
-        {redactionOptions.enabled ? (
-          <div className="flex items-center gap-2 rounded-md border border-ok/30 bg-ok/10 p-3 text-xs text-ink">
-            <LuShieldCheck className="size-4 shrink-0 text-ok" aria-hidden="true" />
-            <span>脱敏引擎已激活：敏感实体将在出站请求时自动掩盖，并在模型流式返回时实时解密。</span>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2 rounded-md border border-line bg-panel-2/60 p-3 text-xs text-ink-soft">
-            <span>脱敏引擎已停用：发送给大模型的内容将包含原始上下文，适合私有化自部署环境。</span>
-          </div>
-        )}
-      </SettingsSectionCard>
-
-      {/* Card 2: Built-in Categories */}
-      <SettingsSectionCard title="内置规则分类" description="启用或停用特定分类的自动敏感实体识别与掩盖">
-        <div className={cn('flex flex-col divide-y divide-line rounded-md border border-line bg-panel-2', !redactionOptions.enabled && 'pointer-events-none opacity-50')}>
-          {/* Secrets */}
-          <div className="flex items-center justify-between p-3">
-            <div>
-              <span className="text-xs font-medium text-ink">{t('gitAgent.privacySecrets')}</span>
-              <p className="text-[11px] text-ink-soft">匹配 AWS/GitHub/GitLab Token、私钥与数据库连接串等</p>
-            </div>
+    <SettingsColumns tools={<RuleDebugger redactionOptions={draft} />}>
+      <form onSubmit={handleSave} className="flex flex-col gap-3">
+        {/* Card 1: Master Redaction Engine Switch */}
+        <SettingsSectionCard
+          title={t('gitAgent.privacyRedactTitle')}
+          description={t('gitAgent.privacyRedactDesc')}
+          titleAction={
             <SwitchToggle
-              checked={redactionOptions.categories.secrets}
-              onCheckedChange={() => handleToggleCategory('secrets')}
+              checked={draft.enabled}
+              onCheckedChange={(checked) => setDraft((prev) => ({ ...prev, enabled: checked }))}
               size="sm"
-              aria-label={t('gitAgent.privacySecrets')}
+              aria-label={t('gitAgent.privacyRedactTitle')}
             />
+          }
+        >
+          {draft.enabled ? (
+            <div className="flex items-center gap-2 rounded-md border border-ok/30 bg-ok/10 p-3 text-xs text-ink">
+              <LuShieldCheck className="size-4 shrink-0 text-ok" aria-hidden="true" />
+              <span>
+                {t('gitAgent.privacyActiveBanner') ||
+                  'Redaction engine is active: sensitive entities are masked on outbound requests and restored in real time on streaming responses.'}
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 rounded-md border border-line bg-panel-2/60 p-3 text-xs text-ink-soft">
+              <span>
+                {t('gitAgent.privacyInactiveBanner') ||
+                  'Redaction engine is disabled: raw context will be sent to the model (recommended only for private self-hosted deployments).'}
+              </span>
+            </div>
+          )}
+        </SettingsSectionCard>
+
+        {/* Card 2: Built-in Categories */}
+        <SettingsSectionCard
+          title={t('gitAgent.privacyCategoriesTitle') || 'Built-in Rule Categories'}
+          description={t('gitAgent.privacyCategoriesDesc') || 'Enable or disable automatic sensitive entity detection and masking by category.'}
+        >
+          <div className={cn('flex flex-col divide-y divide-line rounded-md border border-line bg-panel-2', !draft.enabled && 'pointer-events-none opacity-50')}>
+            {/* Secrets */}
+            <div className="flex items-center justify-between p-3">
+              <div>
+                <span className="text-xs font-medium text-ink">{t('gitAgent.privacySecrets')}</span>
+                <p className="text-[11px] text-ink-soft">
+                  {t('gitAgent.privacySecretsDesc') || 'Matches AWS/GitHub/GitLab tokens, private keys, and database connection strings.'}
+                </p>
+              </div>
+              <SwitchToggle checked={draft.categories.secrets} onCheckedChange={() => handleToggleCategory('secrets')} size="sm" aria-label={t('gitAgent.privacySecrets')} />
+            </div>
+
+            {/* PII */}
+            <div className="flex items-center justify-between p-3">
+              <div>
+                <span className="text-xs font-medium text-ink">{t('gitAgent.privacyPii')}</span>
+                <p className="text-[11px] text-ink-soft">{t('gitAgent.privacyPiiDesc') || 'Masks commit author emails, phone numbers, and personal identifiers.'}</p>
+              </div>
+              <SwitchToggle checked={draft.categories.pii} onCheckedChange={() => handleToggleCategory('pii')} size="sm" aria-label={t('gitAgent.privacyPii')} />
+            </div>
+
+            {/* Network */}
+            <div className="flex items-center justify-between p-3">
+              <div>
+                <span className="text-xs font-medium text-ink">{t('gitAgent.privacyNetwork')}</span>
+                <p className="text-[11px] text-ink-soft">{t('gitAgent.privacyNetworkDesc') || 'Masks RFC1918 private IPs, internal cluster hostnames, and topology assets.'}</p>
+              </div>
+              <SwitchToggle checked={draft.categories.network} onCheckedChange={() => handleToggleCategory('network')} size="sm" aria-label={t('gitAgent.privacyNetwork')} />
+            </div>
           </div>
+        </SettingsSectionCard>
 
-          {/* PII */}
-          <div className="flex items-center justify-between p-3">
-            <div>
-              <span className="text-xs font-medium text-ink">{t('gitAgent.privacyPii')}</span>
-              <p className="text-[11px] text-ink-soft">掩盖 Commit 作者邮箱、电话号码与用户个人识别符</p>
+        {/* Card 3: Custom Words & Allowlist */}
+        <SettingsSectionCard
+          title={t('gitAgent.privacyRulesTitle') || 'Custom Terms & Allowlist'}
+          description={t('gitAgent.privacyRulesDesc') || 'Configure project-specific terms to redact and allowlist patterns exempt from masking.'}
+        >
+          <div className={cn('flex flex-col gap-4', !draft.enabled && 'pointer-events-none opacity-50')}>
+            {/* Custom Words */}
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <label htmlFor="privacy-custom-words" className="text-xs font-semibold text-ink">
+                    {t('gitAgent.privacyCustomWords')}
+                  </label>
+                  <p className="text-[11px] text-ink-soft">
+                    {t('gitAgent.privacyCustomWordsDesc') || 'Project-specific terms or codenames to force-redact before sending and restore in replies.'}
+                  </p>
+                </div>
+                {draft.customWords.length > 0 && draft.enabled && (
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-[11px] text-ink-soft font-mono">{draft.customWords.length}</span>
+                    <button type="button" onClick={() => handleCustomWordsChange([])} className="text-[11px] text-ink-soft hover:text-danger transition-colors cursor-pointer">
+                      {t('common.clear')}
+                    </button>
+                  </div>
+                )}
+              </div>
+              <TagInput
+                id="privacy-custom-words"
+                value={draft.customWords.map((cw) => cw.word)}
+                onChange={handleCustomWordsChange}
+                placeholder={t('gitAgent.privacyCustomWordsPlaceholder')}
+                disabled={!draft.enabled}
+                multiline
+                rows={3}
+              />
+              <p className="text-xs text-ink-soft leading-relaxed">
+                {t('gitAgent.privacyCustomWordsHint') ||
+                  'Manage sensitive terms as tags. Supports wildcards (e.g. PROJ_*, secret_?). Press Enter or comma to add, or paste multiple lines.'}
+              </p>
             </div>
-            <SwitchToggle checked={redactionOptions.categories.pii} onCheckedChange={() => handleToggleCategory('pii')} size="sm" aria-label={t('gitAgent.privacyPii')} />
+
+            {/* Allowlist */}
+            <div className="flex flex-col gap-2 border-t border-line/60 pt-4">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <label htmlFor="privacy-allow-list" className="text-xs font-semibold text-ink">
+                    {t('gitAgent.privacyAllowList')}
+                  </label>
+                  <p className="text-[11px] text-ink-soft">
+                    {t('gitAgent.privacyAllowListDesc') || 'Exempt terms that will never be masked even when matched by built-in redaction rules.'}
+                  </p>
+                </div>
+                {draft.allowList.length > 0 && draft.enabled && (
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-[11px] text-ink-soft font-mono">{draft.allowList.length}</span>
+                    <button type="button" onClick={() => handleAllowListChange([])} className="text-[11px] text-ink-soft hover:text-danger transition-colors cursor-pointer">
+                      {t('common.clear')}
+                    </button>
+                  </div>
+                )}
+              </div>
+              <TagInput
+                id="privacy-allow-list"
+                value={draft.allowList}
+                onChange={handleAllowListChange}
+                placeholder={t('gitAgent.privacyAllowListPlaceholder')}
+                disabled={!draft.enabled}
+                multiline
+                rows={3}
+              />
+              <p className="text-xs text-ink-soft leading-relaxed">
+                {t('gitAgent.privacyAllowListHint') || 'Manage allowlist tags. Supports domain and name wildcards (e.g. *.internal.net, public-*).'}
+              </p>
+            </div>
+
+            {/* Save Actions inside card */}
+            <div className="flex items-center justify-end gap-2 border-t border-line/60 pt-3">
+              {isDirty && (
+                <Button type="button" variant="ghost" onClick={handleReset}>
+                  <LuRotateCcw aria-hidden="true" />
+                  {t('common.cancel')}
+                </Button>
+              )}
+              <Button type="submit" variant="accent" disabled={!isDirty}>
+                <LuSave aria-hidden="true" />
+                {t('common.save')}
+              </Button>
+            </div>
           </div>
-
-          {/* Network */}
-          <div className="flex items-center justify-between p-3">
-            <div>
-              <span className="text-xs font-medium text-ink">{t('gitAgent.privacyNetwork')}</span>
-              <p className="text-[11px] text-ink-soft">掩盖内网 RFC1918 私有 IP、内部集群域名等拓扑资产</p>
-            </div>
-            <SwitchToggle
-              checked={redactionOptions.categories.network}
-              onCheckedChange={() => handleToggleCategory('network')}
-              size="sm"
-              aria-label={t('gitAgent.privacyNetwork')}
-            />
-          </div>
-        </div>
-      </SettingsSectionCard>
-
-      {/* Card 3: Custom Words */}
-      <SettingsSectionCard
-        title={t('gitAgent.privacyCustomWords')}
-        description="配置需要额外强制脱敏的项目特有专有词汇或敏感代号（发送前替换为语义占位符并在回复时自动还原）"
-        titleAction={
-          redactionOptions.customWords.length > 0 && redactionOptions.enabled ? (
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] text-ink-soft font-mono">{redactionOptions.customWords.length}</span>
-              <button type="button" onClick={() => handleCustomWordsChange([])} className="text-[11px] text-ink-soft hover:text-danger transition-colors cursor-pointer">
-                {t('common.clear')}
-              </button>
-            </div>
-          ) : undefined
-        }
-      >
-        <div className={cn('flex flex-col gap-2', !redactionOptions.enabled && 'pointer-events-none opacity-50')}>
-          <TagInput
-            id="privacy-custom-words"
-            value={redactionOptions.customWords.map((cw) => cw.word)}
-            onChange={handleCustomWordsChange}
-            placeholder={t('gitAgent.privacyCustomWordsPlaceholder') || '输入敏感词后按 Enter 或逗号添加...'}
-            disabled={!redactionOptions.enabled}
-            multiline
-            rows={3}
-          />
-          <p className="text-xs text-ink-soft leading-relaxed">
-            以标签形式管理多个项目敏感代号，支持通配符（如 <code className="font-mono text-ink">PROJ_*</code>、<code className="font-mono text-ink">secret_?</code>），按 Enter
-            或逗号添加，支持粘贴批量录入。
-          </p>
-        </div>
-      </SettingsSectionCard>
-
-      {/* Card 4: Allowlist */}
-      <SettingsSectionCard
-        title={t('gitAgent.privacyAllowList')}
-        description="配置即使命中内置脱敏规则也不被掩盖的豁免词汇"
-        titleAction={
-          redactionOptions.allowList.length > 0 && redactionOptions.enabled ? (
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] text-ink-soft font-mono">{redactionOptions.allowList.length}</span>
-              <button type="button" onClick={() => handleAllowListChange([])} className="text-[11px] text-ink-soft hover:text-danger transition-colors cursor-pointer">
-                {t('common.clear')}
-              </button>
-            </div>
-          ) : undefined
-        }
-      >
-        <div className={cn('flex flex-col gap-2', !redactionOptions.enabled && 'pointer-events-none opacity-50')}>
-          <TagInput
-            id="privacy-allow-list"
-            value={redactionOptions.allowList}
-            onChange={handleAllowListChange}
-            placeholder={t('gitAgent.privacyAllowListPlaceholder') || '输入豁免词后按 Enter 或逗号添加...'}
-            disabled={!redactionOptions.enabled}
-            multiline
-            rows={3}
-          />
-          <p className="text-xs text-ink-soft leading-relaxed">
-            配置白名单标签，支持域名与名称通配符（如 <code className="font-mono text-ink">*.internal.net</code>、<code className="font-mono text-ink">public-*</code>
-            ），命中后将安全豁免脱敏。
-          </p>
-        </div>
-      </SettingsSectionCard>
-    </div>
+        </SettingsSectionCard>
+      </form>
+    </SettingsColumns>
   )
 }

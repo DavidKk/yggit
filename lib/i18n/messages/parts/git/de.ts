@@ -1,3 +1,4 @@
+import { gitEn } from './en'
 import type { GitMessages } from './types'
 
 export const gitDe: GitMessages = {
@@ -94,6 +95,7 @@ export const gitDe: GitMessages = {
     files: 'Dateien',
   },
   sidebar: {
+    ...gitEn.sidebar,
     navAria: 'Zweige',
     sections: {
       local: 'Lokal',
@@ -136,6 +138,7 @@ export const gitDe: GitMessages = {
     worktreeEdgeUnsupportedMsg: 'Der Browser verhindert den Zugriff auf externe Worktrees. Laden Sie die Yggit-Desktop-App herunter, um diese Funktion zu nutzen.',
   },
   diff: {
+    ...gitEn.diff,
     searchContent: 'Search content',
     searchPlaceholder: 'Search this pane…',
     previousConflict: 'Previous conflict',
@@ -179,6 +182,7 @@ export const gitDe: GitMessages = {
     prevConflict: 'Vorheriger Konflikt',
   },
   commit: {
+    ...gitEn.commit,
     conflictsOnly: 'Nur Dateien mit Konflikten anzeigen',
     conflictLocations: '{count} Konflikte',
     conflictCountUnknown: 'Konfliktanzahl nicht verfügbar',
@@ -216,6 +220,7 @@ export const gitDe: GitMessages = {
     truncated: 'Die Datei ist zu lang; es wird nur der Anfang angezeigt.',
   },
   project: {
+    ...gitEn.project,
     removeProject: 'Remove project',
     removeProjectConfirm: 'Remove project {name}?',
     removeProjectHint: 'Remove from the project list. Local and remote repositories are retained.',
@@ -317,4 +322,6 @@ export const gitDe: GitMessages = {
     backHome: 'Zurück zur Startseite',
     associateAndOpen: 'Zuordnen und öffnen',
   },
+  toolbar: gitEn.toolbar,
+  operations: gitEn.operations,
 }

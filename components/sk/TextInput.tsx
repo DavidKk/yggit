@@ -1,13 +1,16 @@
 'use client'
 
-import { type ChangeEvent, forwardRef, type InputHTMLAttributes, type MouseEvent } from 'react'
+import { type ChangeEvent, forwardRef, type InputHTMLAttributes, type MouseEvent, type ReactNode } from 'react'
 import { IoCloseOutline, IoSearchOutline } from 'react-icons/io5'
 
 import { controlDisabled, controlDisabledShell, FORM_CONTROL_H, formControlChrome, formControlPadX } from '@/components/sk/control'
+import { FormMessageDropdown } from '@/components/sk/FormMessageDropdown'
 import { cn } from '@/lib/utils'
 
 export type TextInputProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'size'> & {
   invalid?: boolean
+  error?: ReactNode
+  warn?: ReactNode
   /** 在 flex 行内占满剩余宽度（不影响默认自适应宽度） */
   fullWidth?: boolean
   /** 搜索框：左侧内嵌 search 图标（与输入同框，勿外挂独立搜索钮） */
@@ -17,9 +20,11 @@ export type TextInputProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'size'>
 }
 
 export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(function TextInput(
-  { className, invalid = false, fullWidth = false, search = false, clearable = false, type = 'text', disabled, value, onChange, ...rest },
+  { className, invalid = false, error, warn, fullWidth = false, search = false, clearable = false, type = 'text', disabled, value, onChange, ...rest },
   ref
 ) {
+  const resolvedInvalid = invalid || Boolean(error)
+  const resolvedWarn = !resolvedInvalid && Boolean(warn)
   const resolvedType = search ? 'search' : type
   const hasValue = value != null && String(value).length > 0
   const showClear = clearable && hasValue && !disabled
@@ -39,7 +44,7 @@ export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(function T
       disabled={disabled}
       value={value}
       onChange={onChange}
-      aria-invalid={invalid || undefined}
+      aria-invalid={resolvedInvalid || undefined}
       className={cn(
         search
           ? cn(
@@ -51,7 +56,8 @@ export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(function T
             )
           : cn(formControlChrome, formControlPadX, FORM_CONTROL_H, 'min-w-[5.5rem] focus:border-accent', controlDisabled),
         !search && fullWidth && 'w-full min-w-0 flex-1',
-        !search && invalid && 'border-fail',
+        !search && resolvedInvalid && 'border-fail',
+        !search && resolvedWarn && 'border-warn',
         !search && showClear && 'pr-7',
         !search && className
       )}
@@ -67,7 +73,7 @@ export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(function T
     />
   )
 
-  if (!search && !showClear) return input
+  if (!search && !showClear && !error && !warn) return input
 
   if (!search) {
     return (
@@ -83,6 +89,7 @@ export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(function T
             <IoCloseOutline size={14} aria-hidden />
           </button>
         ) : null}
+        <FormMessageDropdown error={error} warn={warn} />
       </span>
     )
   }
@@ -92,9 +99,10 @@ export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(function T
       className={cn(
         formControlChrome,
         FORM_CONTROL_H,
-        'inline-flex min-w-[5.5rem] items-center gap-1 pr-1.5 pl-2 focus-within:border-accent',
+        'relative inline-flex min-w-[5.5rem] items-center gap-1 pr-1.5 pl-2 focus-within:border-accent',
         fullWidth && 'w-full min-w-0 flex-1',
-        invalid && 'border-fail',
+        resolvedInvalid && 'border-fail',
+        resolvedWarn && 'border-warn',
         disabled && controlDisabledShell,
         className
       )}
@@ -112,6 +120,7 @@ export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(function T
           <IoCloseOutline size={14} aria-hidden />
         </button>
       ) : null}
+      <FormMessageDropdown error={error} warn={warn} />
     </span>
   )
 })

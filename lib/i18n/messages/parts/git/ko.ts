@@ -1,3 +1,4 @@
+import { gitEn } from './en'
 import type { GitMessages } from './types'
 
 export const gitKo: GitMessages = {
@@ -93,6 +94,7 @@ export const gitKo: GitMessages = {
     files: '파일',
   },
   sidebar: {
+    ...gitEn.sidebar,
     navAria: '브랜치',
     sections: {
       local: '로컬',
@@ -135,6 +137,7 @@ export const gitKo: GitMessages = {
     worktreeEdgeUnsupportedMsg: '브라우저 제한으로 외부 Worktree에 접근할 수 없습니다. 이 기능을 사용하려면 Yggit 데스크톱 앱을 다운로드하세요.',
   },
   diff: {
+    ...gitEn.diff,
     searchContent: 'Search content',
     searchPlaceholder: 'Search this pane…',
     previousConflict: 'Previous conflict',
@@ -178,6 +181,7 @@ export const gitKo: GitMessages = {
     prevConflict: '이전 충돌',
   },
   commit: {
+    ...gitEn.commit,
     conflictsOnly: '충돌 파일만 표시',
     conflictLocations: '충돌 {count}개',
     conflictCountUnknown: '충돌 수를 확인할 수 없습니다',
@@ -215,6 +219,7 @@ export const gitKo: GitMessages = {
     truncated: '파일이 너무 길어 앞부분만 표시합니다.',
   },
   project: {
+    ...gitEn.project,
     removeProject: 'Remove project',
     removeProjectConfirm: 'Remove project {name}?',
     removeProjectHint: 'Remove from the project list. Local and remote repositories are retained.',
@@ -344,4 +349,6 @@ export const gitKo: GitMessages = {
     backHome: '홈으로 돌아가기',
     associateAndOpen: '연결 및 열기',
   },
+  toolbar: gitEn.toolbar,
+  operations: gitEn.operations,
 }

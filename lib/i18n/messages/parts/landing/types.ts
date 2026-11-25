@@ -38,6 +38,19 @@ export interface LandingMessages {
     assetsSubtitle: string
     assetsCardTitle: string
     assetsCardDesc: string
+    coreLayer1Name: string
+    coreLayer1Desc: string
+    coreLayer2Name: string
+    coreLayer2Desc: string
+    coreLayer3Name: string
+    coreLayer3Desc: string
+    coreLayer4Name: string
+    coreLayer4Desc: string
+    coreLayer5Name: string
+    coreLayer5Desc: string
+    coreLayer6Name: string
+    coreLayer6Desc: string
+    noSubLayers: string
     dayMaster: string
     nightMaster: string
     rgbaBadge: string
@@ -46,6 +59,13 @@ export interface LandingMessages {
     resolution: string
     pathLabel: string
     layersTitle: string
+    locateInGroup: string
+    soloLayer: string
+    toggleAllGroups: string
+    expandGroup: string
+    collapseGroup: string
+    soloViewTooltip: string
+    returnToGroupTooltip: string
     layersDesc: string
     colId: string
     colDesc: string

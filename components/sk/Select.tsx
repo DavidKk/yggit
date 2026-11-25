@@ -1,11 +1,12 @@
 'use client'
 
-import { type ChangeEvent, Fragment, type KeyboardEvent, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { type ChangeEvent, Fragment, type KeyboardEvent, type ReactNode, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { IoCheckmark, IoChevronDown } from 'react-icons/io5'
 
 import { useT } from '@/components/i18n/LocaleProvider'
 import { controlDisabled, controlDisabledShell, FORM_CONTROL_H, formControlChrome, formControlPadX } from '@/components/sk/control'
+import { FormMessageDropdown } from '@/components/sk/FormMessageDropdown'
 import { ScrollArea } from '@/components/sk/ScrollArea'
 import { Spinner } from '@/components/sk/Spinner'
 import { TextInput } from '@/components/sk/TextInput'
@@ -54,6 +55,9 @@ export type SelectProps = {
    * Keep a fixed width via `className` (e.g. `w-[5.75rem]`).
    */
   embedded?: boolean
+  invalid?: boolean
+  error?: ReactNode
+  warn?: ReactNode
 }
 
 export function Select({
@@ -72,7 +76,12 @@ export function Select({
   onOpen,
   loading = false,
   embedded = false,
+  invalid = false,
+  error,
+  warn,
 }: SelectProps) {
+  const resolvedInvalid = invalid || Boolean(error)
+  const resolvedWarn = !resolvedInvalid && Boolean(warn)
   const t = useT()
   const resolvedPlaceholder = placeholder ?? t('common.selectPlaceholder')
   const resolvedEmptyLabel = emptyLabel ?? t('common.emptyOptions')
@@ -335,7 +344,9 @@ export function Select({
               'hover:enabled:border-[rgb(230_238_248/0.2)]',
               'focus-visible:border-accent',
               controlDisabled,
-              open && 'border-accent'
+              open && 'border-accent',
+              resolvedInvalid && 'border-fail',
+              resolvedWarn && 'border-warn'
             )
       )}
       disabled={disabled}
@@ -365,6 +376,7 @@ export function Select({
         <span className="inline-flex h-full w-full">{triggerButton}</span>
       )}
       {panel}
+      <FormMessageDropdown error={error} warn={warn} />
     </div>
   )
 }

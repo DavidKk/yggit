@@ -19,7 +19,7 @@ export const cht: MessageTree = {
     switch: '切換語言',
     auto: '跟隨系統（{name}）',
   },
-  theme: { label: '外觀', switch: '切換外觀', auto: '跟隨系統', autoShort: '系統', light: '光亮', dark: '暗黑' },
+  theme: { label: '外觀', switch: '切換外觀', auto: '跟隨系統', autoShort: '系統', light: '光亮', lightShort: '淺色', dark: '暗黑', darkShort: '深色' },
   nav: {
     main: '導覽',
     menu: '導覽',

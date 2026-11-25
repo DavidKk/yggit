@@ -19,7 +19,7 @@ export const ptBR: MessageTree = {
     switch: 'Mudar idioma',
     auto: 'Sistema ({name})',
   },
-  theme: { label: 'Aparência', switch: 'Aparência', auto: 'Sistema', autoShort: 'Sistema', light: 'Claro', dark: 'Escuro' },
+  theme: { label: 'Aparência', switch: 'Aparência', auto: 'Sistema', autoShort: 'Sistema', light: 'Claro', lightShort: 'Claro', dark: 'Escuro', darkShort: 'Escuro' },
   nav: {
     main: 'Navegação',
     menu: 'Navegação',

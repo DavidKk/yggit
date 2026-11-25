@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import React from 'react'
-import { LuCompass, LuSettings } from 'react-icons/lu'
+import { LuSettings } from 'react-icons/lu'
 
 import { BrandLogo } from '@/components/BrandLogo'
 import { GitModeSwitcher } from '@/components/git/GitModeSwitcher'
@@ -61,28 +61,13 @@ export function WorkspaceHeader() {
       <div className="ml-auto flex shrink-0 items-center gap-1.5">
         <div ref={ctx?.setActionsNode} className="flex items-center gap-1.5" />
 
-        {/* Git Mode Switcher (Edge / Local) retained across development view */}
-        {process.env.NODE_ENV === 'development' && <GitModeSwitcher />}
-
-        {/* Development-only Homepage Studio / Resource Editor Entry (Right of Edge, Left of ThemeSwitcher) */}
-        {process.env.NODE_ENV === 'development' && (
-          <Tooltip content={t('landing.studio.headerTip')} placement="bottom">
-            <Link
-              href="/dev/studio"
-              className={cn(
-                dropdownTriggerClass,
-                'px-2 gap-1.5 text-xs font-mono font-medium',
-                pathname.startsWith('/dev') && 'bg-[color-mix(in_oklab,var(--ink)_9%,transparent)] font-semibold text-accent'
-              )}
-              aria-label={t('landing.header.devStudio')}
-            >
-              <LuCompass className="size-3.5 text-accent shrink-0" aria-hidden="true" />
-              <span className="hidden sm:inline">{t('landing.header.devStudio')}</span>
-            </Link>
-          </Tooltip>
+        {/* Git Mode Switcher (Edge / Local) retained across development view (hidden in /dev pages) */}
+        {!pathname.startsWith('/dev') && process.env.NODE_ENV === 'development' && (
+          <>
+            <GitModeSwitcher />
+            <span className="mx-0.5 h-3.5 w-px shrink-0 bg-[color-mix(in_oklab,var(--ink)_14%,transparent)]" aria-hidden="true" />
+          </>
         )}
-
-        <span className="mx-0.5 h-3.5 w-px shrink-0 bg-[color-mix(in_oklab,var(--ink)_14%,transparent)]" aria-hidden="true" />
 
         <ThemeSwitcher compact />
         <LocaleSwitcher compact />
@@ -95,10 +80,10 @@ export function WorkspaceHeader() {
                 saveLastGitUrl(window.location.pathname + window.location.search)
               }
             }}
-            className={cn(dropdownTriggerClass, 'px-2', isSettings && 'bg-[color-mix(in_oklab,var(--ink)_9%,transparent)] font-semibold text-accent')}
+            className={cn(dropdownTriggerClass, isSettings && 'border-accent/40 bg-accent/15 font-semibold text-accent shadow-xs')}
             aria-label={t('gitAgent.settingsTitle')}
           >
-            <LuSettings className="size-4 shrink-0" aria-hidden="true" />
+            <LuSettings className="size-3.5 shrink-0" aria-hidden="true" />
             <span className="sr-only sm:not-sr-only">{t('gitAgent.settingsTitle')}</span>
           </Link>
         </Tooltip>

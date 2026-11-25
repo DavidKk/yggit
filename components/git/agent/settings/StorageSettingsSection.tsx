@@ -257,18 +257,16 @@ export function StorageSettingsSection() {
                 </div>
                 <div className="flex items-center gap-2.5 shrink-0">
                   <span className="font-mono text-xs tabular-nums text-ink">{formatBytes(item.bytes)}</span>
-                  {item.clearable && (
-                    <Button
-                      variant="plain"
-                      size="mini"
-                      disabled={busy || item.bytes === 0}
-                      tooltip="清理该缓存"
-                      aria-label={`清理 ${item.label}`}
-                      onClick={() => handleClearItem(item.name, item.label)}
-                    >
-                      <LuTrash2 className="size-3.5 text-ink-soft hover:text-danger" />
-                    </Button>
-                  )}
+                  <Button
+                    variant="plain"
+                    size="mini"
+                    disabled={!item.clearable || busy || item.bytes === 0}
+                    tooltip={item.clearable ? '清理该缓存' : '核心配置项不可清理'}
+                    aria-label={`清理 ${item.label}`}
+                    onClick={() => handleClearItem(item.name, item.label)}
+                  >
+                    <LuTrash2 className="size-3.5 text-ink-soft hover:text-danger" />
+                  </Button>
                 </div>
               </li>
             ))}

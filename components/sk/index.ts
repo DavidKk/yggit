@@ -9,6 +9,7 @@ export { DataTable, type DataTableColumn, type DataTableProps, type DataTableSor
 export { DurationInput, type DurationInputProps } from '@/components/sk/DurationInput'
 export { EmptyState } from '@/components/sk/EmptyState'
 export { FilterToggle, type FilterToggleProps, type FilterToggleTone } from '@/components/sk/FilterToggle'
+export { FormMessageDropdown } from '@/components/sk/FormMessageDropdown'
 export { GateButton, type GateButtonProps } from '@/components/sk/GateButton'
 export { GradientButton, type GradientButtonProps } from '@/components/sk/GradientButton'
 export { InputSuggestion, type InputSuggestionAction, type InputSuggestionOption, type InputSuggestionProps } from '@/components/sk/InputSuggestion'

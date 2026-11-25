@@ -47,7 +47,7 @@ export function ThemeSwitcher({ className }: Props) {
     <span ref={anchorRef} className={cn('inline-flex', className)}>
       <Menu.Root>
         <Menu.Trigger aria-label={t('theme.switch')} className={dropdownTriggerClass}>
-          <TriggerIcon size={15} aria-hidden className="shrink-0" />
+          <TriggerIcon size={14} aria-hidden className="shrink-0" />
           <span className="whitespace-nowrap">{triggerLabel}</span>
         </Menu.Trigger>
         <Menu.Portal container={container}>

@@ -1,3 +1,4 @@
+import { gitEn } from './en'
 import type { GitMessages } from './types'
 
 export const gitRu: GitMessages = {
@@ -93,6 +94,7 @@ export const gitRu: GitMessages = {
     files: 'Файлы',
   },
   sidebar: {
+    ...gitEn.sidebar,
     navAria: 'Ветви',
     sections: {
       local: 'Местный',
@@ -135,6 +137,7 @@ export const gitRu: GitMessages = {
     worktreeEdgeUnsupportedMsg: 'Ограничения браузера не позволяют читать внешние Worktree. Скачайте приложение Yggit для компьютера.',
   },
   diff: {
+    ...gitEn.diff,
     searchContent: 'Search content',
     searchPlaceholder: 'Search this pane…',
     previousConflict: 'Previous conflict',
@@ -178,6 +181,7 @@ export const gitRu: GitMessages = {
     prevConflict: 'Предыдущий конфликт',
   },
   commit: {
+    ...gitEn.commit,
     conflictsOnly: 'Только файлы с конфликтами',
     conflictLocations: 'Конфликтов: {count}',
     conflictCountUnknown: 'Количество конфликтов недоступно',
@@ -215,6 +219,7 @@ export const gitRu: GitMessages = {
     truncated: 'Файл слишком длинный; показана только начальная часть.',
   },
   project: {
+    ...gitEn.project,
     removeProject: 'Remove project',
     removeProjectConfirm: 'Remove project {name}?',
     removeProjectHint: 'Remove from the project list. Local and remote repositories are retained.',
@@ -315,4 +320,6 @@ export const gitRu: GitMessages = {
     backHome: 'На главную',
     associateAndOpen: 'Связать и открыть',
   },
+  toolbar: gitEn.toolbar,
+  operations: gitEn.operations,
 }

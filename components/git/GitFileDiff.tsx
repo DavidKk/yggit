@@ -764,11 +764,11 @@ export function GitFileDiff({
         </div>
       ) : resolvedKind === 'image' ? (
         <div id="git-diff-view" role="tabpanel" aria-label={t('git.diff.diffView')} className="flex min-h-0 flex-1 flex-col">
-          <p className="m-0 border-b border-line px-3 py-2 text-xs text-ink-soft">{t('git.diff.imagePreviewNote')}</p>
+          {!changes?.contentMissing && <p className="m-0 border-b border-line px-3 py-2 text-xs text-ink-soft">{t('git.diff.imagePreviewNote')}</p>}
           <GitFilePreview kind="image" repo={repo} hash={hash} path={path} missing={changes?.contentMissing === true} binary />
         </div>
       ) : changes?.contentBinary && resolvedKind === 'binary' ? (
-        <EmptyState density="compact" className="px-3 py-8" title={t('git.diff.cannotPreview')} message={t('git.diff.binary')} />
+        <EmptyState density="panel" className="flex-1 h-full min-h-0" title={t('git.diff.cannotPreview')} message={t('git.diff.binary')} />
       ) : viewport === 'group' && hunks.length === 0 ? (
         <div className="flex min-h-0 flex-1 flex-col">
           <p className="m-0 border-b border-line p-2 text-xs text-ink-soft">{t('git.diff.noTextDiff')}</p>
@@ -786,7 +786,7 @@ export function GitFileDiff({
           />
         </div>
       ) : (viewport === 'full' || viewport === 'split') && aligned.length === 0 ? (
-        <EmptyState density="compact" className="px-3 py-8" title={t('git.diff.noChanges')} message={t('git.diff.noTextDiff')} />
+        <EmptyState density="panel" className="flex-1 h-full min-h-0" title={t('git.diff.noChanges')} message={t('git.diff.noTextDiff')} />
       ) : viewport === 'split' ? (
         <SplitRows
           rows={aligned}

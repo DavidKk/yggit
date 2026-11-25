@@ -19,7 +19,7 @@ export const es: MessageTree = {
     switch: 'Cambiar idioma',
     auto: 'Sistema ({name})',
   },
-  theme: { label: 'Apariencia', switch: 'Apariencia', auto: 'Sistema', autoShort: 'Sistema', light: 'Claro', dark: 'Oscuro' },
+  theme: { label: 'Apariencia', switch: 'Apariencia', auto: 'Sistema', autoShort: 'Sistema', light: 'Claro', lightShort: 'Claro', dark: 'Oscuro', darkShort: 'Oscuro' },
   nav: {
     main: 'Navegación',
     menu: 'Navegación',

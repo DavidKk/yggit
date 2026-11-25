@@ -50,6 +50,8 @@ export interface AgentContextValue {
 
 export const AgentContext = createContext<AgentContextValue | null>(null)
 
+const REDACTION_OPTIONS_STORAGE_KEY = 'yggit.agent.redaction-options.v1'
+
 export const DEFAULT_REDACTION_OPTIONS: RedactionOptions = {
   enabled: true,
   categories: {
@@ -320,6 +322,41 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
     [activeProfileId]
   )
   const [redactionOptions, setRedactionOptions] = useState<RedactionOptions>(DEFAULT_REDACTION_OPTIONS)
+  const [redactionLoaded, setRedactionLoaded] = useState(false)
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(REDACTION_OPTIONS_STORAGE_KEY)
+      if (raw) {
+        const parsed = JSON.parse(raw) as Partial<RedactionOptions>
+        if (parsed && typeof parsed === 'object') {
+          setRedactionOptions({
+            enabled: typeof parsed.enabled === 'boolean' ? parsed.enabled : DEFAULT_REDACTION_OPTIONS.enabled,
+            categories: {
+              secrets: typeof parsed.categories?.secrets === 'boolean' ? parsed.categories.secrets : DEFAULT_REDACTION_OPTIONS.categories.secrets,
+              pii: typeof parsed.categories?.pii === 'boolean' ? parsed.categories.pii : DEFAULT_REDACTION_OPTIONS.categories.pii,
+              network: typeof parsed.categories?.network === 'boolean' ? parsed.categories.network : DEFAULT_REDACTION_OPTIONS.categories.network,
+              custom: typeof parsed.categories?.custom === 'boolean' ? parsed.categories.custom : DEFAULT_REDACTION_OPTIONS.categories.custom,
+            },
+            customWords: Array.isArray(parsed.customWords) ? parsed.customWords : DEFAULT_REDACTION_OPTIONS.customWords,
+            allowList: Array.isArray(parsed.allowList) ? parsed.allowList : DEFAULT_REDACTION_OPTIONS.allowList,
+          })
+        }
+      }
+    } catch {
+      // Keep default redaction options when storage is unavailable.
+    }
+    setRedactionLoaded(true)
+  }, [])
+
+  useEffect(() => {
+    if (!redactionLoaded) return
+    try {
+      localStorage.setItem(REDACTION_OPTIONS_STORAGE_KEY, JSON.stringify(redactionOptions))
+    } catch {
+      // Ignore storage write errors.
+    }
+  }, [redactionOptions, redactionLoaded])
   const [dockMode, setDockMode] = useState<AgentDockMode>('collapsed')
 
   useEffect(() => {

@@ -1636,7 +1636,7 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
           className={
             fullScreenStage
               ? 'notranslate absolute inset-0 overflow-hidden select-none [container-type:size]'
-              : 'notranslate relative w-full aspect-[16/9] min-h-[560px] rounded-2xl overflow-hidden border border-teal-900/70 bg-[#03090d] shadow-2xl select-none [container-type:size]'
+              : 'notranslate relative w-full aspect-[16/9] min-h-[560px] rounded-2xl overflow-hidden border border-line bg-paper-2 shadow-2xl select-none [container-type:size]'
           }
         >
           {/* LAYER 0: Persistent 60 FPS Canvas */}

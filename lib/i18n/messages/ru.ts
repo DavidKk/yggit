@@ -19,7 +19,7 @@ export const ru: MessageTree = {
     switch: 'Сменить язык',
     auto: 'Системный ({name})',
   },
-  theme: { label: 'Оформление', switch: 'Оформление', auto: 'Системная', autoShort: 'Система', light: 'Светлая', dark: 'Тёмная' },
+  theme: { label: 'Оформление', switch: 'Оформление', auto: 'Системная', autoShort: 'Система', light: 'Светлая', lightShort: 'Светлая', dark: 'Тёмная', darkShort: 'Тёмная' },
   nav: {
     main: 'Навигация',
     menu: 'Навигация',

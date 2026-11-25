@@ -19,7 +19,6 @@ import { McpSettingsSection } from './McpSettingsSection'
 import { MenuSettingsSection } from './MenuSettingsSection'
 import { ModelChannelSection } from './ModelChannelSection'
 import { PrivacyRedactSection } from './PrivacyRedactSection'
-import { RuleDebugger } from './RuleDebugger'
 import { SettingsColumns } from './SettingsColumns'
 import { type SettingsSectionKey, SettingsSideNav } from './SettingsSideNav'
 import { SkillEditor } from './SkillEditor'
@@ -190,11 +189,7 @@ export function AgentSettingsPageContent({ section = 'models', menuActionId, ski
               {activeSection === 'models' && <ModelChannelSection />}
               {activeSection === 'skills' && <div className="max-w-4xl">{skillId ? <SkillEditor skillId={skillId} /> : <SkillsSettingsSection />}</div>}
               {activeSection === 'mcp' && <div className="max-w-4xl">{mcpServerId ? <McpServerEditor serverId={mcpServerId} /> : <McpSettingsSection />}</div>}
-              {activeSection === 'privacy' && (
-                <SettingsColumns tools={<RuleDebugger />}>
-                  <PrivacyRedactSection />
-                </SettingsColumns>
-              )}
+              {activeSection === 'privacy' && <PrivacyRedactSection />}
               {activeSection === 'general' && (
                 <div className="max-w-4xl">
                   <GeneralSettingsSection />

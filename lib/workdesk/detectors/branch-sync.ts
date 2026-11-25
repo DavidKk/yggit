@@ -86,15 +86,17 @@ export function detectDefaultBranchSync(ctx: BranchSyncDetectorContext): Finding
     severity = 'info'
     stateKind = 'warn'
     conclusion = '本地领先，包含未推送提交'
-  } else if (isDirty) {
-    severity = 'warning'
-    stateKind = 'warn'
-    conclusion = '本地工作区有未提交变更'
   }
 
-  // Only produce finding if there is an active item to attend to
-  // (remote ahead, diverged, local ahead, dirty, or unverified)
-  const isFullySynchronizedClean = ahead === 0 && behind === 0 && !isDirty && upstream && !isCheckedOutElsewhere
+  // A branch is fully synchronized if there are no incoming commits (behind === 0),
+  // no outgoing unpushed commits (ahead === 0), it has an upstream tracking branch, and is not locked elsewhere.
+  // Uncommitted working tree files alone do NOT constitute a remote branch sync finding when behind === 0.
+  const isFullySynchronized = ahead === 0 && behind === 0 && Boolean(upstream) && !isCheckedOutElsewhere
+  if (isFullySynchronized) {
+    severity = 'info'
+    stateKind = 'safe'
+    conclusion = '已与远程保持同步'
+  }
 
   const fingerprint = generateFindingFingerprint({
     repoIdentity: repoId,
@@ -116,7 +118,7 @@ export function detectDefaultBranchSync(ctx: BranchSyncDetectorContext): Finding
     kind: 'sync',
     source: 'git',
     severity,
-    lifecycle: isFullySynchronizedClean ? 'resolved' : 'open',
+    lifecycle: isFullySynchronized ? 'resolved' : 'open',
     freshness,
     target: { name: branchName, oid: localTip },
     sources: upstream ? [{ name: upstream, oid: remoteTip }] : [],

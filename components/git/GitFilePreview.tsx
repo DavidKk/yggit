@@ -2,6 +2,7 @@
 
 import { marked } from 'marked'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { LuFileCode, LuFileX2, LuImageOff } from 'react-icons/lu'
 
 import { gitBlobUrl, type GitFileKind } from '@/components/git/fileKind'
 import { renderMarkdownWithHighlight } from '@/components/git/gitHighlight'
@@ -37,7 +38,15 @@ function ImagePreview({ repo, hash, path }: { repo: string; hash: string; path: 
   const [failed, setFailed] = useState(false)
   useEffect(() => setFailed(false), [src])
   if (failed) {
-    return <EmptyState density="compact" className="px-3 py-8" title={t('git.preview.imageFailed')} message={t('git.preview.imageFailedMsg')} />
+    return (
+      <EmptyState
+        density="panel"
+        className="flex-1 h-full min-h-0"
+        icon={<LuImageOff className="size-8 stroke-[1.5] text-ink-soft/40" aria-hidden="true" />}
+        title={t('git.preview.imageFailed')}
+        message={t('git.preview.imageFailedMsg')}
+      />
+    )
   }
   return (
     <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto p-4">
@@ -126,7 +135,15 @@ export function GitFilePreview({ kind, repo, hash, path, content, missing, binar
   const t = useT()
   const blameMap = useGitBlame(repo, path, hash)
   if (missing) {
-    return <EmptyState density="compact" className="px-3 py-8" title={t('git.preview.fileGone')} message={t('git.preview.fileGoneMsg')} />
+    return (
+      <EmptyState
+        density="panel"
+        className="flex-1 h-full min-h-0"
+        icon={<LuFileX2 className="size-8 stroke-[1.5] text-ink-soft/40" aria-hidden="true" />}
+        title={t('git.preview.fileGone')}
+        message={t('git.preview.fileGoneMsg')}
+      />
+    )
   }
 
   if (kind === 'image') {
@@ -134,7 +151,15 @@ export function GitFilePreview({ kind, repo, hash, path, content, missing, binar
   }
 
   if (kind === 'binary') {
-    return <EmptyState density="compact" className="px-3 py-8" title={t('git.preview.cannotPreview')} message={t('git.preview.binary')} />
+    return (
+      <EmptyState
+        density="panel"
+        className="flex-1 h-full min-h-0"
+        icon={<LuFileCode className="size-8 stroke-[1.5] text-ink-soft/40" aria-hidden="true" />}
+        title={t('git.preview.cannotPreview')}
+        message={t('git.preview.binary')}
+      />
+    )
   }
 
   if (kind === 'svg' || kind === 'markdown') {
@@ -156,7 +181,15 @@ export function GitFilePreview({ kind, repo, hash, path, content, missing, binar
   }
 
   if (binary) {
-    return <EmptyState density="compact" className="px-3 py-8" title={t('git.preview.cannotPreview')} message={t('git.preview.binary')} />
+    return (
+      <EmptyState
+        density="panel"
+        className="flex-1 h-full min-h-0"
+        icon={<LuFileCode className="size-8 stroke-[1.5] text-ink-soft/40" aria-hidden="true" />}
+        title={t('git.preview.cannotPreview')}
+        message={t('git.preview.binary')}
+      />
+    )
   }
 
   return (

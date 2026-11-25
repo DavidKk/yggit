@@ -1,9 +1,10 @@
 'use client'
 
-import React, { forwardRef, useCallback, useId, useRef, useState } from 'react'
+import React, { forwardRef, type ReactNode, useCallback, useId, useRef, useState } from 'react'
 import { LuX } from 'react-icons/lu'
 
 import { controlDisabled, controlDisabledShell, formControlChrome } from '@/components/sk/control'
+import { FormMessageDropdown } from '@/components/sk/FormMessageDropdown'
 import { cn } from '@/lib/utils'
 
 export interface TagInputProps {
@@ -12,6 +13,8 @@ export interface TagInputProps {
   placeholder?: string
   disabled?: boolean
   invalid?: boolean
+  error?: ReactNode
+  warn?: ReactNode
   className?: string
   id?: string
   'aria-label'?: string
@@ -31,9 +34,25 @@ export interface TagInputProps {
  * - Optional multiline / multi-row default height
  */
 export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(function TagInput(
-  { value = [], onChange, placeholder = '输入内容后按 Enter 添加...', disabled = false, invalid = false, className, id, 'aria-label': ariaLabel, maxTags, multiline = false, rows },
+  {
+    value = [],
+    onChange,
+    placeholder = '输入内容后按 Enter 添加...',
+    disabled = false,
+    invalid = false,
+    error,
+    warn,
+    className,
+    id,
+    'aria-label': ariaLabel,
+    maxTags,
+    multiline = false,
+    rows,
+  },
   forwardedRef
 ) {
+  const resolvedInvalid = invalid || Boolean(error)
+  const resolvedWarn = !resolvedInvalid && Boolean(warn)
   const generatedId = useId()
   const inputId = id || generatedId
   const internalInputRef = useRef<HTMLInputElement>(null)
@@ -121,16 +140,17 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(function Tag
     inputRef.current?.focus()
   }
 
-  return (
+  const box = (
     <div
       onClick={() => inputRef.current?.focus()}
       className={cn(
         formControlChrome,
         'h-auto flex flex-wrap gap-x-2 gap-y-1.5 px-2.5 py-1.5 cursor-text transition-colors',
         isMultiline ? cn(multilineHeightClass, 'items-start content-start max-h-56 overflow-y-auto') : 'min-h-9 items-center',
-        invalid && 'border-fail',
+        resolvedInvalid && 'border-fail',
+        resolvedWarn && 'border-warn',
         disabled && controlDisabledShell,
-        className
+        !error && !warn && className
       )}
     >
       {value.map((tag, idx) => (
@@ -172,6 +192,15 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(function Tag
           controlDisabled
         )}
       />
+    </div>
+  )
+
+  if (!error && !warn) return box
+
+  return (
+    <div className={cn('relative w-full', className)}>
+      {box}
+      <FormMessageDropdown error={error} warn={warn} />
     </div>
   )
 })

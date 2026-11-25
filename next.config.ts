@@ -60,5 +60,15 @@ export default function nextConfig(phase: string): NextConfig {
     serverExternalPackages: ['@lydell/node-pty'],
     // Electron installers need standalone; skip for Vercel / plain `next build`
     ...(electron ? { output: 'standalone' as const } : {}),
+    webpack(config, { dev }) {
+      if (dev) {
+        config.watchOptions = {
+          aggregateTimeout: 800, // 800ms debounce buffer: prevents frantic re-compilations on rapid sequential edits
+          poll: false,
+          ignored: ['**/node_modules/**', '**/.git/**', '**/.gemini/**', '**/brain/**', '**/.system_generated/**', '**/docs/**', '**/__tests__/**', '**/.next/cache/**'],
+        }
+      }
+      return config
+    },
   }
 }

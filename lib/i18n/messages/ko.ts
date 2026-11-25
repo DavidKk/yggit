@@ -11,7 +11,7 @@ import { eventsKo } from '@/lib/i18n/messages/parts/events.ko'
 import { floatingBallKo } from '@/lib/i18n/messages/parts/floating-ball'
 import { gitKo } from '@/lib/i18n/messages/parts/git'
 import { integrationKo } from '@/lib/i18n/messages/parts/integration'
-import { landingEn } from '@/lib/i18n/messages/parts/landing'
+import { landingKo } from '@/lib/i18n/messages/parts/landing'
 import { legalKo } from '@/lib/i18n/messages/parts/legal'
 import { mcpGatewayKo } from '@/lib/i18n/messages/parts/mcp-gateway'
 import { panelsKo } from '@/lib/i18n/messages/parts/panels'
@@ -23,7 +23,7 @@ import type { MessageTree } from '@/lib/i18n/messages/types'
 
 const base = {
   locale: { label: '언어', switch: '언어', auto: '시스템 ({name})' },
-  theme: { label: '모양', switch: '모양 전환', auto: '시스템 설정', autoShort: '시스템', light: '라이트', dark: '다크' },
+  theme: { label: '모양', switch: '모양 전환', auto: '시스템 설정', autoShort: '시스템', light: '라이트', lightShort: '라이트', dark: '다크', darkShort: '다크' },
   nav: {
     main: '탐색',
     menu: '탐색',
@@ -350,7 +350,7 @@ export const ko: MessageTree = {
   ...mcpGatewayKo,
   ...gitAgentKo,
   ...workdeskEn,
-  ...landingEn,
+  ...landingKo,
   ...downloadsKo,
   ...aboutKo,
   ...agentAuthKo,

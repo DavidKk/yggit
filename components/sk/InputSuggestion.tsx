@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import { IoCheckmark, IoChevronDown } from 'react-icons/io5'
 
 import { controlDisabled, controlDisabledShell, formControlChrome } from '@/components/sk/control'
+import { FormMessageDropdown } from '@/components/sk/FormMessageDropdown'
 import { ScrollArea } from '@/components/sk/ScrollArea'
 import { type FloatingPanelWidthMode, useFloatingPanel } from '@/components/sk/useFloatingPanel'
 import { cn } from '@/lib/utils'
@@ -36,6 +37,8 @@ export interface InputSuggestionProps {
   placeholder?: string
   disabled?: boolean
   invalid?: boolean
+  error?: React.ReactNode
+  warn?: React.ReactNode
   className?: string
   'aria-label'?: string
   autoComplete?: string
@@ -63,6 +66,8 @@ export function InputSuggestion({
   placeholder = '选择或输入...',
   disabled = false,
   invalid = false,
+  error,
+  warn,
   className,
   'aria-label': ariaLabel,
   autoComplete = 'off',
@@ -197,7 +202,8 @@ export function InputSuggestion({
         className={cn(
           formControlChrome,
           'relative flex h-9 items-center justify-between pl-3 pr-1.5 cursor-text focus-within:border-accent transition-colors',
-          invalid && '!border-fail ring-1 !ring-fail/30 focus-within:!border-fail',
+          (invalid || Boolean(error)) && '!border-fail ring-1 !ring-fail/30 focus-within:!border-fail',
+          !(invalid || Boolean(error)) && Boolean(warn) && '!border-warn ring-1 !ring-warn/30 focus-within:!border-warn',
           disabled && controlDisabledShell
         )}
       >
@@ -270,6 +276,7 @@ export function InputSuggestion({
           ) : null}
         </div>
       </div>
+      {!open && <FormMessageDropdown error={error} warn={warn} />}
 
       {mounted &&
         open &&

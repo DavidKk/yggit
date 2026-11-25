@@ -7,12 +7,22 @@ import { TextInput } from '@/components/sk'
 import { useAgent } from '@/lib/agent/agent-context'
 import { isModelAllowed, matchesModelPattern, type ModelFilterOptions } from '@/lib/agent/model-filter'
 import { RedactionEngine } from '@/lib/agent/redact/engine'
+import type { RedactionOptions } from '@/lib/agent/redact/types'
 
 import { SettingsSectionCard } from './SettingsSectionCard'
 
-export function RuleDebugger({ filter, modelId = '' }: { filter?: ModelFilterOptions; modelId?: string }) {
+export function RuleDebugger({
+  filter,
+  modelId = '',
+  redactionOptions: redactionOptionsProp,
+}: {
+  filter?: ModelFilterOptions
+  modelId?: string
+  redactionOptions?: RedactionOptions
+}) {
   const t = useT()
-  const { redactionOptions } = useAgent()
+  const { redactionOptions: contextRedactionOptions } = useAgent()
+  const redactionOptions = redactionOptionsProp ?? contextRedactionOptions
   const [modelDraft, setModelDraft] = useState<string | null>(null)
   const [text, setText] = useState('')
   const model = modelDraft ?? modelId

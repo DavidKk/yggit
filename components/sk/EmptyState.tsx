@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 
 type EmptyStateProps = {
   role?: 'status' | 'alert'
+  icon?: ReactNode
   title: string
   message?: string
   hint?: string
@@ -19,7 +20,7 @@ type EmptyStateProps = {
 }
 
 /** 空态：面板占满居中，或卡片内紧凑（见 `density`）。 */
-export function EmptyState({ title, message, hint, children, density = 'panel', className, role = 'status' }: EmptyStateProps) {
+export function EmptyState({ icon, title, message, hint, children, density = 'panel', className, role = 'status' }: EmptyStateProps) {
   const compact = density === 'compact'
   return (
     <div
@@ -32,6 +33,7 @@ export function EmptyState({ title, message, hint, children, density = 'panel', 
       role={role}
     >
       <div className="flex max-w-md flex-col items-center justify-center text-center">
+        {icon ? <div className="mb-2 flex items-center justify-center text-ink-soft/60">{icon}</div> : null}
         <p className="m-0 text-xs font-medium text-ink-soft">{title}</p>
         {message ? <p className="mt-1 mb-0 text-xs leading-[1.55] text-ink-soft">{message}</p> : null}
         {hint ? <p className="mt-2 mb-0 text-xs leading-[1.55] text-[color-mix(in_oklab,var(--ink-soft)_75%,transparent)]">{hint}</p> : null}

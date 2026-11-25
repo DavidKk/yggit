@@ -1,10 +1,11 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import React, { useState } from 'react'
-import { LuPencil, LuPlus, LuShieldCheck } from 'react-icons/lu'
+import React, { useEffect, useMemo, useState } from 'react'
+import { LuPencil, LuPlus, LuRotateCcw, LuSave, LuShieldCheck } from 'react-icons/lu'
 
 import { useT } from '@/components/i18n/LocaleProvider'
+import { useNotification } from '@/components/notification/useNotification'
 import { Badge, Button, SwitchToggle } from '@/components/sk'
 import { useAgent } from '@/lib/agent/agent-context'
 import { getModelFilterConflicts, isModelAllowed } from '@/lib/agent/model-filter'
@@ -35,7 +36,15 @@ export function ModelChannelSection({ inline = false, onAdd, onEdit }: ModelChan
   }
 
   const { profiles, activeProfileId, selectProfile, modelFilter, setModelFilter } = useAgent()
+  const notify = useNotification()
   const [inlineEditing, setInlineEditing] = useState<AgentModelProfile | null>(null)
+  const [draftFilter, setDraftFilter] = useState(modelFilter)
+
+  useEffect(() => {
+    setDraftFilter(modelFilter)
+  }, [modelFilter])
+
+  const isFilterDirty = useMemo(() => JSON.stringify(draftFilter) !== JSON.stringify(modelFilter), [draftFilter, modelFilter])
 
   const handleAdd = () => {
     if (onAdd) {
@@ -66,8 +75,8 @@ export function ModelChannelSection({ inline = false, onAdd, onEdit }: ModelChan
   }
 
   const currentProfile = profiles.find((p) => p.id === activeProfileId) || profiles[0]
-  const isCurrentModelBlocked = currentProfile ? !isModelAllowed(currentProfile.config.model, modelFilter) : false
-  const filterConflicts = getModelFilterConflicts(modelFilter)
+  const isCurrentModelBlocked = currentProfile ? !isModelAllowed(currentProfile.config.model, draftFilter) : false
+  const filterConflicts = getModelFilterConflicts(draftFilter)
 
   const content = (
     <div className="flex flex-col gap-4">
@@ -138,19 +147,40 @@ export function ModelChannelSection({ inline = false, onAdd, onEdit }: ModelChan
         </ul>
       </SettingsSectionCard>
 
-      {/* Active Model Channel Filter Cards (Whitelist & Blacklist as separate cards) */}
+      {/* Active Model Channel Filter Card */}
       <ModelFilterInputs
         whitelistId="agent-model-whitelist"
         blacklistId="agent-model-blacklist"
-        whitelist={modelFilter.whitelist}
-        blacklist={modelFilter.blacklist}
-        onWhitelistChange={(whitelist) => setModelFilter((prev) => ({ ...prev, whitelist }))}
-        onBlacklistChange={(blacklist) => setModelFilter((prev) => ({ ...prev, blacklist }))}
+        whitelist={draftFilter.whitelist}
+        blacklist={draftFilter.blacklist}
+        onWhitelistChange={(whitelist) => setDraftFilter((prev) => ({ ...prev, whitelist }))}
+        onBlacklistChange={(blacklist) => setDraftFilter((prev) => ({ ...prev, blacklist }))}
         conflicts={filterConflicts}
         blockedModel={isCurrentModelBlocked && currentProfile ? currentProfile.config.model : null}
-        scopeLabel={currentProfile?.name || currentProfile?.config?.model || '默认'}
+        scopeLabel={currentProfile?.name || currentProfile?.config?.model || 'Default'}
       />
+
+      <div className="flex items-center justify-end gap-2 pt-1">
+        {isFilterDirty && (
+          <Button type="button" variant="ghost" onClick={() => setDraftFilter(modelFilter)}>
+            <LuRotateCcw aria-hidden="true" />
+            {t('common.cancel')}
+          </Button>
+        )}
+        <Button
+          type="button"
+          variant="accent"
+          disabled={!isFilterDirty}
+          onClick={() => {
+            setModelFilter(draftFilter)
+            notify.success(`${t('gitAgent.modelFilterTitle')} · ${t('common.save')}`)
+          }}
+        >
+          <LuSave aria-hidden="true" />
+          {t('common.save')}
+        </Button>
+      </div>
     </div>
   )
-  return inline ? content : <SettingsColumns tools={<RuleDebugger filter={modelFilter} modelId={currentProfile?.config.model} />}>{content}</SettingsColumns>
+  return inline ? content : <SettingsColumns tools={<RuleDebugger filter={draftFilter} modelId={currentProfile?.config.model} />}>{content}</SettingsColumns>
 }

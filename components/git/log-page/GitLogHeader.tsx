@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { type Dispatch, type MutableRefObject, type RefObject, type SetStateAction } from 'react'
-import { LuChevronsUpDown, LuCompass, LuFolderGit2, LuSettings } from 'react-icons/lu'
+import { LuChevronsUpDown, LuFolderGit2, LuSettings } from 'react-icons/lu'
 
 import { BrandLogo } from '@/components/BrandLogo'
 import { GitModeSwitcher } from '@/components/git/GitModeSwitcher'
@@ -187,14 +187,6 @@ export function GitLogHeader({
             }}
           />
         )}
-        {process.env.NODE_ENV === 'development' && (
-          <Tooltip content={t('landing.studio.headerTip')} placement="bottom">
-            <Link href="/dev/studio" className={cn(dropdownTriggerClass, 'px-2 gap-1.5 text-xs font-mono font-medium')} aria-label={t('landing.header.devStudio')}>
-              <LuCompass className="size-3.5 text-accent shrink-0" aria-hidden="true" />
-              <span className="hidden sm:inline">{t('landing.header.devStudio')}</span>
-            </Link>
-          </Tooltip>
-        )}
         <span className="mx-0.5 h-3.5 w-px shrink-0 bg-[color-mix(in_oklab,var(--ink)_14%,transparent)]" aria-hidden />
         <ThemeSwitcher compact />
         <LocaleSwitcher compact />
@@ -206,10 +198,10 @@ export function GitLogHeader({
                 saveLastGitUrl(window.location.pathname + window.location.search)
               }
             }}
-            className={cn(dropdownTriggerClass, 'px-2')}
+            className={dropdownTriggerClass}
             aria-label={t('gitAgent.settingsTitle')}
           >
-            <LuSettings className="size-4 shrink-0" aria-hidden="true" />
+            <LuSettings className="size-3.5 shrink-0" aria-hidden="true" />
             <span className="sr-only sm:not-sr-only">{t('gitAgent.settingsTitle')}</span>
           </Link>
         </Tooltip>

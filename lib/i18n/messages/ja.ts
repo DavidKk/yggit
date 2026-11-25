@@ -23,7 +23,7 @@ import type { MessageTree } from '@/lib/i18n/messages/types'
 
 const base = {
   locale: { label: '言語', switch: '言語', auto: 'システム（{name}）' },
-  theme: { label: '外観', switch: '外観を切り替え', auto: 'システムに合わせる', autoShort: 'システム', light: 'ライト', dark: 'ダーク' },
+  theme: { label: '外観', switch: '外観を切り替え', auto: 'システムに合わせる', autoShort: 'システム', light: 'ライト', lightShort: 'ライト', dark: 'ダーク', darkShort: 'ダーク' },
   nav: {
     main: 'ナビ',
     menu: 'ナビゲーション',

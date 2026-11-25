@@ -1,3 +1,4 @@
+import { gitEn } from './en'
 import type { GitMessages } from './types'
 
 export const gitJa: GitMessages = {
@@ -93,6 +94,7 @@ export const gitJa: GitMessages = {
     files: 'ファイル',
   },
   sidebar: {
+    ...gitEn.sidebar,
     navAria: 'ブランチ',
     sections: {
       local: 'ローカル',
@@ -135,6 +137,7 @@ export const gitJa: GitMessages = {
     worktreeEdgeUnsupportedMsg: 'ブラウザの制限により、外部 Worktree を読み込めません。この機能を使うには Yggit デスクトップアプリをダウンロードしてください。',
   },
   diff: {
+    ...gitEn.diff,
     searchContent: 'Search content',
     searchPlaceholder: 'Search this pane…',
     previousConflict: 'Previous conflict',
@@ -178,6 +181,7 @@ export const gitJa: GitMessages = {
     prevConflict: '前のコンフリクト',
   },
   commit: {
+    ...gitEn.commit,
     conflictsOnly: '競合ファイルのみ表示',
     conflictLocations: '競合 {count} 件',
     conflictCountUnknown: '競合数を取得できません',
@@ -215,6 +219,7 @@ export const gitJa: GitMessages = {
     truncated: 'ファイルが長いため、先頭のみ表示しています。',
   },
   project: {
+    ...gitEn.project,
     removeProject: 'Remove project',
     removeProjectConfirm: 'Remove project {name}?',
     removeProjectHint: 'Remove from the project list. Local and remote repositories are retained.',
@@ -344,4 +349,6 @@ export const gitJa: GitMessages = {
     backHome: 'ホームに戻る',
     associateAndOpen: '関連付けて開く',
   },
+  toolbar: gitEn.toolbar,
+  operations: gitEn.operations,
 }

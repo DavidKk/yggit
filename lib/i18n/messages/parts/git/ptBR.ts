@@ -1,3 +1,4 @@
+import { gitEn } from './en'
 import type { GitMessages } from './types'
 
 export const gitPtBR: GitMessages = {
@@ -93,6 +94,7 @@ export const gitPtBR: GitMessages = {
     files: 'Arquivos',
   },
   sidebar: {
+    ...gitEn.sidebar,
     navAria: 'Ramos',
     sections: {
       local: 'Local',
@@ -135,6 +137,7 @@ export const gitPtBR: GitMessages = {
     worktreeEdgeUnsupportedMsg: 'A sandbox do navegador impede o acesso a worktrees externos. Baixe o aplicativo Yggit para usar este recurso.',
   },
   diff: {
+    ...gitEn.diff,
     searchContent: 'Search content',
     searchPlaceholder: 'Search this pane…',
     previousConflict: 'Previous conflict',
@@ -178,6 +181,7 @@ export const gitPtBR: GitMessages = {
     prevConflict: 'Conflito anterior',
   },
   commit: {
+    ...gitEn.commit,
     conflictsOnly: 'Mostrar apenas arquivos em conflito',
     conflictLocations: '{count} conflitos',
     conflictCountUnknown: 'Contagem de conflitos indisponível',
@@ -215,6 +219,7 @@ export const gitPtBR: GitMessages = {
     truncated: 'O arquivo é muito longo; apenas o início é exibido.',
   },
   project: {
+    ...gitEn.project,
     removeProject: 'Remove project',
     removeProjectConfirm: 'Remove project {name}?',
     removeProjectHint: 'Remove from the project list. Local and remote repositories are retained.',
@@ -315,4 +320,6 @@ export const gitPtBR: GitMessages = {
     backHome: 'Voltar ao Início',
     associateAndOpen: 'Associar e Abrir',
   },
+  toolbar: gitEn.toolbar,
+  operations: gitEn.operations,
 }
