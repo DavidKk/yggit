@@ -87,7 +87,7 @@ export function parseModelProfiles(raw: string | null): { profiles: AgentModelPr
               blacklist: item.filter.blacklist.filter((s) => typeof s === 'string'),
             }
           : undefined
-      return { id: item.id, name: item.name, config: { ...config, apiKey: undefined }, filter }
+      return { id: item.id, name: item.name, config: { ...config, apiKey: undefined, hasApiKey: false }, filter }
     })
     return { profiles, activeId: profiles.some((profile) => profile.id === data.activeId) ? data.activeId : profiles[0].id }
   } catch {

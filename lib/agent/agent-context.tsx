@@ -14,15 +14,7 @@ import { type ThemePreference, writeStoredTheme } from '@/lib/theme'
 import { workdeskEngine } from '@/lib/workdesk/engine'
 
 import { DEFAULT_MODEL_FILTER, isModelAllowed, type ModelFilterOptions } from './model-filter'
-import {
-  type AgentModelProfile,
-  DEFAULT_MODEL_PROFILE,
-  MODEL_PROFILES_STORAGE_KEY,
-  parseModelProfiles,
-  readSessionApiKeys,
-  serializeModelProfiles,
-  writeSessionApiKeys,
-} from './model-profiles'
+import { type AgentModelProfile, DEFAULT_MODEL_PROFILE, MODEL_PROFILES_STORAGE_KEY, parseModelProfiles, serializeModelProfiles } from './model-profiles'
 import { sendAgentCompletion } from './openapi-client'
 import { createRedactionSession } from './redact/engine'
 import { RedactionEngine } from './redact/engine'
@@ -147,17 +139,12 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
 
     try {
       const stored = parseModelProfiles(localStorage.getItem(MODEL_PROFILES_STORAGE_KEY))
-      const sessionKeys = readSessionApiKeys()
       if (stored) {
-        setProfiles(stored.profiles.map((p) => (sessionKeys[p.id] ? { ...p, config: { ...p.config, apiKey: sessionKeys[p.id], hasApiKey: true } } : p)))
+        setProfiles(stored.profiles)
         setActiveProfileId(stored.activeId)
-      } else if (sessionKeys[DEFAULT_MODEL_PROFILE.id]) {
-        setProfiles([
-          {
-            ...DEFAULT_MODEL_PROFILE,
-            config: { ...DEFAULT_MODEL_PROFILE.config, apiKey: sessionKeys[DEFAULT_MODEL_PROFILE.id], hasApiKey: true },
-          },
-        ])
+      }
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.removeItem('yggit.agent.session-keys.v1')
       }
     } catch {
       // Keep the in-memory defaults when browser storage is unavailable.
@@ -205,7 +192,6 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
     if (!profilesLoaded) return
     try {
       localStorage.setItem(MODEL_PROFILES_STORAGE_KEY, serializeModelProfiles(profiles, activeProfileId))
-      writeSessionApiKeys(profiles)
     } catch {
       // Profiles remain usable for this session when browser storage is unavailable.
     }

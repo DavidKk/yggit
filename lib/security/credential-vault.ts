@@ -144,6 +144,10 @@ function writeVaultFile(vault: StoredVaultFile): void {
   }
 }
 
+function isValidSealedCredential(sealed: SealedCredential | undefined): sealed is SealedCredential {
+  return Boolean(sealed && sealed.v === 1 && sealed.iv && sealed.ciphertext && sealed.tag)
+}
+
 function sanitizeProfileForClient(record: StoredProfileRecord): AgentModelProfile {
   return {
     id: record.id,
@@ -151,7 +155,7 @@ function sanitizeProfileForClient(record: StoredProfileRecord): AgentModelProfil
     config: {
       ...record.config,
       apiKey: undefined,
-      hasApiKey: Boolean(record.sealedApiKey),
+      hasApiKey: isValidSealedCredential(record.sealedApiKey),
     },
     filter: record.filter,
   }
