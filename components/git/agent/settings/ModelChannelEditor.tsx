@@ -439,7 +439,7 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
                   <label htmlFor="agent-api-key" className="text-xs font-semibold text-ink">
                     {t('gitAgent.apiKey')}
                   </label>
-                  <p className="text-xs text-ink-soft leading-relaxed mt-0.5">仅在客户端内存暂存，刷新即清空。</p>
+                  <p className="text-xs text-ink-soft leading-relaxed mt-0.5">仅在当前浏览器会话内暂存，关闭标签页后自动清除。</p>
                 </div>
                 <div className="md:col-span-7 min-w-0 max-w-[460px] md:ml-auto w-full">
                   <ConfiguredSecretInput

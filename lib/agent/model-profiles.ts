@@ -15,6 +15,48 @@ export const DEFAULT_MODEL_PROFILE: AgentModelProfile = {
 }
 
 export const MODEL_PROFILES_STORAGE_KEY = 'yggit.agent.model-profiles.v1'
+export const MODEL_SESSION_KEYS_STORAGE_KEY = 'yggit.agent.session-keys.v1'
+
+/** Reads ephemeral per-profile API keys from sessionStorage (cleared when the browser tab closes). */
+export function readSessionApiKeys(): Record<string, string> {
+  if (typeof window === 'undefined') return {}
+  try {
+    const raw = window.sessionStorage.getItem(MODEL_SESSION_KEYS_STORAGE_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw) as unknown
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {}
+    const out: Record<string, string> = {}
+    for (const [id, key] of Object.entries(parsed as Record<string, unknown>)) {
+      if (typeof key === 'string' && key.trim()) {
+        out[id] = key
+      }
+    }
+    return out
+  } catch {
+    return {}
+  }
+}
+
+/** Stores ephemeral per-profile API keys in sessionStorage without ever writing credentials to localStorage. */
+export function writeSessionApiKeys(profiles: AgentModelProfile[]): void {
+  if (typeof window === 'undefined') return
+  try {
+    const map: Record<string, string> = {}
+    for (const profile of profiles) {
+      const key = profile.config.apiKey?.trim()
+      if (key) {
+        map[profile.id] = key
+      }
+    }
+    if (Object.keys(map).length === 0) {
+      window.sessionStorage.removeItem(MODEL_SESSION_KEYS_STORAGE_KEY)
+    } else {
+      window.sessionStorage.setItem(MODEL_SESSION_KEYS_STORAGE_KEY, JSON.stringify(map))
+    }
+  } catch {
+    // Ignore when sessionStorage is unavailable
+  }
+}
 
 /** Credentials remain in memory; only connection metadata and channel filters are persisted. */
 export function serializeModelProfiles(profiles: AgentModelProfile[], activeId: string): string {
