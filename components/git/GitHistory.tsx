@@ -126,10 +126,10 @@ export function GitHistory({
   const sentinelRef = useRef<HTMLDivElement>(null)
   const topSentinelRef = useRef<HTMLDivElement>(null)
   const lockRef = useRef(false)
+  const lastRequestedSkipRef = useRef<number>(-1)
   const focusedRequestRef = useRef<Props['focusRequest']>(null)
   const stateRef = useRef({ repo, scope, commits, hasMore, hasPrev, startIndex })
   const [loading, setLoading] = useState(false)
-  const [atBottom, setAtBottom] = useState(false)
   const [query, setQuery] = useState('')
   const [findOpen, setFindOpen] = useState(false)
   const [gitMatches, setGitMatches] = useState<GitCommit[]>([])
@@ -140,7 +140,8 @@ export function GitHistory({
     setFindOpen(false)
     setGitMatches([])
     setIsSearchingGit(false)
-  }, [repo])
+    lastRequestedSkipRef.current = -1
+  }, [repo, scope])
 
   useEffect(() => {
     function onClearSearches() {
@@ -219,20 +220,18 @@ export function GitHistory({
           matches.findIndex((commit) => commit.hash === selectedHash)
         )
       : -1
-  const showExplore = (loading && atBottom) || holdExplore
+  const showFooterLoading = loading || holdExplore
 
   const loadMore = useCallback(() => {
     const current = stateRef.current
+    const skipOffset = (current.startIndex ?? 0) + current.commits.length
     if (lockRef.current || !current.hasMore || !current.repo || !current.scope) return
+    if (lastRequestedSkipRef.current === skipOffset) return
     lockRef.current = true
+    lastRequestedSkipRef.current = skipOffset
     setLoading(true)
-    const root = rootRefHolder.current.current
-    if (root && root.scrollHeight - root.scrollTop - root.clientHeight <= 240) {
-      setAtBottom(true)
-    }
     const startTime = Date.now()
     const driver = getGitDriver()
-    const skipOffset = (current.startIndex ?? 0) + current.commits.length
     driver
       .readLog({
         repo: current.repo,
@@ -246,19 +245,15 @@ export function GitHistory({
         const next = current.commits.concat(body.commits.filter((commit) => !seen.has(commit.hash)))
         onPage(current.scope, next, body.hasMore === true)
       })
-      .catch(() => {})
+      .catch(() => {
+        lastRequestedSkipRef.current = -1
+      })
       .finally(() => {
         const elapsed = Date.now() - startTime
-        const delay = Math.max(0, 320 - elapsed)
+        const delay = Math.max(0, 260 - elapsed)
         setTimeout(() => {
           lockRef.current = false
           setLoading(false)
-          const r = rootRefHolder.current.current
-          if (r) {
-            setAtBottom(r.scrollHeight - r.scrollTop - r.clientHeight <= 240)
-          } else {
-            setAtBottom(false)
-          }
         }, delay)
       })
   }, [onPage])
@@ -350,12 +345,17 @@ export function GitHistory({
     if (!root) return
 
     let bottomObserver: IntersectionObserver | null = null
+    let wasBottomIntersecting = false
     if (sentinel && hasMore) {
       bottomObserver = new IntersectionObserver(
         (entries) => {
-          if (entries.some((entry) => entry.isIntersecting)) loadMore()
+          const isNow = entries.some((entry) => entry.isIntersecting)
+          if (isNow && !wasBottomIntersecting) {
+            loadMore()
+          }
+          wasBottomIntersecting = isNow
         },
-        { root, rootMargin: '240px' }
+        { root, rootMargin: '40px' }
       )
       bottomObserver.observe(sentinel)
     }
@@ -366,20 +366,18 @@ export function GitHistory({
         (entries) => {
           if (entries.some((entry) => entry.isIntersecting)) loadPrev()
         },
-        { root, rootMargin: '240px' }
+        { root, rootMargin: '120px' }
       )
       topObserver.observe(topSentinel)
     }
 
-    // Passive scroll listener: keeps atBottom in sync and triggers fallback loadMore / loadPrev
+    // Passive scroll listener: triggers fallback loadMore / loadPrev without mutating React state during scroll
     const onScroll = () => {
-      const remaining = root.scrollHeight - root.scrollTop - root.clientHeight
-      const nearBottom = remaining <= 240
-      setAtBottom(nearBottom)
       if (lockRef.current) return
-      if (nearBottom && hasMore) {
+      const remaining = root.scrollHeight - root.scrollTop - root.clientHeight
+      if (remaining <= 48 && stateRef.current.hasMore) {
         loadMore()
-      } else if (root.scrollTop <= 240 && hasPrev && (startIndex ?? 0) > 0) {
+      } else if (root.scrollTop <= 120 && stateRef.current.hasPrev && (stateRef.current.startIndex ?? 0) > 0) {
         loadPrev()
       }
     }
@@ -390,7 +388,7 @@ export function GitHistory({
       topObserver?.disconnect()
       root.removeEventListener('scroll', onScroll)
     }
-  }, [hasMore, hasPrev, loadMore, loadPrev, rootRef, startIndex])
+  }, [hasMore, hasPrev, loadMore, loadPrev, rootRef])
 
   useEffect(() => {
     const panel = panelRef.current
@@ -514,9 +512,11 @@ export function GitHistory({
         header={hasPrev ? <div ref={topSentinelRef} className="h-px" aria-hidden /> : null}
         footer={
           hasMore ? (
-            <div ref={sentinelRef} className="h-px" aria-hidden />
+            <div ref={sentinelRef} className="flex min-h-[56px] w-full items-center justify-center">
+              {showFooterLoading ? <GitExploreStrip className="w-full py-1" /> : null}
+            </div>
           ) : (
-            <div className="flex items-center justify-center py-6 text-xs text-ink-soft/60">
+            <div className="flex min-h-[56px] w-full items-center justify-center text-xs text-ink-soft/60">
               <span>{t('git.history.allLoaded')}</span>
             </div>
           )
@@ -537,7 +537,6 @@ export function GitHistory({
         soloRemote={soloRemote}
         hiddenRemotes={hiddenRemotes}
       />
-      {showExplore ? <GitExploreStrip className="pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-panel/95 py-0.5" /> : null}
     </div>
   )
 }

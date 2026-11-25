@@ -832,7 +832,7 @@ function GitGraphComponent({
         scrollRef={scrollRef}
         scrollProps={{ 'aria-label': t('git.graph.historyAria'), onScroll: handleListScroll }}
       >
-        <div className="relative min-w-0 pb-12">
+        <div className="relative min-w-0" style={{ overflowAnchor: 'none' }}>
           {header}
           {/* Date boundary dividers rendered precisely on the seam between rows (rowIndex - 1 and rowIndex) */}
           <div className="pointer-events-none absolute inset-0 z-20 overflow-visible" aria-hidden>
