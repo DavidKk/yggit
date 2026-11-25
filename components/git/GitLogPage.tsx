@@ -1624,10 +1624,10 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                 />
               )}
               {process.env.NODE_ENV === 'development' && (
-                <Tooltip content="官网工坊与资产管理 (开发模式)" placement="bottom">
-                  <Link href="/dev/studio" className={cn(dropdownTriggerClass, 'px-2 gap-1.5 text-xs font-mono font-medium')} aria-label="官网工作台">
+                <Tooltip content={t('landing.studio.headerTip')} placement="bottom">
+                  <Link href="/dev/studio" className={cn(dropdownTriggerClass, 'px-2 gap-1.5 text-xs font-mono font-medium')} aria-label={t('landing.header.devStudio')}>
                     <LuCompass className="size-3.5 text-accent shrink-0" aria-hidden="true" />
-                    <span className="hidden sm:inline">官网工坊</span>
+                    <span className="hidden sm:inline">{t('landing.header.devStudio')}</span>
                   </Link>
                 </Tooltip>
               )}

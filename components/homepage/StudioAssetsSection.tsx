@@ -2,15 +2,17 @@
 /* eslint-disable @next/next/no-img-element */
 
 import React, { useState } from 'react'
-import { LuDownload, LuEye, LuLayers } from 'react-icons/lu'
+import { LuDownload, LuEye, LuLayers, LuMoon, LuSun } from 'react-icons/lu'
 
 import { SettingsSectionCard } from '@/components/git/agent/settings/SettingsSectionCard'
+import { useT } from '@/components/i18n/LocaleProvider'
 import { Badge, Button } from '@/components/sk'
 
 import { HERO_ASSETS } from './data/heroAssets'
 import { TREE_LAYERS } from './data/worldTreeData'
 
 export function StudioAssetsSection() {
+  const t = useT()
   const [activeLayer, setActiveLayer] = useState<'repaired-master' | 'empty-card-master' | 'foreground-rgba' | 'distant-bg' | 'tree-rgba' | 'water-flow-map'>('foreground-rgba')
   const [isDay, setIsDay] = useState(true)
 
@@ -68,17 +70,19 @@ export function StudioAssetsSection() {
         title={
           <div className="flex items-center gap-2">
             <LuLayers className="size-4 text-accent" />
-            <span>官网首屏 6 核心独立图层检视</span>
+            <span>{t('landing.studio.assetsCardTitle')}</span>
           </div>
         }
-        description="所有图层均为 1672 × 941 标准坐标对齐，严格分层隔离以支持 60 FPS 独立风场与着色器运算"
+        description={t('landing.studio.assetsCardDesc')}
         titleAction={
           <div className="flex items-center gap-2">
-            <Button size="sm" variant={isDay ? 'accent' : 'default'} onClick={() => setIsDay(true)} className="text-xs">
-              ☀️ 白天母版
+            <Button size="sm" variant={isDay ? 'accent' : 'default'} onClick={() => setIsDay(true)} className="gap-1.5 text-xs">
+              <LuSun className="size-3.5" aria-hidden="true" />
+              <span>{t('landing.studio.dayMaster')}</span>
             </Button>
-            <Button size="sm" variant={!isDay ? 'accent' : 'default'} onClick={() => setIsDay(false)} className="text-xs">
-              🌙 暗黑母版
+            <Button size="sm" variant={!isDay ? 'accent' : 'default'} onClick={() => setIsDay(false)} className="gap-1.5 text-xs">
+              <LuMoon className="size-3.5" aria-hidden="true" />
+              <span>{t('landing.studio.nightMaster')}</span>
             </Button>
           </div>
         }
@@ -109,11 +113,11 @@ export function StudioAssetsSection() {
             <div className="flex items-center justify-between text-xs">
               <div className="flex items-center gap-2">
                 <span className="font-bold text-ink">{currentLayer.name}</span>
-                <Badge tone={currentLayer.isRgba ? 'ok' : 'neutral'}>{currentLayer.isRgba ? '32-bit RGBA 透明通道' : '24-bit RGB 底图'}</Badge>
+                <Badge tone={currentLayer.isRgba ? 'ok' : 'neutral'}>{currentLayer.isRgba ? t('landing.studio.rgbaBadge') : t('landing.studio.rgbBadge')}</Badge>
               </div>
               <a href={currentLayer.img} download={currentLayer.img.split('/').pop()} className="flex items-center gap-1.5 font-medium text-accent hover:underline text-xs">
                 <LuDownload className="size-3.5" />
-                <span>下载当前分层 PNG</span>
+                <span>{t('landing.studio.downloadLayer')}</span>
               </a>
             </div>
 
@@ -126,8 +130,10 @@ export function StudioAssetsSection() {
             </div>
 
             <div className="flex items-center justify-between text-[11px] font-mono text-ink-muted pt-1">
-              <span>分辨率：1672 × 941 px · 标准 16:9 画布</span>
-              <span>路径：{currentLayer.img}</span>
+              <span>{t('landing.studio.resolution')}</span>
+              <span>
+                {t('landing.studio.pathLabel')} {currentLayer.img}
+              </span>
             </div>
           </div>
         </div>
@@ -138,20 +144,20 @@ export function StudioAssetsSection() {
         title={
           <div className="flex items-center gap-2">
             <LuEye className="size-4 text-accent" />
-            <span>世界树独立叶簇与枝干图层清单 (TREE_LAYERS)</span>
+            <span>{t('landing.studio.layersTitle')}</span>
           </div>
         }
-        description="用于局部风场微摆模拟与深度排序的 12 个独立叶簇与 4 根细枝元数据"
+        description={t('landing.studio.layersDesc')}
       >
         <div className="overflow-x-auto rounded-lg border border-line/60">
           <table className="w-full text-left text-xs border-collapse">
             <thead className="border-b border-line bg-panel-2/60 text-[11px] font-semibold text-ink-soft">
               <tr>
-                <th className="py-2.5 px-3">图层 ID</th>
-                <th className="py-2.5 px-3">描述</th>
-                <th className="py-2.5 px-3">母版中心 (px)</th>
-                <th className="py-2.5 px-3">深度 (Z-Index)</th>
-                <th className="py-2.5 px-3">摆动权重</th>
+                <th className="py-2.5 px-3">{t('landing.studio.colId')}</th>
+                <th className="py-2.5 px-3">{t('landing.studio.colDesc')}</th>
+                <th className="py-2.5 px-3">{t('landing.studio.colCenter')}</th>
+                <th className="py-2.5 px-3">{t('landing.studio.colDepth')}</th>
+                <th className="py-2.5 px-3">{t('landing.studio.colWind')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line/40 text-ink">

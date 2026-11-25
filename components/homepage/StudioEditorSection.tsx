@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import { LuCalendar, LuMaximize2, LuMinimize2, LuPanelRight, LuPanelRightClose, LuRotateCcw, LuSparkles, LuSun, LuWind } from 'react-icons/lu'
 
+import { useT } from '@/components/i18n/LocaleProvider'
 import { Badge, Button, Tooltip } from '@/components/sk'
 import { SwitchToggle } from '@/components/sk/Switch'
 import { cn } from '@/lib/utils'
@@ -25,6 +26,7 @@ interface StudioEditorSectionProps {
 type InspectorTab = 'wind' | 'lighting' | 'seasons'
 
 export function StudioEditorSection({ wind, onChangeWind, lighting, onChangeLighting, timePresetId, onSelectTimePreset, seasonId, onChangeSeason }: StudioEditorSectionProps) {
+  const t = useT()
   const [inspectorOpen, setInspectorOpen] = useState(true)
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('wind')
   const [stageFitMode, setStageFitMode] = useState<'fit' | 'fill'>('fit')
@@ -94,7 +96,7 @@ export function StudioEditorSection({ wind, onChangeWind, lighting, onChangeLigh
 
         {/* Toolbar Right Controls */}
         <div className="flex items-center gap-1.5 text-xs">
-          <Tooltip content={stageFitMode === 'fit' ? '填充视口 (Fill)' : '按比例自适应 (Fit)'}>
+          <Tooltip content={stageFitMode === 'fit' ? t('landing.studio.fillViewport') : t('landing.studio.fitViewport')}>
             <button
               type="button"
               onClick={() => setStageFitMode((prev) => (prev === 'fit' ? 'fill' : 'fit'))}
@@ -105,7 +107,7 @@ export function StudioEditorSection({ wind, onChangeWind, lighting, onChangeLigh
             </button>
           </Tooltip>
 
-          <Tooltip content="重置全部参数">
+          <Tooltip content={t('landing.studio.resetAll')}>
             <button
               type="button"
               onClick={() => {
@@ -115,14 +117,14 @@ export function StudioEditorSection({ wind, onChangeWind, lighting, onChangeLigh
               className="flex h-7 items-center gap-1 rounded-md px-2 text-ink-soft hover:bg-hover hover:text-ink transition-colors cursor-pointer"
             >
               <LuRotateCcw className="size-3.5" />
-              <span className="hidden lg:inline text-[11px]">重置</span>
+              <span className="hidden lg:inline text-[11px]">{t('landing.studio.reset')}</span>
             </button>
           </Tooltip>
 
           <div className="h-4 w-px bg-line/60 mx-1" />
 
           {/* Toggle Inspector Sidebar */}
-          <Tooltip content={inspectorOpen ? '收起右侧属性检查器' : '展开右侧属性检查器'}>
+          <Tooltip content={inspectorOpen ? t('landing.studio.collapseInspector') : t('landing.studio.expandInspector')}>
             <button
               type="button"
               onClick={() => setInspectorOpen((prev) => !prev)}
@@ -133,7 +135,7 @@ export function StudioEditorSection({ wind, onChangeWind, lighting, onChangeLigh
               aria-label="Toggle Inspector"
             >
               {inspectorOpen ? <LuPanelRightClose className="size-4" /> : <LuPanelRight className="size-4" />}
-              <span className="hidden sm:inline text-[11px]">检查器</span>
+              <span className="hidden sm:inline text-[11px]">{t('landing.studio.inspectorShort')}</span>
             </button>
           </Tooltip>
         </div>
@@ -180,7 +182,7 @@ export function StudioEditorSection({ wind, onChangeWind, lighting, onChangeLigh
             {/* Inspector Header & Segmented Tabs */}
             <div className="flex flex-col border-b border-line/60 bg-panel-2/30 p-2 gap-2 shrink-0">
               <div className="flex items-center justify-between px-1">
-                <span className="text-xs font-bold uppercase tracking-wider text-ink-soft">属性检查器 (Inspector)</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-ink-soft">{t('landing.studio.inspectorTitle')}</span>
                 <span className="text-[10px] font-mono text-accent">{activeSeason.name}</span>
               </div>
 
@@ -194,7 +196,7 @@ export function StudioEditorSection({ wind, onChangeWind, lighting, onChangeLigh
                   )}
                 >
                   <LuWind className="size-3.5" />
-                  <span>风场</span>
+                  <span>{t('landing.studio.tabWind')}</span>
                 </button>
                 <button
                   type="button"
@@ -205,7 +207,7 @@ export function StudioEditorSection({ wind, onChangeWind, lighting, onChangeLigh
                   )}
                 >
                   <LuSun className="size-3.5" />
-                  <span>光影</span>
+                  <span>{t('landing.studio.tabLighting')}</span>
                 </button>
                 <button
                   type="button"
@@ -216,7 +218,7 @@ export function StudioEditorSection({ wind, onChangeWind, lighting, onChangeLigh
                   )}
                 >
                   <LuCalendar className="size-3.5" />
-                  <span>四季</span>
+                  <span>{t('landing.studio.tabSeasons')}</span>
                 </button>
               </div>
             </div>
@@ -228,8 +230,8 @@ export function StudioEditorSection({ wind, onChangeWind, lighting, onChangeLigh
                 <div className="flex flex-col gap-4">
                   <div className="flex items-center justify-between border-b border-line/40 pb-2.5">
                     <div>
-                      <span className="font-semibold text-ink">激活物理风场仿真</span>
-                      <p className="text-[11px] text-ink-soft">实时驱动网格变形与花草摆动</p>
+                      <span className="font-semibold text-ink">{t('landing.studio.enableWind')}</span>
+                      <p className="text-[11px] text-ink-soft">{t('landing.studio.enableWindDesc')}</p>
                     </div>
                     <SwitchToggle checked={wind.enabled} onCheckedChange={(enabled) => onChangeWind((prev) => ({ ...prev, enabled }))} />
                   </div>
@@ -237,7 +239,7 @@ export function StudioEditorSection({ wind, onChangeWind, lighting, onChangeLigh
                   {/* Wind Strength */}
                   <div className="flex flex-col gap-1.5">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="font-medium text-ink">全局微风强度</span>
+                      <span className="font-medium text-ink">{t('landing.studio.windStrength')}</span>
                       <span className="font-mono text-accent tabular-nums">{Math.round(wind.strength * 100)}%</span>
                     </div>
                     <input
@@ -258,7 +260,7 @@ export function StudioEditorSection({ wind, onChangeWind, lighting, onChangeLigh
                   {/* Wind Direction */}
                   <div className="flex flex-col gap-1.5">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="font-medium text-ink">主风向角 (度数)</span>
+                      <span className="font-medium text-ink">{t('landing.studio.windDirection')}</span>
                       <span className="font-mono text-accent tabular-nums">{Math.round(wind.directionDeg)}°</span>
                     </div>
                     <input
@@ -279,7 +281,7 @@ export function StudioEditorSection({ wind, onChangeWind, lighting, onChangeLigh
                   {/* Wind Gustiness */}
                   <div className="flex flex-col gap-1.5">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="font-medium text-ink">阵风波动性 (Gustiness)</span>
+                      <span className="font-medium text-ink">{t('landing.studio.windGustiness')}</span>
                       <span className="font-mono text-accent tabular-nums">{Math.round(wind.gustiness * 100)}%</span>
                     </div>
                     <input
@@ -299,20 +301,20 @@ export function StudioEditorSection({ wind, onChangeWind, lighting, onChangeLigh
 
                   {/* Debug Overlays */}
                   <div className="flex flex-col gap-2 rounded-lg border border-line/50 bg-panel-2/30 p-2.5 mt-2">
-                    <span className="font-semibold text-ink-soft text-[11px] uppercase tracking-wider">调试层标定</span>
+                    <span className="font-semibold text-ink-soft text-[11px] uppercase tracking-wider">{t('landing.studio.debugOverlays')}</span>
                     <div className="flex items-center justify-between">
-                      <span className="text-[11px] text-ink">网格线框 (Wireframe)</span>
+                      <span className="text-[11px] text-ink">{t('landing.studio.wireframe')}</span>
                       <SwitchToggle size="sm" checked={wind.showMeshWireframe} onCheckedChange={(showMeshWireframe) => onChangeWind((prev) => ({ ...prev, showMeshWireframe }))} />
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-[11px] text-ink">锚点标定 (Anchors)</span>
+                      <span className="text-[11px] text-ink">{t('landing.studio.anchors')}</span>
                       <SwitchToggle size="sm" checked={wind.showAnchors} onCheckedChange={(showAnchors) => onChangeWind((prev) => ({ ...prev, showAnchors }))} />
                     </div>
                   </div>
 
                   <Button size="sm" variant="default" onClick={handleResetWind} className="mt-2 w-full gap-1.5 text-xs">
                     <LuRotateCcw className="size-3.5" />
-                    <span>重置风场参数</span>
+                    <span>{t('landing.studio.resetWind')}</span>
                   </Button>
                 </div>
               )}
@@ -323,7 +325,7 @@ export function StudioEditorSection({ wind, onChangeWind, lighting, onChangeLigh
                   {/* Ambient Brightness */}
                   <div className="flex flex-col gap-1.5">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="font-medium text-ink">环境照度 (Ambient)</span>
+                      <span className="font-medium text-ink">{t('landing.studio.ambient')}</span>
                       <span className="font-mono text-accent tabular-nums">{Math.round(lighting.ambientBrightness * 100)}%</span>
                     </div>
                     <input
@@ -343,7 +345,7 @@ export function StudioEditorSection({ wind, onChangeWind, lighting, onChangeLigh
                   {/* Glow Intensity */}
                   <div className="flex flex-col gap-1.5">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="font-medium text-ink">树体与叶脉荧光强度</span>
+                      <span className="font-medium text-ink">{t('landing.studio.glowIntensity')}</span>
                       <span className="font-mono text-accent tabular-nums">{Math.round(lighting.glowIntensity * 100)}%</span>
                     </div>
                     <input
@@ -363,7 +365,7 @@ export function StudioEditorSection({ wind, onChangeWind, lighting, onChangeLigh
                   {/* Fog Amount */}
                   <div className="flex flex-col gap-1.5">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="font-medium text-ink">山谷薄雾浓度 (Fog)</span>
+                      <span className="font-medium text-ink">{t('landing.studio.fogAmount')}</span>
                       <span className="font-mono text-accent tabular-nums">{Math.round(lighting.fogAmount * 100)}%</span>
                     </div>
                     <input
@@ -383,15 +385,15 @@ export function StudioEditorSection({ wind, onChangeWind, lighting, onChangeLigh
                   {/* Particles Switch */}
                   <div className="flex items-center justify-between border-t border-line/40 pt-3">
                     <div>
-                      <span className="font-semibold text-ink">悬浮光斑与水雾粒子</span>
-                      <p className="text-[11px] text-ink-soft">风场微光粒子仿真</p>
+                      <span className="font-semibold text-ink">{t('landing.studio.particles')}</span>
+                      <p className="text-[11px] text-ink-soft">{t('landing.studio.particlesDesc')}</p>
                     </div>
                     <SwitchToggle checked={lighting.particlesEnabled} onCheckedChange={(particlesEnabled) => onChangeLighting((prev) => ({ ...prev, particlesEnabled }))} />
                   </div>
 
                   <Button size="sm" variant="default" onClick={handleResetLighting} className="mt-2 w-full gap-1.5 text-xs">
                     <LuRotateCcw className="size-3.5" />
-                    <span>重置光效参数</span>
+                    <span>{t('landing.studio.resetLighting')}</span>
                   </Button>
                 </div>
               )}
@@ -399,7 +401,7 @@ export function StudioEditorSection({ wind, onChangeWind, lighting, onChangeLigh
               {/* TAB 3: SEASONS & SCHEDULING */}
               {inspectorTab === 'seasons' && (
                 <div className="flex flex-col gap-3">
-                  <span className="font-semibold text-ink">四季节庆预设主题</span>
+                  <span className="font-semibold text-ink">{t('landing.studio.seasonsTitle')}</span>
                   <div className="grid grid-cols-2 gap-2">
                     {SEASON_THEMES.map((season) => {
                       const isSelected = season.id === seasonId
@@ -422,7 +424,7 @@ export function StudioEditorSection({ wind, onChangeWind, lighting, onChangeLigh
 
                   <div className="rounded-lg border border-line/60 bg-panel-2/40 p-2.5 mt-2">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="font-semibold text-ink">当前调度规则</span>
+                      <span className="font-semibold text-ink">{t('landing.studio.scheduleRule')}</span>
                       <span className="font-mono text-[11px] text-accent">{activeSeason.scheduleRule}</span>
                     </div>
                     <p className="mt-1 text-[11px] text-ink-soft leading-relaxed">{activeSeason.subtitle}</p>

@@ -28,4 +28,59 @@ export interface LandingMessages {
     workspace: string
     searchCommits: string
   }
+  studio: {
+    headerTip: string
+    navEditor: string
+    navAssets: string
+    navAudit: string
+    navPreview: string
+    assetsTitle: string
+    assetsSubtitle: string
+    assetsCardTitle: string
+    assetsCardDesc: string
+    dayMaster: string
+    nightMaster: string
+    rgbaBadge: string
+    rgbBadge: string
+    downloadLayer: string
+    resolution: string
+    pathLabel: string
+    layersTitle: string
+    layersDesc: string
+    colId: string
+    colDesc: string
+    colCenter: string
+    colDepth: string
+    colWind: string
+    auditTitle: string
+    auditSubtitle: string
+    fillViewport: string
+    fitViewport: string
+    resetAll: string
+    reset: string
+    collapseInspector: string
+    expandInspector: string
+    inspectorShort: string
+    inspectorTitle: string
+    tabWind: string
+    tabLighting: string
+    tabSeasons: string
+    enableWind: string
+    enableWindDesc: string
+    windStrength: string
+    windDirection: string
+    windGustiness: string
+    debugOverlays: string
+    wireframe: string
+    anchors: string
+    resetWind: string
+    ambient: string
+    glowIntensity: string
+    fogAmount: string
+    particles: string
+    particlesDesc: string
+    resetLighting: string
+    seasonsTitle: string
+    scheduleRule: string
+  }
 }

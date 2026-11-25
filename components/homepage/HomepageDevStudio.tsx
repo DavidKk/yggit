@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import { LuCompass, LuEye, LuFileCheck2, LuLayers, LuSlidersHorizontal } from 'react-icons/lu'
 
+import { useT } from '@/components/i18n/LocaleProvider'
 import { Badge, Tooltip } from '@/components/sk'
 import { cn } from '@/lib/utils'
 
@@ -16,6 +17,7 @@ import { YggitOfficialPreview } from './YggitOfficialPreview'
 export type StudioTabKey = 'editor' | 'assets' | 'audit' | 'preview'
 
 export function HomepageDevStudio() {
+  const t = useT()
   const [activeTab, setActiveTab] = useState<StudioTabKey>('editor')
 
   // Wind Configuration State
@@ -60,22 +62,22 @@ export function HomepageDevStudio() {
   const navItems = [
     {
       id: 'editor' as const,
-      label: '动效与风场编辑器',
+      label: t('landing.studio.navEditor'),
       icon: <LuSlidersHorizontal className="size-4" aria-hidden="true" />,
     },
     {
       id: 'assets' as const,
-      label: '官网核心图层与资产管理',
+      label: t('landing.studio.navAssets'),
       icon: <LuLayers className="size-4" aria-hidden="true" />,
     },
     {
       id: 'audit' as const,
-      label: '源图审计与交付核验',
+      label: t('landing.studio.navAudit'),
       icon: <LuFileCheck2 className="size-4" aria-hidden="true" />,
     },
     {
       id: 'preview' as const,
-      label: '官网首屏全景沉浸预览',
+      label: t('landing.studio.navPreview'),
       icon: <LuEye className="size-4" aria-hidden="true" />,
     },
   ]
@@ -133,10 +135,10 @@ export function HomepageDevStudio() {
           <div className="custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto p-4 sm:p-6">
             <div className="flex flex-col gap-4 border-b border-line pb-4 mb-4">
               <div className="flex items-center gap-2">
-                <h1 className="text-xl font-bold tracking-tight text-ink sm:text-2xl">官网核心图层与资产管理</h1>
+                <h1 className="text-xl font-bold tracking-tight text-ink sm:text-2xl">{t('landing.studio.assetsTitle')}</h1>
                 <Badge tone="accent">DEV ONLY</Badge>
               </div>
-              <p className="text-xs text-ink-soft">检视 1672 × 941 高清分层、透明通道近景、水流 Water Flow Map 与独立世界树 RGBA</p>
+              <p className="text-xs text-ink-soft">{t('landing.studio.assetsSubtitle')}</p>
             </div>
             <StudioAssetsSection />
           </div>
@@ -147,10 +149,10 @@ export function HomepageDevStudio() {
           <div className="custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto p-4 sm:p-6">
             <div className="flex flex-col gap-4 border-b border-line pb-4 mb-4">
               <div className="flex items-center gap-2">
-                <h1 className="text-xl font-bold tracking-tight text-ink sm:text-2xl">源图审计与资产交付清单</h1>
+                <h1 className="text-xl font-bold tracking-tight text-ink sm:text-2xl">{t('landing.studio.auditTitle')}</h1>
                 <Badge tone="accent">DEV ONLY</Badge>
               </div>
-              <p className="text-xs text-ink-soft">查看 PRD Go/No-Go 验收核对单、母版坐标数据清单与完整交付文件</p>
+              <p className="text-xs text-ink-soft">{t('landing.studio.auditSubtitle')}</p>
             </div>
             <div className="rounded-xl border border-line bg-panel p-5 shadow-sm">
               <AuditAndDeliverablesView />

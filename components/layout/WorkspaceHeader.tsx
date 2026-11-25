@@ -62,7 +62,7 @@ export function WorkspaceHeader() {
 
         {/* Development-only Homepage Studio / Resource Editor Entry (Right of Edge, Left of ThemeSwitcher) */}
         {process.env.NODE_ENV === 'development' && (
-          <Tooltip content="官网工坊与资产管理 (开发模式)" placement="bottom">
+          <Tooltip content={t('landing.studio.headerTip')} placement="bottom">
             <Link
               href="/dev/studio"
               className={cn(
@@ -70,10 +70,10 @@ export function WorkspaceHeader() {
                 'px-2 gap-1.5 text-xs font-mono font-medium',
                 pathname.startsWith('/dev') && 'bg-[color-mix(in_oklab,var(--ink)_9%,transparent)] font-semibold text-accent'
               )}
-              aria-label="官网工作台"
+              aria-label={t('landing.header.devStudio')}
             >
               <LuCompass className="size-3.5 text-accent shrink-0" aria-hidden="true" />
-              <span className="hidden sm:inline">官网工坊</span>
+              <span className="hidden sm:inline">{t('landing.header.devStudio')}</span>
             </Link>
           </Tooltip>
         )}
