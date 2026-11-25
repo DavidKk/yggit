@@ -252,6 +252,7 @@ export type GitMessages = {
     deleteFolderTip: string
     deleteFolderAria: string
     folderEmpty: string
+    importedCount: string
     renameFolder?: string
     collapseFolder?: string
     expandFolder?: string

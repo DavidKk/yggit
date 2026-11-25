@@ -250,6 +250,7 @@ export const gitRu: GitMessages = {
     deleteFolderTip: 'Удалить папку',
     deleteFolderAria: 'Удалить папку {name}',
     folderEmpty: 'Папка пуста',
+    importedCount: 'Импортировано Git-репозиториев: {count}',
     folderEmptyMsg: 'Перетащите проекты в эту папку.',
     newFolderTitle: 'Новая папка',
     newFolderDesc: 'Создавайте группы как файловую систему, затем перетаскивайте в них проекты.',

@@ -251,6 +251,7 @@ export const gitDe: GitMessages = {
     deleteFolderTip: 'Ordner löschen',
     deleteFolderAria: 'Ordner {name} löschen',
     folderEmpty: 'Ordner ist leer',
+    importedCount: '{count} Git-Repositories importiert',
     folderEmptyMsg: 'Ziehe Projekte in diesen Ordner.',
     newFolderTitle: 'Neuer Ordner',
     newFolderDesc: 'Erstellen Sie Gruppen wie in einem Dateisystem und ziehen Sie dann Projekte hinein.',

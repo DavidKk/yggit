@@ -250,6 +250,7 @@ export const gitPtBR: GitMessages = {
     deleteFolderTip: 'Excluir pasta',
     deleteFolderAria: 'Excluir pasta {name}',
     folderEmpty: 'A pasta está vazia',
+    importedCount: '{count} repositórios Git importados',
     folderEmptyMsg: 'Arraste projetos para esta pasta.',
     newFolderTitle: 'Nova pasta',
     newFolderDesc: 'Crie grupos como um sistema de arquivos e, em seguida, arraste os projetos para dentro.',

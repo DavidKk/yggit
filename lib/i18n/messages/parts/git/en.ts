@@ -267,6 +267,7 @@ export const gitEn: GitMessages = {
     deleteFolderTip: 'Delete folder',
     deleteFolderAria: 'Delete folder {name}',
     folderEmpty: 'Folder is empty',
+    importedCount: 'Imported {count} Git repositories',
     renameFolder: 'Rename Folder',
     collapseFolder: 'Collapse Folder',
     expandFolder: 'Expand Folder',

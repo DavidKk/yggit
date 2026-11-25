@@ -1,5 +1,6 @@
 import './globals.css'
 
+import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
 import localFont from 'next/font/local'
 
@@ -50,7 +51,6 @@ export const viewport: Viewport = {
 
 export default async function RootLayout({ children }: LayoutProps<'/'>) {
   const [{ locale, preference }, { theme, preference: themePreference }] = await Promise.all([resolveRequestLocale(), resolveRequestTheme()])
-  const Analytics = process.env.VERCEL === '1' ? (await import('@vercel/analytics/next')).Analytics : null
 
   return (
     // Extensions may inject root attributes before hydration; keep suppression scoped to html.
@@ -68,7 +68,7 @@ export default async function RootLayout({ children }: LayoutProps<'/'>) {
         <AppProviders locale={locale} preference={preference} theme={theme} themePreference={themePreference}>
           <AppShell>{children}</AppShell>
         </AppProviders>
-        {Analytics ? <Analytics /> : null}
+        {process.env.VERCEL === '1' ? <Analytics /> : null}
       </body>
     </html>
   )

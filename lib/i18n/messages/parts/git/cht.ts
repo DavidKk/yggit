@@ -261,6 +261,7 @@ export const gitCht: GitMessages = {
     deleteFolderTip: '刪除資料夾',
     deleteFolderAria: '刪除資料夾 {name}',
     folderEmpty: '資料夾是空的',
+    importedCount: '已批量匯入 {count} 個 Git 倉庫',
     renameFolder: '重新命名資料夾',
     collapseFolder: '摺疊資料夾',
     expandFolder: '展開資料夾',

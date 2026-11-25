@@ -250,6 +250,7 @@ export const gitKo: GitMessages = {
     deleteFolderTip: '폴더 삭제',
     deleteFolderAria: '폴더 {name} 삭제',
     folderEmpty: '폴더가 비어 있습니다',
+    importedCount: '{count}개의 Git 저장소를 가져왔습니다',
     folderEmptyMsg: '프로젝트를 이 폴더로 끌어오세요.',
     newFolderTitle: '새 폴더',
     newFolderDesc: '파일 시스템처럼 그룹을 만들고 프로젝트를 끌어 넣으세요.',

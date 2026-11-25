@@ -250,6 +250,7 @@ export const gitEs: GitMessages = {
     deleteFolderTip: 'Eliminar carpeta',
     deleteFolderAria: 'Eliminar la carpeta {name}',
     folderEmpty: 'La carpeta está vacía',
+    importedCount: 'Se importaron {count} repositorios Git',
     folderEmptyMsg: 'Arrastra proyectos a esta carpeta.',
     newFolderTitle: 'Nueva carpeta',
     newFolderDesc: 'Crea grupos como un sistema de archivos, luego arrastra proyectos dentro.',

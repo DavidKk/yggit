@@ -267,6 +267,7 @@ export const gitZh: GitMessages = {
     deleteFolderTip: '删除文件夹',
     deleteFolderAria: '删除文件夹 {name}',
     folderEmpty: '文件夹是空的',
+    importedCount: '已批量导入 {count} 个 Git 仓库',
     renameFolder: '重命名文件夹',
     collapseFolder: '折叠文件夹',
     expandFolder: '展开文件夹',

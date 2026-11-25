@@ -1158,17 +1158,53 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
         try {
           const handle = await window.showDirectoryPicker({ mode: 'readwrite' })
           if (handle) {
+            setBusy(true)
+            setProgressStage('Scanning Git repositories...')
+            const { discoverEdgeGitRepos } = await import('@/lib/git/driver/edge-discover')
+            const discovered = await discoverEdgeGitRepos(handle)
+            if (discovered.length === 0) {
+              setError(t('git.errors.noReposFound'))
+              return
+            }
+
             const driver = getGitDriver('edge')
-            const project = await driver.addProject({ pathOrUrl: handle.name, handle, name: handle.name })
+            let firstProject: GitProjectView | null = null
+            let importedCount = 0
+
+            for (const repo of discovered) {
+              try {
+                const project = await driver.addProject({
+                  pathOrUrl: repo.relativePath,
+                  handle: repo.handle,
+                  name: repo.name,
+                })
+                if (!firstProject) firstProject = project
+                importedCount++
+              } catch {
+                // Skip individual invalid or duplicate repo entries
+              }
+            }
+
+            if (!firstProject) {
+              setError(t('git.errors.noReposFound'))
+              return
+            }
+
             await refreshProjects()
             closeMenu()
-            await load(project.id || handle.name)
+            if (importedCount > 1) {
+              notification.success(t('git.project.importedCount', { count: importedCount }) || `Imported ${importedCount} Git repositories`)
+            }
+            await load(firstProject.id || firstProject.name)
             return
           }
         } catch (e: unknown) {
           if (e instanceof Error && e.name === 'AbortError') return
           setError(e instanceof Error ? e.message : t('git.errors.openFolder'))
           return
+        } finally {
+          setBusy(false)
+          setProgressStage('')
         }
       } else {
         // Fall back to companion folder picker on localhost / desktop if Web FS is unavailable

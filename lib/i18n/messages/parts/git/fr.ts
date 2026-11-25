@@ -251,6 +251,7 @@ export const gitFr: GitMessages = {
     deleteFolderTip: 'Supprimer le dossier',
     deleteFolderAria: 'Supprimer le dossier {name}',
     folderEmpty: 'Le dossier est vide',
+    importedCount: '{count} dépôts Git importés',
     folderEmptyMsg: 'Faites glisser les projets dans ce dossier.',
     newFolderTitle: 'Nouveau dossier',
     newFolderDesc: "Créez des groupes comme un système de fichiers, puis faites glisser les projets à l'intérieur.",

@@ -250,6 +250,7 @@ export const gitJa: GitMessages = {
     deleteFolderTip: 'フォルダを削除',
     deleteFolderAria: 'フォルダ {name} を削除',
     folderEmpty: 'フォルダは空です',
+    importedCount: '{count} 件の Git リポジトリをインポートしました',
     folderEmptyMsg: 'プロジェクトをこのフォルダにドラッグしてください。',
     newFolderTitle: 'フォルダを新規',
     newFolderDesc: 'ファイルシステムのようにグループを作り、プロジェクトをドラッグします。',
