@@ -515,11 +515,16 @@ export function GitHistory({
             <div ref={sentinelRef} className="flex min-h-[56px] w-full items-center justify-center">
               {showFooterLoading ? <GitExploreStrip className="w-full py-1" /> : null}
             </div>
-          ) : (
-            <div className="flex min-h-[56px] w-full items-center justify-center text-xs text-ink-soft/60">
-              <span>{t('git.history.allLoaded')}</span>
+          ) : commits.length > 0 ? (
+            <div
+              className="flex min-h-[56px] w-full items-center justify-center gap-3 border-t border-[color-mix(in_oklab,var(--ink)_10%,transparent)] px-6 text-xs text-ink-soft select-none"
+              role="status"
+            >
+              <span className="h-px max-w-16 flex-1 bg-[color-mix(in_oklab,var(--ink)_14%,transparent)]" aria-hidden />
+              <span className="font-medium tracking-wide">{t('git.history.allLoaded')}</span>
+              <span className="h-px max-w-16 flex-1 bg-[color-mix(in_oklab,var(--ink)_14%,transparent)]" aria-hidden />
             </div>
-          )
+          ) : null
         }
         onSelect={onSelect}
         onSelectWorktree={onSelectWorktree}
