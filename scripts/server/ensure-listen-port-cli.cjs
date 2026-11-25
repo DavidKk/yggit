@@ -3,7 +3,7 @@
 
 const { ensureListenPort } = require('./ensure-listen-port.cjs')
 
-const port = process.argv[2] || process.env.PORT || '7272'
+const port = process.argv[2] || process.env.PORT || '3001'
 
 ensureListenPort(port).catch((error) => {
   console.error(error instanceof Error ? error.message : error)
