@@ -117,6 +117,10 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
   const [hasMore, setHasMore] = useState(failed ? false : initial.hasMore)
   const [hasPrev, setHasPrev] = useState(failed ? false : Boolean(initial.hasPrev))
   const [startIndex, setStartIndex] = useState<number>(failed ? 0 : (initial.startIndex ?? 0))
+  const commitsRef = useRef<GitCommit[]>(commits)
+  commitsRef.current = commits
+  const startIndexRef = useRef<number>(startIndex)
+  startIndexRef.current = startIndex
   const [focusRequest, setFocusRequest] = useState<{ hash: string } | null>(initialCommitHash ? { hash: initialCommitHash } : null)
   const [selectedHash, setSelectedHash] = useState(initialCommitHash || '')
   const [selectedFile, setSelectedFile] = useState(() => initialFilePath || (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('file') || '' : ''))
@@ -349,11 +353,15 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
     if (!currentRepo) return
 
     silentRefreshingRef.current = true
+    const activeScope = scopeRef.current
     try {
       const driver = getGitDriver()
       driver.clearCache?.(currentRepo)
-      const next = await driver.readLog({ repo: currentRepo })
-      if (viewRef.current?.repo !== currentRepo) return
+      const next = await driver.readLog({
+        repo: currentRepo,
+        ref: activeScope && activeScope !== '*' ? activeScope : undefined,
+      })
+      if (viewRef.current?.repo !== currentRepo || scopeRef.current !== activeScope) return
 
       setView((prev) => {
         if (!prev) return next
@@ -371,10 +379,29 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
           worktree: next.worktree,
         }
       })
-      setCommits(next.commits)
-      setHasMore(next.hasMore)
-      setHasPrev(Boolean(next.hasPrev))
-      setStartIndex(next.startIndex ?? 0)
+
+      if (startIndexRef.current === 0) {
+        if (commitsRef.current.length <= next.commits.length) {
+          setCommits(next.commits)
+          setHasMore(next.hasMore)
+          setHasPrev(Boolean(next.hasPrev))
+          setStartIndex(next.startIndex ?? 0)
+        } else {
+          setCommits((prev) => {
+            if (prev.length <= next.commits.length) return next.commits
+            const freshHashes = new Set(next.commits.map((c) => c.hash))
+            const tailHash = next.commits[next.commits.length - 1]?.hash
+            const overlapIdx = tailHash ? prev.findIndex((c) => c.hash === tailHash) : -1
+            if (overlapIdx >= 0) {
+              const olderTail = prev.slice(overlapIdx + 1).filter((c) => !freshHashes.has(c.hash))
+              return [...next.commits, ...olderTail]
+            }
+            const prevHashes = new Set(prev.map((c) => c.hash))
+            const brandNew = next.commits.filter((c) => !prevHashes.has(c.hash))
+            return brandNew.length > 0 ? [...brandNew, ...prev] : prev
+          })
+        }
+      }
 
       const worktreeClean = !next.worktree || next.worktree.files === 0
       const isWorktree = selectedHashRef.current === GIT_WORKTREE_HASH || (!selectedHashRef.current && Boolean(viewRef.current?.worktree))
