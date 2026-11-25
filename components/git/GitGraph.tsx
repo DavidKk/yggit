@@ -1,252 +1,41 @@
 'use client'
 
-import { type CSSProperties, Fragment, memo, type ReactNode, type Ref, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { LuArchive, LuArchiveRestore, LuBot, LuCopy, LuEyeOff, LuHash, LuInbox, LuPencil, LuText, LuTrash2, LuTriangleAlert } from 'react-icons/lu'
+import { type CSSProperties, Fragment, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { AnnotationBadge } from '@/components/git/agent/spotlight/AnnotationBadge'
 import { CommitStatusBadge } from '@/components/git/CommitStatusBadge'
 import { measureCellsFit } from '@/components/git/fitColumn'
+import { buildCommitContextItems, buildStashContextItems, buildWorktreeContextItems } from '@/components/git/graph/graphContextItems'
+import { GraphNodesOverlay, type GraphOverlayHoverNode } from '@/components/git/graph/GraphNodesOverlay'
+import {
+  BADGE_H,
+  BRANCH_DEFAULT,
+  BRANCH_MIN,
+  commitFindHit,
+  type GitGraphProps,
+  GRAPH_DEFAULT_WIDTH,
+  GRAPH_MIN,
+  type GraphContextMenu,
+  isCommitCurrentBranch,
+  MESSAGE_MIN,
+  toDateKey,
+} from '@/components/git/graph/GraphPrimitives'
+import { DateBoundaryDividers, StashRow, WorktreeRow } from '@/components/git/graph/GraphSpecialRows'
+import { useGraphPanning } from '@/components/git/graph/useGraphPanning'
 import { PanelSplitter } from '@/components/git/PanelSplitter'
-import { branchAtCommits, type FloatingAnchor, FloatingMenu, type FloatingMenuItem, refChips, RefChipsCell } from '@/components/git/RefChipsCell'
+import { branchAtCommits, FloatingMenu, type FloatingMenuItem, refChips, RefChipsCell } from '@/components/git/RefChipsCell'
 import { useLocaleCode, useT } from '@/components/i18n/LocaleProvider'
 import { useNotification } from '@/components/notification/useNotification'
 import { EmptyState, ScrollArea } from '@/components/sk'
-import { quotePromptToAgent, quoteStashToAgent, quoteWorktreeToAgent } from '@/lib/agent/agent-quote'
 import { useOptionalSpotlight } from '@/lib/agent/spotlight-context'
 import { copyToClipboard } from '@/lib/clipboard'
-import { buildBranchContextMenu } from '@/lib/git/branch-context-menu'
-import type { MergeConflictRecord } from '@/lib/git/conflict-cache'
 import { useContextMenuConfig } from '@/lib/git/context-menu-config'
 import { getGitDriver } from '@/lib/git/driver'
-import { formatCommitAgo, formatCommitDateDivider } from '@/lib/git/format-commit-ago'
-import { COL, DOT, graphScene, isHighlightedStroke, laneColor, PAD, ROW, type Stroke, xAt } from '@/lib/git/graph-scene'
+import { COL, DOT, graphScene, laneColor, PAD, xAt } from '@/lib/git/graph-scene'
 import { getBranchCommitHashes } from '@/lib/git/topology'
-import { GIT_WORKTREE_HASH, type GitCommit, type GitStash, gitStashAsCommit, type GitWorktree } from '@/lib/git/types'
+import { type GitCommit, type GitStash, type GitWorktree } from '@/lib/git/types'
 import { isPositiveNumber, repoPrefKey, useGitUiPref, useGitUiReady } from '@/lib/git/ui-prefs'
 import { cn } from '@/lib/utils'
-
-const BADGE_H = DOT
-const NODE_DOT = 16
-const MERGE_NODE_DOT = 8
-
-export function isCommitCurrentBranch(
-  commit: GitCommit,
-  chips: ReturnType<typeof refChips>,
-  checkedOut: Set<string>,
-  headIndex: number | null | undefined,
-  index: number,
-  currentBranch?: string
-): boolean {
-  if (index === headIndex) return true
-  if (chips.some((chip) => chip.kind === 'head' || checkedOut.has(chip.name))) return true
-  if (commit.refs.some((r) => r === 'HEAD' || r.startsWith('HEAD -> '))) return true
-  if (currentBranch) {
-    if (checkedOut.has(currentBranch) && chips.some((chip) => chip.name === currentBranch)) return true
-    if (commit.refs.some((r) => r === currentBranch || r === `HEAD -> ${currentBranch}` || r.endsWith(`/${currentBranch}`))) return true
-    if (chips.some((chip) => chip.name === currentBranch || chip.name === `origin/${currentBranch}` || chip.name.endsWith(`/${currentBranch}`))) return true
-  }
-  return false
-}
-
-type GraphContextMenu =
-  | {
-      type: 'commit'
-      target?: 'branch' | 'commit' | 'graph'
-      commit: GitCommit
-      branches: string[]
-      color: string
-      anchor: FloatingAnchor
-    }
-  | {
-      type: 'stash'
-      stash: GitStash
-      color: string
-      anchor: FloatingAnchor
-    }
-  | {
-      type: 'worktree'
-      worktree: GitWorktree
-      color: string
-      anchor: FloatingAnchor
-    }
-
-const BRANCH_MIN = 130
-const MESSAGE_MIN = 140
-const BRANCH_DEFAULT = 160
-const GRAPH_MIN = 80
-const GRAPH_DEFAULT_WIDTH = 240
-
-type Props = {
-  repo?: string
-  remoteUrl?: string
-  commits: GitCommit[]
-  worktree: GitWorktree | null
-  stashes?: GitStash[]
-  highlight: string
-  lineageHashes?: Set<string> | null
-  remoteNames?: string[]
-  worktreeBranches?: string[]
-  selectedHash?: string
-  activeHoverBranch?: string | null
-  onBranchHoverStart?: (branchName: string) => void
-  onBranchHoverEnd?: () => void
-  /** When set, non-matching commits are dimmed (find overlay); list length stays stable. */
-  findNeedle?: string
-  /** Scrollport for the commit list (header stays outside). */
-  scrollRef?: Ref<HTMLDivElement>
-  /** Rendered at the top of the scrollable list (e.g. infinite-scroll upward sentinel). */
-  header?: ReactNode
-  /** Rendered at the end of the scrollable list (e.g. infinite-scroll sentinel). */
-  footer?: ReactNode
-  conflicts?: Record<string, MergeConflictRecord>
-  onSelect?: (commit: GitCommit) => void
-  onSelectWorktree?: () => void
-  onOpenConflictView?: (hash: string, file?: string) => void
-  onCheckoutBranch?: (branch: string, isRemote?: boolean) => Promise<void> | void
-  onPushBranch?: (branch: string) => Promise<void> | void
-  onPullBranch?: (branch: string) => Promise<void> | void
-  onCreateBranch?: (branch: string, startPoint?: string) => Promise<void> | void
-  onDeleteBranch?: (branch: string) => Promise<void> | void
-  onRenameBranch?: (oldName: string) => Promise<void> | void
-  onRefresh?: () => Promise<void> | void
-  currentBranch?: string
-  soloBranch?: string | null
-  onSoloBranch?: (branch: string | null) => void
-  soloRemote?: string | null
-  hiddenRemotes?: string[]
-}
-
-function toDateKey(dateStr?: string): string {
-  if (!dateStr) return ''
-  const d = new Date(dateStr)
-  if (Number.isNaN(d.getTime())) return ''
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-function stashFindHit(stash: GitStash, needle: string) {
-  if (!needle) return true
-  const hay = `${stash.subject}\n${stash.name}\n${stash.hash}`.toLowerCase()
-  return hay.includes(needle)
-}
-
-function commitFindHit(commit: GitCommit, needle: string) {
-  if (!needle) return true
-  const hay = `${commit.subject}\n${commit.author}\n${commit.hash}\n${commit.refs.join('\n')}`.toLowerCase()
-  return hay.includes(needle)
-}
-
-function _refHit(ref: string, name: string): boolean {
-  return ref === name || ref === `HEAD -> ${name}` || ref === `tag: ${name}`
-}
-
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean)
-  if (parts.length === 0) return '?'
-  if (parts.length === 1) return [...parts[0]][0]?.toUpperCase() || '?'
-  return `${[...parts[0]][0] || ''}${[...parts[1]][0] || ''}`.toUpperCase()
-}
-
-/** Memoized SVG linearGradient definitions layer to avoid DOM churn on hover / selection. */
-const GraphDefs = memo(function GraphDefs({
-  strokes,
-}: {
-  strokes: Stroke[]
-  commits?: GitCommit[]
-  points?: ReturnType<typeof graphScene>['points']
-  commitRow?: number[]
-  remoteNames?: string[]
-  checkedOut?: Set<string>
-  headIndex?: number | null
-}) {
-  return (
-    <defs>
-      <style>{`
-        @keyframes wt-head-breathe {
-          0%, 100% {
-            box-shadow: inset 0 0 0 1.5px var(--node-tint, var(--accent, #3b82f6)), 0 0 0 1px var(--panel), 0 0 3px color-mix(in oklab, var(--node-tint, var(--accent, #3b82f6)) 50%, transparent);
-          }
-          50% {
-            box-shadow: inset 0 0 0 2px var(--node-tint, var(--accent, #3b82f6)), 0 0 0 1px var(--panel), 0 0 5px color-mix(in oklab, var(--node-tint, var(--accent, #3b82f6)) 80%, white);
-          }
-        }
-      `}</style>
-      {strokes
-        .filter((s) => s.startColor !== undefined && s.targetColor !== undefined && s.startColor !== s.targetColor)
-        .map((s) => {
-          const gradId = 'wt-grad-' + s.key.replace(/[^a-zA-Z0-9_-]/g, '_')
-          return (
-            <linearGradient key={gradId} id={gradId} gradientUnits="userSpaceOnUse" x1={s.x1 ?? 0} y1={s.y1 ?? 0} x2={s.x2 ?? 0} y2={s.y2 ?? 0}>
-              <stop offset="0%" stopColor={laneColor(s.startColor!)} />
-              <stop offset="100%" stopColor={laneColor(s.targetColor!)} />
-            </linearGradient>
-          )
-        })}
-    </defs>
-  )
-})
-
-/** Memoized SVG tree branch strokes layer to prevent re-renders on hover or loading state. */
-const GraphStrokes = memo(function GraphStrokes({
-  strokes,
-  lineageHashes,
-  spotlightHashes,
-  branchHashes,
-}: {
-  strokes: Stroke[]
-  lineageHashes?: Set<string> | null
-  spotlightHashes?: Set<string> | null
-  branchHashes?: Set<string> | null
-}) {
-  const hasLineage = Boolean(lineageHashes && lineageHashes.size > 0)
-  const hasSpotlight = Boolean(spotlightHashes && spotlightHashes.size > 0)
-  const hasBranch = Boolean(branchHashes && branchHashes.size > 0)
-  const anyHighlightActive = hasLineage || hasSpotlight || hasBranch
-
-  return (
-    <>
-      {strokes.map((stroke) => {
-        const isTrunk = stroke.fromLane === 0 && stroke.toLane === 0
-        const hasGrad = stroke.startColor !== undefined && stroke.targetColor !== undefined && stroke.startColor !== stroke.targetColor
-        const gradId = 'wt-grad-' + stroke.key.replace(/[^a-zA-Z0-9_-]/g, '_')
-        const strokePaint = hasGrad ? `url(#${gradId})` : laneColor(stroke.color)
-
-        const isLineage = isHighlightedStroke(stroke, lineageHashes)
-        const isSpotlight = Boolean(
-          hasSpotlight && stroke.childHash && stroke.parentHash && spotlightHashes?.has(stroke.childHash.toLowerCase()) && spotlightHashes?.has(stroke.parentHash.toLowerCase())
-        )
-        const isBranch = Boolean(hasBranch && stroke.childHash && stroke.parentHash && branchHashes?.has(stroke.childHash) && branchHashes?.has(stroke.parentHash))
-        const isHighlighted = isLineage || isSpotlight || isBranch
-        const strokeWidth = isHighlighted ? (stroke.dashed ? 2.6 : isTrunk ? 3.8 : 3.0) : stroke.dashed ? 1.4 : isTrunk ? 2.5 : 1.8
-        const opacity = anyHighlightActive ? (isHighlighted ? 1 : 0.18) : 1
-
-        return (
-          <g
-            key={stroke.key}
-            data-git-edge-child={stroke.childHash}
-            data-git-edge-parent={stroke.parentHash}
-            data-git-edge-highlighted={isHighlighted || undefined}
-            fill="none"
-            opacity={opacity}
-            className="transition-opacity duration-200"
-          >
-            {stroke.bridge && Math.abs((stroke.fromLane ?? 0) - (stroke.toLane ?? 0)) > 1 && (
-              <path d={stroke.d} stroke="var(--panel)" strokeWidth={3} strokeLinecap="butt" strokeLinejoin="round" />
-            )}
-            <path
-              d={stroke.d}
-              stroke={isHighlighted ? (stroke.color !== undefined ? laneColor(stroke.color) : 'var(--accent)') : strokePaint}
-              strokeWidth={strokeWidth}
-              strokeDasharray={stroke.dashed ? '3 3' : undefined}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </g>
-        )
-      })}
-    </>
-  )
-})
-
 function GitGraphComponent({
   repo,
   remoteUrl,
@@ -281,7 +70,7 @@ function GitGraphComponent({
   onSoloBranch,
   soloRemote,
   hiddenRemotes,
-}: Props) {
+}: GitGraphProps) {
   const t = useT()
   const locale = useLocaleCode()
   const notify = useNotification()
@@ -291,14 +80,7 @@ function GitGraphComponent({
   const spotlightMap = spotlight?.targetsMap
   const [contextMenu, setContextMenu] = useState<GraphContextMenu | null>(null)
   const [hoveredHash, setHoveredHash] = useState<string | null>(null)
-  const [hoveredNode, setHoveredNode] = useState<{
-    commit: GitCommit
-    x: number
-    y: number
-    color: string
-    isMerge: boolean
-    isConflictedMerge: boolean
-  } | null>(null)
+  const [hoveredNode, setHoveredNode] = useState<GraphOverlayHoverNode | null>(null)
   const isScrollingRef = useRef(false)
   const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -361,85 +143,32 @@ function GitGraphComponent({
     else notify.error(t('common.copyFailed'))
   }
 
-  const commitContextItems = (commit: GitCommit, branchNames?: string[] | string, target?: 'branch' | 'commit' | 'graph'): FloatingMenuItem[] => {
-    const rawList = Array.isArray(branchNames) ? branchNames : branchNames ? [branchNames] : []
-    const branches = Array.from(new Set(rawList.filter(Boolean)))
-    const primaryBranch = branches[0]
-
-    return buildBranchContextMenu({
-      target,
-      branchName: primaryBranch,
+  const commitContextItems = (commit: GitCommit, branchNames?: string[] | string, target?: 'branch' | 'commit' | 'graph'): FloatingMenuItem[] =>
+    buildCommitContextItems({
       commit,
+      branchNames,
+      target,
       repo,
       remoteUrl,
       remoteNames,
-      isReadOnly: false,
-      hasWorktrees: worktreeBranches.length > 0 || Boolean(worktree),
+      worktreeBranches,
+      worktree,
       soloBranch,
       onSoloBranch,
-      config: contextConfig,
+      contextConfig,
       t,
-      onNotify: (type, msg) => {
-        if (type === 'success') notify.success(msg)
-        else notify.error(msg)
-      },
-      onCheckoutBranch: (branch, isRemote) => {
-        if (onCheckoutBranch) {
-          void onCheckoutBranch(branch, isRemote)
-        } else {
-          quotePromptToAgent(`${t('git.operations.checkoutBranch') || 'Switch to'} ${branch}`)
-        }
-      },
+      notify,
+      onCheckoutBranch,
       onPushBranch,
       onPullBranch,
       onCreateBranch,
       onDeleteBranch,
       onRenameBranch,
-      onAgentPrompt: (prompt) => {
-        quotePromptToAgent(prompt)
-      },
-      onUndoCommit:
-        commit.hash === commits[0]?.hash
-          ? async () => {
-              if (!repo) return
-              try {
-                const driver = getGitDriver()
-                const res = await driver.undo(repo)
-                notify.success(res.message || t('git.operations.undoSuccess') || 'Undid last commit')
-                await onRefresh?.()
-              } catch (err) {
-                notify.error(err instanceof Error ? err.message : t('git.operations.undoError') || 'Undo failed')
-              }
-            }
-          : undefined,
+      headCommitHash: commits[0]?.hash,
+      onRefresh,
     })
-  }
 
-  const worktreeContextItems = (wt: GitWorktree): FloatingMenuItem[] => [
-    {
-      key: 'select-wt',
-      label: t('git.graph.workingTree') || 'View Working Tree',
-      icon: <LuCopy className="size-4 shrink-0 text-accent" />,
-      onSelect: () => onSelectWorktree?.(),
-    },
-    {
-      key: 'quote-wt',
-      label: t('git.operations.quoteWorktreeToAgent') || 'Quote Worktree to Git Agent',
-      icon: <LuBot className="size-4 shrink-0 text-accent" />,
-      onSelect: () => quoteWorktreeToAgent(repo || '.', undefined, repo),
-    },
-    {
-      key: 'status',
-      label: t('git.graph.copyWorktreeChanges'),
-      icon: <LuCopy className="size-4 shrink-0 text-ink-soft" />,
-      onSelect: () =>
-        void copyValue(
-          wt.insertions || wt.deletions
-            ? `${t('git.graph.workingTree')}: +${wt.insertions} -${wt.deletions} (${t('git.graph.filesCount', { count: wt.files })})`
-            : `${t('git.graph.workingTree')}: ${t('git.graph.filesCount', { count: wt.files })}`
-        ),
-    },
-  ]
+  const worktreeContextItems = (wt: GitWorktree): FloatingMenuItem[] => buildWorktreeContextItems({ wt, repo, t, copyValue, onSelectWorktree })
 
   const handleStashAction = async (action: 'apply' | 'pop' | 'drop' | 'edit', index: number, message?: string) => {
     if (!repo) return
@@ -453,79 +182,15 @@ function GitGraphComponent({
     }
   }
 
-  const stashContextItems = (stash: GitStash): FloatingMenuItem[] => {
-    const idx = Number(stash.name.match(/\d+/)?.[0] ?? 0)
-    return [
-      {
-        key: 'apply-stash',
-        label: t('git.operations.applyStashAction', { stash: stash.name }) || `Apply Stash (${stash.name})`,
-        icon: <LuArchive className="size-3.5 shrink-0 text-accent" aria-hidden />,
-        onSelect: () => void handleStashAction('apply', idx),
-      },
-      {
-        key: 'pop-stash',
-        label: t('git.operations.popStashAction', { stash: stash.name }) || `Pop Stash (${stash.name})`,
-        icon: <LuArchiveRestore className="size-3.5 shrink-0 text-ok" aria-hidden />,
-        onSelect: () => void handleStashAction('pop', idx),
-      },
-      {
-        key: 'quote-stash',
-        label: t('git.operations.quoteStashToAgent') || 'Quote Stash to Git Agent',
-        icon: <LuBot className="size-3.5 shrink-0 text-accent" aria-hidden />,
-        onSelect: () => quoteStashToAgent(stash.name, stash.subject, repo),
-      },
-      {
-        key: 'drop-stash',
-        label: t('git.operations.deleteStashAction', { stash: stash.name }) || `Delete Stash (${stash.name})`,
-        icon: <LuTrash2 className="size-3.5 shrink-0 text-fail" aria-hidden />,
-        danger: true,
-        onSelect: () => void handleStashAction('drop', idx),
-      },
-      {
-        key: 'edit-stash-message',
-        label: t('git.operations.editStashMessageAction') || 'Edit Stash Message...',
-        icon: <LuPencil className="size-3.5 shrink-0 text-ink-soft" aria-hidden />,
-        dividerBefore: true,
-        onSelect: () => {
-          const msg = window.prompt(t('git.operations.editStashPrompt') || 'Please enter new stash message:', stash.subject || '')
-          if (msg && msg.trim()) void handleStashAction('edit', idx, msg.trim())
-        },
-      },
-      {
-        key: 'hide-stash',
-        label: t('git.operations.hideStashAction') || 'Hide Stash',
-        icon: <LuEyeOff className="size-3.5 shrink-0 text-ink-soft" aria-hidden />,
-        dividerBefore: true,
-        onSelect: () => setHiddenStashes((prev) => (prev.includes(stash.name) ? prev.filter((s) => s !== stash.name) : [...prev, stash.name])),
-      },
-      {
-        key: 'copy-stash-group',
-        label: t('git.operations.groupCopy') || 'Copy',
-        icon: <LuCopy className="size-3.5 shrink-0 text-ink-soft" aria-hidden />,
-        dividerBefore: true,
-        children: [
-          {
-            key: 'subject',
-            label: t('git.graph.copyStashSubject'),
-            icon: <LuText className="size-3.5 shrink-0" aria-hidden />,
-            onSelect: () => void copyValue(stash.subject || stash.name),
-          },
-          {
-            key: 'name',
-            label: `${t('git.graph.copyStashName')} (${stash.name})`,
-            icon: <LuCopy className="size-3.5 shrink-0" aria-hidden />,
-            onSelect: () => void copyValue(stash.name),
-          },
-          {
-            key: 'base',
-            label: t('git.graph.copyStashBase'),
-            icon: <LuHash className="size-3.5 shrink-0" aria-hidden />,
-            onSelect: () => void copyValue(stash.base),
-          },
-        ],
-      },
-    ]
-  }
+  const stashContextItems = (stash: GitStash): FloatingMenuItem[] =>
+    buildStashContextItems({
+      stash,
+      repo,
+      t,
+      copyValue,
+      onStashAction: handleStashAction,
+      onHideStash: (name) => setHiddenStashes((prev) => (prev.includes(name) ? prev.filter((s) => s !== name) : [...prev, name])),
+    })
 
   const [hiddenStashes, setHiddenStashes] = useGitUiPref(repo ? repoPrefKey(repo, 'hiddenStashes') : 'git.hiddenStashes.none', [] as string[], Array.isArray)
   const visibleStashes = useMemo(() => stashes.filter((s) => !hiddenStashes.includes(s.name)), [stashes, hiddenStashes])
@@ -628,133 +293,14 @@ function GitGraphComponent({
   }, [contentWidth, setGraphView, syncGraphEdge])
 
   // Native wheel and drag-pan interactions for the graph column
-  useEffect(() => {
-    const frame = frameRef.current
-    if (!frame) return
-
-    const handleWheel = (e: WheelEvent) => {
-      const hasHorizontalDelta = Math.abs(e.deltaX) > 0
-      const isShiftWheel = e.shiftKey && Math.abs(e.deltaY) > 0
-      const isAltWheel = e.altKey && Math.abs(e.deltaY) > 0
-
-      // Let standard vertical scroll pass through immediately without any DOM layout queries
-      if (!hasHorizontalDelta && !isShiftWheel && !isAltWheel) {
-        return
-      }
-
-      const pan = graphScrollRef.current
-      if (!pan) return
-      const maxScroll = Math.max(0, pan.scrollWidth - pan.clientWidth)
-      if (maxScroll <= 0) return
-
-      const rect = frame.getBoundingClientRect()
-      const isOverGraph = e.clientX >= rect.left + branchRef.current && e.clientX <= rect.left + branchRef.current + graphRef.current
-      if (!isOverGraph) return
-
-      // Ignore accidental trackpad horizontal jitter while scrolling vertically through commits
-      if (hasHorizontalDelta && !isShiftWheel && !isAltWheel && Math.abs(e.deltaX) <= Math.abs(e.deltaY) * 1.2) {
-        return
-      }
-
-      const delta = hasHorizontalDelta ? e.deltaX : e.deltaY
-      const prev = pan.scrollLeft
-      pan.scrollLeft = Math.max(0, Math.min(maxScroll, pan.scrollLeft + delta))
-      if (pan.scrollLeft !== prev) {
-        e.preventDefault()
-        syncGraphEdge()
-      }
-    }
-
-    let dragStartX = 0
-    let dragStartScroll = 0
-    let isDragging = false
-    let pointerCaptured = false
-    let cleanupDrag: (() => void) | undefined
-    let cleanupClick: (() => void) | undefined
-
-    const handlePointerDown = (e: PointerEvent) => {
-      if (e.button !== 0 && e.button !== 1) return
-      const pan = graphScrollRef.current
-      if (!pan) return
-      const maxScroll = Math.max(0, pan.scrollWidth - pan.clientWidth)
-      if (maxScroll <= 0) return
-
-      const rect = frame.getBoundingClientRect()
-      const isOverGraph = e.clientX >= rect.left + branchRef.current && e.clientX <= rect.left + branchRef.current + graphRef.current
-      if (!isOverGraph) return
-
-      const target = e.target as HTMLElement | null
-      if (target?.closest('button') || target?.closest('[role="button"]') || target?.closest('a') || target?.closest('[data-split-handle]')) {
-        return
-      }
-
-      cleanupDrag?.()
-      cleanupClick?.()
-      dragStartX = e.clientX
-      dragStartScroll = pan.scrollLeft
-      isDragging = false
-      pointerCaptured = true
-
-      const handlePointerMove = (moveEvt: PointerEvent) => {
-        if (!pointerCaptured) return
-        const dx = moveEvt.clientX - dragStartX
-        if (!isDragging && Math.abs(dx) > 3) {
-          isDragging = true
-          frame.style.userSelect = 'none'
-          frame.style.cursor = 'grabbing'
-        }
-        if (isDragging) {
-          pan.scrollLeft = Math.max(0, Math.min(maxScroll, dragStartScroll - dx))
-          syncGraphEdge()
-        }
-      }
-
-      const handlePointerUp = (upEvt: PointerEvent) => {
-        const suppressClick = isDragging && upEvt.type === 'pointerup'
-        cleanupDrag?.()
-        if (suppressClick) {
-          upEvt.stopPropagation()
-          const captureClick = (clickEvt: MouseEvent) => {
-            clickEvt.stopPropagation()
-            clickEvt.preventDefault()
-            cleanupClick?.()
-          }
-          const timer = window.setTimeout(() => cleanupClick?.(), 0)
-          cleanupClick = () => {
-            window.clearTimeout(timer)
-            window.removeEventListener('click', captureClick, true)
-            cleanupClick = undefined
-          }
-          window.addEventListener('click', captureClick, true)
-        }
-      }
-
-      cleanupDrag = () => {
-        window.removeEventListener('pointermove', handlePointerMove)
-        window.removeEventListener('pointerup', handlePointerUp)
-        window.removeEventListener('pointercancel', handlePointerUp)
-        frame.style.userSelect = ''
-        frame.style.cursor = ''
-        pointerCaptured = false
-        isDragging = false
-        cleanupDrag = undefined
-      }
-
-      window.addEventListener('pointermove', handlePointerMove)
-      window.addEventListener('pointerup', handlePointerUp)
-      window.addEventListener('pointercancel', handlePointerUp)
-    }
-
-    frame.addEventListener('wheel', handleWheel, { passive: false })
-    frame.addEventListener('pointerdown', handlePointerDown)
-
-    return () => {
-      frame.removeEventListener('wheel', handleWheel)
-      frame.removeEventListener('pointerdown', handlePointerDown)
-      cleanupDrag?.()
-      cleanupClick?.()
-    }
-  }, [contentWidth, syncGraphEdge])
+  useGraphPanning({
+    frameRef,
+    graphScrollRef,
+    branchRef,
+    graphRef,
+    contentWidth,
+    syncGraphEdge,
+  })
 
   const dateBoundaries = useMemo(() => {
     const boundaries: Array<{ rowIndex: number; date: string }> = []
@@ -834,168 +380,38 @@ function GitGraphComponent({
       >
         <div className="relative min-w-0" style={{ overflowAnchor: 'none' }}>
           {header}
-          {/* Date boundary dividers rendered precisely on the seam between rows (rowIndex - 1 and rowIndex) */}
-          <div className="pointer-events-none absolute inset-0 z-20 overflow-visible" aria-hidden>
-            {dateBoundaries.map((b) => (
-              <div
-                key={`date-boundary-${b.rowIndex}`}
-                className="absolute right-0 flex h-0 items-center pr-3"
-                style={{
-                  top: b.rowIndex * ROW,
-                  left: 'calc(var(--git-branch-w) + var(--git-graph-w))',
-                }}
-              >
-                <div className="h-px flex-1 bg-[color-mix(in_oklab,var(--ink)_14%,transparent)]" />
-                <span className="ml-2 shrink-0 rounded border border-[color-mix(in_oklab,var(--ink)_12%,transparent)] bg-[var(--panel)] px-1.5 py-0.5 text-[10px] font-medium leading-none text-ink-soft select-none shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
-                  {formatCommitDateDivider(b.date, locale)}
-                </span>
-              </div>
-            ))}
-          </div>
+          <DateBoundaryDividers dateBoundaries={dateBoundaries} locale={locale} />
           <ol className="m-0 list-none">
             {scene.rows.map((row) => {
               if (row.kind === 'worktree' && worktree) {
-                const isContextActive = contextMenu?.type === 'worktree'
-                const wipDot = scene.dots.find((dot) => dot.key === 'wip')
-                const color = wipDot?.color || laneColor(headIndex >= 0 ? (points[headIndex]?.color ?? 0) : 0)
-                const isSelected = selectedHash === GIT_WORKTREE_HASH
-                const nodeRadius = wipDot ? (isSelected ? wipDot.radius + 2.5 : wipDot.radius + 1) : 8
-                const nodeX = wipDot ? wipDot.x : 16
                 return (
-                  <li key="worktree" className="group/commit git-commit-row relative z-0 h-[26px] max-h-[26px] min-w-0 shrink-0 overflow-visible hover:z-10">
-                    {/* Seamless dual highlight pills across graph and message columns */}
-                    <div
-                      className="git-graph-col-pill"
-                      data-selected={isSelected ? 'true' : 'false'}
-                      style={{ '--row-tint': color, '--node-x': `${nodeX}px`, '--node-radius': `${nodeRadius}px` } as React.CSSProperties}
-                    />
-                    <div className="git-message-col-pill" data-selected={isSelected ? 'true' : 'false'} style={{ '--row-tint': color } as React.CSSProperties} />
-                    <div
-                      role="row"
-                      tabIndex={0}
-                      aria-selected={isSelected}
-                      data-git-commit-hash={GIT_WORKTREE_HASH}
-                      className="group/commit grid h-[26px] max-h-[26px] w-full min-w-0 cursor-pointer select-text items-center justify-start gap-0 rounded-none border-0 bg-transparent px-0 text-left leading-none font-normal outline-none focus:outline-none focus-visible:outline-none"
-                      style={{ gridTemplateColumns: columns }}
-                      onClick={() => {
-                        const sel = window.getSelection()
-                        if (sel && sel.toString().length > 0) return
-                        onSelectWorktree?.()
-                      }}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' || event.key === ' ') {
-                          event.preventDefault()
-                          onSelectWorktree?.()
-                        }
-                      }}
-                      onContextMenu={(event) => {
-                        event.preventDefault()
-                        setContextMenu({
-                          type: 'worktree',
-                          worktree,
-                          color,
-                          anchor: { x: event.clientX, y: event.clientY },
-                        })
-                      }}
-                    >
-                      <span className="min-h-0 bg-transparent" />
-                      <span className="flex h-[26px] min-h-0 items-center justify-end bg-transparent">
-                        <span className="w-0.5 shrink-0" style={{ height: DOT, background: color }} aria-hidden />
-                      </span>
-                      <span className="flex h-[26px] min-h-0 min-w-0 items-center">
-                        <span
-                          className={cn(
-                            'flex min-w-0 flex-1 items-center truncate pr-3 pl-2 text-sm leading-none font-normal select-text cursor-pointer transition-colors duration-150',
-                            isSelected ? 'text-ink' : isContextActive ? 'text-ink' : 'text-ink-soft'
-                          )}
-                          style={{ height: DOT }}
-                          title={`${t('git.graph.workingTree')} · ${t('git.graph.filesCount', { count: worktree.files })}`}
-                        >
-                          {t('git.graph.workingTree')}
-                          {(() => {
-                            const added = worktree.addedFiles !== undefined ? worktree.addedFiles : worktree.insertions
-                            const deleted = worktree.deletedFiles !== undefined ? worktree.deletedFiles : worktree.deletions
-                            if (added > 0 || deleted > 0) {
-                              return (
-                                <>
-                                  {added > 0 ? <span className="ml-3 text-ok">+{added}</span> : null}
-                                  {deleted > 0 ? <span className="ml-2 text-fail">-{deleted}</span> : null}
-                                </>
-                              )
-                            }
-                            return <span className="ml-3 text-ink-soft">{t('git.graph.filesCount', { count: worktree.files })}</span>
-                          })()}
-                        </span>
-                      </span>
-                    </div>
-                  </li>
+                  <WorktreeRow
+                    key="worktree"
+                    worktree={worktree}
+                    scene={scene}
+                    headIndex={headIndex}
+                    selectedHash={selectedHash}
+                    contextMenu={contextMenu}
+                    columns={columns}
+                    onSelectWorktree={onSelectWorktree}
+                    setContextMenu={setContextMenu}
+                    t={t}
+                  />
                 )
               }
               if (row.kind === 'stash') {
-                const stash = row.stash
-                const stashPoint = scene.stashPoints.get(stash.hash)
-                const color = stashPoint ? laneColor(stashPoint.color) : 'var(--accent)'
-                const selected = selectedHash === stash.hash
-                const findHit = stashFindHit(stash, findNeedle)
-                const isContextActive = contextMenu?.type === 'stash' && contextMenu.stash.hash === stash.hash
-                const rowTintClass = cn(isContextActive ? 'bg-[color-mix(in_oklab,var(--accent)_12%,transparent)]' : '')
-                const nodeRadius = selected ? 12.5 : 8
-                const nodeX = xAt(stashPoint?.lane ?? 0)
                 return (
-                  <li key={stash.name} className="group/commit git-commit-row relative z-0 h-[26px] max-h-[26px] min-w-0 shrink-0 overflow-visible hover:z-10">
-                    {/* Seamless dual highlight pills across graph and message columns */}
-                    <div
-                      className="git-graph-col-pill"
-                      data-selected={selected ? 'true' : 'false'}
-                      style={{ '--row-tint': color, '--node-x': `${nodeX}px`, '--node-radius': `${nodeRadius}px` } as React.CSSProperties}
-                    />
-                    <div className="git-message-col-pill" data-selected={selected ? 'true' : 'false'} style={{ '--row-tint': color } as React.CSSProperties} />
-                    <div
-                      role="row"
-                      tabIndex={0}
-                      aria-selected={selected}
-                      data-git-commit-hash={stash.hash}
-                      className={cn(
-                        'group/commit grid h-[26px] max-h-[26px] w-full min-w-0 cursor-pointer select-text items-center justify-start gap-0 rounded-none border-0 bg-transparent px-0 text-left leading-none font-normal outline-none focus:outline-none focus-visible:outline-none',
-                        findNeedle && !findHit && 'opacity-35'
-                      )}
-                      style={{ gridTemplateColumns: columns }}
-                      onClick={() => {
-                        const sel = window.getSelection()
-                        if (sel && sel.toString().length > 0) return
-                        onSelect?.(gitStashAsCommit(stash))
-                      }}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' || event.key === ' ') {
-                          event.preventDefault()
-                          onSelect?.(gitStashAsCommit(stash))
-                        }
-                      }}
-                      onContextMenu={(event) => {
-                        event.preventDefault()
-                        setContextMenu({
-                          type: 'stash',
-                          stash,
-                          color,
-                          anchor: { x: event.clientX, y: event.clientY },
-                        })
-                      }}
-                    >
-                      <span data-git-branch-cell className="h-[26px] min-h-0 bg-transparent" />
-                      <span className="flex h-[26px] min-h-0 items-center justify-end bg-transparent">
-                        <span className="w-0.5 shrink-0" style={{ height: DOT, background: color }} aria-hidden />
-                      </span>
-                      <span className="flex h-[26px] min-h-0 min-w-0 items-center">
-                        <span
-                          className={cn('flex min-w-0 flex-1 items-center truncate pr-3 pl-2 text-sm leading-none font-normal text-ink select-text cursor-pointer', rowTintClass)}
-                          style={{ height: DOT }}
-                          title={stash.date ? `${stash.subject || stash.name} (${stash.date})` : stash.subject || stash.name}
-                        >
-                          {stash.subject || stash.name}
-                        </span>
-                      </span>
-                    </div>
-                  </li>
+                  <StashRow
+                    key={row.stash.name}
+                    stash={row.stash}
+                    scene={scene}
+                    selectedHash={selectedHash}
+                    findNeedle={findNeedle}
+                    contextMenu={contextMenu}
+                    columns={columns}
+                    onSelect={onSelect}
+                    setContextMenu={setContextMenu}
+                  />
                 )
               }
               if (row.kind !== 'commit') return null
@@ -1254,256 +670,40 @@ function GitGraphComponent({
               )
             })}
           </ol>
-          <div
-            ref={graphScrollRef}
-            data-git-graph-pan
-            className="pointer-events-none absolute top-0 left-[var(--git-branch-w)] z-[2] w-[var(--git-graph-w)] overflow-x-auto overflow-y-visible [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-            style={{ height: scene.height }}
-            onScroll={syncGraphEdge}
-          >
-            <div className="relative" style={{ width: contentWidth, height: scene.height }}>
-              <svg className="pointer-events-none absolute inset-0 overflow-visible" width={contentWidth} height={scene.height} aria-hidden>
-                <GraphDefs strokes={scene.strokes} />
-                <GraphStrokes strokes={scene.strokes} lineageHashes={lineageHashes} spotlightHashes={spotlightHashes} />
-                {commits.map((commit, index) => {
-                  const chips = refChips(commit.refs, remoteNames, { hiddenRemotes, soloRemote })
-                  const branch = branchAt.get(commit.hash) || ''
-                  const point = points[index]
-                  if (!point) return null
-                  const isContextActive = contextMenu?.type === 'commit' && contextMenu.commit.hash === commit.hash
-                  const isHovered = isContextActive || hoveredHash === commit.hash
-                  if (chips.length === 0 && (!branch || !isHovered)) return null
-                  const y = scene.commitRow[index] * ROW + ROW / 2
-                  const isMerge = commit.parents.length > 1
-                  const isCommitCurrent = isCommitCurrentBranch(commit, chips, checkedOut, headIndex, index, currentBranch)
-                  const color = laneColor(point.color)
-                  const nodeRadius = (isMerge ? MERGE_NODE_DOT : NODE_DOT) / 2
-                  const nodeX = xAt(point.lane)
-                  const x1 = 0
-                  const x2 = nodeX - nodeRadius
-                  if (x2 <= x1) return null
-                  return (
-                    <line
-                      key={`badge:${commit.hash}`}
-                      x1={x1}
-                      y1={y}
-                      x2={x2}
-                      y2={y}
-                      stroke={color}
-                      strokeWidth={isCommitCurrent ? 2 : 1}
-                      strokeDasharray={isCommitCurrent ? undefined : '3 3'}
-                      strokeOpacity={isCommitCurrent ? 1 : 0.7}
-                      strokeLinecap="round"
-                    />
-                  )
-                })}
-                {scene.dots
-                  .filter((dot) => dot.key === 'wip')
-                  .map((dot) => {
-                    const isSelected = selectedHash === GIT_WORKTREE_HASH
-                    return (
-                      <circle
-                        key={dot.key}
-                        cx={dot.x}
-                        cy={dot.y}
-                        r={isSelected ? dot.radius + 1 : dot.radius}
-                        fill="var(--panel)"
-                        stroke={dot.color}
-                        strokeWidth={isSelected ? 2.5 : 2}
-                        style={isSelected ? { filter: `drop-shadow(0 0 4px ${dot.color})` } : undefined}
-                      />
-                    )
-                  })}
-              </svg>
-              {scene.stashMarks.map((mark) => {
-                const stash = visibleStashes.find((item) => item.hash === mark.hash)
-                if (!stash) return null
-                const tint = mark.color || 'var(--accent)'
-                const isSelected = selectedHash === stash.hash
-                const markX = mark.x
-                return (
-                  <span
-                    key={mark.key}
-                    data-git-graph-dot
-                    data-git-node-hash={stash.hash}
-                    className={cn(
-                      'pointer-events-none select-none absolute flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-dashed transition-all duration-200',
-                      isSelected && 'scale-110 z-10'
-                    )}
-                    style={{
-                      left: markX,
-                      top: mark.y,
-                      width: NODE_DOT,
-                      height: NODE_DOT,
-                      borderColor: tint,
-                      color: tint,
-                      background: 'var(--panel)',
-                      boxShadow: isSelected ? `0 0 0 2px var(--panel), 0 0 0 4px ${tint}, 0 0 8px ${tint}` : `0 0 3px color-mix(in oklab, ${tint} 25%, transparent)`,
-                    }}
-                    aria-label={stash.name}
-                  >
-                    <LuInbox className="size-2.5" aria-hidden />
-                  </span>
-                )
-              })}
-              {commits.map((commit, index) => {
-                const point = points[index]
-                if (!point) return null
-                const y = scene.commitRow[index] * ROW + ROW / 2
-                const tint = laneColor(point.color)
-                const isMerge = commit.parents.length > 1
-                const isConflictedMerge = isMerge && Boolean(conflicts?.[commit.hash]?.hasConflict)
-                const isLineageHit = lineageHashes?.has(commit.hash)
-                const isSpotlightHit = Boolean(spotlightMap?.get(commit.hash.toLowerCase()))
-                const isSpotlightDimmed = isSpotlightActive && !isSpotlightHit
-                const isHead = index === headIndex || commit.refs.some((r) => r === 'HEAD' || r.startsWith('HEAD -> '))
-                const isTagged = commit.refs.some((r) => r.startsWith('tag: '))
-                const isHoverBranchDimmed = isHoverBranchActive && isBranchActive && !branchHashes?.has(commit.hash)
-                const isRemoteSoloDimmed = Boolean(soloRemote && !commit.refs.some((r) => r.startsWith(`${soloRemote}/`) || r === 'HEAD' || r.startsWith('HEAD -> ')))
-                const isRemoteHiddenDimmed = Boolean(
-                  hiddenRemotes && hiddenRemotes.length > 0 && commit.refs.length > 0 && commit.refs.every((r) => hiddenRemotes.some((hr) => r.startsWith(`${hr}/`)))
-                )
-                const isDimmed = Boolean(
-                  (lineageHashes && lineageHashes.size > 0 && !isLineageHit && !isHead) || isSpotlightDimmed || isHoverBranchDimmed || isRemoteSoloDimmed || isRemoteHiddenDimmed
-                )
-                const isSelected = selectedHash === commit.hash
-                const chips = refChips(commit.refs, remoteNames, { hiddenRemotes, soloRemote })
-                const branch = branchAt.get(commit.hash) || ''
-                const nodeX = xAt(point.lane)
-                return (
-                  <span
-                    key={commit.hash}
-                    data-git-graph-dot
-                    data-git-node-hash={commit.hash}
-                    className={cn(
-                      'pointer-events-auto cursor-pointer select-none absolute flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full leading-none transition-all duration-200',
-                      !isMerge && 'text-[9px] font-semibold text-ink',
-                      isSelected && 'scale-110 z-10',
-                      isLineageHit && 'ring-2 ring-accent ring-offset-1 ring-offset-[var(--panel)] scale-110 z-10 shadow-[0_0_8px_var(--accent)]',
-                      isSpotlightHit && 'ring-2 ring-accent ring-offset-1 ring-offset-[var(--panel)] scale-125 z-20 shadow-[0_0_12px_var(--accent)]',
-                      isDimmed ? 'opacity-25' : ''
-                    )}
-                    style={
-                      isMerge
-                        ? {
-                            left: nodeX,
-                            top: y,
-                            width: MERGE_NODE_DOT,
-                            height: MERGE_NODE_DOT,
-                            background: 'var(--panel)',
-                            border: `1.5px solid ${tint}`,
-                            boxShadow: isSelected ? `0 0 0 2px var(--panel), 0 0 0 4px ${tint}, 0 0 10px ${tint}` : `0 0 3px color-mix(in oklab, ${tint} 30%, transparent)`,
-                          }
-                        : {
-                            left: nodeX,
-                            top: y,
-                            width: NODE_DOT,
-                            height: NODE_DOT,
-                            background: 'var(--panel)',
-                            boxShadow: isSelected
-                              ? `inset 0 0 0 1.5px ${tint}, 0 0 0 2px var(--panel), 0 0 0 4px ${tint}, 0 0 8px ${tint}`
-                              : isHead
-                                ? `inset 0 0 0 1.5px ${tint}, 0 0 0 1px var(--panel), 0 0 4px color-mix(in oklab, ${tint} 60%, white)`
-                                : `inset 0 0 0 1.5px ${tint}`,
-                            animation: isHead && !isSelected ? 'wt-head-breathe 2.8s ease-in-out infinite' : undefined,
-                            ['--node-tint' as any]: tint,
-                          }
-                    }
-                    title={`${commit.short || commit.hash.slice(0, 7)} · ${commit.author} (${commit.date})\n${commit.subject}${
-                      isConflictedMerge
-                        ? '\n' +
-                          t(conflicts?.[commit.hash]?.unresolvedConflictFiles?.length ? 'git.history.committedConflicts' : 'git.history.historicalConflicts', {
-                            count: conflicts?.[commit.hash]?.unresolvedConflictFiles?.length || conflicts?.[commit.hash]?.conflictCount || 1,
-                          })
-                        : ''
-                    }`}
-                    aria-label={commit.author}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onSelect?.(commit)
-                    }}
-                    onPointerEnter={() => {
-                      if (isScrollingRef.current) return
-                      setHoveredHash(commit.hash)
-                      setHoveredNode({
-                        commit,
-                        x: nodeX,
-                        y,
-                        color: tint,
-                        isMerge,
-                        isConflictedMerge,
-                      })
-                    }}
-                    onPointerLeave={() => {
-                      if (isScrollingRef.current) return
-                      setHoveredNode((prev) => (prev?.commit.hash === commit.hash ? null : prev))
-                      setHoveredHash((prev) => (prev === commit.hash ? null : prev))
-                    }}
-                    onContextMenu={(event) => {
-                      event.preventDefault()
-                      event.stopPropagation()
-                      const branchList = [...chips.map((c) => c.label), ...(branch ? [branch] : [])]
-                      setContextMenu({
-                        type: 'commit',
-                        target: 'graph',
-                        commit,
-                        branches: branchList,
-                        color: tint,
-                        anchor: { x: event.clientX, y: event.clientY },
-                      })
-                    }}
-                  >
-                    {isMerge ? (
-                      <span className="size-1 rounded-full shrink-0" style={{ background: 'var(--wt-git-merge, var(--wt-merge, #d946ef))' }} aria-hidden />
-                    ) : (
-                      <>
-                        {initials(commit.author)}
-                        {isTagged && (
-                          <span
-                            className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full border border-panel bg-[var(--focus-contrast,#3b82f6)] shadow-[0_0_3px_color-mix(in_oklab,var(--focus-contrast,#3b82f6)_60%,transparent)]"
-                            title="Tag"
-                            aria-hidden
-                          />
-                        )}
-                      </>
-                    )}
-                  </span>
-                )
-              })}
-              {hoveredNode && (
-                <div
-                  className="pointer-events-none absolute z-50 animate-in fade-in-50 zoom-in-95 duration-150"
-                  style={{
-                    left: Math.max(145, Math.min(hoveredNode.x, contentWidth - 145)),
-                    top: hoveredNode.y < 95 ? hoveredNode.y + 14 : hoveredNode.y - 10,
-                    transform: hoveredNode.y < 95 ? 'translateX(-50%)' : 'translate(-50%, -100%)',
-                  }}
-                >
-                  <div className="flex flex-col gap-1 w-72 rounded-lg border border-line bg-panel/95 p-2.5 shadow-xl text-left select-none backdrop-blur-md">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-mono text-xs font-semibold text-accent">{hoveredNode.commit.short || hoveredNode.commit.hash.slice(0, 7)}</span>
-                      <span className="text-[11px] text-ink-soft">{formatCommitAgo(hoveredNode.commit.date, locale)}</span>
-                    </div>
-                    <p className="text-xs font-medium text-ink leading-snug line-clamp-2">{hoveredNode.commit.subject}</p>
-                    <div className="flex items-center justify-between gap-2 border-t border-line/50 pt-1.5 mt-0.5 text-[11px] text-ink-soft font-sans">
-                      <span className="font-medium text-ink truncate">{hoveredNode.commit.author}</span>
-                      <span className="text-[10px] text-ink-soft/80 shrink-0">{hoveredNode.commit.date}</span>
-                    </div>
-                    {hoveredNode.isConflictedMerge && (
-                      <div className="flex items-center gap-1.5 text-[11px] text-warn pt-0.5">
-                        <LuTriangleAlert className="size-3.5 shrink-0" />
-                        <span>
-                          {t(conflicts?.[hoveredNode.commit.hash]?.unresolvedConflictFiles?.length ? 'git.history.committedConflicts' : 'git.history.historicalConflicts', {
-                            count: conflicts?.[hoveredNode.commit.hash]?.unresolvedConflictFiles?.length || conflicts?.[hoveredNode.commit.hash]?.conflictCount || 1,
-                          })}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
+          <GraphNodesOverlay
+            graphScrollRef={graphScrollRef}
+            syncGraphEdge={syncGraphEdge}
+            contentWidth={contentWidth}
+            scene={scene}
+            commits={commits}
+            lineageHashes={lineageHashes}
+            spotlightHashes={spotlightHashes}
+            spotlightMap={spotlightMap}
+            isSpotlightActive={isSpotlightActive}
+            isHoverBranchActive={isHoverBranchActive}
+            isBranchActive={isBranchActive}
+            branchHashes={branchHashes}
+            remoteNames={remoteNames}
+            hiddenRemotes={hiddenRemotes}
+            soloRemote={soloRemote}
+            branchAt={branchAt}
+            contextMenu={contextMenu}
+            hoveredHash={hoveredHash}
+            checkedOut={checkedOut}
+            headIndex={headIndex}
+            currentBranch={currentBranch}
+            selectedHash={selectedHash}
+            visibleStashes={visibleStashes}
+            conflicts={conflicts}
+            isScrollingRef={isScrollingRef}
+            hoveredNode={hoveredNode}
+            setHoveredHash={setHoveredHash}
+            setHoveredNode={setHoveredNode}
+            setContextMenu={setContextMenu}
+            onSelect={onSelect}
+            locale={locale}
+            t={t}
+          />
 
           {graphEdge.right ? (
             <div

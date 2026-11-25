@@ -36,7 +36,7 @@ Welcome to the Yggit documentation repository. Yggit is a high-performance, orga
 
 ## Standards
 
-- File size limit: Keep all source code files strictly within 600–800 lines of code. Split complex components into modular subcomponents and custom hooks. [Code Modularization Standards](technical/code-standards.md).
+- File size limit: Keep all source code files strictly within 600–800 lines of code. Split complex components into modular subcomponents and custom hooks. [Code Modularization Standards](technical/code-standards.md) · [TypeScript Move to File Guide](technical/typescript-move-to-file-guide.md).
 - All UI icons must strictly use `react-icons` (e.g. `react-icons/lu`, `react-icons/io5`). Never use raw emojis for UI iconography.
 - Local-first repository catalog and project switcher.
 - SVG Bézier organic life-tree Git DAG renderer.

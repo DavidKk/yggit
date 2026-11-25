@@ -2,10 +2,10 @@
 
 import { useRouter } from 'next/navigation'
 import React, { useState } from 'react'
-import { LuCheck, LuPencil, LuPlus, LuShieldAlert, LuShieldCheck, LuTriangleAlert } from 'react-icons/lu'
+import { LuPencil, LuPlus, LuShieldCheck } from 'react-icons/lu'
 
 import { useT } from '@/components/i18n/LocaleProvider'
-import { Badge, Button, TagInput } from '@/components/sk'
+import { Badge, Button, SwitchToggle } from '@/components/sk'
 import { useAgent } from '@/lib/agent/agent-context'
 import { getModelFilterConflicts, isModelAllowed } from '@/lib/agent/model-filter'
 import type { AgentModelProfile } from '@/lib/agent/model-profiles'
@@ -13,6 +13,7 @@ import { AGENT_PRESETS, DEFAULT_AGENT_CONFIG } from '@/lib/agent/types'
 import { getDriverMode } from '@/lib/git/driver'
 
 import { ModelChannelEditor } from './ModelChannelEditor'
+import { ModelFilterInputs } from './ModelFilterInputs'
 import { RuleDebugger } from './RuleDebugger'
 import { SettingsColumns } from './SettingsColumns'
 import { SettingsSectionCard } from './SettingsSectionCard'
@@ -109,7 +110,7 @@ export function ModelChannelSection({ inline = false, onAdd, onEdit }: ModelChan
                   <div className="flex items-center gap-2">
                     <span className="block text-sm font-medium break-words group-hover:text-accent transition-colors">{profile.name || profile.config.model}</span>
                     <LuPencil className="size-3 text-ink-soft/40 group-hover:text-accent transition-colors shrink-0" aria-hidden="true" />
-                    {hasBlacklist && <span className="rounded bg-danger/10 px-1.5 py-0.5 text-[10px] font-medium text-danger">黑名单: {profile.filter?.blacklist?.length}</span>}
+                    {hasBlacklist && <span className="rounded bg-fail/10 px-1.5 py-0.5 text-[10px] font-medium text-fail">黑名单: {profile.filter?.blacklist?.length}</span>}
                     {hasWhitelist && <span className="rounded bg-accent/10 px-1.5 py-0.5 text-[10px] font-medium text-accent">白名单: {profile.filter?.whitelist?.length}</span>}
                   </div>
                   <span className="block text-xs text-ink-soft break-all mt-0.5">
@@ -118,98 +119,37 @@ export function ModelChannelSection({ inline = false, onAdd, onEdit }: ModelChan
                   </span>
                 </button>
 
-                {activeProfileId === profile.id ? (
-                  <Badge tone="ok">{t('gitAgent.activeModel')}</Badge>
-                ) : (
-                  <Button onClick={() => selectProfile(profile.id)}>
-                    <LuCheck aria-hidden="true" />
-                    {t('gitAgent.useModel')}
-                  </Button>
-                )}
-
                 {AGENT_PRESETS[profile.config.provider]?.requiresKey && !profile.config.apiKey && !profile.config.hasApiKey && (
                   <Badge tone="warn">{t('gitAgent.keyRequired')}</Badge>
                 )}
+
+                <SwitchToggle
+                  size="sm"
+                  checked={activeProfileId === profile.id}
+                  aria-label={activeProfileId === profile.id ? t('gitAgent.activeModel') : t('gitAgent.useModel')}
+                  tooltip={activeProfileId === profile.id ? t('gitAgent.activeModel') : t('gitAgent.useModel')}
+                  onCheckedChange={(checked) => {
+                    if (checked) selectProfile(profile.id)
+                  }}
+                />
               </li>
             )
           })}
         </ul>
       </SettingsSectionCard>
 
-      {/* Active Model Channel Filter Card */}
-      <SettingsSectionCard
-        title={`当前生效渠道模型访问控制「${currentProfile?.name || currentProfile?.config?.model || '默认'}」`}
-        description="当前渠道黑白名单。黑名单优先，命中即禁。"
-      >
-        <div className="flex flex-col gap-3">
-          {/* Active Model Blocked Warning */}
-          {isCurrentModelBlocked && currentProfile && (
-            <div className="flex items-start gap-2.5 rounded-lg border border-danger/40 bg-danger/10 px-3 py-2.5 text-xs text-danger">
-              <LuShieldAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-              <div className="flex-1">
-                <p className="font-semibold">{t('gitAgent.modelBlockedNotice')}</p>
-                <p className="mt-0.5 text-danger/80">
-                  当前生效的模型「<span className="font-mono font-medium">{currentProfile.config.model}</span>」命中黑名单规则，已在快捷栏与工作区全面禁止提交请求。
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Whitelist / Blacklist Conflicts Notice */}
-          {filterConflicts.length > 0 && (
-            <div className="flex items-start gap-2.5 rounded-lg border border-warn/40 bg-warn/10 px-3 py-2.5 text-xs text-warn">
-              <LuTriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-              <div className="flex-1">
-                <p className="font-semibold">{t('gitAgent.modelConflictNotice')}</p>
-                <p className="mt-0.5 text-warn/80">
-                  黑名单优先。以下白名单规则已被阻断：
-                  <span className="ml-1 font-mono font-semibold">{filterConflicts.join(', ')}</span>
-                </p>
-              </div>
-            </div>
-          )}
-
-          <div className="divide-y divide-line/60">
-            {/* Whitelist Input */}
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 first:pt-0 items-center">
-              <div className="md:col-span-5 min-w-0">
-                <label htmlFor="agent-model-whitelist" className="text-xs font-semibold text-ink">
-                  {t('gitAgent.modelWhitelist')}
-                </label>
-                <p className="text-xs text-ink-soft leading-relaxed mt-0.5">{t('gitAgent.modelWhitelistDesc')}</p>
-              </div>
-              <div className="md:col-span-7 min-w-0 max-w-[460px] md:ml-auto w-full flex justify-end">
-                <TagInput
-                  id="agent-model-whitelist"
-                  className="w-full"
-                  value={modelFilter.whitelist}
-                  onChange={(whitelist) => setModelFilter((prev) => ({ ...prev, whitelist }))}
-                  placeholder="如 gpt-*、*-mini，回车添加..."
-                />
-              </div>
-            </div>
-
-            {/* Blacklist Input */}
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 items-center">
-              <div className="md:col-span-5 min-w-0">
-                <label htmlFor="agent-model-blacklist" className="text-xs font-semibold text-ink">
-                  {t('gitAgent.modelBlacklist')}
-                </label>
-                <p className="text-xs text-ink-soft leading-relaxed mt-0.5">{t('gitAgent.modelBlacklistDesc')}</p>
-              </div>
-              <div className="md:col-span-7 min-w-0 max-w-[460px] md:ml-auto w-full flex justify-end">
-                <TagInput
-                  id="agent-model-blacklist"
-                  className="w-full"
-                  value={modelFilter.blacklist}
-                  onChange={(blacklist) => setModelFilter((prev) => ({ ...prev, blacklist }))}
-                  placeholder="如 *-mini、gpt-3.5*，回车添加..."
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      </SettingsSectionCard>
+      {/* Active Model Channel Filter Cards (Whitelist & Blacklist as separate cards) */}
+      <ModelFilterInputs
+        whitelistId="agent-model-whitelist"
+        blacklistId="agent-model-blacklist"
+        whitelist={modelFilter.whitelist}
+        blacklist={modelFilter.blacklist}
+        onWhitelistChange={(whitelist) => setModelFilter((prev) => ({ ...prev, whitelist }))}
+        onBlacklistChange={(blacklist) => setModelFilter((prev) => ({ ...prev, blacklist }))}
+        conflicts={filterConflicts}
+        blockedModel={isCurrentModelBlocked && currentProfile ? currentProfile.config.model : null}
+        scopeLabel={currentProfile?.name || currentProfile?.config?.model || '默认'}
+      />
     </div>
   )
   return inline ? content : <SettingsColumns tools={<RuleDebugger filter={modelFilter} modelId={currentProfile?.config.model} />}>{content}</SettingsColumns>

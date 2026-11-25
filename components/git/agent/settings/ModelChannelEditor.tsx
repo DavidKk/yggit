@@ -8,7 +8,7 @@ import { LuActivity, LuArrowLeft, LuSave, LuShieldAlert, LuShieldCheck, LuTrash2
 
 import { ConfiguredSecretInput } from '@/components/ConfiguredSecretInput/configured-secret-input'
 import { useT } from '@/components/i18n/LocaleProvider'
-import { Button, InputSuggestion, Select, Spinner, TagInput, TextInput } from '@/components/sk'
+import { Button, InputSuggestion, Select, Spinner, TextInput } from '@/components/sk'
 import { useAgent } from '@/lib/agent/agent-context'
 import { filterAllowedModels, getModelFilterConflicts, isModelAllowed } from '@/lib/agent/model-filter'
 import type { AgentModelProfile } from '@/lib/agent/model-profiles'
@@ -18,6 +18,7 @@ import { getDriverMode } from '@/lib/git/driver'
 import { openEdgeSecret } from '@/lib/security/edge-vault'
 import { cn } from '@/lib/utils'
 
+import { ModelFilterInputs } from './ModelFilterInputs'
 import { PrivacyNoticeCallout } from './PrivacyNoticeCallout'
 import { RuleDebugger } from './RuleDebugger'
 import { SettingsColumns } from './SettingsColumns'
@@ -110,6 +111,33 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
   const [remoteModels, setRemoteModels] = useState<Array<{ id: string; name: string }>>([])
   const [modelsFetchMsg, setModelsFetchMsg] = useState('')
   const [modelsFetchFailed, setModelsFetchFailed] = useState(false)
+  const [detectedClis, setDetectedClis] = useState<Record<string, { command: string; installed: boolean }>>({})
+
+  const isLocalMode = getDriverMode() === 'local'
+
+  useEffect(() => {
+    if (!isLocalMode || typeof fetch !== 'function') return
+    let cancelled = false
+    void (async () => {
+      try {
+        const res = await fetch('/api/git/agent/cli', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'detect' }),
+        })
+        if (!res.ok) return
+        const data = (await res.json()) as { installed?: Record<string, { command: string; installed: boolean }> }
+        if (!cancelled && data?.installed) {
+          setDetectedClis(data.installed)
+        }
+      } catch {
+        // Ignore detection errors
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [isLocalMode])
 
   const preset = AGENT_PRESETS[draft.config.provider] || AGENT_PRESETS['byop']
   const hasSavedApiKey = Boolean(draft.config.apiKey || draft.config.hasApiKey) && !clearKey
@@ -138,19 +166,21 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
       document.getElementById('agent-model-name')?.focus()
       return t('gitAgent.requiredFields')
     }
-    if (!config.baseUrl?.trim()) {
-      document.getElementById('agent-model-endpoint')?.focus()
-      return t('gitAgent.requiredFields')
-    }
-    try {
-      const url = new URL(config.baseUrl.trim())
-      if (!['http:', 'https:'].includes(url.protocol)) {
+    if (!preset.isCli) {
+      if (!config.baseUrl?.trim()) {
+        document.getElementById('agent-model-endpoint')?.focus()
+        return t('gitAgent.requiredFields')
+      }
+      try {
+        const url = new URL(config.baseUrl.trim())
+        if (!['http:', 'https:'].includes(url.protocol)) {
+          document.getElementById('agent-model-endpoint')?.focus()
+          return t('gitAgent.invalidEndpoint')
+        }
+      } catch {
         document.getElementById('agent-model-endpoint')?.focus()
         return t('gitAgent.invalidEndpoint')
       }
-    } catch {
-      document.getElementById('agent-model-endpoint')?.focus()
-      return t('gitAgent.invalidEndpoint')
     }
     if (!config.model.trim()) {
       document.getElementById('agent-model-id')?.focus()
@@ -218,6 +248,38 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
   }
 
   async function handleFetchModels() {
+    if (preset.isCli) {
+      setFetchingModels(true)
+      setModelsFetchMsg('')
+      setModelsFetchFailed(false)
+      try {
+        const res = await fetch('/api/git/agent/cli', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'models',
+            provider: config.provider,
+            cliCommand: config.cliCommand || config.baseUrl,
+          }),
+        })
+        const data = await res.json().catch(() => null)
+        if (res.ok && data?.models && data.models.length > 0) {
+          setRemoteModels(data.models)
+          setModelsFetchFailed(false)
+          setModelsFetchMsg(`已成功读取 ${data.models.length} 个可用模型`)
+        } else {
+          setModelsFetchFailed(true)
+          setModelsFetchMsg('未能读取 CLI 模型列表，请直接输入模型 ID')
+        }
+      } catch {
+        setModelsFetchFailed(true)
+        setModelsFetchMsg('未能读取 CLI 模型列表，请直接输入模型 ID')
+      } finally {
+        setFetchingModels(false)
+      }
+      return
+    }
+
     if (!config.baseUrl) {
       setModelsFetchFailed(true)
       setModelsFetchMsg('请先填写接入地址')
@@ -312,10 +374,32 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
   }
 
   const content = (
-    <div className="flex flex-col gap-4">
+    <form
+      className="flex flex-col gap-4"
+      autoComplete="off"
+      data-1p-ignore="true"
+      data-lpignore="true"
+      onSubmit={(event) => {
+        event.preventDefault()
+        const message = validateAndFocus()
+        setError(message)
+        if (message) return
+        const cleared = clearKey && !keyDraft.trim()
+        saveProfile(
+          {
+            ...draft,
+            name: draft.name.trim(),
+            config: validatedConfig(),
+            filter: channelFilter,
+          },
+          cleared ? { clearApiKey: true } : undefined
+        )
+        handleNavigateBack()
+      }}
+    >
       <SettingsSectionCard
         title={isNew ? '新增模型接入项目' : t('gitAgent.modelDetails')}
-        description={isNew ? '配置新模型渠道、接口地址与黑白名单。' : '修改渠道接口地址、默认模型与黑白名单。'}
+        description={isNew ? '配置新模型渠道与接口地址。' : '修改渠道接口地址与默认模型。'}
         titleAction={
           !isNew && profiles.length > 1 ? (
             <Button variant="outline-fail" size="sm" onClick={handleDelete} title="删除该模型配置">
@@ -325,29 +409,7 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
           ) : undefined
         }
       >
-        <form
-          className="grid gap-3"
-          autoComplete="off"
-          data-1p-ignore="true"
-          data-lpignore="true"
-          onSubmit={(event) => {
-            event.preventDefault()
-            const message = validateAndFocus()
-            setError(message)
-            if (message) return
-            const cleared = clearKey && !keyDraft.trim()
-            saveProfile(
-              {
-                ...draft,
-                name: draft.name.trim(),
-                config: validatedConfig(),
-                filter: channelFilter,
-              },
-              cleared ? { clearApiKey: true } : undefined
-            )
-            handleNavigateBack()
-          }}
-        >
+        <div className="grid gap-3">
           <fieldset disabled={testing} className="divide-y divide-line/60">
             {/* Row 1: Profile Name */}
             <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 first:pt-0 items-center">
@@ -381,16 +443,25 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
                   aria-labelledby="agent-provider-label"
                   className="w-full"
                   value={config.provider}
-                  options={(Object.keys(AGENT_PRESETS) as AgentProviderType[]).map((value) => ({
-                    value,
-                    label: AGENT_PRESETS[value].name,
-                  }))}
+                  options={(Object.keys(AGENT_PRESETS) as AgentProviderType[])
+                    .filter((value) => isLocalMode || !AGENT_PRESETS[value].isCli || value === config.provider)
+                    .map((value) => {
+                      const def = AGENT_PRESETS[value]
+                      const cliInfo = def.cliAdapter ? detectedClis[def.cliAdapter] : undefined
+                      const suffix = def.isCli && cliInfo ? (cliInfo.installed ? ' (已安装)' : ' (未检测到)') : ''
+                      return {
+                        value,
+                        label: `${def.name}${suffix}`,
+                      }
+                    })}
                   onChange={(value) => {
                     const provider = value as AgentProviderType
                     const next = AGENT_PRESETS[provider]
+                    const detectedCmd = next.cliAdapter ? detectedClis[next.cliAdapter]?.command : undefined
                     updateConfig({
                       provider,
                       baseUrl: next.baseUrl,
+                      cliCommand: next.isCli ? detectedCmd || next.baseUrl : undefined,
                       model: next.defaultModel,
                       apiKey: '',
                       modelsEndpoint: next.modelsEndpoint || '',
@@ -406,54 +477,80 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
               </div>
             </div>
 
-            {/* Row 3: API Endpoint */}
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 items-center">
-              <div className="md:col-span-5 min-w-0">
-                <label htmlFor="agent-model-endpoint" className="text-xs font-semibold text-ink">
-                  {t('gitAgent.endpoint')}
-                </label>
-                <p className="text-xs text-ink-soft leading-relaxed mt-0.5">{t('gitAgent.endpointDesc') || 'OpenAPI 规范的服务基地址。'}</p>
+            {/* Row 3: API Endpoint or Local CLI Binary Path */}
+            {preset.isCli ? (
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 items-center">
+                <div className="md:col-span-5 min-w-0">
+                  <label htmlFor="agent-cli-command" className="text-xs font-semibold text-ink">
+                    CLI 可执行命令 / 路径
+                  </label>
+                  <p className="text-xs text-ink-soft leading-relaxed mt-0.5">
+                    {preset.cliAdapter && detectedClis[preset.cliAdapter]?.installed
+                      ? `已自动检测到本机 CLI: ${detectedClis[preset.cliAdapter].command}`
+                      : '留空将自动从系统 PATH 或常用目录查找；也可手动指定绝对路径。'}
+                  </p>
+                </div>
+                <div className="md:col-span-7 min-w-0 max-w-[460px] md:ml-auto w-full">
+                  <TextInput
+                    id="agent-cli-command"
+                    fullWidth
+                    value={config.cliCommand ?? config.baseUrl ?? ''}
+                    onChange={(event) => updateConfig({ cliCommand: event.target.value })}
+                    placeholder={preset.baseUrl}
+                  />
+                </div>
               </div>
-              <div className="md:col-span-7 min-w-0 max-w-[460px] md:ml-auto w-full">
-                <InputSuggestion
-                  id="agent-model-endpoint"
-                  name="agent-model-endpoint"
-                  fullWidth
-                  value={config.baseUrl || ''}
-                  onChange={(value) => {
-                    const matched = OPENAPI_ENDPOINT_SUGGESTIONS.find((s) => s.baseUrl === value.trim())
-                    updateConfig(matched?.modelsEndpoint ? { baseUrl: value, modelsEndpoint: matched.modelsEndpoint } : { baseUrl: value })
-                  }}
-                  options={[
-                    ...(!OPENAPI_ENDPOINT_SUGGESTIONS.some((s) => s.baseUrl === preset.baseUrl) ? [{ value: preset.baseUrl, label: `${preset.name} (${preset.baseUrl})` }] : []),
-                    ...OPENAPI_ENDPOINT_SUGGESTIONS.map((s) => ({
-                      value: s.baseUrl,
-                      label: `${s.label} — ${s.baseUrl}`,
-                    })),
-                  ]}
-                  placeholder={t('gitAgent.endpointPlaceholder')}
-                />
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 items-center">
+                <div className="md:col-span-5 min-w-0">
+                  <label htmlFor="agent-model-endpoint" className="text-xs font-semibold text-ink">
+                    {t('gitAgent.endpoint')}
+                  </label>
+                  <p className="text-xs text-ink-soft leading-relaxed mt-0.5">{t('gitAgent.endpointDesc') || 'OpenAPI 规范的服务基地址。'}</p>
+                </div>
+                <div className="md:col-span-7 min-w-0 max-w-[460px] md:ml-auto w-full">
+                  <InputSuggestion
+                    id="agent-model-endpoint"
+                    name="agent-model-endpoint"
+                    fullWidth
+                    value={config.baseUrl || ''}
+                    onChange={(value) => {
+                      const matched = OPENAPI_ENDPOINT_SUGGESTIONS.find((s) => s.baseUrl === value.trim())
+                      updateConfig(matched?.modelsEndpoint ? { baseUrl: value, modelsEndpoint: matched.modelsEndpoint } : { baseUrl: value })
+                    }}
+                    options={[
+                      ...(!OPENAPI_ENDPOINT_SUGGESTIONS.some((s) => s.baseUrl === preset.baseUrl) ? [{ value: preset.baseUrl, label: `${preset.name} (${preset.baseUrl})` }] : []),
+                      ...OPENAPI_ENDPOINT_SUGGESTIONS.map((s) => ({
+                        value: s.baseUrl,
+                        label: `${s.label} — ${s.baseUrl}`,
+                      })),
+                    ]}
+                    placeholder={t('gitAgent.endpointPlaceholder')}
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
-            {/* Row 4: Custom Models Catalog Endpoint (Special support for Magpie / Custom gateways) */}
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 items-center">
-              <div className="md:col-span-5 min-w-0">
-                <label htmlFor="agent-models-endpoint" className="text-xs font-semibold text-ink">
-                  {t('integration.agentModelsEndpoint') || '模型列表接口'}
-                </label>
-                <p className="text-xs text-ink-soft leading-relaxed mt-0.5">{t('integration.agentModelsEndpointDesc') || '可选。自定义拉取可用模型的接口路径。'}</p>
+            {/* Row 4: Custom Models Catalog Endpoint (Hidden for CLI providers) */}
+            {!preset.isCli && (
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 items-center">
+                <div className="md:col-span-5 min-w-0">
+                  <label htmlFor="agent-models-endpoint" className="text-xs font-semibold text-ink">
+                    {t('integration.agentModelsEndpoint') || '模型列表接口'}
+                  </label>
+                  <p className="text-xs text-ink-soft leading-relaxed mt-0.5">{t('integration.agentModelsEndpointDesc') || '可选。自定义拉取可用模型的接口路径。'}</p>
+                </div>
+                <div className="md:col-span-7 min-w-0 max-w-[460px] md:ml-auto w-full">
+                  <TextInput
+                    id="agent-models-endpoint"
+                    fullWidth
+                    value={config.modelsEndpoint || ''}
+                    onChange={(event) => updateConfig({ modelsEndpoint: event.target.value })}
+                    placeholder="默认 /models，或填相对路径 / 完整 URL"
+                  />
+                </div>
               </div>
-              <div className="md:col-span-7 min-w-0 max-w-[460px] md:ml-auto w-full">
-                <TextInput
-                  id="agent-models-endpoint"
-                  fullWidth
-                  value={config.modelsEndpoint || ''}
-                  onChange={(event) => updateConfig({ modelsEndpoint: event.target.value })}
-                  placeholder="默认 /models，或填相对路径 / 完整 URL"
-                />
-              </div>
-            </div>
+            )}
 
             {/* Row 5: API Key (Placed before Model Selection) */}
             {showApiKeyField && (
@@ -550,7 +647,7 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
                 </div>
 
                 {isModelBlocked && (
-                  <div className="flex items-center gap-1.5 text-xs text-danger font-medium mt-1">
+                  <div className="flex items-center gap-1.5 text-xs text-fail font-medium mt-1">
                     <LuShieldAlert className="size-3.5 shrink-0" aria-hidden="true" />
                     <span>{t('gitAgent.modelBlockedNotice')}</span>
                   </div>
@@ -558,100 +655,49 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
               </div>
             </div>
           </fieldset>
-
-          {/* Model Whitelist & Blacklist Follows Model Channel */}
-          <div className="border-t border-line/60 pt-3 flex flex-col gap-3">
-            <div>
-              <h3 className="text-xs font-semibold text-ink">渠道白名单 / 黑名单</h3>
-              <p className="text-xs text-ink-soft leading-relaxed mt-0.5">仅作用于当前「{draft.name || '该'}」渠道。黑名单优先，命中即禁。</p>
-            </div>
-
-            {/* Whitelist / Blacklist Conflicts Notice */}
-            {filterConflicts.length > 0 && (
-              <div className="flex items-start gap-2.5 rounded-lg border border-warn/40 bg-warn/10 px-3 py-2 text-xs text-warn">
-                <LuTriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-                <div className="flex-1">
-                  <p className="font-semibold">{t('gitAgent.modelConflictNotice')}</p>
-                  <p className="mt-0.5 text-warn/80">
-                    黑名单优先。以下白名单规则已被阻断：
-                    <span className="ml-1 font-mono font-semibold">{filterConflicts.join(', ')}</span>
-                  </p>
-                </div>
-              </div>
-            )}
-
-            <div className="divide-y divide-line/60">
-              {/* Whitelist Input */}
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 first:pt-0 items-center">
-                <div className="md:col-span-5 min-w-0">
-                  <label htmlFor="agent-channel-whitelist" className="text-xs font-semibold text-ink">
-                    {t('gitAgent.modelWhitelist')}
-                  </label>
-                  <p className="text-xs text-ink-soft leading-relaxed mt-0.5">{t('gitAgent.modelWhitelistDesc')}</p>
-                </div>
-                <div className="md:col-span-7 min-w-0 max-w-[460px] md:ml-auto w-full flex justify-end">
-                  <TagInput
-                    id="agent-channel-whitelist"
-                    className="w-full"
-                    value={channelFilter.whitelist}
-                    onChange={(whitelist) => setDraft((prev) => ({ ...prev, filter: { ...prev.filter, whitelist, blacklist: prev.filter?.blacklist || [] } }))}
-                    placeholder="如 gpt-*、*-mini，回车添加..."
-                  />
-                </div>
-              </div>
-
-              {/* Blacklist Input */}
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 items-center">
-                <div className="md:col-span-5 min-w-0">
-                  <label htmlFor="agent-channel-blacklist" className="text-xs font-semibold text-ink">
-                    {t('gitAgent.modelBlacklist')}
-                  </label>
-                  <p className="text-xs text-ink-soft leading-relaxed mt-0.5">{t('gitAgent.modelBlacklistDesc')}</p>
-                </div>
-                <div className="md:col-span-7 min-w-0 max-w-[460px] md:ml-auto w-full flex justify-end">
-                  <TagInput
-                    id="agent-channel-blacklist"
-                    className="w-full"
-                    value={channelFilter.blacklist}
-                    onChange={(blacklist) => setDraft((prev) => ({ ...prev, filter: { ...prev.filter, blacklist, whitelist: prev.filter?.whitelist || [] } }))}
-                    placeholder="如 *-mini、gpt-3.5*，回车添加..."
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {error && (
-            <p role="alert" className="text-xs text-danger mt-2">
-              {error}
-            </p>
-          )}
-
-          <div className="flex items-center justify-between gap-3 border-t border-line pt-3 mt-1">
-            <Button onClick={handleNavigateBack} disabled={testing || testState === 'loading'}>
-              <LuArrowLeft aria-hidden="true" />
-              {t('gitAgent.backToModels')}
-            </Button>
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                disabled={isButtonDisabled}
-                onClick={handleTest}
-                className={cn(testState !== 'idle' && 'min-w-[40px] px-2.5 justify-center')}
-                tooltip={buttonTooltip}
-                aria-label={buttonTooltip}
-              >
-                {testButtonContent}
-              </Button>
-              <Button type="submit" variant="accent" disabled={testing || testState === 'loading'}>
-                <LuSave aria-hidden="true" />
-                {t('common.save')}
-              </Button>
-            </div>
-          </div>
-        </form>
+        </div>
       </SettingsSectionCard>
-    </div>
+
+      {/* Separate Whitelist & Blacklist Cards */}
+      <ModelFilterInputs
+        whitelistId="agent-channel-whitelist"
+        blacklistId="agent-channel-blacklist"
+        whitelist={channelFilter.whitelist}
+        blacklist={channelFilter.blacklist}
+        onWhitelistChange={(whitelist) => setDraft((prev) => ({ ...prev, filter: { ...prev.filter, whitelist, blacklist: prev.filter?.blacklist || [] } }))}
+        onBlacklistChange={(blacklist) => setDraft((prev) => ({ ...prev, filter: { ...prev.filter, blacklist, whitelist: prev.filter?.whitelist || [] } }))}
+        conflicts={filterConflicts}
+      />
+
+      {error && (
+        <p role="alert" className="text-xs text-fail">
+          {error}
+        </p>
+      )}
+
+      <div className="flex items-center justify-between gap-3 pt-1">
+        <Button onClick={handleNavigateBack} disabled={testing || testState === 'loading'}>
+          <LuArrowLeft aria-hidden="true" />
+          {t('gitAgent.backToModels')}
+        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            disabled={isButtonDisabled}
+            onClick={handleTest}
+            className={cn(testState !== 'idle' && 'min-w-[40px] px-2.5 justify-center')}
+            tooltip={buttonTooltip}
+            aria-label={buttonTooltip}
+          >
+            {testButtonContent}
+          </Button>
+          <Button type="submit" variant="accent" disabled={testing || testState === 'loading'}>
+            <LuSave aria-hidden="true" />
+            {t('common.save')}
+          </Button>
+        </div>
+      </div>
+    </form>
   )
   return showTools ? <SettingsColumns tools={<RuleDebugger filter={channelFilter} modelId={config.model} />}>{content}</SettingsColumns> : content
 }

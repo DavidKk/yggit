@@ -31,6 +31,19 @@ jest.mock('@/components/sk', () => ({
     return <button type="button" {...rest} disabled={rest.disabled || loading} />
   },
   Badge: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,
+  SwitchToggle: ({
+    checked,
+    onCheckedChange,
+    tooltip: _tooltip,
+    size: _size,
+    ...rest
+  }: {
+    checked: boolean
+    onCheckedChange: (checked: boolean) => void
+    tooltip?: string
+    size?: string
+    'aria-label'?: string
+  }) => <button type="button" role="switch" aria-checked={checked} onClick={() => onCheckedChange(!checked)} {...rest} />,
   Spinner: () => <span data-testid="spinner" />,
   Tooltip: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   Select: ({ options, value, onChange, ...rest }: { options: { value: string; label: string }[]; value: string; onChange: (value: string) => void }) => (

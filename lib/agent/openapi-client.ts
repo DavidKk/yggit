@@ -1,6 +1,6 @@
 import { RedactionEngine } from './redact/engine'
 import { StreamingUnmasker, unmaskText, unmaskToolArguments } from './redact/unmask'
-import type { AgentChatMessage, AgentCompletionResponse, AgentToolCall, AgentToolDefinition, EphemeralAgentConfig } from './types'
+import { AGENT_PRESETS, type AgentChatMessage, type AgentCompletionResponse, type AgentToolCall, type AgentToolDefinition, type EphemeralAgentConfig } from './types'
 
 export interface CompletionOptions {
   config: EphemeralAgentConfig
@@ -21,6 +21,25 @@ export interface CompletionOptions {
 export async function testAgentConnection(config: EphemeralAgentConfig, profileId?: string): Promise<{ ok: boolean; latencyMs: number; error?: string }> {
   const start = performance.now()
   try {
+    if (AGENT_PRESETS[config.provider]?.isCli) {
+      const res = await fetch('/api/git/agent/cli', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'test',
+          provider: config.provider,
+          cliCommand: config.cliCommand || config.baseUrl,
+          model: config.model,
+        }),
+      })
+      const latencyMs = Math.round(performance.now() - start)
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        return { ok: false, latencyMs, error: data?.error?.message || data?.error || `HTTP ${res.status}` }
+      }
+      return { ok: true, latencyMs }
+    }
+
     const endpoint = config.baseUrl ? `${config.baseUrl.replace(/\/$/, '')}/chat/completions` : 'https://ai-gateway.vercel.sh/v1/chat/completions'
 
     const res = await fetch('/api/git/agent/gateway', {
@@ -75,6 +94,43 @@ export async function sendAgentCompletion(options: CompletionOptions): Promise<A
       tool_call_id: m.tool_call_id,
     }
   })
+
+  if (AGENT_PRESETS[config.provider]?.isCli) {
+    const response = await fetch('/api/git/agent/cli', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'chat',
+        provider: config.provider,
+        cliCommand: config.cliCommand || config.baseUrl,
+        model: config.model,
+        apiKey: config.apiKey,
+        ...(profileId ? { profileId } : {}),
+        messages: sanitizedMessages,
+      }),
+      signal,
+    })
+
+    if (!response.ok) {
+      const errorJson = await response.json().catch(() => null)
+      const msg = errorJson?.error?.message || errorJson?.error || `CLI error (${response.status})`
+      throw new Error(msg)
+    }
+
+    const json = (await response.json()) as { content?: string; latencyMs?: number }
+    let content = json.content || ''
+    if (redactionEngine && content) {
+      content = unmaskText(content, redactionEngine.getSession())
+    }
+    if (onDelta && content) {
+      onDelta(content)
+    }
+    return {
+      id: `cli-${Date.now()}`,
+      content,
+      latencyMs: json.latencyMs ?? Math.round(performance.now() - start),
+    }
+  }
 
   const endpoint = config.baseUrl ? `${config.baseUrl.replace(/\/$/, '')}/chat/completions` : 'https://ai-gateway.vercel.sh/v1/chat/completions'
 

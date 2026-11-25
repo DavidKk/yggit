@@ -3,7 +3,7 @@
 import { usePathname, useRouter } from 'next/navigation'
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 
-import { getDriverMode } from '@/lib/git/driver'
+import { getDriverMode, type GitDriverMode } from '@/lib/git/driver'
 import { logError, logInfo } from '@/lib/logger'
 import { listMcpServers } from '@/lib/mcp/storage'
 import { isAllowedAgentPath } from '@/lib/security/agent-paths'
@@ -128,20 +128,65 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
   const router = useOptionalRouter()
   const pathname = useOptionalPathname()
 
+  const [driverMode, setDriverMode] = useState<GitDriverMode>(() => getDriverMode())
   const [profiles, setProfiles] = useState<AgentModelProfile[]>([DEFAULT_MODEL_PROFILE])
   const [activeProfileId, setActiveProfileId] = useState(DEFAULT_MODEL_PROFILE.id)
   const [profilesLoaded, setProfilesLoaded] = useState(false)
   const config = (profiles.find((profile) => profile.id === activeProfileId) || profiles[0]).config
 
   useEffect(() => {
-    let cancelled = false
-    const mode = getDriverMode()
+    if (typeof window === 'undefined') return
+    const syncMode = () => setDriverMode(getDriverMode())
+    window.addEventListener('yggit:driver_mode_changed', syncMode)
+    return () => window.removeEventListener('yggit:driver_mode_changed', syncMode)
+  }, [])
 
+  useEffect(() => {
+    let cancelled = false
+    const useLocalServerStore = driverMode === 'local' && typeof fetch === 'function'
+
+    if (useLocalServerStore) {
+      // Local mode is strictly isolated from Edge browser localStorage
+      setProfiles([DEFAULT_MODEL_PROFILE])
+      setActiveProfileId(DEFAULT_MODEL_PROFILE.id)
+      setProfilesLoaded(false)
+
+      if (!isAllowedAgentPath(pathname)) {
+        return () => {
+          cancelled = true
+        }
+      }
+
+      void (async () => {
+        try {
+          const res = await fetch('/api/git/agent/profiles')
+          if (!res.ok) return
+          const data = (await res.json()) as { stored?: { profiles: AgentModelProfile[]; activeId: string } | null }
+          if (!cancelled && data?.stored?.profiles?.length) {
+            setProfiles(data.stored.profiles)
+            setActiveProfileId(data.stored.activeId)
+          }
+        } catch {
+          // Local backend vault unavailable
+        } finally {
+          if (!cancelled) setProfilesLoaded(true)
+        }
+      })()
+
+      return () => {
+        cancelled = true
+      }
+    }
+
+    // Edge mode (or test environment without fetch): strictly isolated browser storage + Edge IndexedDB vault
     try {
       const stored = parseModelProfiles(localStorage.getItem(MODEL_PROFILES_STORAGE_KEY))
       if (stored) {
         setProfiles(stored.profiles)
         setActiveProfileId(stored.activeId)
+      } else {
+        setProfiles([DEFAULT_MODEL_PROFILE])
+        setActiveProfileId(DEFAULT_MODEL_PROFILE.id)
       }
       if (typeof window !== 'undefined') {
         window.sessionStorage.removeItem('yggit.agent.session-keys.v1')
@@ -157,45 +202,30 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
       }
     }
 
-    if (mode === 'local' && typeof fetch === 'function') {
-      void (async () => {
-        try {
-          const res = await fetch('/api/git/agent/profiles')
-          if (!res.ok) return
-          const data = (await res.json()) as { stored?: { profiles: AgentModelProfile[]; activeId: string } | null }
-          if (!cancelled && data?.stored?.profiles?.length) {
-            setProfiles(data.stored.profiles)
-            setActiveProfileId(data.stored.activeId)
-          }
-        } catch {
-          // Local backend vault unavailable (e.g. unit tests)
-        }
-      })()
-    } else {
-      void (async () => {
-        try {
-          const secretIds = await listEdgeSecretIds()
-          if (cancelled || secretIds.size === 0) return
-          setProfiles((prev) => prev.map((p) => (secretIds.has(p.id) ? { ...p, config: { ...p.config, apiKey: undefined, hasApiKey: true } } : p)))
-        } catch {
-          // Edge Web Crypto vault unavailable
-        }
-      })()
-    }
+    void (async () => {
+      try {
+        const secretIds = await listEdgeSecretIds()
+        if (cancelled || secretIds.size === 0) return
+        setProfiles((prev) => prev.map((p) => (secretIds.has(p.id) ? { ...p, config: { ...p.config, apiKey: undefined, hasApiKey: true } } : p)))
+      } catch {
+        // Edge Web Crypto vault unavailable
+      }
+    })()
 
     return () => {
       cancelled = true
     }
-  }, [pathname])
+  }, [pathname, driverMode])
 
   useEffect(() => {
     if (!profilesLoaded) return
+    if (driverMode === 'local' && typeof fetch === 'function') return
     try {
       localStorage.setItem(MODEL_PROFILES_STORAGE_KEY, serializeModelProfiles(profiles, activeProfileId))
     } catch {
       // Profiles remain usable for this session when browser storage is unavailable.
     }
-  }, [profiles, activeProfileId, profilesLoaded])
+  }, [profiles, activeProfileId, profilesLoaded, driverMode])
 
   const selectProfile = useCallback((id: string) => {
     setActiveProfileId(id)

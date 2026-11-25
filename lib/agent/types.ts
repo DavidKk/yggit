@@ -2,7 +2,24 @@
  * Type definitions for ephemeral agent interaction, providers, and settings.
  */
 
-export type AgentProviderType = 'chatgpt' | 'openai' | 'claude' | 'gemini' | 'deepseek' | 'ollama' | 'local-sdk' | 'magpie' | 'byop' | 'vercel-free'
+export type AgentProviderType =
+  | 'chatgpt'
+  | 'openai'
+  | 'claude'
+  | 'gemini'
+  | 'deepseek'
+  | 'ollama'
+  | 'local-sdk'
+  | 'claude-cli'
+  | 'codex-cli'
+  | 'antigravity-cli'
+  | 'cursor-cli'
+  | 'gemini-cli'
+  | 'magpie'
+  | 'byop'
+  | 'vercel-free'
+
+export type AgentCliAdapter = 'claude' | 'codex' | 'antigravity' | 'cursor' | 'gemini'
 
 export interface EphemeralAgentConfig {
   provider: AgentProviderType
@@ -10,6 +27,7 @@ export interface EphemeralAgentConfig {
   apiKey?: string
   hasApiKey?: boolean
   baseUrl?: string
+  cliCommand?: string
   modelsEndpoint?: string
   temperature?: number
   maxTokens?: number
@@ -27,6 +45,8 @@ export interface ModelPresetDefinition {
   noZdrNotice: boolean
   description: string
   isLocal?: boolean
+  isCli?: boolean
+  cliAdapter?: AgentCliAdapter
 }
 
 export interface EndpointSuggestionPreset {
@@ -172,6 +192,90 @@ export const AGENT_PRESETS: Record<AgentProviderType, ModelPresetDefinition> = {
     noZdrNotice: false,
     isLocal: true,
     description: '本地端口（LM Studio、vLLM）零跳跃直连。',
+  },
+  'claude-cli': {
+    name: 'Claude Code (Local CLI)',
+    provider: 'claude-cli',
+    baseUrl: 'claude',
+    defaultModel: 'claude-sonnet-4-5',
+    models: [
+      { id: 'claude-sonnet-4-5', name: 'Claude Sonnet 4.5' },
+      { id: 'claude-opus-4-1', name: 'Claude Opus 4.1' },
+      { id: 'claude-haiku-3-5', name: 'Claude Haiku 3.5' },
+    ],
+    requiresKey: false,
+    noZdrNotice: false,
+    isLocal: true,
+    isCli: true,
+    cliAdapter: 'claude',
+    description: '调用本机官方 Claude Code CLI（claude），优先复用本地订阅登录态。',
+  },
+  'codex-cli': {
+    name: 'OpenAI Codex (Local CLI / SDK)',
+    provider: 'codex-cli',
+    baseUrl: 'codex',
+    defaultModel: 'gpt-5-codex',
+    models: [
+      { id: 'gpt-5-codex', name: 'GPT-5 Codex' },
+      { id: 'gpt-5', name: 'GPT-5' },
+      { id: 'o3', name: 'o3' },
+    ],
+    requiresKey: false,
+    noZdrNotice: false,
+    isLocal: true,
+    isCli: true,
+    cliAdapter: 'codex',
+    description: '调用本机官方 OpenAI Codex CLI（codex exec），支持 ~/.codex/auth.json 登录态。',
+  },
+  'antigravity-cli': {
+    name: 'Antigravity CLI (反重力 CLI / agy)',
+    provider: 'antigravity-cli',
+    baseUrl: 'agy',
+    defaultModel: 'gemini-2.5-pro',
+    models: [
+      { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro' },
+      { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
+      { id: 'claude-sonnet-4-5', name: 'Claude Sonnet 4.5' },
+    ],
+    requiresKey: false,
+    noZdrNotice: false,
+    isLocal: true,
+    isCli: true,
+    cliAdapter: 'antigravity',
+    description: '调用本机官方 Antigravity CLI（agy），支持动态拉取 agy models 清单。',
+  },
+  'cursor-cli': {
+    name: 'Cursor Agent (Local CLI)',
+    provider: 'cursor-cli',
+    baseUrl: 'agent',
+    defaultModel: 'auto',
+    models: [
+      { id: 'auto', name: 'Auto (Cursor Default)' },
+      { id: 'claude-4-sonnet', name: 'Claude 4 Sonnet' },
+      { id: 'gpt-5', name: 'GPT-5' },
+    ],
+    requiresKey: false,
+    noZdrNotice: false,
+    isLocal: true,
+    isCli: true,
+    cliAdapter: 'cursor',
+    description: '调用本机 Cursor Agent CLI（agent / cursor-agent），复用 Cursor 登录态。',
+  },
+  'gemini-cli': {
+    name: 'Gemini CLI (Local CLI)',
+    provider: 'gemini-cli',
+    baseUrl: 'gemini',
+    defaultModel: 'gemini-2.5-pro',
+    models: [
+      { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro' },
+      { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
+    ],
+    requiresKey: false,
+    noZdrNotice: false,
+    isLocal: true,
+    isCli: true,
+    cliAdapter: 'gemini',
+    description: '调用本机官方 Gemini CLI（gemini），复用 Google 本地授权。',
   },
   magpie: {
     name: 'Magpie (企业/自建网关)',
