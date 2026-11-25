@@ -439,6 +439,39 @@ export async function gitFetch(repoInput: string, options?: { remote?: string; a
   return { ok: true, message: cleanGitMessage(stdout || stderr, '抓取完成') }
 }
 
+export async function gitSyncBranch(
+  repoInput: string,
+  options?: { branch?: string; remote?: string }
+): Promise<{ ok: boolean; branch: string; remote: string; currentBranch: string; message: string }> {
+  const repo = await resolveGitRepo(repoInput)
+  const { stdout: headOut } = await runGit(repo, ['rev-parse', '--abbrev-ref', 'HEAD'])
+  const currentBranch = headOut.trim()
+  const targetBranch = options?.branch?.trim() || (currentBranch && currentBranch !== 'HEAD' ? currentBranch : 'master')
+  const targetRemote = await getTargetRemote(repo, targetBranch, options?.remote)
+
+  await runGit(repo, ['fetch', '--prune', targetRemote])
+
+  if (currentBranch === targetBranch) {
+    const { stdout, stderr } = await runGit(repo, ['pull', '--ff-only', targetRemote, targetBranch])
+    return {
+      ok: true,
+      branch: targetBranch,
+      remote: targetRemote,
+      currentBranch,
+      message: cleanGitMessage(stdout || stderr, `分支 ${targetBranch} 已与 ${targetRemote}/${targetBranch} 同步`),
+    }
+  }
+
+  const { stdout, stderr } = await runGit(repo, ['fetch', targetRemote, `${targetBranch}:${targetBranch}`])
+  return {
+    ok: true,
+    branch: targetBranch,
+    remote: targetRemote,
+    currentBranch,
+    message: cleanGitMessage(stdout || stderr, `本地分支 ${targetBranch} 已快进同步至 ${targetRemote}/${targetBranch}`),
+  }
+}
+
 export async function gitStash(
   repoInput: string,
   options: { action: 'save' | 'pop' | 'apply' | 'drop' | 'edit'; message?: string; index?: number; paths?: string[] }

@@ -10,6 +10,7 @@ import {
   getGitUnmergedBranches,
   getTodayMerges,
 } from '@/services/git/agent-impact'
+import { gitSyncBranch } from '@/services/git/operations'
 
 export const runtime = 'nodejs'
 
@@ -75,6 +76,15 @@ export const POST = defineApiRoute('post:/api/git/agent/tools', async ({ request
           return apiBadRequest('commitHash is required')
         }
         const data = await getGitCommitDetails({ repo, commitHash })
+        return apiOk(data as unknown as Record<string, unknown>)
+      }
+
+      case 'sync_branch': {
+        const { branch, remote } = args
+        const data = await gitSyncBranch(repo, {
+          branch: typeof branch === 'string' ? branch : undefined,
+          remote: typeof remote === 'string' ? remote : undefined,
+        })
         return apiOk(data as unknown as Record<string, unknown>)
       }
 

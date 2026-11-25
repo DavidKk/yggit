@@ -21,14 +21,18 @@ export function WorkspaceHeader() {
   const pathname = usePathname() || ''
   const ctx = useWorkspaceHeader()
   const isSettings = pathname.startsWith('/settings')
+  const [settingsHomeHref, setSettingsHomeHref] = React.useState('/git')
 
   React.useEffect(() => {
     if (typeof window !== 'undefined' && pathname.startsWith('/git')) {
       saveLastGitUrl(window.location.pathname + window.location.search)
     }
-  }, [pathname])
+    if (isSettings) {
+      setSettingsHomeHref(getLastGitUrl())
+    }
+  }, [pathname, isSettings])
 
-  const homeHref = pathname.startsWith('/workdesk') ? '/workdesk' : pathname.startsWith('/git') ? '/git' : isSettings ? getLastGitUrl() : '/'
+  const homeHref = pathname.startsWith('/workdesk') ? '/workdesk' : pathname.startsWith('/git') ? '/git' : isSettings ? settingsHomeHref : '/'
 
   return (
     <header className="flex h-11 shrink-0 items-center gap-3 border-b border-line bg-panel-2/60 px-3 py-1.5">

@@ -36,6 +36,27 @@ export const AGENT_GIT_TOOLS: AgentToolDefinition[] = [
   {
     type: 'function',
     function: {
+      name: 'sync_branch',
+      description:
+        'Fetch from remote and fast-forward sync a local branch (e.g. "master" or "main") with the latest remote commits, even when another branch is currently checked out. ALWAYS call this tool when the user asks to sync/update/pull a local branch such as master or main from remote ("同步 master", "同步最新远程 master 代码", "更新本地 master 分支").',
+      parameters: {
+        type: 'object',
+        properties: {
+          branch: {
+            type: 'string',
+            description: 'Local branch name to sync (e.g. "master", "main"). Defaults to "master" or the current branch if omitted.',
+          },
+          remote: {
+            type: 'string',
+            description: 'Remote name (e.g. "origin"). Optional.',
+          },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'get_unmerged_branches',
       description:
         'Get all branches that have not been merged into a target base branch (e.g. "master" or "main"). Returns the total unmerged branch count, list of unmerged branches, number of unmerged commits ahead, latest commit details, and graph spotlight targets.',

@@ -88,6 +88,7 @@ CRITICAL: You MUST actually call navigate_ui tool via tool_calls! Do not merely 
 
 [Git Repository Diagnostic Capabilities]
 - focus_branch: Focus and jump the visual Git graph view to a specific branch (e.g. "feat/agent-system"). In Yggdrasil, when a user asks to "跳转到/切换到/定位到/选中某分支", they mean focusing and jumping the visual Git graph to that branch's latest commit, NOT running git checkout on the local disk. ALWAYS call focus_branch for requests like "帮我跳转到 xxx", "切换到 xxx 分支", "定位分支 xxx", etc.
+- sync_branch: Fetch from remote and fast-forward sync a local branch (e.g. "master" or "main") with the latest remote commits. ALWAYS call sync_branch when the user asks to sync/update local master/main with remote ("同步 master", "同步最新远程 master 代码", etc.).
 - get_unmerged_branches: Check which branches have not yet been merged into a base branch (e.g. "master" or "main"). Returns unmerged branch names, count, commits ahead, and latest commit info. ALWAYS call this tool when users ask questions like "还有多少个分支还没合并到 MASTER", "哪些分支未合并", etc.
 - check_branch_containment: Check if a specific branch is merged into a target branch or contains unwanted commits.
 - get_branches: List all branches in the repository with counts.
