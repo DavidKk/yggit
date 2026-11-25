@@ -1,5 +1,6 @@
 import { defineApiRoute } from '@/initializer/controller'
 import { apiBadRequest, apiOk } from '@/initializer/response'
+import { assertSafeOutboundUrl } from '@/lib/security/ssrf'
 
 export const runtime = 'nodejs'
 
@@ -132,15 +133,19 @@ export const POST = defineApiRoute('post:/api/git/agent/models', async ({ reques
       targetUrl = `${cleanBaseUrl}/models`
     }
 
+    // Validate target URL against SSRF before making outbound request
+    const safeTargetUrl = await assertSafeOutboundUrl(targetUrl)
+
     let models: ModelItem[] = []
     let lastError: string | null = null
     let lastStatus: number | null = null
 
     // Attempt 1: primary models catalog endpoint
     try {
-      const response = await fetch(targetUrl, {
+      const response = await fetch(safeTargetUrl.toString(), {
         method: 'GET',
         headers,
+        redirect: 'error',
         signal: AbortSignal.timeout(6000),
       })
       if (response.ok) {

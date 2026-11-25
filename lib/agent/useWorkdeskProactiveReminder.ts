@@ -137,7 +137,7 @@ export function matchesActiveRepo(item: WorkItem, activeRepo: string, projects?:
     return true
   }
 
-  // Remote key substring check (e.g. activeRepo="git.inshopline.com/.../admin" and item.repoAlias="admin")
+  // Remote key substring check (e.g. activeRepo="git.example.com/.../admin" and item.repoAlias="admin")
   const activeSegments = lowerActive.split(/[/\\?#]/).filter(Boolean)
   if (activeSegments.includes(lowerAlias) || activeSegments.includes(lowerRepoId)) {
     return true

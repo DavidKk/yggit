@@ -34,7 +34,7 @@ export function getPillDistance(pos: { x: number; y: number }): number {
 
 export function GitAgentBar({ repoPath, className }: Props) {
   const t = useT()
-  const { sendMessage, isProcessing, messages, dockMode, setDockMode, config, modelFilter } = useAgent()
+  const { sendMessage, retryMessage, isProcessing, messages, dockMode, setDockMode, config, modelFilter } = useAgent()
 
   const [input, setInput] = useState('')
   const [reference, setReference] = useState<AgentReference | null>(null)
@@ -532,6 +532,9 @@ export function GitAgentBar({ repoPath, className }: Props) {
         onDockRight={() => {
           setQuickCardOpen(false)
           setDockMode('dock-right')
+        }}
+        onRetry={(assistantMsgId) => {
+          void retryMessage(assistantMsgId)
         }}
       />
 

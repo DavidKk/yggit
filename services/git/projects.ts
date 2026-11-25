@@ -9,6 +9,7 @@ import { normalizeRemote, projectId } from '@/lib/git/identity'
 import { isPrivateRemote } from '@/lib/git/project-access'
 import { listRemoteGroup, remoteGroupLocation } from '@/lib/git/remote-groups'
 import type { GitProjectCatalog, GitProjectGroup, GitProjectHost, GitProjectView, GitRemoteSource } from '@/lib/git/types'
+import { assertSafeOutboundUrl } from '@/lib/security/ssrf'
 
 import { discoverGitRepos } from './discover'
 
@@ -463,7 +464,8 @@ function scrub(message: string, token: string): string {
 }
 
 async function fetchJson(url: string, headers: Record<string, string>, token: string): Promise<unknown> {
-  const response = await fetch(url, { headers, signal: AbortSignal.timeout(15000) })
+  const safeUrl = await assertSafeOutboundUrl(url)
+  const response = await fetch(safeUrl.toString(), { headers, redirect: 'error', signal: AbortSignal.timeout(15000) })
   if (!response.ok) throw new Error(scrub(`授权失败（${response.status}）`, token))
   return response.json()
 }

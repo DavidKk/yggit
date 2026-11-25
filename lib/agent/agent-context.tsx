@@ -35,6 +35,7 @@ export interface AgentContextValue {
   messages: AgentChatMessage[]
   isProcessing: boolean
   sendMessage: (content: string, repoPath?: string) => Promise<void>
+  retryMessage: (assistantMsgId?: string) => Promise<void>
   clearMessages: () => void
   activeResultSummary: string | null
   activeRepo: string
@@ -215,40 +216,8 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
     }
   }, [spotlightCtx])
 
-  const sendMessage = useCallback(
-    async (userText: string, repoPath?: string) => {
-      const trimmed = userText.trim()
-      if (!trimmed || isProcessing) return
-
-      const wdCtx = getWorkdeskContext()
-      let repo = repoPath || activeRepo || currentRepo || wdCtx?.repoIdentity || ''
-      if (!repo && typeof window !== 'undefined' && window.location.pathname.startsWith('/git/')) {
-        const match = window.location.pathname.match(/^\/git\/(.+?)(?:\/(?:commit|branch|tag|blob|tree)\/|$)/)
-        if (match?.[1]) {
-          repo = match[1]
-        }
-      }
-      const userMsgId = `msg_${Date.now()}`
-      const userMessage: AgentChatMessage = {
-        id: userMsgId,
-        role: 'user',
-        content: trimmed,
-        createdAt: Date.now(),
-      }
-
-      const assistantMsgId = `msg_${Date.now() + 1}`
-      const initialAssistantMessage: AgentChatMessage = {
-        id: assistantMsgId,
-        role: 'assistant',
-        content: '',
-        isStreaming: true,
-        createdAt: Date.now() + 1,
-      }
-
-      const updatedHistory = [...messages, userMessage]
-      setMessages([...updatedHistory, initialAssistantMessage])
-      setIsProcessing(true)
-
+  const executeAgentTurn = useCallback(
+    async (updatedHistory: AgentChatMessage[], trimmed: string, assistantMsgId: string, repo: string) => {
       if (!isModelAllowed(config.model, modelFilter)) {
         setIsProcessing(false)
         setMessages((prev) =>
@@ -256,8 +225,9 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
             m.id === assistantMsgId
               ? {
                   ...m,
-                  content: `🚫 模型受限：当前模型 "${config.model}" 命中黑名单规则，已被禁止提交。请在设置中切换为合规模型。`,
+                  content: `模型受限：当前模型 "${config.model}" 命中黑名单规则，已被禁止提交。请在设置中切换为合规模型。`,
                   isStreaming: false,
+                  isError: true,
                 }
               : m
           )
@@ -315,6 +285,7 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
       const buildSystemHistory = (history: AgentChatMessage[]) => {
         const base = withSystemPrompt(history)
         let extraSystem = skillsPrompt
+        const wdCtx = getWorkdeskContext()
         if (wdCtx) {
           extraSystem += `\n\n[Active Workdesk Context]\n- Current Task: ${wdCtx.taskTitle}\n- Current Item: ${wdCtx.targetRef || ''}\n- Target Repository: ${wdCtx.repoAlias} (${wdCtx.repoIdentity})\n- Status: ${wdCtx.state}\n- Summary: ${wdCtx.summary}`
         }
@@ -556,8 +527,9 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
             m.id === assistantMsgId
               ? {
                   ...m,
-                  content: `❌ Error: ${errorMsg}`,
+                  content: errorMsg,
                   isStreaming: false,
+                  isError: true,
                 }
               : m
           )
@@ -566,7 +538,87 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
         setIsProcessing(false)
       }
     },
-    [config, redactionOptions, messages, isProcessing, activeRepo, currentRepo, spotlightCtx, modelFilter, router]
+    [config, redactionOptions, spotlightCtx, modelFilter, router]
+  )
+
+  const resolveRepoTarget = useCallback(
+    (repoPath?: string) => {
+      const wdCtx = getWorkdeskContext()
+      let repo = repoPath || activeRepo || currentRepo || wdCtx?.repoIdentity || ''
+      if (!repo && typeof window !== 'undefined' && window.location.pathname.startsWith('/git/')) {
+        const match = window.location.pathname.match(/^\/git\/(.+?)(?:\/(?:commit|branch|tag|blob|tree)\/|$)/)
+        if (match?.[1]) {
+          repo = match[1]
+        }
+      }
+      return repo
+    },
+    [activeRepo, currentRepo]
+  )
+
+  const sendMessage = useCallback(
+    async (userText: string, repoPath?: string) => {
+      const trimmed = userText.trim()
+      if (!trimmed || isProcessing) return
+
+      const repo = resolveRepoTarget(repoPath)
+      const userMsgId = `msg_${Date.now()}`
+      const userMessage: AgentChatMessage = {
+        id: userMsgId,
+        role: 'user',
+        content: trimmed,
+        createdAt: Date.now(),
+      }
+
+      const assistantMsgId = `msg_${Date.now() + 1}`
+      const initialAssistantMessage: AgentChatMessage = {
+        id: assistantMsgId,
+        role: 'assistant',
+        content: '',
+        isStreaming: true,
+        createdAt: Date.now() + 1,
+      }
+
+      const updatedHistory = [...messages, userMessage]
+      setMessages([...updatedHistory, initialAssistantMessage])
+      setIsProcessing(true)
+      await executeAgentTurn(updatedHistory, trimmed, assistantMsgId, repo)
+    },
+    [isProcessing, messages, resolveRepoTarget, executeAgentTurn]
+  )
+
+  const retryMessage = useCallback(
+    async (assistantMsgId?: string) => {
+      if (isProcessing || messages.length === 0) return
+
+      const targetIndex = assistantMsgId ? messages.findIndex((m) => m.id === assistantMsgId) : messages.length - 1
+      if (targetIndex < 0) return
+
+      let userIndex = -1
+      for (let i = targetIndex; i >= 0; i -= 1) {
+        if (messages[i]?.role === 'user') {
+          userIndex = i
+          break
+        }
+      }
+      if (userIndex < 0) return
+
+      const userMsg = messages[userIndex]
+      const baseHistory = messages.slice(0, userIndex + 1)
+      const nextAssistantId = `msg_${Date.now() + 1}`
+      const initialAssistantMessage: AgentChatMessage = {
+        id: nextAssistantId,
+        role: 'assistant',
+        content: '',
+        isStreaming: true,
+        createdAt: Date.now() + 1,
+      }
+
+      setMessages([...baseHistory, initialAssistantMessage])
+      setIsProcessing(true)
+      await executeAgentTurn(baseHistory, userMsg.content, nextAssistantId, resolveRepoTarget())
+    },
+    [isProcessing, messages, resolveRepoTarget, executeAgentTurn]
   )
 
   const value = useMemo(
@@ -584,6 +636,7 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
       messages,
       isProcessing,
       sendMessage,
+      retryMessage,
       clearMessages,
       activeResultSummary,
       activeRepo,
@@ -602,6 +655,7 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
       messages,
       isProcessing,
       sendMessage,
+      retryMessage,
       clearMessages,
       activeResultSummary,
       activeRepo,

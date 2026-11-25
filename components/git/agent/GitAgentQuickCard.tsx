@@ -1,7 +1,7 @@
 'use client'
 
 import React, { forwardRef } from 'react'
-import { LuMinus, LuPanelRight, LuSparkles, LuX } from 'react-icons/lu'
+import { LuCircleAlert, LuMinus, LuPanelRight, LuRotateCcw, LuSparkles, LuX } from 'react-icons/lu'
 
 import { useT } from '@/components/i18n/LocaleProvider'
 import { Spinner, Tooltip } from '@/components/sk'
@@ -19,11 +19,12 @@ export interface GitAgentQuickCardProps {
   lastUserMessage?: AgentChatMessage
   onCollapseCard: (action: 'pill' | 'close') => void
   onDockRight: () => void
+  onRetry?: (assistantMsgId?: string) => void
   className?: string
 }
 
 export const GitAgentQuickCard = forwardRef<HTMLDivElement, GitAgentQuickCardProps>(function GitAgentQuickCard(
-  { isOpen, isCollapsing, isProcessing, lastAssistantMessage, lastUserMessage, onCollapseCard, onDockRight, className },
+  { isOpen, isCollapsing, isProcessing, lastAssistantMessage, lastUserMessage, onCollapseCard, onDockRight, onRetry, className },
   ref
 ) {
   const t = useT()
@@ -95,7 +96,30 @@ export const GitAgentQuickCard = forwardRef<HTMLDivElement, GitAgentQuickCardPro
       {/* Content Body */}
       <div className="max-h-64 overflow-y-auto px-4 py-3 text-xs leading-relaxed text-ink select-text">
         {lastAssistantMessage?.content ? (
-          <FormattedMessage content={lastAssistantMessage.content} />
+          lastAssistantMessage.isError ? (
+            <div className="flex flex-col gap-2 rounded-xl border border-fail/35 bg-fail/10 px-3 py-2.5">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-fail">
+                <LuCircleAlert className="size-3.5 shrink-0" />
+                <span>{t('gitAgent.requestFailed') || '请求失败'}</span>
+              </div>
+              <div className="text-xs leading-relaxed text-ink whitespace-pre-wrap break-words">{lastAssistantMessage.content}</div>
+              {onRetry && (
+                <div className="flex items-center pt-0.5">
+                  <button
+                    type="button"
+                    disabled={isProcessing}
+                    onClick={() => onRetry(lastAssistantMessage.id)}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-fail/30 bg-panel px-2.5 py-1 text-[11px] font-medium text-ink hover:border-fail/60 hover:bg-fail/10 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <LuRotateCcw className="size-3 text-fail" />
+                    <span>{t('gitAgent.retry') || '重试'}</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <FormattedMessage content={lastAssistantMessage.content} />
+          )
         ) : isProcessing ? (
           <div className="flex items-center gap-1.5 text-ink-soft py-1">
             <Spinner className="size-3 text-accent shrink-0" />

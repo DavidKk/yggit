@@ -19,6 +19,7 @@ export interface ModelPresetDefinition {
   name: string
   provider: AgentProviderType
   baseUrl: string
+  modelsEndpoint?: string
   defaultModel: string
   models: Array<{ id: string; name: string }>
   requiresKey: boolean
@@ -26,6 +27,37 @@ export interface ModelPresetDefinition {
   description: string
   isLocal?: boolean
 }
+
+export interface EndpointSuggestionPreset {
+  id: string
+  label: string
+  baseUrl: string
+  modelsEndpoint?: string
+}
+
+export const OPENAPI_ENDPOINT_SUGGESTIONS: EndpointSuggestionPreset[] = [
+  {
+    id: 'cpa',
+    label: 'CPA (localhost:8317)',
+    baseUrl: 'http://localhost:8317/v1',
+  },
+  {
+    id: 'magpie',
+    label: 'Magpie (127.0.0.1:3425)',
+    baseUrl: 'http://127.0.0.1:3425/v1',
+    modelsEndpoint: 'http://127.0.0.1:3425/v1/codex/models',
+  },
+  {
+    id: 'ollama',
+    label: 'Ollama (localhost:11434)',
+    baseUrl: 'http://localhost:11434/v1',
+  },
+  {
+    id: 'lm-studio',
+    label: 'LM Studio (127.0.0.1:1234)',
+    baseUrl: 'http://127.0.0.1:1234/v1',
+  },
+]
 
 export const AGENT_PRESETS: Record<AgentProviderType, ModelPresetDefinition> = {
   chatgpt: {
@@ -143,7 +175,8 @@ export const AGENT_PRESETS: Record<AgentProviderType, ModelPresetDefinition> = {
   magpie: {
     name: 'Magpie (企业/自建网关)',
     provider: 'magpie',
-    baseUrl: 'https://magpie.example.com/v1',
+    baseUrl: 'http://127.0.0.1:3425/v1',
+    modelsEndpoint: 'http://127.0.0.1:3425/v1/codex/models',
     defaultModel: 'workbuddy/deepseek-v4-pro',
     models: [
       { id: 'codex/gpt-6.1-sol', name: 'codex/gpt-6.1-sol' },
@@ -208,6 +241,7 @@ export interface AgentChatMessage {
   tool_call_id?: string
   createdAt?: number
   isStreaming?: boolean
+  isError?: boolean
 }
 
 export interface AgentToolDefinition {

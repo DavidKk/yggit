@@ -101,7 +101,7 @@
 - **输入数据**：本地已接入项目的完整清单 `GitProjectView[]`。
 - **触发判定（全部满足）**：
   1. 某个非系统受保护分组（例如 `个人项目` 或 `未分类`）中包含的项目数量 $\ge 10$；
-  2. 该分组内项目的 `localPath` 或 `httpsUrl` 呈现出 2 个及以上的独立命名空间前缀（例如同时包含 `/sl-backend/` 与 `/sl/`，或者同时包含不同 GitLab 组 / GitHub Org）。
+  2. 该分组内项目的 `localPath` 或 `httpsUrl` 呈现出 2 个及以上的独立命名空间前缀（例如同时包含 `/backend/` 与 `/frontend/`，或者同时包含不同 GitLab 组 / GitHub Org）。
 - **输出 Finding 规范**：
   - `kind`: `'custom'`
   - `ruleId`: `'project-organization-hygiene'`
@@ -119,8 +119,8 @@
 为 Yggit Agent Runtime 提供标准化的仓库分类治理技能：
 
 1. **多维特征提取与启发式匹配**：
-   - **物理路径前缀**：提取各项目的父级公共目录（如 `/Develop/sl-backend/*` 归入后端，`/Develop/ops/*` 归入运维）；
-   - **远端域名与命名空间**：解析 Git Remote URL 中的 group / namespace（如 `git.inshopline.com/shopline/center-1/website/backend/*`）；
+   - **物理路径前缀**：提取各项目的父级公共目录（如 `/Develop/backend/*` 归入后端，`/Develop/ops/*` 归入运维）；
+   - **远端域名与命名空间**：解析 Git Remote URL 中的 group / namespace（如 `git.example.com/org/team/website/backend/*`）；
    - **技术栈标识**：根据仓库特征识别类型（如包含 `*-api`、`*-bff` 为后端接口，包含 `*-plugin`、`*-library`、`*-editor` 为前端扩展）；
    - **独立工作树判定**：路径包含 `/worktree/` 或为 linked worktree 副本的，独立归组。
 2. **结构化分类方案输出**：
@@ -128,12 +128,12 @@
    ```markdown
    检测到你的 61 个项目集中在「个人项目」，我已结合目录结构与服务类型为你规划了以下分组方案：
 
-   | 新建分组                     | 包含项目 (部分示例)                                | 分组依据                   |
-   | :--------------------------- | :------------------------------------------------- | :------------------------- |
-   | 📁 **Shopline / 后端微服务** | `admin`, `admin-bff`, `order-tracking-api`         | 路径 sl-backend 及后端接口 |
-   | 📁 **Shopline / 前端与组件** | `Advanced-Component-library`, `custom-code-plugin` | 前端组件库及扩展插件       |
-   | 📁 **基础架构与运维工具**    | `yggdrasil`, `screenshot-server`                   | ops 工具链及本地部署服务   |
-   | 📁 **开发工作树与实验**      | `test`                                             | 独立 Worktree 临时环境     |
+   | 新建分组                  | 包含项目 (部分示例)                                | 分组依据                 |
+   | :------------------------ | :------------------------------------------------- | :----------------------- |
+   | 📁 **后端微服务**         | `admin`, `admin-bff`, `order-tracking-api`         | 路径 backend 及后端接口  |
+   | 📁 **前端与组件**         | `Advanced-Component-library`, `custom-code-plugin` | 前端组件库及扩展插件     |
+   | 📁 **基础架构与运维工具** | `yggdrasil`, `screenshot-server`                   | ops 工具链及本地部署服务 |
+   | 📁 **开发工作树与实验**   | `test`                                             | 独立 Worktree 临时环境   |
 
    确认后我将为你自动创建上述文件夹并完成项目归类。
    ```

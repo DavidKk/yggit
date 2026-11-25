@@ -57,7 +57,7 @@ export function determineTargetGroup(project: GitProjectView): { targetGroup: st
 
   // 3. Backend Microservices & APIs
   if (
-    path.includes('/develop/sl-backend/') ||
+    path.includes('/develop/backend/') ||
     url.includes('/backend/') ||
     name.endsWith('-api') ||
     name.endsWith('-bff') ||
@@ -66,26 +66,33 @@ export function determineTargetGroup(project: GitProjectView): { targetGroup: st
     name === 'admin'
   ) {
     return {
-      targetGroup: 'Shopline / 后端微服务',
+      targetGroup: '后端微服务',
       reason: '匹配到后端接口、BFF 架构或微服务模块',
     }
   }
 
   // 4. Frontend Applications & Editors
   if (
-    path.includes('/develop/sl/') &&
+    path.includes('/develop/frontend/') &&
     (name.endsWith('-editor') || name.endsWith('-admin') || name.includes('landing-page') || name.includes('cloudframe') || name.includes('layout'))
   ) {
     return {
-      targetGroup: 'Shopline / 前端应用与编辑器',
+      targetGroup: '前端应用与编辑器',
       reason: '匹配到前端管理后台、画布编辑器或独立应用',
     }
   }
 
   // 5. Frontend Plugins, Components & Libraries
-  if (name.includes('plugin') || name.includes('component') || name.includes('library') || name.includes('sdk') || url.includes('/frontend/') || path.includes('/develop/sl/')) {
+  if (
+    name.includes('plugin') ||
+    name.includes('component') ||
+    name.includes('library') ||
+    name.includes('sdk') ||
+    url.includes('/frontend/') ||
+    path.includes('/develop/frontend/')
+  ) {
     return {
-      targetGroup: 'Shopline / 插件与扩展组件',
+      targetGroup: '插件与扩展组件',
       reason: '匹配到扩展插件、公共组件库或前端依赖模块',
     }
   }

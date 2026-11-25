@@ -1,5 +1,6 @@
 import { defineApiRoute } from '@/initializer/controller'
 import { apiBadRequest } from '@/initializer/response'
+import { assertSafeOutboundUrl } from '@/lib/security/ssrf'
 
 export const runtime = 'nodejs'
 
@@ -14,18 +15,15 @@ export const POST = defineApiRoute('post:/api/git/agent/gateway', async ({ reque
 
     const targetUrl = endpoint || 'https://ai-gateway.vercel.sh/v1/chat/completions'
 
-    // Validate destination scheme
-    const parsedUrl = new URL(targetUrl)
-    if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
-      return apiBadRequest('Invalid gateway protocol')
-    }
+    // Validate destination against SSRF
+    const parsedUrl = await assertSafeOutboundUrl(targetUrl)
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       ...customHeaders,
     }
 
-    if (targetUrl.includes('anthropic.com')) {
+    if (parsedUrl.hostname.endsWith('anthropic.com')) {
       if (apiKey) {
         headers['x-api-key'] = apiKey
         headers['anthropic-version'] = '2023-06-01'
@@ -34,10 +32,11 @@ export const POST = defineApiRoute('post:/api/git/agent/gateway', async ({ reque
       headers['Authorization'] = `Bearer ${apiKey}`
     }
 
-    const upstreamResponse = await fetch(targetUrl, {
+    const upstreamResponse = await fetch(parsedUrl.toString(), {
       method: 'POST',
       headers,
       body: JSON.stringify(chatBody),
+      redirect: 'error',
     })
 
     const contentType = upstreamResponse.headers.get('content-type') || ''

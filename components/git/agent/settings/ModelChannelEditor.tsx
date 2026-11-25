@@ -13,7 +13,7 @@ import { useAgent } from '@/lib/agent/agent-context'
 import { filterAllowedModels, getModelFilterConflicts, isModelAllowed } from '@/lib/agent/model-filter'
 import type { AgentModelProfile } from '@/lib/agent/model-profiles'
 import { testAgentConnection } from '@/lib/agent/openapi-client'
-import { AGENT_PRESETS, type AgentProviderType, DEFAULT_AGENT_CONFIG } from '@/lib/agent/types'
+import { AGENT_PRESETS, type AgentProviderType, DEFAULT_AGENT_CONFIG, OPENAPI_ENDPOINT_SUGGESTIONS } from '@/lib/agent/types'
 import { cn } from '@/lib/utils'
 
 import { PrivacyNoticeCallout } from './PrivacyNoticeCallout'
@@ -52,6 +52,7 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
           provider: providerParam,
           model: preset.defaultModel,
           baseUrl: preset.baseUrl,
+          modelsEndpoint: preset.modelsEndpoint || '',
           apiKey: '',
           stream: true,
         }
@@ -364,7 +365,13 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
                   onChange={(value) => {
                     const provider = value as AgentProviderType
                     const next = AGENT_PRESETS[provider]
-                    updateConfig({ provider, baseUrl: next.baseUrl, model: next.defaultModel, apiKey: '', modelsEndpoint: '' })
+                    updateConfig({
+                      provider,
+                      baseUrl: next.baseUrl,
+                      model: next.defaultModel,
+                      apiKey: '',
+                      modelsEndpoint: next.modelsEndpoint || '',
+                    })
                     setKeyDraft('')
                     setClearKey(false)
                     setRemoteModels([])
@@ -377,21 +384,56 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
             </div>
 
             {/* Row 3: API Endpoint */}
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 items-center">
-              <div className="md:col-span-5 min-w-0">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 items-start">
+              <div className="md:col-span-5 min-w-0 pt-1">
                 <label htmlFor="agent-model-endpoint" className="text-xs font-semibold text-ink">
                   {t('gitAgent.endpoint')}
                 </label>
-                <p className="text-xs text-ink-soft leading-relaxed mt-0.5">OpenAPI 规范的服务基地址。</p>
+                <p className="text-xs text-ink-soft leading-relaxed mt-0.5">{t('gitAgent.endpointDesc') || 'OpenAPI 规范的服务基地址。'}</p>
               </div>
-              <div className="md:col-span-7 min-w-0 max-w-[460px] md:ml-auto w-full">
-                <TextInput
+              <div className="md:col-span-7 min-w-0 max-w-[460px] md:ml-auto w-full flex flex-col gap-1.5">
+                <InputSuggestion
                   id="agent-model-endpoint"
+                  name="agent-model-endpoint"
                   fullWidth
                   value={config.baseUrl || ''}
-                  onChange={(event) => updateConfig({ baseUrl: event.target.value })}
+                  onChange={(value) => updateConfig({ baseUrl: value })}
+                  options={[
+                    ...(!OPENAPI_ENDPOINT_SUGGESTIONS.some((s) => s.baseUrl === preset.baseUrl) ? [{ value: preset.baseUrl, label: `${preset.name} (${preset.baseUrl})` }] : []),
+                    ...OPENAPI_ENDPOINT_SUGGESTIONS.map((s) => ({
+                      value: s.baseUrl,
+                      label: `${s.label} — ${s.baseUrl}`,
+                    })),
+                  ]}
                   placeholder={t('gitAgent.endpointPlaceholder')}
                 />
+                {config.provider !== 'vercel-free' && (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-[11px] text-ink-soft">{t('gitAgent.endpointQuickFill') || '本地服务建议:'}</span>
+                    {OPENAPI_ENDPOINT_SUGGESTIONS.map((item) => {
+                      const active = config.baseUrl?.trim() === item.baseUrl
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() =>
+                            updateConfig({
+                              baseUrl: item.baseUrl,
+                              modelsEndpoint: item.modelsEndpoint || '',
+                            })
+                          }
+                          className={cn(
+                            'rounded-md border px-2 py-0.5 text-[11px] transition-colors cursor-pointer',
+                            active ? 'border-accent/50 bg-accent/10 text-accent font-medium' : 'border-line bg-panel-2/60 text-ink-soft hover:border-accent/40 hover:text-ink'
+                          )}
+                          title={item.baseUrl}
+                        >
+                          {item.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
             </div>
 

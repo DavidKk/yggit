@@ -22,7 +22,7 @@ jest.mock('next/navigation', () => ({
 // Mock agent context
 const mockSendMessage = jest.fn().mockResolvedValue(undefined)
 const mockSetDockMode = jest.fn()
-let mockActiveRepo = '/Users/davidjones/Develop/sl-backend/admin'
+let mockActiveRepo = '/Users/davidjones/Develop/backend/admin'
 let mockIsProcessing = false
 
 jest.mock('@/lib/agent/agent-context', () => ({
@@ -62,12 +62,12 @@ describe('useWorkdeskProactiveReminder', () => {
       name: 'admin',
       group: '工作项目',
       host: 'gitlab',
-      localPath: '/Users/davidjones/Develop/sl-backend/admin',
-      httpsUrl: 'https://git.inshopline.com/shopline/center-1/website/backend/admin.git',
+      localPath: '/Users/davidjones/Develop/backend/admin',
+      httpsUrl: 'https://git.example.com/org/team/website/backend/admin.git',
       local: true,
       remote: true,
       authorized: true,
-      remotes: [{ name: 'origin', url: 'https://git.inshopline.com/shopline/center-1/website/backend/admin.git', isPrivate: true }],
+      remotes: [{ name: 'origin', url: 'https://git.example.com/org/team/website/backend/admin.git', isPrivate: true }],
     },
     {
       id: 'proj_yggit',
@@ -108,7 +108,7 @@ describe('useWorkdeskProactiveReminder', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     sessionStorage.clear()
-    mockActiveRepo = '/Users/davidjones/Develop/sl-backend/admin'
+    mockActiveRepo = '/Users/davidjones/Develop/backend/admin'
     mockIsProcessing = false
     host = document.createElement('div')
     document.body.appendChild(host)
@@ -129,14 +129,14 @@ describe('useWorkdeskProactiveReminder', () => {
     })
 
     it('matches via project localPath, remoteKey, or url', () => {
-      expect(matchesActiveRepo(mockItemSync, '/Users/davidjones/Develop/sl-backend/admin', sampleProjects)).toBe(true)
-      expect(matchesActiveRepo(mockItemSync, 'git.inshopline.com/shopline/center-1/website/backend/admin', sampleProjects)).toBe(true)
-      expect(matchesActiveRepo(mockItemSync, 'https://git.inshopline.com/shopline/center-1/website/backend/admin.git', sampleProjects)).toBe(true)
+      expect(matchesActiveRepo(mockItemSync, '/Users/davidjones/Develop/backend/admin', sampleProjects)).toBe(true)
+      expect(matchesActiveRepo(mockItemSync, 'git.example.com/org/team/website/backend/admin', sampleProjects)).toBe(true)
+      expect(matchesActiveRepo(mockItemSync, 'https://git.example.com/org/team/website/backend/admin.git', sampleProjects)).toBe(true)
     })
 
     it('matches via path suffix even without projects list', () => {
-      expect(matchesActiveRepo(mockItemSync, '/Users/davidjones/Develop/sl-backend/admin')).toBe(true)
-      expect(matchesActiveRepo(mockItemSync, 'git.inshopline.com/shopline/center-1/website/backend/admin')).toBe(true)
+      expect(matchesActiveRepo(mockItemSync, '/Users/davidjones/Develop/backend/admin')).toBe(true)
+      expect(matchesActiveRepo(mockItemSync, 'git.example.com/org/team/website/backend/admin')).toBe(true)
     })
 
     it('rejects unrelated repositories', () => {
@@ -266,7 +266,7 @@ describe('useWorkdeskProactiveReminder', () => {
       })
 
       expect(mockSetDockMode).toHaveBeenCalledWith('dock-right')
-      expect(mockSendMessage).toHaveBeenCalledWith('请帮我将默认分支 main 同步更新至最新的远端提交。', '/Users/davidjones/Develop/sl-backend/admin')
+      expect(mockSendMessage).toHaveBeenCalledWith('请帮我将默认分支 main 同步更新至最新的远端提交。', '/Users/davidjones/Develop/backend/admin')
       expect(latestReminder).toBeNull()
     })
 

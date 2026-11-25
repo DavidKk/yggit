@@ -20,7 +20,7 @@ describe('OrganizationHygieneDetector', () => {
         name: 'proj2',
         group: '个人项目',
         host: 'local',
-        localPath: '/Users/dev/sl-backend/proj2',
+        localPath: '/Users/dev/backend/proj2',
         httpsUrl: '',
         local: true,
         remote: false,
@@ -35,9 +35,9 @@ describe('OrganizationHygieneDetector', () => {
   it('detects bloated group with diverse path roots and produces organization finding', () => {
     const projects: GitProjectView[] = []
 
-    // Create 12 projects: 6 in sl-backend, 6 in sl
+    // Create 12 projects: 6 in backend, 6 in frontend
     for (let i = 0; i < BLOATED_GROUP_THRESHOLD + 2; i++) {
-      const parentDir = i % 2 === 0 ? 'sl-backend' : 'sl'
+      const parentDir = i % 2 === 0 ? 'backend' : 'frontend'
       projects.push({
         id: `id_${i}`,
         name: `project_${i}`,
@@ -60,7 +60,7 @@ describe('OrganizationHygieneDetector', () => {
     expect(finding.severity).toBe('info')
     expect(finding.lifecycle).toBe('open')
     expect(finding.evidence?.details?.projectCount).toBe(BLOATED_GROUP_THRESHOLD + 2)
-    expect(finding.evidence?.details?.distinctRoots).toEqual(expect.arrayContaining(['sl-backend', 'sl']))
+    expect(finding.evidence?.details?.distinctRoots).toEqual(expect.arrayContaining(['backend', 'frontend']))
   })
 
   it('does not produce finding if all projects share the exact same root namespace', () => {

@@ -25,15 +25,15 @@ describe('Project Categorizer Engine', () => {
       name: 'order-tracking-api',
       group: '个人项目',
       host: 'gitlab',
-      localPath: '/Users/davidjones/Develop/sl-backend/order-tracking-api',
-      httpsUrl: 'https://git.inshopline.com/shopline/center-1/website/backend/order-tracking-api.git',
+      localPath: '/Users/davidjones/Develop/backend/order-tracking-api',
+      httpsUrl: 'https://git.example.com/org/team/website/backend/order-tracking-api.git',
       local: true,
       remote: true,
       authorized: true,
     }
 
     const { targetGroup } = determineTargetGroup(proj)
-    expect(targetGroup).toBe('Shopline / 后端微服务')
+    expect(targetGroup).toBe('后端微服务')
   })
 
   it('correctly categorizes frontend apps and editors', () => {
@@ -42,15 +42,15 @@ describe('Project Categorizer Engine', () => {
       name: 'cloudframe-editor',
       group: '个人项目',
       host: 'gitlab',
-      localPath: '/Users/davidjones/Develop/sl/cloudframe-editor',
-      httpsUrl: 'https://git.inshopline.com/shopline/center-1/website/frontend/cloudframe-editor.git',
+      localPath: '/Users/davidjones/Develop/frontend/cloudframe-editor',
+      httpsUrl: 'https://git.example.com/org/team/website/frontend/cloudframe-editor.git',
       local: true,
       remote: true,
       authorized: true,
     }
 
     const { targetGroup } = determineTargetGroup(proj)
-    expect(targetGroup).toBe('Shopline / 前端应用与编辑器')
+    expect(targetGroup).toBe('前端应用与编辑器')
   })
 
   it('correctly categorizes frontend plugins and component libraries', () => {
@@ -59,15 +59,15 @@ describe('Project Categorizer Engine', () => {
       name: 'Advanced-Component-library',
       group: '个人项目',
       host: 'gitlab',
-      localPath: '/Users/davidjones/Develop/sl/Advanced-Component-library',
-      httpsUrl: 'https://git.inshopline.com/shopline/center-1/website/frontend/Advanced-Component-library.git',
+      localPath: '/Users/davidjones/Develop/frontend/Advanced-Component-library',
+      httpsUrl: 'https://git.example.com/org/team/website/frontend/Advanced-Component-library.git',
       local: true,
       remote: true,
       authorized: true,
     }
 
     const { targetGroup } = determineTargetGroup(proj)
-    expect(targetGroup).toBe('Shopline / 插件与扩展组件')
+    expect(targetGroup).toBe('插件与扩展组件')
   })
 
   it('correctly categorizes ops and infrastructure repositories', () => {
@@ -105,8 +105,8 @@ describe('Project Categorizer Engine', () => {
         name: 'admin',
         group: '个人项目',
         host: 'gitlab',
-        localPath: '/Users/davidjones/Develop/sl-backend/admin',
-        httpsUrl: 'https://git.inshopline.com/shopline/center-1/website/backend/admin.git',
+        localPath: '/Users/davidjones/Develop/backend/admin',
+        httpsUrl: 'https://git.example.com/org/team/website/backend/admin.git',
         local: true,
         remote: true,
         authorized: true,
@@ -127,8 +127,8 @@ describe('Project Categorizer Engine', () => {
         name: 'custom-code-plugin',
         group: '个人项目',
         host: 'gitlab',
-        localPath: '/Users/davidjones/Develop/sl/custom-code-plugin',
-        httpsUrl: 'https://git.inshopline.com/shopline/center-1/website/frontend/custom-code-plugin.git',
+        localPath: '/Users/davidjones/Develop/frontend/custom-code-plugin',
+        httpsUrl: 'https://git.example.com/org/team/website/frontend/custom-code-plugin.git',
         local: true,
         remote: true,
         authorized: true,
@@ -138,6 +138,6 @@ describe('Project Categorizer Engine', () => {
     const plan = classifyProjects(projects, '个人项目')
     expect(plan.totalProjects).toBe(4)
     expect(plan.actions).toHaveLength(4)
-    expect(plan.newGroupsToCreate).toEqual(expect.arrayContaining(['独立工作树与实验', 'Shopline / 后端微服务', '基础架构与运维', 'Shopline / 插件与扩展组件']))
+    expect(plan.newGroupsToCreate).toEqual(expect.arrayContaining(['独立工作树与实验', '后端微服务', '基础架构与运维', '插件与扩展组件']))
   })
 })

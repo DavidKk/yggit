@@ -202,4 +202,8 @@ export type GitAgentMessages = {
   proactiveActionAssist?: string
   proactiveActionView?: string
   proactiveDismiss?: string
+  endpointDesc?: string
+  endpointQuickFill?: string
+  requestFailed?: string
+  retry?: string
 }

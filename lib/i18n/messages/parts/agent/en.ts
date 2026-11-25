@@ -203,5 +203,9 @@ export const gitAgentEn: { gitAgent: GitAgentMessages } = {
     proactiveActionAssist: 'Help with Agent',
     proactiveActionView: 'View Task',
     proactiveDismiss: 'Not Now',
+    endpointDesc: 'OpenAPI-compatible service base URL.',
+    endpointQuickFill: 'Local service presets:',
+    requestFailed: 'Request failed',
+    retry: 'Retry',
   },
 }

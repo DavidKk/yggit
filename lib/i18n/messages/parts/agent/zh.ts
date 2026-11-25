@@ -202,5 +202,9 @@ export const gitAgentZh: { gitAgent: GitAgentMessages } = {
     proactiveActionAssist: '让 Agent 协助',
     proactiveActionView: '查看任务',
     proactiveDismiss: '稍后再说',
+    endpointDesc: 'OpenAPI 规范的服务基地址。',
+    endpointQuickFill: '本地服务建议:',
+    requestFailed: '请求失败',
+    retry: '重试',
   },
 }

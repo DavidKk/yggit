@@ -121,7 +121,7 @@ export function detectOrganizationHygiene(projects: GitProjectView[]): Finding[]
     const distinctRoots = new Set<string>()
     for (const p of groupProjects) {
       if (p.localPath) {
-        // 取倒数第 2 级目录作为父命名空间（如 /Develop/sl-backend/admin -> sl-backend）
+        // 取倒数第 2 级目录作为父命名空间（如 /Develop/backend/admin -> backend）
         const parts = p.localPath.split('/').filter(Boolean)
         if (parts.length >= 2) {
           distinctRoots.add(parts[parts.length - 2])
@@ -183,14 +183,14 @@ Agent Skill 采用**启发式优先 + LLM 语义润色**的双阶管线：
 1. **Tier 1 (物理路径聚类 - Filesystem Path Tree)**：
    - 提取各项目的绝对路径层次，计算最长公共父路径（LCP）；
    - 例如：
-     - `/Users/.../Develop/sl-backend/*` $\rightarrow$ 候选簇：`sl-backend`
+     - `/Users/.../Develop/backend/*` $\rightarrow$ 候选簇：`backend`
      - `/Users/.../Develop/sl/*` $\rightarrow$ 候选簇：`sl`
      - `/Users/.../Develop/ops/*` $\rightarrow$ 候选簇：`ops`
      - `/Users/.../Develop/worktree/*` $\rightarrow$ 候选簇：`worktree`
 2. **Tier 2 (远端命名空间匹配 - Remote Namespace)**：
    - 解析 Git Remote URL 路径中的组名：
-     - `git.inshopline.com/shopline/center-1/website/backend/*` $\rightarrow$ 关联后端
-     - `git.inshopline.com/shopline/center-1/website/frontend/*` $\rightarrow$ 关联前端
+     - `git.example.com/org/team/website/backend/*` $\rightarrow$ 关联后端
+     - `git.example.com/org/team/website/frontend/*` $\rightarrow$ 关联前端
 3. **Tier 3 (技术栈与工程类型识别 - Stack Signatures)**：
    - 识别特殊仓库类型：
      - 包含 `api`, `bff`, `service`, `grpc` $\rightarrow$ 业务后端服务
@@ -198,8 +198,8 @@ Agent Skill 采用**启发式优先 + LLM 语义润色**的双阶管线：
      - 包含 `test`, `mock`, `runner` $\rightarrow$ 测试与运行沙箱
 4. **Tier 4 (LLM 命名优化与映射)**：
    - 将机械的目录名转换为用户友好的组织分组名：
-     - `sl-backend` $\rightarrow$ `Shopline / 后端服务`
-     - `sl` (前端) $\rightarrow$ `Shopline / 前端与组件`
+     - `backend` $\rightarrow$ `后端微服务`
+     - `frontend` (前端) $\rightarrow$ `前端与组件`
      - `ops` $\rightarrow$ `基础架构与运维`
      - `worktree` $\rightarrow$ `独立工作树与实验`
 

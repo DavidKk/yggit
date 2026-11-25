@@ -5,6 +5,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   LuBot,
   LuCheck,
+  LuCircleAlert,
   LuClock,
   LuCopy,
   LuFileText,
@@ -12,6 +13,7 @@ import {
   LuGitBranch,
   LuGitMerge,
   LuGitPullRequest,
+  LuRotateCcw,
   LuSearch,
   LuSend,
   LuSettings,
@@ -110,7 +112,7 @@ const CAPABILITIES: AgentCapability[] = [
 
 export function AgentWorkspace({ repoPath, className }: Props) {
   const t = useT()
-  const { dockMode, setDockMode, messages, sendMessage, clearMessages, isProcessing, activeRepo, config, modelFilter } = useAgent()
+  const { dockMode, setDockMode, messages, sendMessage, retryMessage, clearMessages, isProcessing, activeRepo, config, modelFilter } = useAgent()
 
   const [input, setInput] = useState('')
   const [reference, setReference] = useState<AgentReference | null>(null)
@@ -314,6 +316,8 @@ export function AgentWorkspace({ repoPath, className }: Props) {
               return null
             }
 
+            const isError = !isUser && Boolean(m.isError)
+
             return (
               <div key={m.id} className={cn('flex flex-col gap-1', isUser ? 'items-end' : 'items-start')}>
                 <div className="flex items-center gap-1.5 text-[10px] text-ink-soft px-1">
@@ -324,7 +328,7 @@ export function AgentWorkspace({ repoPath, className }: Props) {
                     </>
                   ) : (
                     <>
-                      <LuBot className="size-3 text-accent" />
+                      <LuBot className={cn('size-3', isError ? 'text-fail' : 'text-accent')} />
                       <span className="font-medium text-ink">Git Agent</span>
                     </>
                   )}
@@ -333,11 +337,34 @@ export function AgentWorkspace({ repoPath, className }: Props) {
                 <div
                   className={cn(
                     'group relative max-w-[90%] rounded-2xl px-3.5 py-2 text-xs leading-relaxed select-text shadow-xs break-words',
-                    isUser ? 'bg-accent text-white rounded-tr-xs' : 'bg-panel-2 border border-line text-ink rounded-tl-xs'
+                    isUser
+                      ? 'bg-accent text-white rounded-tr-xs'
+                      : isError
+                        ? 'border border-fail/35 bg-fail/10 text-ink rounded-tl-xs'
+                        : 'bg-panel-2 border border-line text-ink rounded-tl-xs'
                   )}
                 >
                   {isUser ? (
                     <div className="whitespace-pre-wrap">{m.content}</div>
+                  ) : isError ? (
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center gap-1.5 font-semibold text-fail">
+                        <LuCircleAlert className="size-3.5 shrink-0" />
+                        <span>{t('gitAgent.requestFailed') || '请求失败'}</span>
+                      </div>
+                      <div className="whitespace-pre-wrap text-ink/90 pr-5">{m.content}</div>
+                      <div className="flex items-center pt-0.5">
+                        <button
+                          type="button"
+                          disabled={isProcessing}
+                          onClick={() => void retryMessage(m.id)}
+                          className="inline-flex items-center gap-1.5 rounded-md border border-fail/30 bg-panel px-2.5 py-1 text-[11px] font-medium text-ink hover:border-fail/60 hover:bg-fail/10 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <LuRotateCcw className="size-3 text-fail" />
+                          <span>{t('gitAgent.retry') || '重试'}</span>
+                        </button>
+                      </div>
+                    </div>
                   ) : m.content ? (
                     <FormattedMessage content={m.content} />
                   ) : m.isStreaming ? (
