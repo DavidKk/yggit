@@ -1,62 +1,82 @@
+[![Chinese docs](https://img.shields.io/badge/docs-Chinese-green?style=flat-square&logo=docs)](https://github.com/DavidKk/yggit/blob/main/README.zh-CN.md) [![English](https://img.shields.io/badge/docs-English-green?style=flat-square&logo=docs)](https://github.com/DavidKk/yggit/blob/main/README.md) [![Node.js](https://img.shields.io/badge/node-%3E%3D22.19-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/) [![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](./LICENSE)
+
 # Yggit
 
-<p align="center">
-  <strong>Organic World Tree Git Graph & Repository Workbench</strong>
-</p>
+**Yggit** (World Tree Git) transforms standard industrial grid Git graphs into an **organic life-tree network**. Built with Next.js 16, React 19, and Tailwind CSS 4, Yggit delivers a fast, local-first Git commit history workbench with an integrated AI assistant (**Yggi**), repository diagnostics, and extensible Skills & MCP tooling.
 
-<p align="center">
-  <a href="./README.zh-CN.md">简体中文</a> | <a href="./README.md">English</a>
-</p>
+Runtime modes:
 
----
+| Mode             | How                                          | Disk & Git Access                                                                                  |
+| ---------------- | -------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| **Local**        | Node.js server alongside your repositories   | Full native Git CLI, local file access, encrypted local storage, and local CLI agent adapters      |
+| **Edge / Cloud** | Vercel / browser (`VERCEL=1` or Edge driver) | No server disk — opens local folders in Chromium via the File System Access API (`isomorphic-git`) |
 
-## Overview
+## Features
 
-**Yggit** (World Tree Git) transforms standard industrial grid Git graphs into an **organic life-tree network**. Built with Next.js, React 19, and Tailwind CSS, Yggit provides a fast, aesthetic, and local-first Git commit history visualization and repository management experience.
+- **Organic World Tree DAG** — Cubic Bézier branch curves, smooth branch-to-trunk gradient convergence, trunk vs. side-branch stroke hierarchy, zero-gap seam date dividers, and semantic node styling (dashed Stash capsules, HEAD pulse rings, and merge junction nodes).
+- **Yggi AI Repository Assistant** — Available as a draggable floating pill, quick-reply card, or resizable docked sidebar. Supports quote-and-follow-up conversations, AI commit message generation, and **Agent Spotlight** commit inspection with Fact / Derived / Hypothesis attribution evidence.
+- **Multi-Tier Model & Provider Ecosystem** — Supports **Browser AI** (Chrome built-in Gemini Nano), **Browser Local AI** (offline WebGPU / WASM models), local **CLI Agents** (Claude, Codex, Gemini, Cursor, Antigravity), and **OpenAI-compatible / DeepSeek / Claude / Ollama** channels with wildcard whitelist/blacklist filtering.
+- **Agent Skills (`SKILL.md`) & HTTP MCP** — Import local `SKILL.md` files or sync skill repositories from GitHub; connect external **Streamable HTTP MCP Servers** with custom headers or **MCP OAuth 2.0 (PKCE)** and per-tool toggles.
+- **Workdesk & Repository Diagnostics** — Automated branch synchronization checks, unmerged commit detection, organization hygiene diagnostics, and 3-way merge conflict analysis.
+- **Customizable Context Menus** — Pin high-frequency branch actions, toggle cascading submenus, enable two-step confirmation for destructive operations, and filter actions adaptively by repository capability.
+- **Developer Observability** — Built-in `/dev/logs/operations` and `/dev/logs/context` views for inspecting operation error stacks, multi-level logs, and Agent context traces with one-click diagnostics export.
+- **10-Language Localization** — Full UI internationalization across English, Simplified Chinese, Traditional Chinese, Japanese, Korean, French, German, Spanish, Brazilian Portuguese, and Russian.
+- **Local-First & Privacy-First** — API keys and tokens are encrypted locally; no account is required and no personal configuration data is collected.
 
-## Key Features
+## Deploy to Vercel (Cloud / Edge)
 
-- 🌳 **Organic World Tree DAG** — Cubic Bézier branch curves, smooth branch-to-trunk gradient convergence, and trunk vs. side-branch line-width differentiation.
-- ⏱️ **Zero-Gap Seam Dividers** — Zero-gap date grouping dividers seamlessly positioned on commit seams without stretching or inflating graph lane geometry.
-- 🌿 **Semantic Node Styling** — Circular dashed stash capsules, head ring pulse animations, and merge junction nodes.
-- 📋 **Comprehensive Context Actions** — Right-click context menus across all columns (copy branch name, commit subject, full/short hash, author, and timestamp).
-- 🧭 **Multi-Repository Workspace Switcher** — Seamlessly manage and switch between local and remote repositories with real-time status detection.
-- ⚡ **High Performance & React Memoization** — Decoupled SVG graph layers preventing unnecessary re-renders during loading or state changes.
-- 🌐 **Full Internationalization (i18n)** — Native multi-language support (English and Simplified Chinese).
+[![Deploy to Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FDavidKk%2Fyggit)
 
-## Getting Started
+When deployed to Vercel, Yggit runs in **Edge / browser** mode: the UI is served from the cloud while repository reading and `isomorphic-git` operations run locally in your browser using the File System Access API.
 
-### Prerequisites
+1. Import [DavidKk/yggit](https://github.com/DavidKk/yggit) into Vercel (or use the button above).
+2. Framework preset: **Next.js**. Build command: `pnpm build`.
+3. Open the deployed URL in Chrome or Microsoft Edge and select a local Git repository folder to begin.
 
-- Node.js >= 20.0.0
-- pnpm >= 9.0.0
+## Local Development
 
-### Installation
+Requires **Node.js ≥ 22.19.0** and **pnpm**.
 
 ```bash
-# Clone the repository
 git clone https://github.com/DavidKk/yggit.git
 cd yggit
-
-# Install dependencies
 pnpm install
-
-# Start development server
 pnpm dev
 ```
 
-Visit [http://localhost:3000](http://localhost:3000) to view your Git repository log.
+Open [http://localhost:3000](http://localhost:3000) (or the LAN URL printed at startup) to view your repositories.
 
-### Build & Production
+| Command             | Purpose                                                                                                      |
+| ------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `pnpm dev`          | Start development server (listens on LAN by default)                                                         |
+| `pnpm dev:lan`      | Explicit LAN development server                                                                              |
+| `pnpm dev:loopback` | Loopback-only development server (`127.0.0.1`)                                                               |
+| `pnpm build`        | Build production Next.js bundle (`next build --webpack`)                                                     |
+| `pnpm start`        | Start production server                                                                                      |
+| `pnpm ok`           | Run `fix:imports`, Prettier format, ESLint (`--max-warnings=0`), typecheck, Jest tests, and production build |
+| `pnpm ok:ci`        | CI verification (`format:check`, `lint:check`, `typecheck`, Jest tests, production build)                    |
 
-```bash
-# Production build
-pnpm build
+GitHub Actions: [CI](.github/workflows/ci.yml) runs automated checks on `main` and pull requests.
 
-# Start production server
-pnpm start
+Development documentation index: [docs/README.md](docs/README.md).
+
+## Project Layout
+
+```text
+yggdrasil/
+  app/          Next.js App Router pages & API routes
+  components/   Git graph, Yggi AI workspace, Workdesk, Dev Logs, and Settings UI
+  hooks/        Shared React hooks
+  lib/          Agent runtime, i18n messages, Git helpers, logger, and security utilities
+  services/     Git service layer and tooling scripts
+  docs/         PRDs, UX notes, and technical architecture docs
+  data/         Local runtime data & caches (gitignored)
 ```
+
+## Privacy
+
+Yggit requires no sign-in and collects no personally identifiable information. In local mode, repositories, caches, and encrypted credentials remain strictly on your device. Requests to third-party LLM providers or remote MCP servers are sent directly according to the endpoints you configure. See `/privacy` in the app for details.
 
 ## License
 
-MIT © [DavidJones](https://github.com/DavidKk)
+Yggit is open-source software released under the [MIT License](./LICENSE).
