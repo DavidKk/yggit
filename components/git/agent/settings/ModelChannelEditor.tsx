@@ -155,7 +155,7 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
 
   const availableModels = useMemo(() => {
     // Exclusively display remote models returned by the server or user-entered model.
-    // Hardcoded preset models list is removed per UX requirement ("将预置模型清单的列表去掉，先填 APP KEY 再选模型").
+    // Hardcoded preset models list is removed per UX requirement (require API key before selecting a model).
     const baseList: Array<{ id: string; name: string }> = remoteModels.length > 0 ? [...remoteModels] : []
     if (config.model && !baseList.some((item) => item.id === config.model)) {
       baseList.unshift({ id: config.model, name: config.model })
@@ -222,7 +222,7 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
     }
     setTesting(true)
     setTestState('loading')
-    setTestTooltip('正在测试连接，请稍候…')
+    setTestTooltip('Testing connection, please wait…')
     try {
       const cfg = validatedConfig()
       if (getDriverMode() === 'edge' && !cfg.apiKey && hasSavedApiKey) {
@@ -234,17 +234,17 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
       const res = !cfg.apiKey && hasSavedApiKey ? await testAgentConnection(cfg, draft.id) : await testAgentConnection(cfg)
       if (res.ok) {
         setTestState('success')
-        setTestTooltip(`连接成功${res.latencyMs ? ` (${res.latencyMs}ms)` : ''}`)
+        setTestTooltip(`Connected${res.latencyMs ? ` (${res.latencyMs}ms)` : ''}`)
       } else {
         setTestState('failure')
-        setTestTooltip(res.error || '连接测试失败')
+        setTestTooltip(res.error || 'Connection test failed')
       }
       if (isBrowserAi) {
         setBrowserAiRefreshSignal((n) => n + 1)
       }
     } catch (err) {
       setTestState('failure')
-      setTestTooltip(err instanceof Error ? err.message : '连接测试失败')
+      setTestTooltip(err instanceof Error ? err.message : 'Connection test failed')
     } finally {
       setTesting(false)
       resetTimerRef.current = window.setTimeout(() => {
@@ -274,14 +274,14 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
         if (res.ok && data?.models && data.models.length > 0) {
           setRemoteModels(data.models)
           setModelsFetchFailed(false)
-          setModelsFetchMsg(`已成功读取 ${data.models.length} 个可用模型`)
+          setModelsFetchMsg(`Loaded ${data.models.length} available models`)
         } else {
           setModelsFetchFailed(true)
-          setModelsFetchMsg('未能读取 CLI 模型列表，请直接输入模型 ID')
+          setModelsFetchMsg('Could not load CLI model list; enter a model ID directly')
         }
       } catch {
         setModelsFetchFailed(true)
-        setModelsFetchMsg('未能读取 CLI 模型列表，请直接输入模型 ID')
+        setModelsFetchMsg('Could not load CLI model list; enter a model ID directly')
       } finally {
         setFetchingModels(false)
       }
@@ -290,12 +290,12 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
 
     if (!config.baseUrl) {
       setModelsFetchFailed(true)
-      setModelsFetchMsg('请先填写接入地址')
+      setModelsFetchMsg('Please enter an endpoint URL first')
       return
     }
     if (preset.requiresKey && !config.apiKey && !hasSavedApiKey) {
       setModelsFetchFailed(true)
-      setModelsFetchMsg(`${preset.name} 需先在上方填写 API 密钥，才能拉取在线模型`)
+      setModelsFetchMsg(`${preset.name} requires an API key above before fetching models`)
       return
     }
     setFetchingModels(true)
@@ -321,14 +321,14 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
       if (res.ok && data?.models && data.models.length > 0) {
         setRemoteModels(data.models)
         setModelsFetchFailed(false)
-        setModelsFetchMsg(`已成功读取 ${data.models.length} 个可用模型`)
+        setModelsFetchMsg(`Loaded ${data.models.length} available models`)
       } else {
         setModelsFetchFailed(true)
-        setModelsFetchMsg(data?.message || '未能从服务端读取到模型列表，使用预设清单')
+        setModelsFetchMsg(data?.message || 'Could not fetch models from server; using preset list')
       }
     } catch {
       setModelsFetchFailed(true)
-      setModelsFetchMsg('未能从服务端读取到模型列表，使用预设清单')
+      setModelsFetchMsg('Could not fetch models from server; using preset list')
     } finally {
       setFetchingModels(false)
     }
@@ -393,19 +393,19 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
     }
   }
 
-  const testActionLabel = isBrowserAi ? t('gitAgent.browserAiRefreshBtn') || '重新检测' : t('gitAgent.testConnection')
+  const testActionLabel = isBrowserAi ? t('gitAgent.browserAiRefreshBtn') || 'Re-check' : t('gitAgent.testConnection')
   let testButtonContent: React.ReactNode = (
     <>
       {isBrowserAi ? <LuRefreshCw aria-hidden="true" /> : <LuActivity aria-hidden="true" />}
       {testActionLabel}
     </>
   )
-  let buttonTooltip = testTooltip || testActionLabel || '测试连接'
+  let buttonTooltip = testTooltip || testActionLabel || 'Test connection'
   const isButtonDisabled = testing || testState === 'loading'
 
   if (testState === 'loading') {
     testButtonContent = <Spinner className="size-3.5 text-accent" />
-    buttonTooltip = '正在测试连接中，请稍候…'
+    buttonTooltip = 'Testing connection, please wait…'
   } else if (testState === 'success') {
     testButtonContent = <IoCheckmark className="size-4 text-ok" />
   } else if (testState === 'failure') {
@@ -439,14 +439,14 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
         }}
       >
         <SettingsSectionCard
-          title={isNew ? '新增模型接入项目' : t('gitAgent.modelDetails')}
-          description={isNew ? '配置新模型渠道与接口地址。' : '修改渠道接口地址与默认模型。'}
+          title={isNew ? 'Add Model Channel' : t('gitAgent.modelDetails')}
+          description={isNew ? 'Configure a new model channel and endpoint.' : 'Update channel endpoint and default model.'}
           titleAction={
             <SwitchToggle
               size="sm"
               checked={draft.enabled !== false}
-              aria-label={draft.enabled !== false ? t('gitAgent.skillEnabled') || '已启用' : t('gitAgent.skillDisabled') || '已禁用'}
-              tooltip={draft.enabled !== false ? t('gitAgent.skillEnabled') || '已启用' : t('gitAgent.skillDisabled') || '已禁用'}
+              aria-label={draft.enabled !== false ? t('gitAgent.skillEnabled') || 'Enabled' : t('gitAgent.skillDisabled') || 'Disabled'}
+              tooltip={draft.enabled !== false ? t('gitAgent.skillEnabled') || 'Enabled' : t('gitAgent.skillDisabled') || 'Disabled'}
               onCheckedChange={(checked) => setDraft((prev) => ({ ...prev, enabled: checked }))}
             />
           }
@@ -459,7 +459,7 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
                   <label htmlFor="agent-model-name" className="text-xs font-semibold text-ink">
                     {t('gitAgent.profileName')}
                   </label>
-                  <p className="text-xs text-ink-soft leading-relaxed mt-0.5">便于辨识的配置别名。</p>
+                  <p className="text-xs text-ink-soft leading-relaxed mt-0.5">A recognizable alias for this channel.</p>
                 </div>
                 <div className="md:col-span-8 min-w-0 max-w-[460px] md:ml-auto w-full">
                   <TextInput
@@ -467,7 +467,7 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
                     fullWidth
                     value={draft.name}
                     onChange={(event) => setDraft({ ...draft, name: event.target.value })}
-                    placeholder="例如：DeepSeek-V3 / 团队网关"
+                    placeholder={t('gitAgent.channelNamePlaceholder') || 'e.g. DeepSeek-V3 / Team Gateway'}
                   />
                 </div>
               </div>
@@ -478,7 +478,7 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
                   <span className="text-xs font-semibold text-ink" id="agent-provider-label">
                     {t('gitAgent.modelProvider')}
                   </span>
-                  <p className="text-xs text-ink-soft leading-relaxed mt-0.5">{preset.description || '服务商协议或网络直连方式。'}</p>
+                  <p className="text-xs text-ink-soft leading-relaxed mt-0.5">{preset.description || 'Provider protocol or direct connection.'}</p>
                 </div>
                 <div className="md:col-span-8 min-w-0 max-w-[460px] md:ml-auto w-full flex flex-col gap-2">
                   <Select
@@ -504,7 +504,7 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
                           seen.add(value)
                           const def = AGENT_PRESETS[value]
                           const cliInfo = def.cliAdapter ? detectedClis[def.cliAdapter] : undefined
-                          const suffix = def.isCli && cliInfo ? (cliInfo.installed ? ' (已安装)' : ' (未检测到)') : ''
+                          const suffix = def.isCli && cliInfo ? (cliInfo.installed ? ' (Installed)' : ' (Not detected)') : ''
                           items.push({
                             value,
                             label: `${def.name}${suffix}`,
@@ -544,12 +544,12 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
                   <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 items-center">
                     <div className="md:col-span-4 min-w-0">
                       <label htmlFor="agent-cli-command" className="text-xs font-semibold text-ink">
-                        CLI 可执行命令 / 路径
+                        CLI Executable / Path
                       </label>
                       <p className="text-xs text-ink-soft leading-relaxed mt-0.5">
                         {preset.cliAdapter && detectedClis[preset.cliAdapter]?.installed
-                          ? `已自动检测到本机 CLI: ${detectedClis[preset.cliAdapter].command}`
-                          : '留空将自动从系统 PATH 或常用目录查找；也可手动指定绝对路径。'}
+                          ? `Detected local CLI: ${detectedClis[preset.cliAdapter].command}`
+                          : 'Leave empty to auto-detect from system PATH or common locations, or specify an absolute path.'}
                       </p>
                     </div>
                     <div className="md:col-span-8 min-w-0 max-w-[460px] md:ml-auto w-full">
@@ -568,7 +568,7 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
                       <label htmlFor="agent-model-endpoint" className="text-xs font-semibold text-ink">
                         {t('gitAgent.endpoint')}
                       </label>
-                      <p className="text-xs text-ink-soft leading-relaxed mt-0.5">{t('gitAgent.endpointDesc') || 'OpenAPI 规范的服务基地址。'}</p>
+                      <p className="text-xs text-ink-soft leading-relaxed mt-0.5">{t('gitAgent.endpointDesc') || 'OpenAI-compatible service base URL.'}</p>
                     </div>
                     <div className="md:col-span-8 min-w-0 max-w-[460px] md:ml-auto w-full">
                       <InputSuggestion
@@ -600,9 +600,11 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 items-center">
                   <div className="md:col-span-4 min-w-0">
                     <label htmlFor="agent-models-endpoint" className="text-xs font-semibold text-ink">
-                      {t('integration.agentModelsEndpoint') || '模型列表接口'}
+                      {t('integration.agentModelsEndpoint') || 'Models Endpoint'}
                     </label>
-                    <p className="text-xs text-ink-soft leading-relaxed mt-0.5">{t('integration.agentModelsEndpointDesc') || '可选。自定义拉取可用模型的接口路径。'}</p>
+                    <p className="text-xs text-ink-soft leading-relaxed mt-0.5">
+                      {t('integration.agentModelsEndpointDesc') || 'Optional. Custom path or URL to fetch available models.'}
+                    </p>
                   </div>
                   <div className="md:col-span-8 min-w-0 max-w-[460px] md:ml-auto w-full">
                     <TextInput
@@ -610,7 +612,7 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
                       fullWidth
                       value={config.modelsEndpoint || ''}
                       onChange={(event) => updateConfig({ modelsEndpoint: event.target.value })}
-                      placeholder="默认 /models，或填相对路径 / 完整 URL"
+                      placeholder={t('gitAgent.modelsEndpointPlaceholder') || 'Default /models, or relative path / full URL'}
                     />
                   </div>
                 </div>
@@ -623,7 +625,7 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
                     <label htmlFor="agent-api-key" className="text-xs font-semibold text-ink">
                       {t('gitAgent.apiKey')}
                     </label>
-                    <p className="text-xs text-ink-soft leading-relaxed mt-0.5">所有 Token 均经高强度加密后保存在本地安全库中，不保留明文。</p>
+                    <p className="text-xs text-ink-soft leading-relaxed mt-0.5">All tokens are strongly encrypted and stored locally; plaintext is never persisted.</p>
                   </div>
                   <div className="md:col-span-8 min-w-0 max-w-[460px] md:ml-auto w-full">
                     <ConfiguredSecretInput
@@ -647,10 +649,10 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
                       <div className="mt-2 flex items-start gap-2 rounded-lg border border-accent/30 bg-accent/8 px-3 py-2 text-[11px] text-ink">
                         <LuShieldCheck className="mt-0.5 size-3.5 shrink-0 text-accent" aria-hidden="true" />
                         <div className="space-y-0.5 leading-relaxed">
-                          <p className="font-semibold text-accent">{t('gitAgent.edgeSecurityNoticeTitle') || '密钥安全与隐私说明'}</p>
+                          <p className="font-semibold text-accent">{t('gitAgent.edgeSecurityNoticeTitle') || 'Key Security & Privacy Notice'}</p>
                           <p className="text-ink-soft">
                             {t('gitAgent.edgeSecurityNoticeBody') ||
-                              '建议通过代理层转发请求以避免真实 Key 泄露；若直接填写 Key，请务必为本服务单独签发专用 Key，切勿与其他服务共用。本服务所有 Token 均加密后仅保存在您的本地环境中，不会收集任何相关配置信息。'}
+                              'We recommend forwarding requests through a proxy to avoid exposing real keys. If entering a key directly, issue a dedicated key for this service and never reuse it elsewhere. All tokens are encrypted and stored locally in your environment; no configuration data is collected.'}
                           </p>
                         </div>
                       </div>
@@ -664,7 +666,7 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
                 <div className="md:col-span-4 min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <label htmlFor="agent-model-id" className="text-xs font-semibold text-ink">
-                      {t('gitAgent.defaultModel') || '默认模型'}
+                      {t('gitAgent.defaultModel') || 'Default Model'}
                     </label>
                     {localModelControl?.runtimeBadge && (
                       <Badge tone={localModelControl.runtimeBadge.isWebGpu ? 'accent' : 'neutral'} size="mini" dot={false}>
@@ -672,7 +674,9 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
                       </Badge>
                     )}
                   </div>
-                  <p className="text-xs text-ink-soft leading-relaxed mt-0.5">{localModelControl ? localModelControl.description : '从远程拉取可用清单或直接输入模型代码。'}</p>
+                  <p className="text-xs text-ink-soft leading-relaxed mt-0.5">
+                    {localModelControl ? localModelControl.description : 'Fetch available models from remote or enter a model ID directly.'}
+                  </p>
                 </div>
                 <div className="md:col-span-8 min-w-0 max-w-[460px] md:ml-auto w-full flex flex-col gap-1">
                   <InputSuggestion
@@ -690,14 +694,18 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
                       setModelsFetchMsg('')
                     }}
                     options={availableModels.map((m) => ({ value: m.id, label: m.name }))}
-                    placeholder={preset.requiresKey && !config.apiKey && !hasSavedApiKey ? '请先填写上方 API Key，再拉取或输入模型 ID' : '点击右侧按钮拉取，或直接输入模型 ID'}
+                    placeholder={
+                      preset.requiresKey && !config.apiKey && !hasSavedApiKey
+                        ? t('gitAgent.modelSelectNeedKeyPlaceholder') || 'Enter API Key above first, then fetch or type a model ID'
+                        : t('gitAgent.modelSelectPlaceholder') || 'Click the button on the right to fetch, or enter a model ID'
+                    }
                     progress={localModelControl?.progress}
                     action={
                       localModelControl
                         ? localModelControl.action
                         : {
                             icon: <AiOutlineFileSync className={cn('size-3.5', fetchingModels && 'animate-spin')} />,
-                            title: '从远程接口动态拉取模型列表',
+                            title: 'Fetch model list from remote endpoint',
                             loading: fetchingModels,
                             disabled: fetchingModels || testing,
                             onClick: handleFetchModels,
@@ -735,7 +743,7 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
                 {isBrowserLocal && (
                   <Button type="button" variant="outline-fail" disabled={clearingLocalCache || testing || testState === 'loading'} onClick={() => void handleClearLocalModels()}>
                     {clearingLocalCache ? <Spinner className="size-3.5" /> : <LuTrash2 aria-hidden="true" />}
-                    {t('gitAgent.browserLocalClearBtn') || '清理本地模型'}
+                    {t('gitAgent.browserLocalClearBtn') || 'Clear Local Model'}
                   </Button>
                 )}
                 <Button
@@ -749,9 +757,9 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
                   {testButtonContent}
                 </Button>
                 {!isNew && profiles.length > 1 && (
-                  <Button type="button" variant="outline-fail" onClick={handleDelete} disabled={testing || testState === 'loading'} title="删除该模型配置">
+                  <Button type="button" variant="outline-fail" onClick={handleDelete} disabled={testing || testState === 'loading'} title="Delete this model configuration">
                     <LuTrash2 aria-hidden="true" />
-                    删除
+                    Delete
                   </Button>
                 )}
                 <Button type="submit" variant="accent" disabled={testing || testState === 'loading'}>

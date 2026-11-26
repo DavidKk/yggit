@@ -18,19 +18,19 @@ export function BrowserAiDebug() {
       actions: [
         {
           id: 'browser-ai-downloadable',
-          label: t('gitAgent.debugBrowserAiDownloadable') || '模拟未安装（可下载）',
+          label: t('gitAgent.debugBrowserAiDownloadable') || 'Mock Not Installed (Downloadable)',
           active: mode === 'downloadable',
           run: () => setBrowserAiDebugOverride(mode === 'downloadable' ? 'real' : 'downloadable'),
         },
         {
           id: 'browser-ai-unavailable',
-          label: t('gitAgent.debugBrowserAiUnavailable') || '模拟设备不可用',
+          label: t('gitAgent.debugBrowserAiUnavailable') || 'Mock Device Unavailable',
           active: mode === 'unavailable',
           run: () => setBrowserAiDebugOverride(mode === 'unavailable' ? 'real' : 'unavailable'),
         },
         {
           id: 'browser-ai-unsupported',
-          label: t('gitAgent.debugBrowserAiUnsupported') || '模拟浏览器不支持',
+          label: t('gitAgent.debugBrowserAiUnsupported') || 'Mock Browser Unsupported',
           active: mode === 'unsupported',
           run: () => setBrowserAiDebugOverride(mode === 'unsupported' ? 'real' : 'unsupported'),
         },

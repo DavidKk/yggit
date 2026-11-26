@@ -40,7 +40,7 @@ export const workdeskZh: { workdesk: WorkdeskMessages } = {
     },
     organization: {
       bannerTitle: '智能项目分类与架构治理',
-      bannerDesc: '由 Git Agent 深度分析各项目路径与 Remote，输出结构化分组方案',
+      bannerDesc: '由 Yggi 深度分析各项目路径与 Remote，输出结构化分组方案',
       bannerAction: '使用 Agent 规划分组',
       prompt: '请帮我分析当前分组中堆叠的项目，并提供智能分组整理方案',
     },
@@ -67,7 +67,7 @@ export const workdeskZh: { workdesk: WorkdeskMessages } = {
       refresh: '刷新',
       importRecipe: '导入检查方案',
       exportRecipe: '导出检查方案',
-      sendToAgent: '引用到 Git Agent',
+      sendToAgent: '引用到 Yggi',
     },
     evidence: {
       title: '相关 Git 内容 (点击直接定位)',
@@ -80,8 +80,8 @@ export const workdeskZh: { workdesk: WorkdeskMessages } = {
       aheadBehind: '领先 {ahead} / 落后 {behind} 个提交',
     },
     agent: {
-      prompt: '需要协助时，使用下方 Git Agent 药丸',
-      badge: 'Git Agent',
+      prompt: '需要协助时，使用下方 Yggi 药丸',
+      badge: 'Yggi',
       syncPlanConfirm: '批量快进计划已就绪，请核对待执行的项目列表',
     },
     detail: {
@@ -96,7 +96,7 @@ export const workdeskZh: { workdesk: WorkdeskMessages } = {
       suggestionTitle: '处理建议',
       solutionTitle: '解决方案',
       closeTaskSet: '收起任务集并返回看板',
-      agentAssistTitle: '由 Git Agent 协助处理此任务',
+      agentAssistTitle: '由 Yggi 协助处理此任务',
       agentAssistDesc: '一键将诊断结论与分支上下文带入 Agent 进行自动化合并、变基或规范整理',
       diagnosisDesc: '根据本地与远端分支状态自动检测得出的诊断分析',
       evidenceDesc: '可直接点击导航至具体的提交记录或文件差异比对',

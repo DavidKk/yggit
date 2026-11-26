@@ -46,15 +46,15 @@ export function McpSettingsSection() {
         title={
           <div className="flex items-center gap-2">
             <LuNetwork className="size-4 text-accent" />
-            <span>HTTP MCP Server 管理 (Model Context Protocol)</span>
+            <span>{t('gitAgent.tabMcp') || 'HTTP MCP Server Management (Model Context Protocol)'}</span>
           </div>
         }
-        description="连接外部 HTTP MCP Server 工具与数据源。"
-        descriptionTooltip="遵循 Model Context Protocol 开放规范，支持 Streamable HTTP 协议与 Bearer Token 鉴权。"
+        description={t('gitAgent.mcpCardDesc') || 'Connect external HTTP MCP Server tools and data sources.'}
+        descriptionTooltip={t('gitAgent.mcpCardTooltip') || 'Follows the open Model Context Protocol specification, supporting Streamable HTTP and Bearer Token auth.'}
         titleAction={
           <Button variant="accent" size="sm" onClick={() => router.push('/settings/mcp/new')}>
             <LuPlus className="size-3.5 mr-1" />
-            <span>添加</span>
+            <span>{t('gitAgent.skillsAddBtn') || 'Add'}</span>
           </Button>
         }
       >
@@ -62,8 +62,10 @@ export function McpSettingsSection() {
           {servers.length === 0 && !loading && (
             <div className="flex flex-col items-center justify-center p-8 text-center border border-dashed border-line rounded-lg bg-paper-2">
               <LuServer className="size-8 text-ink-soft/40 mb-2" />
-              <div className="text-xs font-semibold text-ink">暂未连接任何 MCP Server</div>
-              <p className="text-[11px] text-ink-soft max-w-sm mt-1">点击右上角“添加 HTTP MCP Server”接入您的外部 MCP 工具服务。所有工具调用将在本地安全执行。</p>
+              <div className="text-xs font-semibold text-ink">{t('gitAgent.mcpEmptyTitle') || 'No MCP Server connected'}</div>
+              <p className="text-[11px] text-ink-soft max-w-sm mt-1">
+                {t('gitAgent.mcpEmptyDesc') || 'Click "Add" at the top right to connect an external MCP tool server. All tool calls execute securely locally.'}
+              </p>
             </div>
           )}
 
@@ -83,23 +85,29 @@ export function McpSettingsSection() {
                 <Link
                   href={`/settings/mcp/${encodeURIComponent(s.id)}`}
                   className="min-w-0 flex-1 group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-sm"
-                  aria-label={`查看或配置 ${s.name}`}
+                  aria-label={s.name}
                 >
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-bold text-ink group-hover:text-accent transition-colors">{s.name}</span>
                     <Badge tone={isConnected ? 'ok' : isError ? 'fail' : 'neutral'} size="mini">
-                      {isConnected ? '已连接' : isError ? '连接异常' : '未连接'}
+                      {isConnected
+                        ? t('gitAgent.mcpStatusConnected') || 'Connected'
+                        : isError
+                          ? t('gitAgent.mcpStatusError') || 'Connection Error'
+                          : t('gitAgent.mcpStatusDisconnected') || 'Disconnected'}
                     </Badge>
                     <Badge tone="neutral" size="mini">
                       Streamable HTTP
                     </Badge>
-                    <span className="text-[11px] text-ink-soft font-mono">{toolCount} 个工具可用</span>
+                    <span className="text-[11px] text-ink-soft font-mono">{(t('gitAgent.mcpToolsCount') || '{count} tools').replace('{count}', String(toolCount))}</span>
                   </div>
                   <div className="flex items-center gap-3 mt-1 text-[11px] text-ink-soft font-mono truncate">
                     <span>URL: {s.url}</span>
-                    <span>鉴权: {s.auth.type === 'bearer' ? 'Bearer Token' : '无认证'}</span>
+                    <span>
+                      {t('gitAgent.mcpAuthLabel') || 'Auth'}: {s.auth.type === 'bearer' ? 'Bearer Token' : t('gitAgent.mcpAuthNone') || 'None'}
+                    </span>
                   </div>
-                  {s.lastError && <p className="mt-1 text-[11px] text-fail font-mono line-clamp-1">错误: {s.lastError}</p>}
+                  {s.lastError && <p className="mt-1 text-[11px] text-fail font-mono line-clamp-1">{s.lastError}</p>}
                 </Link>
 
                 <div className="flex items-center gap-3 shrink-0">
@@ -107,10 +115,14 @@ export function McpSettingsSection() {
                     checked={s.enabled}
                     onCheckedChange={() => void handleToggleServer(s.id, s.enabled)}
                     size="sm"
-                    tooltip={s.enabled ? '停用此 Server' : '启用此 Server'}
-                    aria-label={`启用或停用 ${s.name}`}
+                    tooltip={s.enabled ? t('gitAgent.mcpToggleDisable') || 'Disable server' : t('gitAgent.mcpToggleEnable') || 'Enable server'}
+                    aria-label={s.name}
                   />
-                  <Link href={`/settings/mcp/${encodeURIComponent(s.id)}`} className="text-ink-soft/40 hover:text-ink transition-colors p-1" title="管理工具与配置">
+                  <Link
+                    href={`/settings/mcp/${encodeURIComponent(s.id)}`}
+                    className="text-ink-soft/40 hover:text-ink transition-colors p-1"
+                    title={t('gitAgent.mcpManageTooltip') || 'Manage tools & settings'}
+                  >
                     <LuChevronRight className="size-4" />
                   </Link>
                 </div>

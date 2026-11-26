@@ -6,7 +6,7 @@ export const gitAgentRu: { gitAgent: GitAgentMessages } = {
   gitAgent: {
     ...gitAgentEn.gitAgent,
     barDragHint: 'Перетащите для перемещения',
-    barPlaceholder: 'Спросить Git Agent (например, сегодняшние слияния / проверка веток)...',
+    barPlaceholder: 'Спросить Yggi (например, сегодняшние слияния / проверка веток)...',
     settingsTitle: 'Настройки',
     tabModels: 'Модели',
     tabPrivacy: 'Приватность и маскирование',
@@ -15,7 +15,9 @@ export const gitAgentRu: { gitAgent: GitAgentMessages } = {
     testConnection: 'Проверить соединение',
     testSuccess: 'Соединение успешно',
     testFailed: 'Ошибка соединения',
-    dockTitle: 'Yggit · Agent',
+    dockTitle: 'Yggi',
     deepDiscussion: 'Закрепить для обсуждения',
+    welcomeTitle: 'Добро пожаловать в Yggi',
+    welcomeDesc: 'Спрашивайте о статистике веток, проверке слияний, истории коммитов и диагностике репозитория.',
   },
 }

@@ -69,13 +69,13 @@ export function getCrAnalysis(cardId: string, _item: WorkItem, locale = 'zh'): C
       ? {
           cause: 'Too many repositories accumulated in a single flat group or root directory, lacking layered categorization by business domain or SDK.',
           risk: 'High search cost during multi-repo collaboration; lack of clear boundaries when updating or inspecting projects.',
-          suggestion: 'Use Git Agent to smartly group and organize repositories by application architecture.',
+          suggestion: 'Use Yggi to smartly group and organize repositories by application architecture.',
           solution: '1. Organize repository domains (core backend, web frontend, shared SDK, devops)\n2. Plan group hierarchy and categorize in Workdesk settings.',
         }
       : {
           cause: '单一分组或根目录下累积了过多仓库，缺乏按业务域、微服务或 SDK 的分层分类。',
           risk: '团队多仓库并行协作时检索成本高，批量更新或检查时缺乏清晰边界，容易引发误操作或权限混乱。',
-          suggestion: '建议使用 Git Agent 按业务模块或应用形态进行智能分类分组治理。',
+          suggestion: '建议使用 Yggi 按业务模块或应用形态进行智能分类分组治理。',
           solution: '1. 梳理当前分组中的仓库业务域（如核心后端、Web 前端、公用 SDK、运维脚本）\n2. 规划子分组层级并在工作台设置中执行批量归类整理。',
         }
   }

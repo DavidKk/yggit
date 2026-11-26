@@ -58,7 +58,7 @@ describe('GitAgentBar', () => {
 
     const form = host.querySelector('form')
     expect(form).not.toBeNull()
-    expect(host.textContent).toContain('Git Agent')
+    expect(host.textContent).toContain('Yggi')
 
     // Press Escape while already collapsed
     act(() => {
@@ -66,13 +66,13 @@ describe('GitAgentBar', () => {
     })
 
     // Label should remain intact, not cleared or re-started
-    expect(host.textContent).toContain('Git Agent')
+    expect(host.textContent).toContain('Yggi')
 
     // Advance partial time — text should STILL be intact
     act(() => {
       jest.advanceTimersByTime(100)
     })
-    expect(host.textContent).toContain('Git Agent')
+    expect(host.textContent).toContain('Yggi')
   })
 
   it('supports dragging in collapsed mini state and double-click to reset', () => {
@@ -659,7 +659,7 @@ describe('GitAgentBar', () => {
     })
 
     expect(host.textContent).toContain('同步默认分支')
-    const removeRefBtn = host.querySelector('button[aria-label="移除引用"]') as HTMLButtonElement | null
+    const removeRefBtn = host.querySelector('span[title="同步默认分支"] button') as HTMLButtonElement | null
     expect(removeRefBtn).not.toBeNull()
 
     // Clicking remove clears citation

@@ -1,7 +1,8 @@
 'use client'
 
+import Link from 'next/link'
 import React, { useState } from 'react'
-import { LuMonitor, LuMoon, LuSun } from 'react-icons/lu'
+import { LuArrowUpRight, LuMonitor, LuMoon, LuSun } from 'react-icons/lu'
 
 import { useLocale } from '@/components/i18n/LocaleProvider'
 import { Badge, Select, SwitchToggle } from '@/components/sk'
@@ -22,13 +23,13 @@ export function GeneralSettingsSection() {
   const isEdge = getDriverMode() === 'edge'
 
   const themeOptions: Array<{ value: ThemePreference; label: string; icon: typeof LuMonitor }> = [
-    { value: 'auto', label: '跟随系统', icon: LuMonitor },
-    { value: 'light', label: '浅色模式', icon: LuSun },
-    { value: 'dark', label: '深色模式', icon: LuMoon },
+    { value: 'auto', label: 'System', icon: LuMonitor },
+    { value: 'light', label: 'Light', icon: LuSun },
+    { value: 'dark', label: 'Dark', icon: LuMoon },
   ]
 
   const localeOptions: Array<{ value: LocalePreference; label: string }> = [
-    { value: 'auto', label: '跟随系统 (Auto)' },
+    { value: 'auto', label: 'System (Auto)' },
     { value: 'zh', label: '简体中文' },
     { value: 'en', label: 'English' },
     { value: 'cht', label: '繁體中文' },
@@ -42,13 +43,13 @@ export function GeneralSettingsSection() {
   return (
     <div className="flex flex-col gap-3">
       {/* Card 1: Appearance & Locale */}
-      <SettingsSectionCard title="界面与偏好" description="自定义应用程序的显示主题与系统语言。">
+      <SettingsSectionCard title="Appearance & Preferences" description="Customize the application theme and display language.">
         <fieldset className="divide-y divide-line/60">
           {/* Row 1: Theme Mode */}
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 first:pt-0 items-center">
             <div className="md:col-span-5 min-w-0">
-              <span className="text-xs font-semibold text-ink">主题外观</span>
-              <p className="text-xs text-ink-soft leading-relaxed mt-0.5">选择偏好的显示模式或跟随操作系统。</p>
+              <span className="text-xs font-semibold text-ink">Theme</span>
+              <p className="text-xs text-ink-soft leading-relaxed mt-0.5">Choose your preferred color mode or follow the OS setting.</p>
             </div>
             <div className="md:col-span-7 min-w-0 max-w-[460px] md:ml-auto w-full">
               <div className="grid grid-cols-3 gap-2">
@@ -80,9 +81,9 @@ export function GeneralSettingsSection() {
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 items-center">
             <div className="md:col-span-5 min-w-0">
               <label htmlFor="general-locale-select" className="text-xs font-semibold text-ink">
-                界面语言
+                Display Language
               </label>
-              <p className="text-xs text-ink-soft leading-relaxed mt-0.5">多语言显示偏好。</p>
+              <p className="text-xs text-ink-soft leading-relaxed mt-0.5">Multi-language display preference.</p>
             </div>
             <div className="md:col-span-7 min-w-0 max-w-[460px] md:ml-auto w-full">
               <Select id="general-locale-select" className="w-full" value={localePref} options={localeOptions} onChange={(val) => setLocale(val as LocalePreference)} />
@@ -92,32 +93,40 @@ export function GeneralSettingsSection() {
       </SettingsSectionCard>
 
       {/* Card 2: Git Log & Graph Preferences */}
-      <SettingsSectionCard title="Git 视图首选项" description="设置提交图谱渲染与交互行为。">
+      <SettingsSectionCard title="Git View Preferences" description="Configure commit graph rendering and interaction behavior.">
         <fieldset className="divide-y divide-line/60">
           {/* Row 1: Branch Hover Spotlight */}
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 first:pt-0 items-center">
             <div className="md:col-span-5 min-w-0">
-              <span className="text-xs font-semibold text-ink">分支悬浮高亮</span>
-              <p className="text-xs text-ink-soft leading-relaxed mt-0.5">鼠标悬停分支标签时，自动变暗其他节点，突出当前分支。</p>
+              <span className="text-xs font-semibold text-ink">Branch Hover Spotlight</span>
+              <p className="text-xs text-ink-soft leading-relaxed mt-0.5">Dim other nodes when hovering a branch pill to highlight the active branch.</p>
             </div>
             <div className="md:col-span-7 min-w-0 max-w-[460px] md:ml-auto w-full flex items-center justify-end">
-              <SwitchToggle checked={branchSpotlightEnabled} onCheckedChange={setBranchSpotlightEnabled} size="sm" aria-label="分支悬浮高亮" />
+              <SwitchToggle checked={branchSpotlightEnabled} onCheckedChange={setBranchSpotlightEnabled} size="sm" aria-label="Branch Hover Spotlight" />
             </div>
           </div>
 
           {/* Row 2: Runtime Info */}
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 items-center">
             <div className="md:col-span-5 min-w-0">
-              <span className="text-xs font-semibold text-ink">当前执行模式</span>
-              <p className="text-xs text-ink-soft leading-relaxed mt-0.5">客户端底层 Git 驱动核心。</p>
+              <span className="text-xs font-semibold text-ink">Execution Mode</span>
+              <p className="text-xs text-ink-soft leading-relaxed mt-0.5">Underlying Git driver runtime.</p>
             </div>
             <div className="md:col-span-7 min-w-0 max-w-[460px] md:ml-auto w-full flex items-center justify-end gap-2">
-              <Badge tone={isEdge ? 'accent' : 'ok'}>{isEdge ? 'Edge / isomorphic-git' : 'Node.js 本地驱动'}</Badge>
+              <Badge tone={isEdge ? 'accent' : 'ok'}>{isEdge ? 'Edge / isomorphic-git' : 'Node.js Local Driver'}</Badge>
             </div>
           </div>
         </fieldset>
       </SettingsSectionCard>
       <StorageSettingsSection />
+
+      <div className="flex items-center justify-between rounded-xl border border-line/70 bg-panel/60 px-4 py-2.5 text-xs text-ink-soft">
+        <span>Developer Diagnostics: Inspect Agent context traces and operation error logs</span>
+        <Link href="/dev/logs/context" className="inline-flex items-center gap-1 font-medium text-accent hover:underline">
+          <span>Open Diagnostics Log</span>
+          <LuArrowUpRight className="size-3.5" aria-hidden="true" />
+        </Link>
+      </div>
     </div>
   )
 }

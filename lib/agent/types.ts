@@ -388,6 +388,17 @@ export interface AgentChatMessage {
   tool_calls?: AgentToolCall[]
   tool_call_id?: string
   createdAt?: number
+  durationMs?: number
+  tokenUsage?: {
+    promptTokens?: number
+    completionTokens?: number
+    totalTokens?: number
+  }
+  quotedMessage?: {
+    id: string
+    role: 'user' | 'assistant'
+    content: string
+  }
   isStreaming?: boolean
   isError?: boolean
   statusTool?: { name: string; branch?: string }

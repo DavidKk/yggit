@@ -95,10 +95,10 @@ export function ModelChannelSection({ inline = false, onAdd, onEdit }: ModelChan
           <div className="flex items-start gap-2.5 rounded-lg border border-accent/30 bg-accent/8 px-3 py-2.5 text-xs text-ink">
             <LuShieldCheck className="mt-0.5 size-4 shrink-0 text-accent" aria-hidden="true" />
             <div className="space-y-0.5 leading-relaxed">
-              <p className="font-semibold text-accent">{t('gitAgent.edgeSecurityNoticeTitle') || '密钥安全与隐私说明'}</p>
+              <p className="font-semibold text-accent">{t('gitAgent.edgeSecurityNoticeTitle') || 'Key Security & Privacy Notice'}</p>
               <p className="text-ink-soft">
                 {t('gitAgent.edgeSecurityNoticeBody') ||
-                  '建议通过代理层转发请求以避免真实 Key 泄露；若直接填写 Key，请务必为本服务单独签发专用 Key，切勿与其他服务共用。本服务所有 Token 均加密后仅保存在您的本地环境中，不会收集任何相关配置信息。'}
+                  'We recommend forwarding requests through a proxy to avoid exposing real keys. If entering a key directly, issue a dedicated key for this service and never reuse it elsewhere. All tokens are encrypted and stored locally in your environment; no configuration data is collected.'}
               </p>
             </div>
           </div>
@@ -119,12 +119,20 @@ export function ModelChannelSection({ inline = false, onAdd, onEdit }: ModelChan
                   <div className="flex items-center gap-2">
                     <span className="block text-sm font-medium break-words group-hover:text-accent transition-colors">{profile.name || profile.config.model}</span>
                     <LuPencil className="size-3 text-ink-soft/40 group-hover:text-accent transition-colors shrink-0" aria-hidden="true" />
-                    {hasBlacklist && <span className="rounded bg-fail/10 px-1.5 py-0.5 text-[10px] font-medium text-fail">黑名单: {profile.filter?.blacklist?.length}</span>}
-                    {hasWhitelist && <span className="rounded bg-accent/10 px-1.5 py-0.5 text-[10px] font-medium text-accent">白名单: {profile.filter?.whitelist?.length}</span>}
+                    {hasBlacklist && (
+                      <span className="rounded bg-fail/10 px-1.5 py-0.5 text-[10px] font-medium text-fail">
+                        {(t('gitAgent.modelBlacklistBadge') || 'Blacklist: {count}').replace('{count}', String(profile.filter?.blacklist?.length || 0))}
+                      </span>
+                    )}
+                    {hasWhitelist && (
+                      <span className="rounded bg-accent/10 px-1.5 py-0.5 text-[10px] font-medium text-accent">
+                        {(t('gitAgent.modelWhitelistBadge') || 'Whitelist: {count}').replace('{count}', String(profile.filter?.whitelist?.length || 0))}
+                      </span>
+                    )}
                   </div>
                   <span className="block text-xs text-ink-soft break-all mt-0.5">
                     {profile.config.model} · {profile.config.baseUrl}
-                    {profile.config.modelsEndpoint ? ` (接口: ${profile.config.modelsEndpoint})` : ''}
+                    {profile.config.modelsEndpoint ? ` (${t('gitAgent.modelEndpointLabel') || 'Endpoint'}: ${profile.config.modelsEndpoint})` : ''}
                   </span>
                 </button>
 
@@ -135,8 +143,8 @@ export function ModelChannelSection({ inline = false, onAdd, onEdit }: ModelChan
                 <SwitchToggle
                   size="sm"
                   checked={profile.enabled !== false}
-                  aria-label={profile.enabled !== false ? t('gitAgent.skillEnabled') || '已启用' : t('gitAgent.skillDisabled') || '已禁用'}
-                  tooltip={profile.enabled !== false ? t('gitAgent.skillEnabled') || '已启用' : t('gitAgent.skillDisabled') || '已禁用'}
+                  aria-label={profile.enabled !== false ? t('gitAgent.skillEnabled') || 'Enabled' : t('gitAgent.skillDisabled') || 'Disabled'}
+                  tooltip={profile.enabled !== false ? t('gitAgent.skillEnabled') || 'Enabled' : t('gitAgent.skillDisabled') || 'Disabled'}
                   onCheckedChange={(checked) => toggleProfileEnabled(profile.id, checked)}
                 />
               </li>

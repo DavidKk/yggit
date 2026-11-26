@@ -19,10 +19,10 @@ export function ContextMenuPreviewToolbar() {
       title={
         <div className="flex items-center gap-1.5">
           <LuEye className="size-4 text-accent" />
-          <span>右键菜单实时效果预览</span>
+          <span>Context Menu Live Preview</span>
         </div>
       }
-      description="右键分支弹出效果，随左侧配置实时更新。"
+      description="Preview of the branch context menu, updated live from the settings on the left."
       titleAction={
         <Badge tone="accent" size="mini">
           Live
@@ -36,7 +36,7 @@ export function ContextMenuPreviewToolbar() {
             <LuGitBranch className="size-3.5 text-accent shrink-0" />
             <span className="truncate">feature/payment-v2</span>
           </span>
-          <span className="text-[10px] text-ink-soft/70 shrink-0">模拟分支</span>
+          <span className="text-[10px] text-ink-soft/70 shrink-0">Sample Branch</span>
         </div>
 
         {/* Mock Context Menu Window */}
@@ -60,7 +60,7 @@ export function ContextMenuPreviewToolbar() {
               })}
             </div>
           ) : (
-            <div className="px-2 py-1.5 text-center text-xs text-ink-soft italic">(暂无置顶快捷工具)</div>
+            <div className="px-2 py-1.5 text-center text-xs text-ink-soft italic">(No pinned quick actions)</div>
           )}
 
           <div className="my-1 h-px bg-line/60" />
@@ -71,7 +71,7 @@ export function ContextMenuPreviewToolbar() {
               <div className="flex items-center justify-between rounded px-2 py-1 hover:bg-paper-2 transition-colors">
                 <span className="flex items-center gap-2">
                   <LuShare2 className="size-3.5 text-ink-soft" />
-                  <span>复制</span>
+                  <span>Copy</span>
                 </span>
                 <LuChevronRight className="size-3" />
               </div>
@@ -80,7 +80,7 @@ export function ContextMenuPreviewToolbar() {
               <div className="flex items-center justify-between rounded px-2 py-1 hover:bg-paper-2 transition-colors">
                 <span className="flex items-center gap-2">
                   <LuGitBranch className="size-3.5 text-ink-soft" />
-                  <span>分支操作</span>
+                  <span>Branch Actions</span>
                 </span>
                 <LuChevronRight className="size-3" />
               </div>
@@ -98,7 +98,7 @@ export function ContextMenuPreviewToolbar() {
               <div className="flex items-center justify-between rounded px-2 py-1 hover:bg-paper-2 transition-colors">
                 <span className="flex items-center gap-2">
                   <LuExternalLink className="size-3.5 text-ink-soft" />
-                  <span>在远程仓库打开</span>
+                  <span>Open in Remote</span>
                 </span>
               </div>
             )}
@@ -106,7 +106,7 @@ export function ContextMenuPreviewToolbar() {
               <div className="flex items-center justify-between rounded px-2 py-1 hover:bg-paper-2 text-accent font-medium transition-colors">
                 <span className="flex items-center gap-2">
                   <LuBot className="size-3.5" />
-                  <span>Agent 智能诊断</span>
+                  <span>Agent Diagnostics</span>
                 </span>
                 <LuChevronRight className="size-3" />
               </div>
@@ -116,7 +116,7 @@ export function ContextMenuPreviewToolbar() {
           {/* Active Agent Actions nested hint */}
           {config.enabledGroups.agent && activeAgentActions.length > 0 && (
             <div className="mt-1 pt-1 border-t border-dashed border-line/60 px-2 pb-0.5">
-              <span className="text-[10px] text-ink-soft/70 block mb-1">Agent 扩展能力:</span>
+              <span className="text-[10px] text-ink-soft/70 block mb-1">Agent Extensions:</span>
               <div className="flex flex-wrap gap-1">
                 {activeAgentActions.map((action) => (
                   <span key={action.id} className="text-[10px] rounded bg-accent/10 text-accent px-1.5 py-0.5 font-medium truncate max-w-[130px]">
@@ -133,13 +133,13 @@ export function ContextMenuPreviewToolbar() {
           {config.dangerConfirm && (
             <div className="flex items-center gap-1.5 text-[11px] text-fail/90 bg-fail/10 border border-fail/20 rounded p-2">
               <LuShieldAlert className="size-3.5 shrink-0 text-fail" />
-              <span>危险操作二次确认保护已开启</span>
+              <span>Two-step confirmation enabled for destructive actions</span>
             </div>
           )}
           {config.hideUnavailableCapabilities && (
             <div className="flex items-center gap-1.5 text-[11px] text-ink-soft bg-paper-2 border border-line rounded p-2">
               <LuSparkles className="size-3.5 shrink-0 text-accent" />
-              <span>仓库能力自适应过滤已启用</span>
+              <span>Adaptive repository capability filtering enabled</span>
             </div>
           )}
         </div>

@@ -122,9 +122,9 @@ export function StorageSettingsSection() {
 
   const handleClearCache = () => {
     confirm({
-      title: '清理本地临时缓存',
-      description: '将安全清理 Git 冲突分析与预检三方合并等临时缓存文件，不影响项目索引与授权凭据。',
-      confirmLabel: '清理缓存',
+      title: 'Clear Local Temporary Cache',
+      description: 'Safely removes temporary Git conflict analysis and pre-flight merge cache files without affecting project indexes or credentials.',
+      confirmLabel: 'Clear Cache',
       confirmVariant: 'fail',
       onConfirm: async () => {
         setBusy(true)
@@ -151,9 +151,9 @@ export function StorageSettingsSection() {
 
   const handleClearItem = (name: string, label: string) => {
     confirm({
-      title: `清理 ${label}`,
-      description: `确定清理 ${label} (${name}) 中的缓存数据？`,
-      confirmLabel: '清理',
+      title: `Clear ${label}`,
+      description: `Are you sure you want to clear cached data in ${label} (${name})?`,
+      confirmLabel: 'Clear',
       confirmVariant: 'fail',
       onConfirm: async () => {
         setBusy(true)
@@ -202,17 +202,17 @@ export function StorageSettingsSection() {
   if (localInfo) {
     return (
       <SettingsSectionCard
-        title="本地数据存储"
-        description="管理客户端在本地磁盘中的存储目录、项目索引与运行时分析缓存。"
+        title="Local Data Storage"
+        description="Manage local storage directory, project indexes, and runtime analysis caches."
         titleAction={
           <div className="flex items-center gap-2">
             <Button size="sm" disabled={busy} onClick={() => void refresh()}>
               <LuRefreshCw className={busy ? 'animate-spin' : ''} aria-hidden="true" />
-              <span>刷新</span>
+              <span>Refresh</span>
             </Button>
             <Button variant="fail" size="sm" disabled={busy || localInfo.totalBytes === 0} onClick={handleClearCache}>
               <LuTrash2 aria-hidden="true" />
-              <span>清理缓存</span>
+              <span>Clear Cache</span>
             </Button>
           </div>
         }
@@ -223,22 +223,22 @@ export function StorageSettingsSection() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <LuHardDrive className="size-4 text-accent" />
-                <span className="text-xs font-semibold text-ink">本地存储目录</span>
+                <span className="text-xs font-semibold text-ink">Local Storage Directory</span>
               </div>
               <Badge tone="accent" size="mini">
-                总占用: {formatBytes(localInfo.totalBytes)}
+                Total: {formatBytes(localInfo.totalBytes)}
               </Badge>
             </div>
             <div className="flex items-center justify-between gap-2 rounded border border-line bg-panel px-2.5 py-1.5">
               <span className="font-mono text-xs text-ink truncate select-all">{localInfo.dataPath}</span>
               <div className="flex items-center gap-1.5 shrink-0">
-                <Button variant="plain" size="sm" onClick={() => void handleCopyPath()} tooltip="复制完整目录路径">
+                <Button variant="plain" size="sm" onClick={() => void handleCopyPath()} tooltip="Copy full directory path">
                   {copied ? <LuCheck className="size-3.5 text-ok" /> : <LuCopy className="size-3.5" />}
-                  <span>{copied ? '已复制' : '复制'}</span>
+                  <span>{copied ? 'Copied' : 'Copy'}</span>
                 </Button>
-                <Button variant="default" size="sm" onClick={() => void handleReveal()} tooltip="在访达 / 文件资源管理器中打开此目录">
+                <Button variant="default" size="sm" onClick={() => void handleReveal()} tooltip="Open in Finder / File Explorer">
                   <LuFolderOpen className="size-3.5 mr-1 text-ink-soft" />
-                  <span>打开目录</span>
+                  <span>Open Directory</span>
                 </Button>
               </div>
             </div>
@@ -261,8 +261,8 @@ export function StorageSettingsSection() {
                     variant="plain"
                     size="mini"
                     disabled={!item.clearable || busy || item.bytes === 0}
-                    tooltip={item.clearable ? '清理该缓存' : '核心配置项不可清理'}
-                    aria-label={`清理 ${item.label}`}
+                    tooltip={item.clearable ? 'Clear this cache' : 'Core configuration cannot be cleared'}
+                    aria-label={`Clear ${item.label}`}
                     onClick={() => handleClearItem(item.name, item.label)}
                   >
                     <LuTrash2 className="size-3.5 text-ink-soft hover:text-danger" />

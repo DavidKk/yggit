@@ -3,10 +3,11 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import React from 'react'
-import { LuSettings, LuSparkles } from 'react-icons/lu'
+import { LuSettings } from 'react-icons/lu'
 
 import { BrandLogo } from '@/components/BrandLogo'
 import { DownloadCenter } from '@/components/downloads/DownloadCenter'
+import { AgentFairyIcon } from '@/components/git/agent/AgentFairyIcon'
 import { GitModeSwitcher } from '@/components/git/GitModeSwitcher'
 import { useT } from '@/components/i18n/LocaleProvider'
 import { LocaleSwitcher } from '@/components/i18n/LocaleSwitcher'
@@ -22,11 +23,11 @@ export function WorkspaceHeader() {
   const t = useT()
   const pathname = usePathname() || ''
   const ctx = useWorkspaceHeader()
-  const { dockMode, setDockMode } = useAgent()
+  const { dockMode, setDockMode, isProcessing } = useAgent()
   const isSettings = pathname.startsWith('/settings')
   const hideAgent = pathname.startsWith('/dev/studio')
   const isSidebarOpen = dockMode !== 'collapsed'
-  const sidebarTooltip = isSidebarOpen ? t('gitAgent.closeSidebar') || '收起 Agent 侧栏' : t('gitAgent.openSidebar') || '打开 Agent 侧栏'
+  const sidebarTooltip = isSidebarOpen ? t('gitAgent.collapseYggi') || 'Collapse Yggi' : t('gitAgent.wakeYggi') || 'Wake Yggi'
   const [settingsHomeHref, setSettingsHomeHref] = React.useState('/git')
 
   React.useEffect(() => {
@@ -100,12 +101,11 @@ export function WorkspaceHeader() {
             <button
               type="button"
               onClick={() => setDockMode(isSidebarOpen ? 'collapsed' : 'dock-right')}
-              className={cn(dropdownTriggerClass, isSidebarOpen && 'border-accent/40 bg-accent/15 font-semibold text-accent shadow-xs')}
+              className={cn(dropdownTriggerClass, 'size-7 px-0 justify-center', isSidebarOpen && 'border-accent/40 bg-accent/15 font-semibold text-accent shadow-xs')}
               aria-label={sidebarTooltip}
               aria-pressed={isSidebarOpen}
             >
-              <LuSparkles className="size-3.5 shrink-0" aria-hidden="true" />
-              <span className="sr-only sm:not-sr-only">{t('gitAgent.sidebarButton') || 'Agent'}</span>
+              <AgentFairyIcon className="size-5 shrink-0" active={isProcessing} />
             </button>
           </Tooltip>
         )}

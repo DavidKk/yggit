@@ -2,7 +2,7 @@
 
 import { useCallback } from 'react'
 
-export type AgentQuoteKind = 'branch' | 'commit' | 'file' | 'folder' | 'tag' | 'remote' | 'worktree' | 'stash' | 'task'
+export type AgentQuoteKind = 'branch' | 'commit' | 'file' | 'folder' | 'tag' | 'remote' | 'worktree' | 'stash' | 'task' | 'reply'
 
 export type AgentQuoteTarget = 'sidebar' | 'bottom' | 'auto'
 

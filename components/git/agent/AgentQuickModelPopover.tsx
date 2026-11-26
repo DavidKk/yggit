@@ -2,27 +2,32 @@
 
 import { Popover } from '@base-ui/react/popover'
 import Link from 'next/link'
-import React, { useMemo, useState } from 'react'
-import { LuBot, LuSettings, LuShieldAlert } from 'react-icons/lu'
+import React, { useEffect, useMemo, useState } from 'react'
+import { LuBot, LuSettings, LuShieldAlert, LuSlidersHorizontal } from 'react-icons/lu'
 
 import { useT } from '@/components/i18n/LocaleProvider'
-import { Select, type SelectOption, Tooltip } from '@/components/sk'
+import { Select, type SelectOption, Spinner, Tooltip } from '@/components/sk'
 import { dropdownPopupClass } from '@/components/sk/dropdownMenu'
 import { useAgent } from '@/lib/agent/agent-context'
 import { isModelAllowed } from '@/lib/agent/model-filter'
 import { AGENT_PRESETS } from '@/lib/agent/types'
+import { getDriverMode } from '@/lib/git/driver'
 import { saveLastGitUrl } from '@/lib/git/last-git-url'
+import { openEdgeSecret } from '@/lib/security/edge-vault'
 import { cn } from '@/lib/utils'
 
 interface Props {
   tabIndex?: number
   className?: string
+  side?: 'top' | 'bottom'
 }
 
-export function AgentQuickModelPopover({ tabIndex, className }: Props) {
+export function AgentQuickModelPopover({ tabIndex, className, side = 'top' }: Props) {
   const t = useT()
   const { profiles, activeProfileId, selectProfile, saveProfile, modelFilter } = useAgent()
   const [open, setOpen] = useState(false)
+  const [remoteModelsByProfile, setRemoteModelsByProfile] = useState<Record<string, Array<{ id: string; name: string }>>>({})
+  const [fetchingProfileId, setFetchingProfileId] = useState<string | null>(null)
 
   const activeProfile = profiles.find((p) => p.id === activeProfileId) || profiles[0]
 
@@ -42,25 +47,76 @@ export function AgentQuickModelPopover({ tabIndex, className }: Props) {
 
   const currentPreset = activeProfile ? AGENT_PRESETS[activeProfile.config.provider] : undefined
 
-  // Build model options for currently selected platform: filter out blacklisted models
-  const modelOptions: SelectOption[] = useMemo(() => {
-    const list: SelectOption[] = []
-    if (currentPreset?.models) {
-      for (const m of currentPreset.models) {
-        if (isModelAllowed(m.id, modelFilter)) {
-          list.push({ value: m.id, label: m.name })
+  // Lazily fetch remote model list for the active API channel when popover opens
+  useEffect(() => {
+    if (!open || !activeProfile) return
+    const provider = activeProfile.config.provider
+    const preset = AGENT_PRESETS[provider]
+    if (preset?.isCli || provider === 'browser-ai' || provider === 'browser-local') return
+    if (remoteModelsByProfile[activeProfile.id]) return
+    if (!activeProfile.config.baseUrl?.trim()) return
+
+    let cancelled = false
+    setFetchingProfileId(activeProfile.id)
+
+    void (async () => {
+      try {
+        let effectiveApiKey = activeProfile.config.apiKey
+        if (getDriverMode() === 'edge' && !effectiveApiKey && activeProfile.config.hasApiKey) {
+          effectiveApiKey = await openEdgeSecret(activeProfile.id)
+        }
+        const res = await fetch('/api/git/agent/models', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            baseUrl: activeProfile.config.baseUrl,
+            apiKey: effectiveApiKey,
+            ...(!effectiveApiKey && activeProfile.config.hasApiKey ? { profileId: activeProfile.id } : {}),
+            provider,
+            modelsEndpoint: activeProfile.config.modelsEndpoint,
+          }),
+        })
+        const data = (await res.json().catch(() => null)) as { models?: Array<{ id: string; name: string }> } | null
+        if (!cancelled && res.ok && Array.isArray(data?.models) && data.models.length > 0) {
+          setRemoteModelsByProfile((prev) => ({ ...prev, [activeProfile.id]: data.models! }))
+        }
+      } catch {
+        // Fallback to preset/configured models on transient network error
+      } finally {
+        if (!cancelled) {
+          setFetchingProfileId((curr) => (curr === activeProfile.id ? null : curr))
         }
       }
+    })()
+
+    return () => {
+      cancelled = true
     }
-    // If active model is a custom string not in preset list, include it only if allowed
-    if (activeProfile?.config.model && !list.some((item) => item.value === activeProfile.config.model) && isModelAllowed(activeProfile.config.model, modelFilter)) {
+  }, [open, activeProfile, remoteModelsByProfile])
+
+  // Build model options for currently selected channel: remote models -> preset models -> current model
+  const modelOptions: SelectOption[] = useMemo(() => {
+    const list: SelectOption[] = []
+    const seen = new Set<string>()
+    const remoteModels = activeProfile ? remoteModelsByProfile[activeProfile.id] : undefined
+    const sourceModels = remoteModels && remoteModels.length > 0 ? remoteModels : currentPreset?.models || []
+
+    for (const m of sourceModels) {
+      if (!seen.has(m.id) && isModelAllowed(m.id, modelFilter)) {
+        seen.add(m.id)
+        list.push({ value: m.id, label: m.name || m.id })
+      }
+    }
+
+    // Ensure the profile's currently configured default/selected model is always selectable if allowed
+    if (activeProfile?.config.model && !seen.has(activeProfile.config.model) && isModelAllowed(activeProfile.config.model, modelFilter)) {
       list.unshift({
         value: activeProfile.config.model,
-        label: `${activeProfile.config.model} (自定义)`,
+        label: activeProfile.config.model,
       })
     }
     return list
-  }, [currentPreset, activeProfile, modelFilter])
+  }, [activeProfile, remoteModelsByProfile, currentPreset, modelFilter])
 
   const handlePlatformChange = (value: string) => {
     selectProfile(value)
@@ -78,6 +134,7 @@ export function AgentQuickModelPopover({ tabIndex, className }: Props) {
   }
 
   const isCurrentModelBlocked = !isModelAllowed(activeProfile?.config.model || '', modelFilter)
+  const isFetchingModels = Boolean(activeProfile && fetchingProfileId === activeProfile.id)
 
   return (
     <Popover.Root
@@ -94,7 +151,7 @@ export function AgentQuickModelPopover({ tabIndex, className }: Props) {
         setOpen(nextOpen)
       }}
     >
-      <Tooltip content={t('gitAgent.quickModelPopoverTitle')} placement="top" suppressed={open}>
+      <Tooltip content={t('gitAgent.quickModelPopoverTitle')} placement={side} suppressed={open}>
         <Popover.Trigger
           type="button"
           tabIndex={tabIndex}
@@ -106,12 +163,12 @@ export function AgentQuickModelPopover({ tabIndex, className }: Props) {
             className
           )}
         >
-          <LuSettings className="size-3.5" />
+          <LuSlidersHorizontal className="size-3.5" />
         </Popover.Trigger>
       </Tooltip>
 
       <Popover.Portal>
-        <Popover.Positioner side="top" align="end" sideOffset={8} collisionPadding={12} positionMethod="fixed" className="z-50" data-agent-popover="true">
+        <Popover.Positioner side={side} align="end" sideOffset={8} collisionPadding={12} positionMethod="fixed" className="z-50" data-agent-popover="true">
           <Popover.Popup
             data-agent-popover="true"
             aria-label={t('gitAgent.quickModelPopoverTitle')}
@@ -140,7 +197,7 @@ export function AgentQuickModelPopover({ tabIndex, className }: Props) {
               </Tooltip>
             </div>
 
-            {/* Dropdown 1: Platform Selection */}
+            {/* Dropdown 1: Channel Selection */}
             <div className="flex flex-col gap-1">
               <span className="text-[11px] font-medium text-ink-soft" id="agent-platform-label">
                 {t('gitAgent.modelProvider')}
@@ -148,15 +205,16 @@ export function AgentQuickModelPopover({ tabIndex, className }: Props) {
               <Select aria-label={t('gitAgent.modelProvider')} className="w-full" value={currentPlatformValue} options={platformOptions} onChange={handlePlatformChange} />
             </div>
 
-            {/* Dropdown 2: Model Selection (hidden for Browser AI since model is built-in) */}
-            {activeProfile?.config.provider !== 'browser-ai' && (
-              <div className="flex flex-col gap-1">
+            {/* Dropdown 2: Model Selection */}
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center justify-between">
                 <span className="text-[11px] font-medium text-ink-soft" id="agent-model-label">
                   {t('gitAgent.modelName')}
                 </span>
-                <Select aria-label={t('gitAgent.modelName')} className="w-full" value={activeProfile?.config.model || ''} options={modelOptions} onChange={handleModelChange} />
+                {isFetchingModels && <Spinner className="size-3 text-accent" />}
               </div>
-            )}
+              <Select aria-label={t('gitAgent.modelName')} className="w-full" value={activeProfile?.config.model || ''} options={modelOptions} onChange={handleModelChange} />
+            </div>
 
             {/* Blocked model alert */}
             {isCurrentModelBlocked && (

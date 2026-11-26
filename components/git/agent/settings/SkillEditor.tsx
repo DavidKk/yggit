@@ -205,9 +205,9 @@ export function SkillEditor({ skillId }: SkillEditorProps) {
   const handleDelete = () => {
     if (!skill) return
     confirm({
-      title: '移除 Skill',
-      description: `确定要移除技能「${skill.name}」吗？此操作无法撤销。`,
-      confirmLabel: '移除',
+      title: 'Remove Skill',
+      description: `Are you sure you want to remove skill "${skill.name}"? This action cannot be undone.`,
+      confirmLabel: 'Remove',
       confirmVariant: 'fail',
       onConfirm: async () => {
         await deleteSkill(skill.id)
@@ -221,7 +221,7 @@ export function SkillEditor({ skillId }: SkillEditorProps) {
     return (
       <div className="flex h-48 items-center justify-center text-xs text-ink-soft">
         <LuRefreshCw className="size-4 animate-spin mr-2 text-accent" />
-        <span>加载技能配置中…</span>
+        <span>Loading skill configuration…</span>
       </div>
     )
   }
@@ -230,10 +230,10 @@ export function SkillEditor({ skillId }: SkillEditorProps) {
     return (
       <div className="flex flex-col items-center justify-center p-8 text-center border border-dashed border-line rounded-lg bg-paper-2">
         <LuBookOpen className="size-8 text-ink-soft/40 mb-2" />
-        <div className="text-xs font-semibold text-ink">未找到该技能</div>
-        <p className="text-[11px] text-ink-soft max-w-sm mt-1">此技能可能已被移除或 ID 不存在。</p>
+        <div className="text-xs font-semibold text-ink">Skill not found</div>
+        <p className="text-[11px] text-ink-soft max-w-sm mt-1">This skill may have been removed or the ID does not exist.</p>
         <Button variant="default" onClick={handleBack} className="mt-3">
-          返回
+          Back
         </Button>
       </div>
     )
@@ -247,13 +247,13 @@ export function SkillEditor({ skillId }: SkillEditorProps) {
           title={
             <div className="flex items-center gap-2">
               <LuSparkles className="size-4 text-accent" />
-              <span>新增 Agent 技能 (New Skill)</span>
+              <span>New Agent Skill</span>
             </div>
           }
-          description="遵循 Agent Skills 开放标准 (SKILL.md)。可导入本地文件或直接关联 GitHub 仓库中的 Skill 规范。"
+          description="Follows the open Agent Skills specification (SKILL.md). Import a local file or link a Skill from a GitHub repository."
           titleAction={
             <Button variant="plain" size="sm" onClick={handleBack}>
-              返回
+              Back
             </Button>
           }
         >
@@ -268,7 +268,7 @@ export function SkillEditor({ skillId }: SkillEditorProps) {
               )}
             >
               <LuFolderOpen className="size-3.5" />
-              <span>导入本地 SKILL.md</span>
+              <span>Import Local SKILL.md</span>
             </button>
             <button
               type="button"
@@ -279,7 +279,7 @@ export function SkillEditor({ skillId }: SkillEditorProps) {
               )}
             >
               <LuGithub className="size-3.5" />
-              <span>关联 GitHub 仓库</span>
+              <span>Link GitHub Repository</span>
             </button>
           </div>
 
@@ -288,21 +288,21 @@ export function SkillEditor({ skillId }: SkillEditorProps) {
             <div className="flex flex-col gap-3 pt-1">
               <div className="flex items-center justify-between p-3 rounded-lg bg-paper-2 border border-line">
                 <div className="flex flex-col gap-0.5">
-                  <span className="text-xs font-semibold text-ink">快速载入本地文件</span>
-                  <span className="text-[11px] text-ink-soft">选择已有 SKILL.md 文件自动填充表单</span>
+                  <span className="text-xs font-semibold text-ink">Quick Load Local File</span>
+                  <span className="text-[11px] text-ink-soft">Choose an existing SKILL.md file to auto-fill the form</span>
                 </div>
                 <input ref={fileInputRef} type="file" accept=".md,text/markdown" onChange={(e) => void handleLocalFileSelect(e)} className="hidden" />
                 <Button variant="default" onClick={() => fileInputRef.current?.click()}>
                   <LuFolderOpen className="size-3.5 mr-1" />
-                  <span>选择文件</span>
+                  <span>Choose File</span>
                 </Button>
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-semibold text-ink">Skill 名称 (可选，默认从文档元数据读取)</label>
+                <label className="text-xs font-semibold text-ink">Skill Name (optional, defaults to frontmatter metadata)</label>
                 <input
                   type="text"
-                  placeholder="例如: Go Concurrency Review"
+                  placeholder="e.g. Go Concurrency Review"
                   value={localName}
                   onChange={(e) => setLocalName(e.target.value)}
                   className="h-8 rounded border border-line bg-panel px-2.5 text-xs text-ink outline-none focus:border-accent"
@@ -310,10 +310,10 @@ export function SkillEditor({ skillId }: SkillEditorProps) {
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-semibold text-ink">Skill 描述 (可选，默认从文档元数据读取)</label>
+                <label className="text-xs font-semibold text-ink">Skill Description (optional, defaults to frontmatter metadata)</label>
                 <input
                   type="text"
-                  placeholder="简述该技能适用的任务与领域专长"
+                  placeholder="Briefly describe the tasks and domain expertise for this skill"
                   value={localDesc}
                   onChange={(e) => setLocalDesc(e.target.value)}
                   className="h-8 rounded border border-line bg-panel px-2.5 text-xs text-ink outline-none focus:border-accent"
@@ -321,7 +321,7 @@ export function SkillEditor({ skillId }: SkillEditorProps) {
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-semibold text-ink">SKILL.md 内容规范与指令</label>
+                <label className="text-xs font-semibold text-ink">SKILL.md Specification & Instructions</label>
                 <textarea
                   rows={12}
                   placeholder={`---\nname: my-skill\ndescription: How agent solves specific problems\n---\n\n# Workflow Instructions\n1. Review diff impact.\n2. Verify concurrency safety.`}
@@ -333,11 +333,11 @@ export function SkillEditor({ skillId }: SkillEditorProps) {
 
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-line/60">
                 <Button variant="plain" onClick={handleBack}>
-                  取消
+                  Cancel
                 </Button>
                 <Button variant="accent" onClick={() => void handleSaveLocalSkill()}>
                   <LuPlus className="size-3.5 mr-1" />
-                  <span>保存</span>
+                  <span>Save</span>
                 </Button>
               </div>
             </div>
@@ -347,10 +347,10 @@ export function SkillEditor({ skillId }: SkillEditorProps) {
           {activeTab === 'github' && (
             <div className="flex flex-col gap-3 pt-1">
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-semibold text-ink">GitHub 仓库路径 (owner/repo)</label>
+                <label className="text-xs font-semibold text-ink">GitHub Repository Path (owner/repo)</label>
                 <input
                   type="text"
-                  placeholder="例如: octocat/agent-skills"
+                  placeholder="e.g. octocat/agent-skills"
                   value={ghRepo}
                   onChange={(e) => setGhRepo(e.target.value)}
                   className="h-8 rounded border border-line bg-panel px-2.5 text-xs text-ink outline-none focus:border-accent"
@@ -359,7 +359,7 @@ export function SkillEditor({ skillId }: SkillEditorProps) {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1">
-                  <label className="text-xs font-semibold text-ink">分支名称 (Branch)</label>
+                  <label className="text-xs font-semibold text-ink">Branch Name</label>
                   <input
                     type="text"
                     placeholder="main"
@@ -369,10 +369,10 @@ export function SkillEditor({ skillId }: SkillEditorProps) {
                   />
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label className="text-xs font-semibold text-ink">技能目录路径 (可选)</label>
+                  <label className="text-xs font-semibold text-ink">Skills Directory Path (optional)</label>
                   <input
                     type="text"
-                    placeholder="留空自动递归检索所有 SKILL.md"
+                    placeholder="Leave empty to recursively scan all SKILL.md files"
                     value={ghDirectory}
                     onChange={(e) => setGhDirectory(e.target.value)}
                     className="h-8 rounded border border-line bg-panel px-2.5 text-xs text-ink outline-none focus:border-accent"
@@ -381,7 +381,7 @@ export function SkillEditor({ skillId }: SkillEditorProps) {
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-semibold text-ink">Personal Access Token (可选，私有仓库需填写)</label>
+                <label className="text-xs font-semibold text-ink">Personal Access Token (optional, required for private repos)</label>
                 <input
                   type="password"
                   placeholder="ghp_xxxxxxxxxxxx"
@@ -393,11 +393,11 @@ export function SkillEditor({ skillId }: SkillEditorProps) {
 
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-line/60">
                 <Button variant="plain" disabled={ghFetching} onClick={handleBack}>
-                  取消
+                  Cancel
                 </Button>
                 <Button variant="accent" loading={ghFetching} onClick={() => void handleImportGitHubSkill()}>
                   <LuCheck className="size-3.5 mr-1" />
-                  <span>导入</span>
+                  <span>Import</span>
                 </Button>
               </div>
             </div>
@@ -419,7 +419,7 @@ export function SkillEditor({ skillId }: SkillEditorProps) {
           <div className="flex items-center gap-2">
             <span>{skill?.name}</span>
             <Badge tone={isBuiltin ? 'info' : isGitHub ? 'accent' : 'neutral'} size="mini">
-              {isBuiltin ? '内置' : isGitHub ? 'GitHub' : '本地'}
+              {isBuiltin ? 'Built-in' : isGitHub ? 'GitHub' : 'Local'}
             </Badge>
           </div>
         }
@@ -429,8 +429,8 @@ export function SkillEditor({ skillId }: SkillEditorProps) {
             checked={skill?.enabled ?? true}
             onCheckedChange={() => void handleToggle()}
             size="sm"
-            tooltip={skill?.enabled ? '停用此技能' : '启用此技能'}
-            aria-label={`启用或停用 ${skill?.name}`}
+            tooltip={skill?.enabled ? 'Disable skill' : 'Enable skill'}
+            aria-label={`Toggle ${skill?.name}`}
           />
         }
       >
@@ -447,7 +447,7 @@ export function SkillEditor({ skillId }: SkillEditorProps) {
                 )}
               >
                 <LuEye className="size-3.5" aria-hidden="true" />
-                <span>预览</span>
+                <span>Preview</span>
               </button>
               <button
                 type="button"
@@ -458,14 +458,21 @@ export function SkillEditor({ skillId }: SkillEditorProps) {
                 )}
               >
                 <LuCode className="size-3.5" aria-hidden="true" />
-                <span>代码</span>
+                <span>Code</span>
               </button>
             </div>
 
             {isGitHub && (
-              <Button variant="default" size="sm" disabled={isUpdating} loading={isUpdating} onClick={() => void handleCheckUpdate()} title="检查并同步 GitHub 最新版本">
+              <Button
+                variant="default"
+                size="sm"
+                disabled={isUpdating}
+                loading={isUpdating}
+                onClick={() => void handleCheckUpdate()}
+                title="Check and sync latest version from GitHub"
+              >
                 <LuRefreshCw className={cn('size-3.5 mr-1', isUpdating && 'animate-spin')} />
-                <span>检查更新</span>
+                <span>Check for Updates</span>
               </Button>
             )}
           </div>
@@ -482,14 +489,14 @@ export function SkillEditor({ skillId }: SkillEditorProps) {
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-ink-soft">
               <span className="inline-flex items-center gap-1 font-mono">
                 {isGitHub ? <LuGithub className="size-3 shrink-0" aria-hidden="true" /> : <LuFolderOpen className="size-3 shrink-0" aria-hidden="true" />}
-                <span>来源：{skill?.source.uri}</span>
+                <span>Source: {skill?.source.uri}</span>
                 {skill?.source.branch && <span className="text-ink-soft/70">({skill.source.branch})</span>}
                 {skill?.commitSha && <span className="text-ink-soft/70">@{skill.commitSha.slice(0, 7)}</span>}
               </span>
               {skill?.updatedAt && (
                 <span className="inline-flex items-center gap-1 tabular-nums">
                   <LuClock className="size-3 shrink-0" aria-hidden="true" />
-                  <span>更新时间：{new Date(skill.updatedAt).toLocaleString()}</span>
+                  <span>Updated: {new Date(skill.updatedAt).toLocaleString()}</span>
                 </span>
               )}
             </div>
@@ -498,11 +505,11 @@ export function SkillEditor({ skillId }: SkillEditorProps) {
               <div className="flex items-center gap-2 ml-auto">
                 <Button variant="outline-fail" onClick={handleDelete}>
                   <LuTrash2 className="size-3.5 mr-1" />
-                  <span>删除</span>
+                  <span>Delete</span>
                 </Button>
                 <Button variant="accent" onClick={() => void handleSaveContentEdit()}>
                   <LuCheck className="size-3.5 mr-1" />
-                  <span>保存</span>
+                  <span>Save</span>
                 </Button>
               </div>
             )}

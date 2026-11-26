@@ -27,8 +27,8 @@ export function ModelChannelEditPageContent({ profileId, isNew = false }: Props)
 
   const profile = profileId ? profiles.find((p) => p.id === profileId) : undefined
 
-  const title = isNew ? '新增模型接入项目' : profile ? `编辑模型：${profile.name || profile.config.model}` : '编辑模型接入项目'
-  const desc = isNew ? '配置新模型渠道与黑白名单。' : `编辑渠道接口与黑白名单。`
+  const title = isNew ? 'Add Model Channel' : profile ? `Edit Model: ${profile.name || profile.config.model}` : 'Edit Model Channel'
+  const desc = isNew ? 'Configure a new model channel and access filters.' : 'Edit channel endpoint and access filters.'
 
   const handleBack = () => {
     router.replace('/settings/models')
@@ -68,10 +68,10 @@ export function ModelChannelEditPageContent({ profileId, isNew = false }: Props)
                 type="button"
                 onClick={handleBack}
                 className="flex size-8 shrink-0 items-center justify-center rounded-md border border-line bg-panel text-ink-soft hover:bg-[color-mix(in_oklab,var(--ink)_6%,transparent)] hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent active:scale-95 transition-all cursor-pointer"
-                title="返回模型列表"
+                title="Back to model list"
               >
                 <LuArrowLeft className="size-4" aria-hidden="true" />
-                <span className="sr-only">返回模型列表</span>
+                <span className="sr-only">Back to model list</span>
               </button>
               <div className="min-w-0 flex-1">
                 <h1 className="text-xs font-bold text-ink">{title}</h1>
@@ -85,10 +85,10 @@ export function ModelChannelEditPageContent({ profileId, isNew = false }: Props)
             <div className="grid w-full gap-3">
               {profileId && !profile && !isNew ? (
                 <div className="rounded-xl border border-line bg-panel p-6 text-center space-y-3">
-                  <p className="text-xs text-ink-soft">未找到对应的模型配置，可能已被移除或尚未加载。</p>
+                  <p className="text-xs text-ink-soft">Model configuration not found. It may have been removed or not loaded yet.</p>
                   <button type="button" onClick={handleBack} className="inline-flex items-center gap-1.5 text-xs text-accent hover:underline cursor-pointer">
                     <LuArrowLeft className="size-3.5" />
-                    返回模型列表
+                    Back to model list
                   </button>
                 </div>
               ) : (

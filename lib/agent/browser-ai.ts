@@ -40,6 +40,52 @@ interface LanguageModelApi {
 
 const BROWSER_AI_DOWNLOAD_ID = 'browser-ai:gemini-nano'
 
+const COMPACT_BROWSER_AI_SYSTEM_PROMPT = `You are Yggi, a Git assistant in Yggdrasil.
+When repository data or UI action is needed, output ONLY a fenced \`\`\`tool_code block with the tool call, e.g.:
+\`\`\`tool_code
+get_branches()
+\`\`\`
+Available tools: get_branches, get_repo_summary, get_unmerged_branches, check_branch_containment, get_today_merges, find_commits, get_commit_details, focus_branch, sync_branch, open_project, list_projects, navigate_ui, set_ui_theme.
+Answer very concisely in the user's language (2-5 short lines, cite concrete branch names, file paths, or counts directly; no verbose tutorials).`
+
+function buildCompactBrowserAiInput(
+  messages: Array<Pick<AgentChatMessage, 'role' | 'content'>>,
+  maxMessages = 6,
+  maxTotalChars = 2400
+): { systemPrompt: string; promptText: string } {
+  const extraSystem = messages
+    .filter((m) => m.role === 'system' && m.content && !m.content.includes('You are Git Agent, an expert Git diagnostic'))
+    .map((m) => m.content.trim())
+    .filter(Boolean)
+    .join('\n')
+    .slice(0, 600)
+
+  const systemPrompt = extraSystem ? `${COMPACT_BROWSER_AI_SYSTEM_PROMPT}\n\n${extraSystem}` : COMPACT_BROWSER_AI_SYSTEM_PROMPT
+
+  const nonSystem = messages.filter((m) => m.role !== 'system').slice(-maxMessages)
+  const formatted: string[] = []
+  let total = 0
+
+  // Keep most recent messages first within character budget
+  for (let i = nonSystem.length - 1; i >= 0; i--) {
+    const m = nonSystem[i]
+    const label = m.role === 'user' ? 'User' : m.role === 'assistant' ? 'Assistant' : 'Tool'
+    const raw = (m.content || '').trim()
+    const clipped = raw.length > 1200 ? `${raw.slice(0, 1200)}...` : raw
+    const line = `${label}: ${clipped}`
+    if (formatted.length > 0 && total + line.length > maxTotalChars) break
+    formatted.unshift(line)
+    total += line.length
+  }
+
+  return { systemPrompt, promptText: formatted.join('\n\n') }
+}
+
+function isInputTooLargeError(error: unknown): boolean {
+  const msg = error instanceof Error ? error.message : String(error ?? '')
+  return /too large|quota|context length|token limit/i.test(msg)
+}
+
 let activeSessionPromise: Promise<LanguageModelSession> | null = null
 let activePhase: 'downloading' | 'preparing' | null = null
 let activePercent: number | undefined
@@ -304,69 +350,70 @@ export async function runBrowserAiCompletion(options: {
   const { messages, temperature, redactionEngine, onDelta, signal } = options
   const start = performance.now()
 
-  const systemMessages = messages.filter((m) => m.role === 'system' && m.content).map((m) => m.content)
-  const systemPrompt = systemMessages.length > 0 ? systemMessages.join('\n\n') : undefined
-
-  const nonSystem = messages.filter((m) => m.role !== 'system')
-  const promptText = nonSystem
-    .map((m) => {
-      const label = m.role === 'user' ? 'User' : m.role === 'assistant' ? 'Assistant' : 'Tool'
-      return `${label}: ${m.content}`
+  const runAttempt = async (maxMessages: number, maxTotalChars: number): Promise<AgentCompletionResponse> => {
+    const { systemPrompt, promptText } = buildCompactBrowserAiInput(messages, maxMessages, maxTotalChars)
+    const session = await ensureBrowserAiSession({
+      systemPrompt,
+      temperature,
+      signal,
     })
-    .join('\n\n')
 
-  const session = await ensureBrowserAiSession({
-    systemPrompt,
-    temperature,
-    signal,
-  })
+    try {
+      let rawFull = ''
+      let emitted = ''
+      const unmasker = redactionEngine ? new StreamingUnmasker(redactionEngine.getSession()) : null
 
-  try {
-    let rawFull = ''
-    let emitted = ''
-    const unmasker = redactionEngine ? new StreamingUnmasker(redactionEngine.getSession()) : null
-
-    if (typeof session.promptStreaming === 'function') {
-      const stream = session.promptStreaming(promptText, { signal })
-      let previousText = ''
-      for await (const chunk of stream) {
-        // Chrome's promptStreaming can yield either incremental deltas or cumulative text depending on channel/version
-        const delta = chunk.startsWith(previousText) && previousText.length > 0 ? chunk.slice(previousText.length) : chunk
-        previousText = chunk.startsWith(previousText) ? chunk : previousText + chunk
-        if (!delta) continue
-        rawFull += delta
-        if (onDelta) {
-          const outChunk = unmasker ? unmasker.feed(delta) : delta
-          if (outChunk) {
-            emitted += outChunk
-            onDelta(outChunk)
+      if (typeof session.promptStreaming === 'function') {
+        const stream = session.promptStreaming(promptText, { signal })
+        let previousText = ''
+        for await (const chunk of stream) {
+          // Chrome's promptStreaming can yield either incremental deltas or cumulative text depending on channel/version
+          const delta = chunk.startsWith(previousText) && previousText.length > 0 ? chunk.slice(previousText.length) : chunk
+          previousText = chunk.startsWith(previousText) ? chunk : previousText + chunk
+          if (!delta) continue
+          rawFull += delta
+          if (onDelta) {
+            const outChunk = unmasker ? unmasker.feed(delta) : delta
+            if (outChunk) {
+              emitted += outChunk
+              onDelta(outChunk)
+            }
           }
         }
-      }
-      if (unmasker && onDelta) {
-        const tail = unmasker.flush()
-        if (tail) {
-          emitted += tail
-          onDelta(tail)
+        if (unmasker && onDelta) {
+          const tail = unmasker.flush()
+          if (tail) {
+            emitted += tail
+            onDelta(tail)
+          }
+        }
+      } else {
+        const result = await session.prompt(promptText, { signal })
+        rawFull = result || ''
+        const finalChunk = redactionEngine ? unmaskText(rawFull, redactionEngine.getSession()) : rawFull
+        if (finalChunk && onDelta) {
+          emitted = finalChunk
+          onDelta(finalChunk)
         }
       }
-    } else {
-      const result = await session.prompt(promptText, { signal })
-      rawFull = result || ''
-      const finalChunk = redactionEngine ? unmaskText(rawFull, redactionEngine.getSession()) : rawFull
-      if (finalChunk && onDelta) {
-        emitted = finalChunk
-        onDelta(finalChunk)
-      }
-    }
 
-    const content = redactionEngine ? unmaskText(rawFull, redactionEngine.getSession()) : emitted || rawFull
-    return {
-      id: typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `browser_ai_${Date.now()}`,
-      content,
-      latencyMs: Math.round(performance.now() - start),
+      const content = redactionEngine ? unmaskText(rawFull, redactionEngine.getSession()) : emitted || rawFull
+      return {
+        id: typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `browser_ai_${Date.now()}`,
+        content,
+        latencyMs: Math.round(performance.now() - start),
+      }
+    } finally {
+      session.destroy?.()
     }
-  } finally {
-    session.destroy?.()
+  }
+
+  try {
+    return await runAttempt(6, 2400)
+  } catch (err) {
+    if (isInputTooLargeError(err)) {
+      return await runAttempt(2, 1000)
+    }
+    throw err
   }
 }

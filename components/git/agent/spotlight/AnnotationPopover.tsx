@@ -39,7 +39,7 @@ export function AnnotationPopover({ target, onClose }: Props) {
       <div className="flex items-center justify-between border-b border-line pb-2 mb-2">
         <div className="flex items-center gap-1.5 text-xs font-semibold">
           <LuInfo className="h-3.5 w-3.5 text-accent" />
-          <span>Agent 归因证据</span>
+          <span>Agent Attribution Evidence</span>
         </div>
         <button type="button" onClick={onClose} className="rounded p-0.5 text-ink-muted hover:text-ink" aria-label="Close">
           <LuX className="h-3.5 w-3.5" />
@@ -48,18 +48,18 @@ export function AnnotationPopover({ target, onClose }: Props) {
 
       <div className="space-y-2 text-xs">
         <div>
-          <span className="text-[11px] font-medium text-ink-muted">证据等级：</span>
+          <span className="text-[11px] font-medium text-ink-muted">Evidence Grade:</span>
           <span className="font-semibold text-ink ml-1">
             {target.evidenceGrade === 'Fact'
-              ? '事实证据 (Fact - 拓扑/Git 原生证实)'
+              ? 'Fact (Confirmed by Git / topology)'
               : target.evidenceGrade === 'Derived'
-                ? '推导证据 (Derived - 算法计算得出)'
-                : '假设证据 (Hypothesis - 模型推测)'}
+                ? 'Derived (Computed algorithmically)'
+                : 'Hypothesis (Model inference)'}
           </span>
         </div>
 
         <div>
-          <span className="text-[11px] font-medium text-ink-muted">诊断理由：</span>
+          <span className="text-[11px] font-medium text-ink-muted">Diagnostic Reason:</span>
           <p className="mt-0.5 text-xs leading-relaxed text-ink bg-panel-2/60 p-2 rounded-lg border border-line">{target.reason}</p>
         </div>
 
@@ -69,10 +69,10 @@ export function AnnotationPopover({ target, onClose }: Props) {
             {copied ? (
               <>
                 <LuCheck className="h-3 w-3" />
-                <span>已复制 Hash</span>
+                <span>Hash Copied</span>
               </>
             ) : (
-              <span>复制 Commit Hash</span>
+              <span>Copy Commit Hash</span>
             )}
           </button>
         </div>

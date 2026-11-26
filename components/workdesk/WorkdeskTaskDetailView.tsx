@@ -616,7 +616,7 @@ ${cr.solution}
 
                       {/* Right Status Dot & Agent Quick Action */}
                       <div className="flex shrink-0 items-center gap-1.5 -mr-0.5">
-                        <Tooltip content={t('git.operations.quoteToAgent') || 'Quote to Git Agent'} placement="top">
+                        <Tooltip content={t('git.operations.quoteToAgent') || 'Quote to Yggi'} placement="top">
                           <button
                             type="button"
                             onClick={(e) => {
@@ -624,7 +624,7 @@ ${cr.solution}
                               handleSendToAgent(item)
                             }}
                             className="flex size-5 items-center justify-center rounded-md text-ink-muted opacity-0 group-hover:opacity-100 hover:bg-accent/15 hover:text-accent transition-all duration-150 cursor-pointer"
-                            aria-label={t('git.operations.quoteToAgent') || 'Quote to Git Agent'}
+                            aria-label={t('git.operations.quoteToAgent') || 'Quote to Yggi'}
                           >
                             <LuBot className="size-3" aria-hidden="true" />
                           </button>

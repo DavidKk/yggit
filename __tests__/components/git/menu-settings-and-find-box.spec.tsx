@@ -94,22 +94,22 @@ describe('MenuSettingsSection component', () => {
       )
     })
 
-    // Zone 1: 快捷区
-    expect(host.textContent).toContain('快捷区（主菜单置顶直达）')
-    expect(host.textContent).toContain('复制分支名')
-    expect(host.textContent).toContain('复制 Commit Hash')
+    // Zone 1: Quick Actions
+    expect(host.textContent).toContain('Quick Actions (Pinned to Top)')
+    expect(host.textContent).toContain('Copy Branch Name')
+    expect(host.textContent).toContain('Copy Commit Hash')
 
-    // Zone 2: 分组区
-    expect(host.textContent).toContain('分组区（二级子菜单）')
-    expect(host.textContent).toContain('「复制 ›」二级菜单')
-    expect(host.textContent).toContain('「分支操作 ›」二级菜单')
-    expect(host.textContent).toContain('「Worktree ›」二级菜单')
-    expect(host.textContent).toContain('「在远程仓库打开 ›」二级菜单')
+    // Zone 2: Grouped Submenus
+    expect(host.textContent).toContain('Grouped Submenus')
+    expect(host.textContent).toContain('"Copy ›" Submenu')
+    expect(host.textContent).toContain('"Branch Actions ›" Submenu')
+    expect(host.textContent).toContain('"Worktree ›" Submenu')
+    expect(host.textContent).toContain('"Open in Remote ›" Submenu')
 
-    // Zone 3: 配置区
-    expect(host.textContent).toContain('安全防护与动态自适应')
-    expect(host.textContent).toContain('危险操作二次确认 (防误触保护)')
-    expect(host.textContent).toContain('仓库能力自适应过滤')
+    // Zone 3: Safety & Adaptive Filtering
+    expect(host.textContent).toContain('Safety & Adaptive Filtering')
+    expect(host.textContent).toContain('Two-Step Confirmation for Destructive Actions')
+    expect(host.textContent).toContain('Adaptive Repository Capability Filtering')
 
     // Zone 4: Agent 扩展
     expect(host.textContent).toContain('Agent 智能菜单扩展')

@@ -7,6 +7,8 @@ import { FloatingMenu, type FloatingMenuItem } from '@/components/git/RefChipsCe
 import { useT } from '@/components/i18n/LocaleProvider'
 import { useNotification } from '@/components/notification/useNotification'
 import { EmptyState, VirtualList } from '@/components/sk'
+import { useOptionalAgent } from '@/lib/agent/agent-context'
+import { composeCommitMessageWithAi } from '@/lib/agent/commit-composer'
 import { getGitDriver } from '@/lib/git/driver'
 import { GIT_WORKTREE_HASH, type GitCommit, type GitCommitChanges, type GitFileChange } from '@/lib/git/types'
 import { isBoolean, useGitUiPref } from '@/lib/git/ui-prefs'
@@ -16,7 +18,6 @@ import {
   buildTree,
   type ChangeCounts,
   type ConflictCounts,
-  fileName,
   type FileView,
   folderPaths,
   getAncestorPaths,
@@ -71,6 +72,8 @@ function GitCommitPanelInner({
   const notify = useNotification()
   const optionalConfirm = useOptionalConfirm()
   const confirm = optionalConfirm ?? (() => Promise.resolve(true))
+  const agent = useOptionalAgent()
+  const [aiComposing, setAiComposing] = useState(false)
   const panelTitle = title ?? t('git.panel.files')
   const isWorktree = commit.hash === GIT_WORKTREE_HASH
   const panelRef = useRef<HTMLElement>(null)
@@ -504,17 +507,47 @@ function GitCommitPanelInner({
   })
 
   // AI commit message composer
-  const handleAiCompose = () => {
-    const list = stagedFiles.length > 0 ? stagedFiles : unstagedFiles
+  const handleAiCompose = async () => {
+    if (aiComposing) return
+    const useStaged = stagedFiles.length > 0
+    const list = useStaged ? stagedFiles : unstagedFiles
     if (list.length === 0) {
       notify.info(t('git.commit.noChangesForMessage') || 'No changes in working tree to generate commit message')
       return
     }
-    const names = list.slice(0, 3).map((f) => fileName(f.path))
-    const extra = list.length > 3 ? ` and ${list.length - 3} other files` : ''
-    setCommitSummary(`feat(workspace): update ${names.join(', ')}${extra}`)
-    setCommitDesc(`Contains changes to the following files:\n${list.map((f) => `- ${f.path} (${f.status})`).join('\n')}`)
-    notify.success(t('git.commit.autoCommitSummaryGenerated') || 'Commit summary generated')
+
+    setAiComposing(true)
+    try {
+      const driver = getGitDriver()
+      const diffSnippets = await Promise.all(
+        list.slice(0, 3).map(async (f) => {
+          try {
+            const res = await driver.readCommitDiff({ repo, hash: GIT_WORKTREE_HASH, file: f.path })
+            return { path: f.path, diff: res.patch || '' }
+          } catch {
+            return { path: f.path, diff: '' }
+          }
+        })
+      )
+
+      const activeProfile = agent?.profiles.find((p) => p.id === agent.activeProfileId)
+      const result = await composeCommitMessageWithAi({
+        repo,
+        files: list.map((f) => ({ path: f.path, status: f.status })),
+        diffSnippets,
+        config: agent?.config,
+        profileId: agent?.activeProfileId,
+        profileName: activeProfile?.name,
+        redactionOptions: agent?.redactionOptions,
+        modelFilter: agent?.modelFilter,
+      })
+
+      setCommitSummary(result.summary)
+      setCommitDesc(result.description)
+      notify.success(t('git.commit.autoCommitSummaryGenerated') || 'Commit summary generated')
+    } finally {
+      setAiComposing(false)
+    }
   }
 
   // File & Folder Context Menus
@@ -706,7 +739,8 @@ function GitCommitPanelInner({
           setCommitDesc={setCommitDesc}
           commitDescRef={commitDescRef}
           handleCommitSubmit={handleCommitSubmit}
-          handleAiCompose={handleAiCompose}
+          handleAiCompose={() => void handleAiCompose()}
+          aiComposing={aiComposing}
           isCommitting={isCommitting}
           amendCommit={amendCommit}
           setAmendCommit={setAmendCommit}

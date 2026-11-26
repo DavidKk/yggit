@@ -127,7 +127,7 @@ export function WorkdeskCard({ card, className, noWrapperMargin = false, onSelec
         {/* Top row: Title + Quick Quote to Agent */}
         <div className="flex w-full items-start justify-between gap-2">
           <span className="line-clamp-1 text-xs font-semibold leading-tight text-ink transition-colors group-hover:text-ink-vivid">{title}</span>
-          <Tooltip content={t('git.operations.quoteToAgent') || 'Quote to Git Agent'} placement="top">
+          <Tooltip content={t('git.operations.quoteToAgent') || 'Quote to Yggi'} placement="top">
             <button
               type="button"
               onClick={(e) => {
@@ -142,7 +142,7 @@ export function WorkdeskCard({ card, className, noWrapperMargin = false, onSelec
                 })
               }}
               className="flex size-5 shrink-0 items-center justify-center rounded-md text-ink-muted opacity-0 group-hover:opacity-100 hover:bg-accent/15 hover:text-accent transition-all duration-150 cursor-pointer"
-              aria-label={t('git.operations.quoteToAgent') || 'Quote to Git Agent'}
+              aria-label={t('git.operations.quoteToAgent') || 'Quote to Yggi'}
               data-testid="workdesk-card-agent-btn"
             >
               <LuBot className="size-3" aria-hidden="true" />

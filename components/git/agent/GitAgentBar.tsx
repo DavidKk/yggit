@@ -10,6 +10,7 @@ import { type AgentOpenEventDetail, type AgentReference, isAgentSidebarOpen } fr
 import { isModelAllowed } from '@/lib/agent/model-filter'
 import { cn } from '@/lib/utils'
 
+import { AgentFairyIcon } from './AgentFairyIcon'
 import { AgentQuickModelPopover } from './AgentQuickModelPopover'
 import { GitAgentAssistiveReminder } from './GitAgentAssistiveReminder'
 import { GitAgentBarGhosts } from './GitAgentBarGhosts'
@@ -20,7 +21,7 @@ interface Props {
   className?: string
 }
 
-const FULL_LABEL = 'Git Agent'
+const FULL_LABEL = 'Yggi'
 const STORAGE_KEY = 'yggit.agent.bar-pos.v1'
 export const THRESHOLD_DISTANCE = 180
 export const SNAP_DISTANCE = 64
@@ -371,7 +372,7 @@ export function GitAgentBar({ repoPath, className }: Props) {
     let finalPrompt = trimmed
     if (reference) {
       if (trimmed) {
-        finalPrompt = `${reference.prompt || reference.title}\n\n用户附加提问: ${trimmed}`
+        finalPrompt = `${reference.prompt || reference.title}\n\nFollow-up question: ${trimmed}`
       } else {
         finalPrompt = reference.prompt || reference.title
       }
@@ -584,8 +585,8 @@ export function GitAgentBar({ repoPath, className }: Props) {
           type="button"
           tabIndex={expanded || isClosing ? 0 : -1}
           aria-expanded={expanded && !isClosing}
-          aria-label={expanded ? t('common.close') || '收起' : t('gitAgent.barAria')}
-          title={expanded ? t('common.close') : lastAssistantMessage ? t('gitAgent.restoreQuickAnswerHint') || '点击展开 Agent 快速答复' : t('gitAgent.barDragHint')}
+          aria-label={expanded ? t('common.close') || 'Collapse' : t('gitAgent.barAria')}
+          title={expanded ? t('common.close') : lastAssistantMessage ? t('gitAgent.restoreQuickAnswerHint') || 'Click to expand Yggi quick reply' : t('gitAgent.barDragHint')}
           onPointerDown={handleIconPointerDown}
           onPointerMove={handleIconPointerMove}
           onPointerUp={handleIconPointerUp}
@@ -633,15 +634,9 @@ export function GitAgentBar({ repoPath, className }: Props) {
                 : 'cursor-grab hover:bg-accent/15 touch-none'
           )}
         >
-          {isProcessing ? (
-            <Spinner className="size-3.5" />
-          ) : (
-            <>
-              <LuBot className="size-4" />
-              {!expanded && Boolean(lastAssistantMessage) && (
-                <span className="absolute top-0.5 right-0.5 size-2 rounded-full bg-accent ring-2 ring-panel animate-pulse pointer-events-none" />
-              )}
-            </>
+          <AgentFairyIcon className="size-5" active={isProcessing} />
+          {!isProcessing && !expanded && Boolean(lastAssistantMessage) && (
+            <span className="absolute top-0.5 right-0.5 size-2 rounded-full bg-accent ring-2 ring-panel animate-pulse pointer-events-none" />
           )}
         </button>
 
@@ -649,7 +644,7 @@ export function GitAgentBar({ repoPath, className }: Props) {
         {!expanded && (
           <span
             className={cn(
-              'inline-flex items-center overflow-hidden text-[13px] font-medium tracking-wide text-ink whitespace-nowrap select-none ml-1.5',
+              'inline-flex flex-1 items-center justify-center overflow-hidden pr-5 text-[13px] font-medium tracking-wide text-ink whitespace-nowrap select-none',
               'transition-opacity duration-200 ease-out',
               displayText && iconSlid ? 'opacity-100' : 'opacity-0 pointer-events-none'
             )}
@@ -683,8 +678,8 @@ export function GitAgentBar({ repoPath, className }: Props) {
                   setReference(null)
                 }}
                 className="ml-0.5 rounded-full p-0.5 text-accent/70 hover:bg-accent/20 hover:text-accent focus:outline-none cursor-pointer"
-                title="移除引用"
-                aria-label="移除引用"
+                title={t('common.remove') || 'Remove reference'}
+                aria-label={t('common.remove') || 'Remove reference'}
               >
                 <LuX className="size-2.5" />
               </button>
@@ -696,14 +691,14 @@ export function GitAgentBar({ repoPath, className }: Props) {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={reference ? '向 Git Agent 追问或直接按回车发送...' : t('gitAgent.barPlaceholder')}
+            placeholder={reference ? 'Ask Yggi a follow-up or press Enter to send...' : t('gitAgent.barPlaceholder')}
             className="min-w-0 flex-1 bg-transparent px-1 text-xs text-ink placeholder:text-ink-soft/60 focus:outline-none"
             tabIndex={contentVisible ? 0 : -1}
           />
 
           {/* Restore Recent Answer Button */}
           {Boolean(lastAssistantMessage) && (
-            <Tooltip content={t('gitAgent.restoreQuickAnswer') || '还原最近回答'} placement="top">
+            <Tooltip content={t('gitAgent.restoreQuickAnswer') || 'Restore recent reply'} placement="top">
               <button
                 type="button"
                 onClick={(e) => {
@@ -720,7 +715,7 @@ export function GitAgentBar({ repoPath, className }: Props) {
                   'flex size-7 shrink-0 items-center justify-center rounded-full text-accent hover:bg-accent/15 active:scale-95 transition-all cursor-pointer',
                   quickCardOpen && 'bg-accent/15'
                 )}
-                aria-label={t('gitAgent.restoreQuickAnswer') || '还原最近回答'}
+                aria-label={t('gitAgent.restoreQuickAnswer') || 'Restore recent reply'}
                 tabIndex={contentVisible ? 0 : -1}
               >
                 <LuSparkles className="size-3.5 text-accent animate-pulse" />

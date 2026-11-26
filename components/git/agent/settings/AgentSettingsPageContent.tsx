@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from 'next/navigation'
 import React from 'react'
-import { LuArrowLeft, LuCpu, LuMousePointerClick, LuNetwork, LuShieldCheck, LuSlidersHorizontal, LuSparkles } from 'react-icons/lu'
+import { LuArrowLeft, LuCpu, LuInfo, LuMousePointerClick, LuNetwork, LuShieldCheck, LuSlidersHorizontal, LuSparkles } from 'react-icons/lu'
 
 import { BrandLogo } from '@/components/BrandLogo'
 import { useT } from '@/components/i18n/LocaleProvider'
@@ -11,6 +11,7 @@ import { useInWorkspaceHeader, WorkspaceHeaderSlot } from '@/components/layout/W
 import { ThemeSwitcher } from '@/components/theme/ThemeSwitcher'
 import { getLastGitUrl } from '@/lib/git/last-git-url'
 
+import { AboutSettingsSection } from './AboutSettingsSection'
 import { AgentMenuActionEditor } from './AgentMenuActionEditor'
 import { ContextMenuPreviewToolbar } from './ContextMenuPreviewToolbar'
 import { GeneralSettingsSection } from './GeneralSettingsSection'
@@ -50,7 +51,7 @@ export function AgentSettingsPageContent({ section = 'models', menuActionId, ski
 
   // Canonical path redirection: if accessed with legacy ?tab= query parameter, redirect to path route
   React.useEffect(() => {
-    if (tabParam && ['models', 'skills', 'mcp', 'privacy', 'general', 'menus'].includes(tabParam)) {
+    if (tabParam && ['models', 'skills', 'mcp', 'privacy', 'general', 'menus', 'about'].includes(tabParam)) {
       router.replace(`/settings/${tabParam}`)
     }
   }, [tabParam, router])
@@ -92,13 +93,13 @@ export function AgentSettingsPageContent({ section = 'models', menuActionId, ski
       icon: <LuCpu className="size-4 text-accent" aria-hidden="true" />,
     },
     skills: {
-      title: 'Agent 技能库 (Skills)',
-      desc: '导入与管理外部专业工作流规范与知识准则 (SKILL.md)。',
+      title: t('gitAgent.tabSkills') || 'Agent Skills',
+      desc: t('gitAgent.skillsSectionDesc') || 'Import and manage external workflow specifications and guidelines (SKILL.md).',
       icon: <LuSparkles className="size-4 text-accent" aria-hidden="true" />,
     },
     mcp: {
-      title: 'MCP 工具管理',
-      desc: '配置与管理外部 HTTP MCP Server 工具服务。',
+      title: t('gitAgent.tabMcp') || 'MCP Tools',
+      desc: t('gitAgent.mcpSectionDesc') || 'Configure and manage external HTTP MCP Server tool services.',
       icon: <LuNetwork className="size-4 text-accent" aria-hidden="true" />,
     },
     privacy: {
@@ -107,14 +108,19 @@ export function AgentSettingsPageContent({ section = 'models', menuActionId, ski
       icon: <LuShieldCheck className="size-4 text-accent" aria-hidden="true" />,
     },
     general: {
-      title: t('gitAgent.tabGeneral') || '通用设置',
-      desc: '管理外观主题、语言偏好、Git 视图交互及底层执行模式。',
+      title: t('gitAgent.tabGeneral') || 'General Settings',
+      desc: t('gitAgent.generalSectionDesc') || 'Manage appearance theme, language preference, Git view interactions, and execution mode.',
       icon: <LuSlidersHorizontal className="size-4 text-accent" aria-hidden="true" />,
     },
     menus: {
       title: t('gitAgent.menusSettingsTitle'),
       desc: t('gitAgent.menusSettingsDesc'),
       icon: <LuMousePointerClick className="size-4 text-accent" aria-hidden="true" />,
+    },
+    about: {
+      title: t('gitAgent.tabAbout') || 'About',
+      desc: t('gitAgent.aboutDesc') || 'Project overview, core features, open-source license, and developer diagnostics.',
+      icon: <LuInfo className="size-4 text-accent" aria-hidden="true" />,
     },
   }
 
@@ -126,14 +132,15 @@ export function AgentSettingsPageContent({ section = 'models', menuActionId, ski
   let displayDesc = currentMeta.desc
 
   if (activeSection === 'skills' && skillId) {
-    displayTitle = skillId === 'new' ? '新增技能' : '技能详情与配置'
-    displayDesc = skillId === 'new' ? '导入本地 SKILL.md 或关联 GitHub 仓库中的 Skill 规范。' : '查看与管理技能的规范指令、来源信息与运行状态。'
+    displayTitle = skillId === 'new' ? 'New Skill' : 'Skill Details & Configuration'
+    displayDesc = skillId === 'new' ? 'Import a local SKILL.md or link a Skill from a GitHub repository.' : 'View and manage skill instructions, source metadata, and status.'
   } else if (activeSection === 'mcp' && mcpServerId) {
-    displayTitle = mcpServerId === 'new' ? '添加 HTTP MCP Server' : 'MCP Server 配置与工具'
-    displayDesc = mcpServerId === 'new' ? '连接外部遵循 Model Context Protocol 的 HTTP 工具服务。' : '查看 MCP Server 连接状态并管理工具权限。'
+    displayTitle = mcpServerId === 'new' ? 'Add HTTP MCP Server' : 'MCP Server Configuration & Tools'
+    displayDesc =
+      mcpServerId === 'new' ? 'Connect an external HTTP tool service following the Model Context Protocol.' : 'Check MCP Server connection status and manage tool permissions.'
   } else if (activeSection === 'menus' && menuActionId) {
-    displayTitle = menuActionId === 'new' ? '新增 Agent 菜单动作' : '编辑 Agent 菜单动作'
-    displayDesc = menuActionId === 'new' ? '配置自定义右键快捷 Agent 提示词。' : '修改右键菜单动作名称、描述与提示词。'
+    displayTitle = menuActionId === 'new' ? 'New Agent Menu Action' : 'Edit Agent Menu Action'
+    displayDesc = menuActionId === 'new' ? 'Configure a custom context-menu Agent prompt.' : 'Edit the context-menu action name, description, and prompt.'
   }
 
   return (
@@ -171,10 +178,10 @@ export function AgentSettingsPageContent({ section = 'models', menuActionId, ski
                 type="button"
                 onClick={handleBack}
                 className="flex size-8 shrink-0 items-center justify-center rounded-md border border-line bg-panel text-ink-soft hover:bg-[color-mix(in_oklab,var(--ink)_6%,transparent)] hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent active:scale-95 transition-all cursor-pointer"
-                title={skillId || mcpServerId || menuActionId ? t('gitAgent.backToModels') || '返回' : t('gitAgent.backToGraph') || '返回图谱'}
+                title={skillId || mcpServerId || menuActionId ? t('gitAgent.backToModels') || 'Back' : t('gitAgent.backToGraph') || 'Back to Graph'}
               >
                 <LuArrowLeft className="size-4" aria-hidden="true" />
-                <span className="sr-only">{skillId || mcpServerId || menuActionId ? t('gitAgent.backToModels') || '返回' : t('gitAgent.backToGraph') || '返回图谱'}</span>
+                <span className="sr-only">{skillId || mcpServerId || menuActionId ? t('gitAgent.backToModels') || 'Back' : t('gitAgent.backToGraph') || 'Back to Graph'}</span>
               </button>
               <div className="min-w-0 flex-1">
                 <h1 className="text-xs font-bold text-ink">{displayTitle}</h1>
@@ -193,6 +200,11 @@ export function AgentSettingsPageContent({ section = 'models', menuActionId, ski
               {activeSection === 'general' && (
                 <div className="max-w-4xl">
                   <GeneralSettingsSection />
+                </div>
+              )}
+              {activeSection === 'about' && (
+                <div className="max-w-4xl">
+                  <AboutSettingsSection />
                 </div>
               )}
               {activeSection === 'menus' &&

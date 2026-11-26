@@ -6,7 +6,7 @@ export const gitAgentPtBR: { gitAgent: GitAgentMessages } = {
   gitAgent: {
     ...gitAgentEn.gitAgent,
     barDragHint: 'Arraste para reposicionar',
-    barPlaceholder: 'Perguntar ao Git Agent (ex: merges de hoje / verificação de branches)...',
+    barPlaceholder: 'Perguntar ao Yggi (ex: merges de hoje / verificação de branches)...',
     settingsTitle: 'Configurações',
     tabModels: 'Provedor de Modelos',
     tabPrivacy: 'Privacidade e Redação',
@@ -15,7 +15,9 @@ export const gitAgentPtBR: { gitAgent: GitAgentMessages } = {
     testConnection: 'Testar conexão',
     testSuccess: 'Conexão bem-sucedida',
     testFailed: 'Falha na conexão',
-    dockTitle: 'Yggit · Agent',
+    dockTitle: 'Yggi',
     deepDiscussion: 'Fixar para discutir',
+    welcomeTitle: 'Bem-vindo ao Yggi',
+    welcomeDesc: 'Pergunte sobre estatísticas de branches, detecção de merges, histórico de commits ou diagnósticos.',
   },
 }

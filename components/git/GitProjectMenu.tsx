@@ -1,9 +1,9 @@
 'use client'
 
 import Link from 'next/link'
-import { type RefObject, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { AiOutlineCloudSync } from 'react-icons/ai'
-import { LuChevronDown, LuChevronRight, LuFlag, LuFolder, LuFolderGit2, LuGlobe, LuHardDrive, LuPencil, LuTrash2 } from 'react-icons/lu'
+import { LuCheck, LuChevronDown, LuChevronRight, LuFlag, LuFolder, LuFolderGit2, LuGlobe, LuHardDrive, LuPencil, LuTrash2 } from 'react-icons/lu'
 import { TbFolderPlus } from 'react-icons/tb'
 
 import { useConfirm } from '@/components/confirm/ConfirmProvider'
@@ -13,6 +13,7 @@ import { buildFolderContextItems, buildProjectContextItems } from '@/components/
 import { ProjectMenuModals, RemotesListPopover, type RemotesMenuAnchor } from '@/components/git/project-menu/ProjectMenuDialogs'
 import { ProjectMenuItemRow } from '@/components/git/project-menu/ProjectMenuItemRow'
 import { TemporaryReposSection } from '@/components/git/project-menu/TemporaryReposSection'
+import { type GitProjectMenuProps } from '@/components/git/project-menu/types'
 import { useProjectDragDrop } from '@/components/git/project-menu/useProjectDragDrop'
 import { FloatingMenu, type FloatingMenuItem } from '@/components/git/RefChipsCell'
 import { useT } from '@/components/i18n/LocaleProvider'
@@ -20,36 +21,11 @@ import { useNotification } from '@/components/notification/useNotification'
 import { Badge, Button, EmptyState, ScrollArea } from '@/components/sk'
 import { copyToClipboard } from '@/lib/clipboard'
 import { useGitDriver } from '@/lib/git/driver'
-import type { AddRemoteProjectOptions } from '@/lib/git/driver/types'
 import { hasSavedRemote, projectOpenTarget, projectSource, remoteIdentity } from '@/lib/git/project-access'
 import { addTemporaryRepo, parseRemoteUrl, removeTemporaryRepo, type TemporaryRepo, useTemporaryRepos } from '@/lib/git/temporary-store'
 import type { GitProjectView } from '@/lib/git/types'
 import { isRecordBoolean, useGitUiPref } from '@/lib/git/ui-prefs'
 import { cn } from '@/lib/utils'
-
-type Props = {
-  open: boolean
-  anchorRef: RefObject<HTMLElement | null>
-  currentPath: string
-  projects: GitProjectView[]
-  folders: string[]
-  busy: boolean
-  onClose: () => void
-  onOpen: (path: string) => void
-  onAddLocal: () => void
-  onAddRemote: (input: AddRemoteProjectOptions) => Promise<string>
-  onClone: (project: GitProjectView) => Promise<string>
-  onCreateFolder: (name: string) => Promise<string>
-  onDeleteFolder: (name: string) => Promise<{ error: string; removedCount?: number }>
-  onRenameFolder?: (oldName: string, newName: string) => Promise<string>
-  onClearFolder?: (name: string) => Promise<string>
-  onSetProjectLabel?: (id: string, label: string) => Promise<string>
-  onRemoveProject?: (id: string) => Promise<string>
-  onMoveProject: (id: string, group: string, beforeId?: string) => Promise<string>
-  onRefreshProjects?: () => Promise<void> | void
-  /** Bump to open the project search field (Cmd+F from the switcher). */
-  searchRequest?: number
-}
 
 /** Internal default group identifiers used for persistence and initial state. */
 const DEFAULT_GROUP_WORK = '工作项目'
@@ -77,7 +53,8 @@ export function GitProjectMenu({
   onMoveProject,
   onRefreshProjects,
   searchRequest = 0,
-}: Props) {
+  activeWorkdesk = false,
+}: GitProjectMenuProps) {
   const t = useT()
   const { isEdge } = useGitDriver()
   const confirm = useConfirm()
@@ -584,12 +561,16 @@ export function GitProjectMenu({
             href="/workdesk"
             data-workdesk-entry="true"
             onClick={onClose}
-            className="flex h-8 w-full items-center justify-between rounded-lg px-2.5 text-xs font-semibold text-ink transition-colors hover:bg-panel-2 cursor-pointer no-underline"
+            className={cn(
+              'flex h-8 w-full items-center justify-between rounded-lg px-2.5 text-xs font-semibold transition-colors cursor-pointer no-underline',
+              activeWorkdesk ? 'bg-emerald-500/10 text-accent dark:bg-emerald-950/40' : 'text-ink hover:bg-panel-2'
+            )}
           >
-            <div className="flex items-center gap-2">
+            <span className="flex items-center gap-2">
               <LuFlag className="size-3.5 text-accent" aria-hidden="true" />
-              <span>{t('workdesk.topbarTitle') || '工作台'}</span>
-            </div>
+              {t('workdesk.topbarTitle') || '工作台'}
+            </span>
+            {activeWorkdesk ? <LuCheck className="size-3.5 shrink-0 text-accent" aria-hidden="true" /> : null}
           </Link>
         </div>
       )}

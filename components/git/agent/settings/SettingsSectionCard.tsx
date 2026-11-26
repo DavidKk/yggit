@@ -37,7 +37,7 @@ export function SettingsSectionCard({ title, description, descriptionTooltip, ti
                 <button
                   type="button"
                   className="inline-flex shrink-0 rounded text-ink-soft hover:text-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
-                  aria-label={typeof title === 'string' ? `${title} 说明` : '说明'}
+                  aria-label={typeof title === 'string' ? `${title} info` : 'Info'}
                 >
                   <FiHelpCircle className="size-3.5" aria-hidden="true" />
                 </button>

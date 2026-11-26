@@ -127,14 +127,14 @@ export function AgentSpotlightNavigator() {
           {/* Title tag */}
           <div className="flex shrink-0 items-center gap-1.5 text-xs font-semibold text-accent">
             <LuSparkles className="size-3.5 animate-pulse shrink-0" />
-            <span className="whitespace-nowrap">{t('gitAgent.spotlightTitle') || 'Agent 聚焦巡检'}</span>
+            <span className="whitespace-nowrap">{t('gitAgent.spotlightTitle') || 'Agent Spotlight'}</span>
           </div>
 
           <div className="h-3.5 w-px shrink-0 bg-line/60" />
 
           {/* Stepper info: Sleek, compact capsule matching the badge height */}
           <div className="flex h-5 shrink-0 items-center rounded-full bg-panel-2/80 border border-line/60 px-0.5 shadow-2xs">
-            <Tooltip content={t('gitAgent.spotlightPrev') ? `${t('gitAgent.spotlightPrev')} (p)` : '上一个聚焦提交 (p)'} placement="bottom">
+            <Tooltip content={t('gitAgent.spotlightPrev') ? `${t('gitAgent.spotlightPrev')} (p)` : 'Previous spotlight commit (p)'} placement="bottom">
               <button
                 type="button"
                 onClick={prevTarget}
@@ -152,7 +152,7 @@ export function AgentSpotlightNavigator() {
               {targets.length}
             </span>
 
-            <Tooltip content={t('gitAgent.spotlightNext') ? `${t('gitAgent.spotlightNext')} (n)` : '下一个聚焦提交 (n)'} placement="bottom">
+            <Tooltip content={t('gitAgent.spotlightNext') ? `${t('gitAgent.spotlightNext')} (n)` : 'Next spotlight commit (n)'} placement="bottom">
               <button
                 type="button"
                 onClick={nextTarget}
@@ -169,7 +169,7 @@ export function AgentSpotlightNavigator() {
             <>
               <div className="h-3.5 w-px shrink-0 bg-line/60" />
               <div className="flex min-w-0 flex-1 items-center gap-1.5 text-xs">
-                <Tooltip content={t('gitAgent.spotlightJump') || '跳转到该提交'} placement="bottom">
+                <Tooltip content={t('gitAgent.spotlightJump') || 'Jump to commit'} placement="bottom">
                   <button
                     type="button"
                     onClick={() => handleJumpToCommit(currentTarget.hash)}
@@ -190,13 +190,13 @@ export function AgentSpotlightNavigator() {
           <div className="h-3.5 w-px shrink-0 bg-line/60" />
 
           {/* Exit Button: Icon only + Tooltip */}
-          <Tooltip content={t('gitAgent.spotlightClear') ? `${t('gitAgent.spotlightClear')} (Esc)` : '退出高亮聚焦 (Esc)'} placement="bottom">
+          <Tooltip content={t('gitAgent.spotlightClear') ? `${t('gitAgent.spotlightClear')} (Esc)` : 'Exit spotlight (Esc)'} placement="bottom">
             <button
               type="button"
               onClick={handleClose}
               style={{ cursor: 'pointer' }}
               className="flex size-6 shrink-0 items-center justify-center rounded-full text-ink-soft hover:bg-panel-2 hover:text-ink active:scale-90 cursor-pointer transition-colors"
-              aria-label={t('gitAgent.spotlightClear') || '退出高亮聚焦 (Esc)'}
+              aria-label={t('gitAgent.spotlightClear') || 'Exit spotlight (Esc)'}
             >
               <LuX className="size-3.5 pointer-events-none" />
             </button>

@@ -1,6 +1,5 @@
 'use client'
 
-import { usePathname, useRouter } from 'next/navigation'
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 
 import { getDriverMode, type GitDriverMode } from '@/lib/git/driver'
@@ -13,6 +12,8 @@ import { listSkills } from '@/lib/skills/storage'
 import { type ThemePreference, writeStoredTheme } from '@/lib/theme'
 import { workdeskEngine } from '@/lib/workdesk/engine'
 
+import { type AgentContextValue, buildAgentSystemMessages, DEFAULT_REDACTION_OPTIONS, resolveFallbackUiRoute, useOptionalPathname, useOptionalRouter } from './agent-context-types'
+import { parseFallbackToolCalls, stripToolCodeBlocks } from './fallback-tool-parser'
 import { getLocalModelSpec } from './local-models'
 import { isLocalRuntimeWarmedUp } from './local-warmup'
 import { DEFAULT_MODEL_FILTER, isModelAllowed, type ModelFilterOptions } from './model-filter'
@@ -22,70 +23,17 @@ import { createRedactionSession } from './redact/engine'
 import { RedactionEngine } from './redact/engine'
 import type { RedactionOptions, RedactionSession } from './redact/types'
 import { useOptionalSpotlight } from './spotlight-context'
-import { withSystemPrompt } from './system-prompt'
 import { addStepToTask, completeTask, createTask, failTask } from './tasks/storage'
 import { AGENT_GIT_TOOLS, buildMcpToolDefinitions, executeAgentTool } from './tools'
-import type { AgentChatMessage, AgentDockMode, EphemeralAgentConfig } from './types'
+import { type AgentTraceToolExecution, recordAgentTrace } from './trace-logger'
+import type { AgentChatMessage, AgentDockMode } from './types'
 import { markBrowserAiDismissed, useBrowserAiAutoRegister } from './use-browser-ai-auto-register'
 import { getWorkdeskContext } from './workdesk-context'
-
-export interface AgentContextValue {
-  config: EphemeralAgentConfig
-  profiles: AgentModelProfile[]
-  activeProfileId: string
-  saveProfile: (profile: AgentModelProfile, options?: { clearApiKey?: boolean }) => void
-  deleteProfile: (id: string) => void
-  selectProfile: (id: string) => void
-  toggleProfileEnabled: (id: string, enabled: boolean) => void
-  redactionOptions: RedactionOptions
-  setRedactionOptions: React.Dispatch<React.SetStateAction<RedactionOptions>>
-  dockMode: AgentDockMode
-  setDockMode: (mode: AgentDockMode) => void
-  messages: AgentChatMessage[]
-  isProcessing: boolean
-  sendMessage: (content: string, repoPath?: string) => Promise<void>
-  retryMessage: (assistantMsgId?: string) => Promise<void>
-  clearMessages: () => void
-  activeResultSummary: string | null
-  activeRepo: string
-  setActiveRepo: (repo: string) => void
-  activeBranch?: string
-  setActiveBranch?: (branch: string) => void
-  modelFilter: ModelFilterOptions
-  setModelFilter: React.Dispatch<React.SetStateAction<ModelFilterOptions>>
-}
+export { type AgentContextValue, DEFAULT_REDACTION_OPTIONS } from './agent-context-types'
 
 export const AgentContext = createContext<AgentContextValue | null>(null)
 
 const REDACTION_OPTIONS_STORAGE_KEY = 'yggit.agent.redaction-options.v1'
-
-export const DEFAULT_REDACTION_OPTIONS: RedactionOptions = {
-  enabled: true,
-  categories: {
-    secrets: true,
-    pii: true,
-    network: true,
-    custom: true,
-  },
-  customWords: [],
-  allowList: [],
-}
-
-function useOptionalRouter(): ReturnType<typeof useRouter> | null {
-  try {
-    return useRouter()
-  } catch {
-    return null
-  }
-}
-
-function useOptionalPathname(): string {
-  try {
-    return usePathname() || (typeof window !== 'undefined' ? window.location.pathname : '/')
-  } catch {
-    return typeof window !== 'undefined' ? window.location.pathname : '/'
-  }
-}
 
 export function AgentProvider({ children, currentRepo }: { children: React.ReactNode; currentRepo?: string }) {
   const router = useOptionalRouter()
@@ -427,11 +375,14 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
       }
 
       // 0. Match Custom Skills and discover enabled MCP tools
+      const runStartedAt = Date.now()
+      let matchedSkillNames: string[] = []
       let skillsPrompt = ''
       try {
         const skills = await listSkills()
         const matched = matchSkillsForPrompt(trimmed, skills)
         if (matched.length > 0) {
+          matchedSkillNames = matched.map((s) => s.name)
           skillsPrompt = buildSkillsSystemPrompt(matched)
           if (activeTaskId) {
             await addStepToTask(activeTaskId, {
@@ -457,19 +408,23 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
         // Fallback
       }
 
-      const buildSystemHistory = (history: AgentChatMessage[]) => {
-        const base = withSystemPrompt(history)
-        let extraSystem = skillsPrompt
-        const wdCtx = getWorkdeskContext()
-        if (wdCtx) {
-          extraSystem += `\n\n[Active Workdesk Context]\n- Current Task: ${wdCtx.taskTitle}\n- Current Item: ${wdCtx.targetRef || ''}\n- Target Repository: ${wdCtx.repoAlias} (${wdCtx.repoIdentity})\n- Status: ${wdCtx.state}\n- Summary: ${wdCtx.summary}`
-        }
-        if (extraSystem) {
-          const sys = base[0]
-          return [{ ...sys, content: sys.content + extraSystem }, ...base.slice(1)]
-        }
-        return base
+      const buildSystemHistory = (history: AgentChatMessage[]) => buildAgentSystemMessages(history, skillsPrompt)
+
+      const requestHistory = buildSystemHistory(updatedHistory)
+      const traceBase = {
+        provider: config.provider,
+        model: config.model,
+        profileName: activeProfile?.name,
+        repo: repo || undefined,
+        userPrompt: trimmed,
+        requestMessages: requestHistory.map((m) => ({ role: m.role, content: m.content })),
+        toolNames: combinedTools.map((t) => t.function.name),
+        matchedSkills: matchedSkillNames,
       }
+      const toolExecutions: AgentTraceToolExecution[] = []
+      let nativeToolCalls: Array<{ name: string; arguments: string }> = []
+      let fallbackToolCalls: Array<{ name: string; arguments: string }> = []
+      let rawTurnOneContent = ''
 
       try {
         let accumulatedDelta = ''
@@ -492,14 +447,15 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
         const res = await sendAgentCompletion({
           config: effectiveConfig,
           profileId: activeProfileId,
-          messages: buildSystemHistory(updatedHistory),
+          messages: requestHistory,
           tools: combinedTools,
           redactionEngine: engine,
           purpose: 'chat',
           taskId: activeTaskId,
           onDelta: (chunk) => {
             accumulatedDelta += chunk
-            setMessages((prev) => prev.map((m) => (m.id === assistantMsgId ? { ...m, content: accumulatedDelta, statusTool: undefined } : m)))
+            const visibleContent = stripToolCodeBlocks(accumulatedDelta)
+            setMessages((prev) => prev.map((m) => (m.id === assistantMsgId ? { ...m, content: visibleContent, statusTool: undefined } : m)))
           },
         })
 
@@ -512,15 +468,33 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
           })
         }
 
-        // 2. If the LLM returned tool calls, execute them
-        if (res.toolCalls && res.toolCalls.length > 0) {
-          const toolCalls = res.toolCalls
+        // 2. If the LLM returned tool calls (native or fallback fenced block), execute them
+        let effectiveToolCalls = res.toolCalls && res.toolCalls.length > 0 ? res.toolCalls : []
+        let effectiveContent = res.content || ''
+        rawTurnOneContent = effectiveContent
+        nativeToolCalls = effectiveToolCalls.map((tc) => ({ name: tc.function.name, arguments: tc.function.arguments }))
+
+        if (effectiveToolCalls.length === 0 && effectiveContent) {
+          const allowedToolNames = new Set(combinedTools.map((t) => t.function.name))
+          const fallback = parseFallbackToolCalls(effectiveContent, allowedToolNames)
+          if (fallback.toolCalls.length > 0) {
+            effectiveToolCalls = fallback.toolCalls
+            effectiveContent = fallback.cleanedContent
+            fallbackToolCalls = fallback.toolCalls.map((tc) => ({ name: tc.function.name, arguments: tc.function.arguments }))
+            logInfo('agent', `Parsed ${fallback.toolCalls.length} fallback tool call(s): ${fallback.toolCalls.map((c) => c.function.name).join(', ')}`)
+          } else {
+            effectiveContent = stripToolCodeBlocks(effectiveContent)
+          }
+        }
+
+        if (effectiveToolCalls.length > 0) {
+          const toolCalls = effectiveToolCalls
           setMessages((prev) =>
             prev.map((m) =>
               m.id === assistantMsgId
                 ? {
                     ...m,
-                    content: res.content || '',
+                    content: effectiveContent,
                     tool_calls: toolCalls,
                     isStreaming: true,
                     statusTool: { name: toolCalls[0]?.function.name || '' },
@@ -542,7 +516,16 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
             const branchArg = typeof parsedArgs.branch === 'string' && parsedArgs.branch.trim() ? parsedArgs.branch.trim() : undefined
             setMessages((prev) => prev.map((m) => (m.id === assistantMsgId ? { ...m, statusTool: { name: tc.function.name, branch: branchArg } } : m)))
 
+            const toolStartedAt = Date.now()
             const toolExec = await executeAgentTool(tc.function.name, parsedArgs, repo)
+            const rawResultStr = typeof toolExec.result === 'string' ? toolExec.result : JSON.stringify(toolExec.result ?? '')
+            toolExecutions.push({
+              name: tc.function.name,
+              args: parsedArgs,
+              ok: toolExec.ok,
+              outputPreview: rawResultStr.slice(0, 600),
+              durationMs: Date.now() - toolStartedAt,
+            })
 
             if (tc.function.name === 'sync_branch' && toolExec.ok) {
               const syncedBranch = typeof parsedArgs.branch === 'string' ? parsedArgs.branch : undefined
@@ -645,7 +628,7 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
             {
               id: assistantMsgId,
               role: 'assistant' as const,
-              content: res.content,
+              content: effectiveContent,
               tool_calls: toolCalls,
             },
             ...toolMessages,
@@ -663,55 +646,65 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
             taskId: activeTaskId,
             onDelta: (chunk) => {
               secondTurnDelta += chunk
-              setMessages((prev) => prev.map((m) => (m.id === secondTurnAssistantId ? { ...m, content: secondTurnDelta } : m)))
+              const visibleContent = stripToolCodeBlocks(secondTurnDelta)
+              setMessages((prev) => prev.map((m) => (m.id === secondTurnAssistantId ? { ...m, content: visibleContent } : m)))
             },
           })
+
+          const cleanedFinalContent = stripToolCodeBlocks(finalRes.content)
 
           if (activeTaskId) {
             await addStepToTask(activeTaskId, {
               type: 'llm_turn',
               title: 'Agent Response Synthesized',
-              detail: finalRes.content.slice(0, 160),
+              detail: cleanedFinalContent.slice(0, 160),
               tokenUsage: finalRes.usage,
             })
             await completeTask(activeTaskId, { tokenUsage: finalRes.usage })
           }
 
-          setMessages((prev) => prev.map((m) => (m.id === secondTurnAssistantId ? { ...m, content: finalRes.content, isStreaming: false } : m)))
-          setActiveResultSummary(finalRes.content.slice(0, 120))
+          const totalDurationMs = Date.now() - runStartedAt
+          const mergedUsage = finalRes.usage || res.usage
+          setMessages((prev) =>
+            prev.map((m) => (m.id === secondTurnAssistantId ? { ...m, content: cleanedFinalContent, isStreaming: false, durationMs: totalDurationMs, tokenUsage: mergedUsage } : m))
+          )
+          setActiveResultSummary(cleanedFinalContent.slice(0, 120))
+          recordAgentTrace({
+            ...traceBase,
+            durationMs: totalDurationMs,
+            status: 'success',
+            nativeToolCalls,
+            fallbackToolCalls,
+            toolExecutions,
+            rawTurnOneContent,
+            rawFinalContent: finalRes.content,
+            visibleContent: cleanedFinalContent,
+            tokenUsage: mergedUsage,
+          })
         } else {
           // No tools called, finalize message
+          const cleanedContent = stripToolCodeBlocks(effectiveContent)
+          const totalDurationMs = Date.now() - runStartedAt
           if (activeTaskId) {
             await completeTask(activeTaskId, { tokenUsage: res.usage })
           }
-          setMessages((prev) => prev.map((m) => (m.id === assistantMsgId ? { ...m, content: res.content, isStreaming: false } : m)))
-          setActiveResultSummary(res.content.slice(0, 120))
+          setMessages((prev) =>
+            prev.map((m) => (m.id === assistantMsgId ? { ...m, content: cleanedContent, isStreaming: false, durationMs: totalDurationMs, tokenUsage: res.usage } : m))
+          )
+          setActiveResultSummary(cleanedContent.slice(0, 120))
+          recordAgentTrace({
+            ...traceBase,
+            durationMs: totalDurationMs,
+            status: 'success',
+            nativeToolCalls,
+            fallbackToolCalls,
+            toolExecutions,
+            rawTurnOneContent,
+            visibleContent: cleanedContent,
+            tokenUsage: res.usage,
+          })
 
-          // Fallback UI navigation if model emitted text intending to navigate without structured tool calls
-          const contentLower = (res.content || '').toLowerCase()
-          const userLower = trimmed.toLowerCase()
-          let fallbackRoute: string | null = null
-
-          if (
-            userLower.includes('接入') ||
-            userLower.includes('新增模型') ||
-            userLower.includes('添加模型') ||
-            userLower.includes('配置模型') ||
-            contentLower.includes('settings_models_new')
-          ) {
-            const isChatGpt = userLower.includes('chatgpt') || contentLower.includes('chatgpt')
-            const isOpenAi = userLower.includes('openai') || contentLower.includes('openai')
-            fallbackRoute = isChatGpt ? '/settings/models/new?provider=chatgpt' : isOpenAi ? '/settings/models/new?provider=openai' : '/settings/models/new'
-          } else if (contentLower.includes('settings_models') || userLower.includes('模型设置') || userLower.includes('模型列表')) {
-            fallbackRoute = '/settings/models'
-          } else if (contentLower.includes('settings_privacy') || userLower.includes('隐私设置') || userLower.includes('脱敏设置')) {
-            fallbackRoute = '/settings/privacy'
-          } else if (contentLower.includes('settings_general') || userLower.includes('通用设置')) {
-            fallbackRoute = '/settings/general'
-          } else if (contentLower.includes('settings_menus') || userLower.includes('菜单设置')) {
-            fallbackRoute = '/settings/menus'
-          }
-
+          const fallbackRoute = resolveFallbackUiRoute(trimmed, res.content || '')
           if (fallbackRoute && typeof window !== 'undefined') {
             window.dispatchEvent(new CustomEvent('yggit:ui_navigate', { detail: { route: fallbackRoute } }))
             router?.push(fallbackRoute)
@@ -723,6 +716,17 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
           await failTask(activeTaskId, errorMsg)
         }
         logError('agent', `Agent task failed: ${errorMsg}`)
+        recordAgentTrace({
+          ...traceBase,
+          durationMs: Date.now() - runStartedAt,
+          status: 'error',
+          nativeToolCalls,
+          fallbackToolCalls,
+          toolExecutions,
+          rawTurnOneContent,
+          visibleContent: '',
+          error: errorMsg,
+        })
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantMsgId
@@ -739,7 +743,7 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
         setIsProcessing(false)
       }
     },
-    [config, activeProfileId, redactionOptions, spotlightCtx, modelFilter, router]
+    [config, activeProfileId, activeProfile?.name, redactionOptions, spotlightCtx, modelFilter, router]
   )
 
   const resolveRepoTarget = useCallback(
@@ -758,7 +762,7 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
   )
 
   const sendMessage = useCallback(
-    async (userText: string, repoPath?: string) => {
+    async (userText: string, repoPath?: string, options?: { quotedMessage?: AgentChatMessage['quotedMessage']; llmPrompt?: string }) => {
       const trimmed = userText.trim()
       if (!trimmed || isProcessing) return
 
@@ -768,6 +772,7 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
         id: userMsgId,
         role: 'user',
         content: trimmed,
+        ...(options?.quotedMessage ? { quotedMessage: options.quotedMessage } : {}),
         createdAt: Date.now(),
       }
 
@@ -783,7 +788,8 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
       const updatedHistory = [...messages, userMessage]
       setMessages([...updatedHistory, initialAssistantMessage])
       setIsProcessing(true)
-      await executeAgentTurn(updatedHistory, trimmed, assistantMsgId, repo)
+      const promptForLlm = options?.llmPrompt?.trim() || trimmed
+      await executeAgentTurn(updatedHistory, promptForLlm, assistantMsgId, repo)
     },
     [isProcessing, messages, resolveRepoTarget, executeAgentTurn]
   )

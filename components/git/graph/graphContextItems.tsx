@@ -28,7 +28,7 @@ export function buildWorktreeContextItems(params: {
     },
     {
       key: 'quote-wt',
-      label: t('git.operations.quoteWorktreeToAgent') || 'Quote Worktree to Git Agent',
+      label: t('git.operations.quoteWorktreeToAgent') || 'Quote Worktree to Yggi',
       icon: <LuBot className="size-4 shrink-0 text-accent" />,
       onSelect: () => quoteWorktreeToAgent(repo || '.', undefined, repo),
     },
@@ -71,7 +71,7 @@ export function buildStashContextItems(params: {
     },
     {
       key: 'quote-stash',
-      label: t('git.operations.quoteStashToAgent') || 'Quote Stash to Git Agent',
+      label: t('git.operations.quoteStashToAgent') || 'Quote Stash to Yggi',
       icon: <LuBot className="size-3.5 shrink-0 text-accent" aria-hidden />,
       onSelect: () => quoteStashToAgent(stash.name, stash.subject, repo),
     },

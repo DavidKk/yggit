@@ -70,22 +70,22 @@ export const GitAgentQuickCard = forwardRef<HTMLDivElement, GitAgentQuickCardPro
               <LuPanelRight className="size-4" />
             </button>
           </Tooltip>
-          <Tooltip content={t('gitAgent.minimizeToPill') || '收起为药丸'} placement="top">
+          <Tooltip content={t('gitAgent.minimizeToPill') || 'Minimize to pill'} placement="top">
             <button
               type="button"
               onClick={() => onCollapseCard('pill')}
               className="flex size-7 items-center justify-center rounded-md text-ink-soft hover:bg-[var(--overlay-08)] hover:text-ink active:scale-95 transition-all cursor-pointer"
-              aria-label={t('gitAgent.minimizeToPill') || '收起为药丸'}
+              aria-label={t('gitAgent.minimizeToPill') || 'Minimize to pill'}
             >
               <LuMinus className="size-4" />
             </button>
           </Tooltip>
-          <Tooltip content={t('common.close') || '关闭'} placement="top">
+          <Tooltip content={t('common.close') || 'Close'} placement="top">
             <button
               type="button"
               onClick={() => onCollapseCard('close')}
               className="flex size-7 items-center justify-center rounded-md text-ink-soft hover:bg-[var(--overlay-08)] hover:text-ink active:scale-95 transition-all cursor-pointer"
-              aria-label={t('common.close') || '关闭'}
+              aria-label={t('common.close') || 'Close'}
             >
               <LuX className="size-4" />
             </button>
@@ -100,7 +100,7 @@ export const GitAgentQuickCard = forwardRef<HTMLDivElement, GitAgentQuickCardPro
             <div className="flex flex-col gap-2 rounded-xl border border-fail/35 bg-fail/10 px-3 py-2.5">
               <div className="flex items-center gap-1.5 text-xs font-semibold text-fail">
                 <LuCircleAlert className="size-3.5 shrink-0" />
-                <span>{t('gitAgent.requestFailed') || '请求失败'}</span>
+                <span>{t('gitAgent.requestFailed') || 'Request failed'}</span>
               </div>
               <div className="text-xs leading-relaxed text-ink whitespace-pre-wrap break-words">{lastAssistantMessage.content}</div>
               {onRetry && (
@@ -112,7 +112,7 @@ export const GitAgentQuickCard = forwardRef<HTMLDivElement, GitAgentQuickCardPro
                     className="inline-flex items-center gap-1.5 rounded-md border border-fail/30 bg-panel px-2.5 py-1 text-[11px] font-medium text-ink hover:border-fail/60 hover:bg-fail/10 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <LuRotateCcw className="size-3 text-fail" />
-                    <span>{t('gitAgent.retry') || '重试'}</span>
+                    <span>{t('gitAgent.retry') || 'Retry'}</span>
                   </button>
                 </div>
               )}

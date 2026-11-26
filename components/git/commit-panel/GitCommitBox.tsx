@@ -24,6 +24,7 @@ export interface GitCommitBoxProps {
   commitDescRef: React.RefObject<HTMLTextAreaElement | null>
   handleCommitSubmit: () => void | Promise<void>
   handleAiCompose: () => void
+  aiComposing?: boolean
   isCommitting: boolean
   amendCommit: boolean
   setAmendCommit: (v: boolean) => void
@@ -54,6 +55,7 @@ export function GitCommitBox({
   commitDescRef,
   handleCommitSubmit,
   handleAiCompose,
+  aiComposing = false,
   isCommitting,
   amendCommit,
   setAmendCommit,
@@ -171,10 +173,11 @@ export function GitCommitBox({
                     <button
                       type="button"
                       tabIndex={-1}
+                      disabled={aiComposing}
                       onClick={handleAiCompose}
-                      className="flex size-5 cursor-pointer items-center justify-center rounded text-ink-soft hover:bg-accent/15 hover:text-accent transition-colors"
+                      className="flex size-5 cursor-pointer items-center justify-center rounded text-ink-soft hover:bg-accent/15 hover:text-accent transition-colors disabled:opacity-60 disabled:cursor-wait"
                     >
-                      <LuSparkles className="size-3" />
+                      {aiComposing ? <Spinner className="size-3 text-accent" /> : <LuSparkles className="size-3" />}
                     </button>
                   </Tooltip>
                 </div>

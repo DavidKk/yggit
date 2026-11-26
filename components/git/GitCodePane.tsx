@@ -207,7 +207,7 @@ export function GitCodePane({
           <div className="flex items-center gap-2 min-w-0">
             <LuBot className="size-4 shrink-0 text-violet-300" />
             <span className="truncate">
-              <strong className="font-semibold text-violet-200">{codeAnnotation.title || 'Git Agent 研发提示'}</strong>
+              <strong className="font-semibold text-violet-200">{codeAnnotation.title || 'Yggi 研发提示'}</strong>
               <span className="ml-1 text-violet-300">
                 (第 {codeAnnotation.startLine}
                 {codeAnnotation.endLine && codeAnnotation.endLine !== codeAnnotation.startLine ? ` - ${codeAnnotation.endLine}` : ''} 行)

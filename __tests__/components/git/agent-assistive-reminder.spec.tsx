@@ -11,6 +11,7 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true
 
 const mockDismiss = jest.fn()
 const mockAccept = jest.fn().mockResolvedValue(undefined)
+const mockQuote = jest.fn()
 const mockViewTask = jest.fn()
 
 let mockReminder: ProactiveReminder | null = {
@@ -27,6 +28,7 @@ let mockReminder: ProactiveReminder | null = {
   detailsUrl: '/workdesk/tasks/sync-default-branches',
   dismiss: mockDismiss,
   accept: mockAccept,
+  quote: mockQuote,
   viewTask: mockViewTask,
 }
 
@@ -43,6 +45,7 @@ jest.mock('@/components/i18n/LocaleProvider', () => ({
   useT: () => (key: string) => {
     if (key === 'gitAgent.proactiveBadge') return '工作台待办提醒'
     if (key === 'gitAgent.proactiveActionView') return '查看任务'
+    if (key === 'gitAgent.proactiveActionQuote') return '引用追问'
     if (key === 'gitAgent.proactiveDismiss') return '稍后再说'
     if (key === 'common.close') return '关闭'
     return key
@@ -70,6 +73,7 @@ describe('GitAgentAssistiveReminder', () => {
       detailsUrl: '/workdesk?card=sync-default-branches',
       dismiss: mockDismiss,
       accept: mockAccept,
+      quote: mockQuote,
       viewTask: mockViewTask,
     }
     host = document.createElement('div')
@@ -90,7 +94,7 @@ describe('GitAgentAssistiveReminder', () => {
         root.render(<GitAgentAssistiveReminder variant="floating" />)
       })
 
-      expect(host.textContent).toContain('Git Agent')
+      expect(host.textContent).toContain('Yggi')
       expect(host.textContent).toContain('默认分支 main 检测到远端有更新，是否需要 Agent 帮忙同步？')
       expect(host.textContent).toContain('帮忙同步')
       expect(host.textContent).toContain('查看任务')
@@ -142,6 +146,21 @@ describe('GitAgentAssistiveReminder', () => {
       expect(mockViewTask).toHaveBeenCalledTimes(1)
     })
 
+    it('clicking quote action calls quote', () => {
+      act(() => {
+        root.render(<GitAgentAssistiveReminder variant="floating" />)
+      })
+
+      const buttons = Array.from(host.querySelectorAll('button'))
+      const quoteBtn = buttons.find((b) => b.textContent?.includes('引用追问'))
+      expect(quoteBtn).toBeDefined()
+
+      act(() => {
+        quoteBtn?.click()
+      })
+      expect(mockQuote).toHaveBeenCalledTimes(1)
+    })
+
     it('clicking dismiss or close button calls dismiss', () => {
       act(() => {
         root.render(<GitAgentAssistiveReminder variant="floating" />)
@@ -175,6 +194,13 @@ describe('GitAgentAssistiveReminder', () => {
       expect(host.textContent).toContain('工作台待办提醒')
       expect(host.textContent).toContain('默认分支 main 检测到远端有更新，是否需要 Agent 帮忙同步？')
       expect(host.textContent).toContain('帮忙同步')
+      expect(host.textContent).toContain('引用追问')
+
+      const quoteBtn = Array.from(host.querySelectorAll('button')).find((b) => b.textContent?.includes('引用追问'))
+      act(() => {
+        quoteBtn?.click()
+      })
+      expect(mockQuote).toHaveBeenCalledTimes(1)
     })
 
     it('returns null when reminder is null', () => {

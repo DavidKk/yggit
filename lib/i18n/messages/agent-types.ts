@@ -220,6 +220,7 @@ export type GitAgentMessages = {
   proactiveActionHygiene?: string
   proactiveActionAssist?: string
   proactiveActionView?: string
+  proactiveActionQuote?: string
   proactiveDismiss?: string
   endpointDesc?: string
   endpointQuickFill?: string
@@ -289,4 +290,110 @@ export type GitAgentMessages = {
   sidebarQuickSettings?: string
   sidebarActiveChannel?: string
   sidebarOpenFullSettings?: string
+  wakeYggi?: string
+  collapseYggi?: string
+  copy?: string
+  copied?: string
+  quoteReply?: string
+  tokenUsageLabel?: string
+  jumpToOriginalMessage?: string
+  viewDiagnosticsLog?: string
+  tabAbout?: string
+  aboutDesc?: string
+  aboutSubtitle?: string
+  aboutCoreTitle?: string
+  aboutCapGitTitle?: string
+  aboutCapGitDesc?: string
+  aboutCapWorkdeskTitle?: string
+  aboutCapWorkdeskDesc?: string
+  aboutCapAgentTitle?: string
+  aboutCapAgentDesc?: string
+  aboutCapExtTitle?: string
+  aboutCapExtDesc?: string
+  aboutCapDriverTitle?: string
+  aboutCapDriverDesc?: string
+  aboutPrivacyTitle?: string
+  aboutPrivacyHeadline?: string
+  aboutPrivacyDesc?: string
+  aboutPrivacyMasking?: string
+  aboutStatusEnabled?: string
+  aboutStatusDisabled?: string
+  aboutDiagnosticsTitle?: string
+  aboutOpenLogs?: string
+  aboutOpenAgentLogs?: string
+  aboutBuiltWith?: string
+  devLogsTabLogs?: string
+  devLogsTabLogsDesc?: string
+  devLogsTabAgent?: string
+  devLogsTabAgentDesc?: string
+  devLogsSearchPlaceholder?: string
+  devLogsSearchAgentPlaceholder?: string
+  devLogsAllLevels?: string
+  devLogsAllModules?: string
+  devLogsAllStatus?: string
+  devLogsStatusSuccess?: string
+  devLogsStatusError?: string
+  devLogsRefresh?: string
+  devLogsCopyReport?: string
+  devLogsExport?: string
+  devLogsClear?: string
+  devLogsEmptyTitle?: string
+  devLogsEmptyMsg?: string
+  devLogsAgentEmptyTitle?: string
+  devLogsAgentEmptyMsg?: string
+  devLogsShowingCount?: string
+  devLogsColTime?: string
+  devLogsColLevel?: string
+  devLogsColSource?: string
+  devLogsColMessage?: string
+  devLogsColStatus?: string
+  devLogsColChannelModel?: string
+  devLogsColPromptContext?: string
+  devLogsCopiedReport?: string
+  devLogsCleared?: string
+  devLogsCopiedJson?: string
+  devLogsAgentCleared?: string
+  capBranchesTitle?: string
+  capBranchesDesc?: string
+  capBranchesPrompt?: string
+  capStatusTitle?: string
+  capStatusDesc?: string
+  capStatusPrompt?: string
+  capSearchTitle?: string
+  capSearchDesc?: string
+  capSearchPrompt?: string
+  capDetailsTitle?: string
+  capDetailsDesc?: string
+  capDetailsPrompt?: string
+  skillsSectionDesc?: string
+  skillsCardDesc?: string
+  skillsAddBtn?: string
+  skillsEmptyTitle?: string
+  skillsEmptyDesc?: string
+  skillsBadgeBuiltin?: string
+  skillsBadgeLocal?: string
+  skillsToggleDisable?: string
+  skillsToggleEnable?: string
+  mcpSectionDesc?: string
+  mcpCardDesc?: string
+  mcpCardTooltip?: string
+  mcpEmptyTitle?: string
+  mcpEmptyDesc?: string
+  mcpStatusConnected?: string
+  mcpStatusError?: string
+  mcpStatusDisconnected?: string
+  mcpToolsCount?: string
+  mcpAuthLabel?: string
+  mcpAuthNone?: string
+  mcpToggleDisable?: string
+  mcpToggleEnable?: string
+  mcpManageTooltip?: string
+  generalSectionDesc?: string
+  modelBlacklistBadge?: string
+  modelWhitelistBadge?: string
+  modelEndpointLabel?: string
+  channelNamePlaceholder?: string
+  modelsEndpointPlaceholder?: string
+  modelSelectNeedKeyPlaceholder?: string
+  modelSelectPlaceholder?: string
 }

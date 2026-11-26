@@ -1,7 +1,8 @@
 'use client'
 
 import React from 'react'
-import { LuBot } from 'react-icons/lu'
+
+import { AgentFairyIcon } from './AgentFairyIcon'
 
 export interface GitAgentBarGhostsProps {
   vanishGhost: { x: number; y: number } | null
@@ -171,7 +172,7 @@ export function GitAgentBarGhosts({ vanishGhost, reappearGhost }: GitAgentBarGho
             }}
             className="flex size-7 shrink-0 items-center justify-center rounded-full text-accent"
           >
-            <LuBot className="size-4" />
+            <AgentFairyIcon className="size-5" />
           </div>
         </div>
       )}
@@ -196,7 +197,7 @@ export function GitAgentBarGhosts({ vanishGhost, reappearGhost }: GitAgentBarGho
             }}
             className="flex size-7 shrink-0 items-center justify-center rounded-full text-accent"
           >
-            <LuBot className="size-4" />
+            <AgentFairyIcon className="size-5" />
           </div>
         </div>
       )}

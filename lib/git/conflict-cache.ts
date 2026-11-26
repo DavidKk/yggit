@@ -69,6 +69,8 @@ export async function getConflictFromCache(repo: string, hash: string): Promise<
   return new Promise((resolve) => {
     try {
       const tx = db.transaction(STORE_NAME, 'readonly')
+      tx.onabort = () => resolve(null)
+      tx.onerror = () => resolve(null)
       const store = tx.objectStore(STORE_NAME)
       const req = store.get(key)
       req.onsuccess = () => {
@@ -97,6 +99,8 @@ export async function saveConflictToCache(repo: string, record: MergeConflictRec
   return new Promise((resolve) => {
     try {
       const tx = db.transaction(STORE_NAME, 'readwrite')
+      tx.onabort = () => resolve()
+      tx.onerror = () => resolve()
       const store = tx.objectStore(STORE_NAME)
       const req = store.put({ key, record, updatedAt: Date.now() })
       req.onsuccess = () => resolve()
@@ -128,6 +132,8 @@ export async function getCachedConflictsBatch(repo: string, hashes: string[]): P
   await new Promise<void>((resolve) => {
     try {
       const tx = db.transaction(STORE_NAME, 'readonly')
+      tx.onabort = () => resolve()
+      tx.onerror = () => resolve()
       const store = tx.objectStore(STORE_NAME)
       let completed = 0
 

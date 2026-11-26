@@ -46,14 +46,17 @@ export function SkillsSettingsSection() {
         title={
           <div className="flex items-center gap-2">
             <LuSparkles className="size-4 text-accent" />
-            <span>Agent 技能库 (Custom Skills)</span>
+            <span>{t('gitAgent.tabSkills') || 'Agent Skills (Custom Skills)'}</span>
           </div>
         }
-        description="管理 Agent 专业知识、工作流程规范与外部指导准则。遵循 Agent Skills 开放标准 (SKILL.md)。点击技能项查看与配置详情。"
+        description={
+          t('gitAgent.skillsCardDesc') ||
+          'Manage Agent domain knowledge, workflow specifications, and external guidelines following the Agent Skills standard (SKILL.md). Click an item to configure.'
+        }
         titleAction={
           <Button variant="accent" size="sm" onClick={() => router.push('/settings/skills/new')}>
             <LuPlus className="size-3.5 mr-1" />
-            <span>添加</span>
+            <span>{t('gitAgent.skillsAddBtn') || 'Add'}</span>
           </Button>
         }
       >
@@ -61,8 +64,8 @@ export function SkillsSettingsSection() {
           {skills.length === 0 && !loading && (
             <div className="flex flex-col items-center justify-center p-8 text-center border border-dashed border-line rounded-lg bg-paper-2">
               <LuBookOpen className="size-8 text-ink-soft/40 mb-2" />
-              <div className="text-xs font-semibold text-ink">暂未安装自定义 Skill</div>
-              <p className="text-[11px] text-ink-soft max-w-sm mt-1">您可以从本地导入 SKILL.md 或关联 GitHub 仓库中的 Skill 知识库。</p>
+              <div className="text-xs font-semibold text-ink">{t('gitAgent.skillsEmptyTitle') || 'No custom skills installed'}</div>
+              <p className="text-[11px] text-ink-soft max-w-sm mt-1">{t('gitAgent.skillsEmptyDesc') || 'Import a local SKILL.md or link a Skill repository from GitHub.'}</p>
             </div>
           )}
 
@@ -80,11 +83,11 @@ export function SkillsSettingsSection() {
                   <Link
                     href={`/settings/skills/${encodeURIComponent(s.id)}`}
                     className="min-w-0 flex-1 flex items-center gap-2 group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-sm"
-                    aria-label={`查看或配置 ${s.name}`}
+                    aria-label={s.name}
                   >
                     <span className="text-xs font-bold text-ink group-hover:text-accent transition-colors truncate">{s.name}</span>
                     <Badge tone={isBuiltin ? 'info' : s.source.type === 'github' ? 'accent' : 'neutral'} size="mini">
-                      {isBuiltin ? '内置' : s.source.type === 'github' ? 'GitHub' : '本地'}
+                      {isBuiltin ? t('gitAgent.skillsBadgeBuiltin') || 'Built-in' : s.source.type === 'github' ? 'GitHub' : t('gitAgent.skillsBadgeLocal') || 'Local'}
                     </Badge>
                   </Link>
 
@@ -92,8 +95,8 @@ export function SkillsSettingsSection() {
                     checked={s.enabled}
                     onCheckedChange={() => void handleToggle(s.id, s.enabled)}
                     size="sm"
-                    tooltip={s.enabled ? '停用此技能' : '启用此技能'}
-                    aria-label={`启用或停用 ${s.name}`}
+                    tooltip={s.enabled ? t('gitAgent.skillsToggleDisable') || 'Disable skill' : t('gitAgent.skillsToggleEnable') || 'Enable skill'}
+                    aria-label={s.name}
                   />
                 </div>
                 {s.description && <p className="text-xs text-ink-soft line-clamp-2 leading-relaxed">{s.description}</p>}

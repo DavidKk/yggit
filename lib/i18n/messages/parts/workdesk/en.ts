@@ -40,7 +40,7 @@ export const workdeskEn: { workdesk: WorkdeskMessages } = {
     },
     organization: {
       bannerTitle: 'Smart Project Categorization & Taxonomy',
-      bannerDesc: 'Let Git Agent analyze project paths and remotes to propose structured folders',
+      bannerDesc: 'Let Yggi analyze project paths and remotes to propose structured folders',
       bannerAction: 'Plan Folders with Agent',
       prompt: 'Please analyze the bloated project group and propose a smart organization plan',
     },
@@ -67,7 +67,7 @@ export const workdeskEn: { workdesk: WorkdeskMessages } = {
       refresh: 'Refresh',
       importRecipe: 'Import check recipe',
       exportRecipe: 'Export check recipe',
-      sendToAgent: 'Quote in Git Agent',
+      sendToAgent: 'Quote in Yggi',
     },
     evidence: {
       title: 'Related Git evidence (click to navigate)',
@@ -80,8 +80,8 @@ export const workdeskEn: { workdesk: WorkdeskMessages } = {
       aheadBehind: '{ahead} ahead / {behind} behind',
     },
     agent: {
-      prompt: 'Ask Git Agent below for assistance',
-      badge: 'Git Agent',
+      prompt: 'Ask Yggi below for assistance',
+      badge: 'Yggi',
       syncPlanConfirm: 'Fast-forward plan prepared. Please review the repositories to be updated.',
     },
     detail: {
@@ -96,8 +96,8 @@ export const workdeskEn: { workdesk: WorkdeskMessages } = {
       suggestionTitle: 'Suggested Action',
       solutionTitle: 'Resolution Plan',
       closeTaskSet: 'Collapse Task Set',
-      agentAssistTitle: 'Assist with Git Agent',
-      agentAssistDesc: 'Bring diagnostic results and branch context into Git Agent for automated handling',
+      agentAssistTitle: 'Assist with Yggi',
+      agentAssistDesc: 'Bring diagnostic results and branch context into Yggi for automated handling',
       diagnosisDesc: 'Automated diagnostic analysis based on local and remote branch state',
       evidenceDesc: 'Click to navigate directly to commit history or file diffs',
       openRepo: 'Open Repo',

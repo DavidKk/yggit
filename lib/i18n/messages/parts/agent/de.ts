@@ -6,7 +6,7 @@ export const gitAgentDe: { gitAgent: GitAgentMessages } = {
   gitAgent: {
     ...gitAgentEn.gitAgent,
     barDragHint: 'Zum Verschieben ziehen',
-    barPlaceholder: 'Git Agent fragen (z. B. heutige Merges / Branch-Verschmutzung)...',
+    barPlaceholder: 'Yggi fragen (z. B. heutige Merges / Branch-Verschmutzung)...',
     settingsTitle: 'Einstellungen',
     tabModels: 'Modellanbieter',
     tabPrivacy: 'Datenschutz & Maskierung',
@@ -15,7 +15,9 @@ export const gitAgentDe: { gitAgent: GitAgentMessages } = {
     testConnection: 'Verbindung testen',
     testSuccess: 'Verbindung erfolgreich',
     testFailed: 'Verbindung fehlgeschlagen',
-    dockTitle: 'Yggit · Agent',
+    dockTitle: 'Yggi',
     deepDiscussion: 'Andocken zum Diskutieren',
+    welcomeTitle: 'Willkommen bei Yggi',
+    welcomeDesc: 'Fragen Sie nach Branch-Statistiken, Merge-Prüfungen, Commit-Logs oder Repository-Diagnosen.',
   },
 }

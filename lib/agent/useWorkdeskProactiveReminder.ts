@@ -30,6 +30,7 @@ export interface ProactiveReminder {
   detailsUrl: string
   dismiss: () => void
   accept: () => Promise<void>
+  quote: () => void
   viewTask: () => void
 }
 
@@ -377,6 +378,21 @@ export function useWorkdeskProactiveReminder(projects?: GitProjectView[]) {
       await sendMessage(agentPrompt, activeRepo)
     }
 
+    const handleQuote = () => {
+      handleDismiss()
+      quoteWorkdeskTaskToAgent({
+        title: targetItem.name,
+        prompt: agentPrompt,
+        repoAlias: targetItem.repoAlias,
+        repoId: targetItem.repoId,
+        branch: targetItem.name,
+        summary: targetItem.summary,
+        taskId: targetItem.cardId,
+        itemId: targetItem.id,
+        target: 'auto',
+      })
+    }
+
     const handleViewTask = () => {
       handleDismiss()
       if (router?.push) {
@@ -398,6 +414,7 @@ export function useWorkdeskProactiveReminder(projects?: GitProjectView[]) {
       detailsUrl,
       dismiss: handleDismiss,
       accept: handleAccept,
+      quote: handleQuote,
       viewTask: handleViewTask,
     }
   }, [candidateItem, activeRepo, handledCount, isTest, t, setDockMode, sendMessage, router])

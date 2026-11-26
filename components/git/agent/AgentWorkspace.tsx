@@ -1,43 +1,38 @@
 'use client'
 
-import { Popover } from '@base-ui/react/popover'
 import Link from 'next/link'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  LuArrowUpRight,
   LuBot,
   LuCheck,
   LuCircleAlert,
   LuClock,
   LuCopy,
+  LuCpu,
   LuFileText,
   LuFolderGit2,
   LuGitBranch,
-  LuGitMerge,
-  LuGitPullRequest,
+  LuReply,
   LuRotateCcw,
   LuSearch,
   LuSend,
-  LuSettings,
   LuShieldAlert,
-  LuSparkles,
   LuTrash2,
-  LuUser,
   LuX,
 } from 'react-icons/lu'
 
 import { PanelSplitter } from '@/components/git/PanelSplitter'
 import { useT } from '@/components/i18n/LocaleProvider'
-import { Button, Spinner, SwitchToggle, Tooltip } from '@/components/sk'
-import { dropdownPopupClass } from '@/components/sk/dropdownMenu'
+import { Button, Spinner, Tooltip } from '@/components/sk'
 import { useAgent } from '@/lib/agent/agent-context'
 import type { AgentOpenEventDetail, AgentReference } from '@/lib/agent/agent-quote'
 import { isModelAllowed } from '@/lib/agent/model-filter'
 import { getAgentProcessingStatus, getToolExecutionStatus } from '@/lib/agent/status-helper'
 import { copyToClipboard } from '@/lib/clipboard'
-import { saveLastGitUrl } from '@/lib/git/last-git-url'
 import { cn } from '@/lib/utils'
 
+import { AgentFairyIcon } from './AgentFairyIcon'
+import { AgentQuickModelPopover } from './AgentQuickModelPopover'
 import { GitAgentAssistiveReminder } from './GitAgentAssistiveReminder'
 
 interface Props {
@@ -47,71 +42,18 @@ interface Props {
 
 interface AgentCapability {
   id: string
-  category: string
   title: string
   description: string
   prompt: string
   icon: React.ComponentType<{ className?: string }>
 }
 
-const CAPABILITIES: AgentCapability[] = [
-  {
-    id: 'branches',
-    category: '分支与状态',
-    title: '分支统计与清单',
-    description: '统计仓库分支总数，列出本地分支与远程分支',
-    prompt: '当前分支有多少个？请统计分支数量，并列出本地与远程分支。',
-    icon: LuGitBranch,
-  },
-  {
-    id: 'status',
-    category: '分支与状态',
-    title: '当前 HEAD 与工作区',
-    description: '查看当前检出分支、最新一次提交与工作区状态',
-    prompt: '当前在哪个分支？最新的一次 Commit 是什么？',
-    icon: LuFolderGit2,
-  },
-  {
-    id: 'unmerged',
-    category: '合入与诊断',
-    title: '未合并分支排查',
-    description: '查看当前仓库还有哪些分支未合并到 master/main 主干',
-    prompt: '帮我看看当前还有多少个分支还没合并到 MASTER？',
-    icon: LuGitPullRequest,
-  },
-  {
-    id: 'containment',
-    category: '合入与诊断',
-    title: '分支合入与污染检测',
-    description: '验证当前分支或特性分支是否已合入目标主干',
-    prompt: '验证当前分支有没有合入 master 分支，是否存在未合入或污染提交？',
-    icon: LuGitMerge,
-  },
-  {
-    id: 'merges',
-    category: '合入与诊断',
-    title: '今日/近期 Merge 清单',
-    description: '检索今日或近期合并的提交详情与改动说明',
-    prompt: '查询今日的所有 Merge 提交记录与改动说明',
-    icon: LuClock,
-  },
-  {
-    id: 'search',
-    category: '检索与审计',
-    title: '按作者/关键字搜提交',
-    description: '按关键字、作者或时间范围筛选定位相关提交',
-    prompt: '搜索最近 3 天内的提交记录，按时间排序',
-    icon: LuSearch,
-  },
-  {
-    id: 'details',
-    category: '检索与审计',
-    title: '提交详情与文件变动',
-    description: '查看指定 Commit 修改的文件清单与改动统计',
-    prompt: '查看最新提交修改了哪些文件与差异统计',
-    icon: LuFileText,
-  },
-]
+const CAPABILITY_ICONS = {
+  branches: LuGitBranch,
+  status: LuFolderGit2,
+  search: LuSearch,
+  details: LuFileText,
+} as const
 
 const SIDEBAR_WIDTH_STORAGE_KEY = 'yggit.agent.sidebar-width'
 const DEFAULT_SIDEBAR_WIDTH = 440
@@ -125,28 +67,45 @@ function clampSidebarWidth(width: number): number {
 
 export function AgentWorkspace({ repoPath, className }: Props) {
   const t = useT()
-  const {
-    dockMode,
-    setDockMode,
-    messages,
-    sendMessage,
-    retryMessage,
-    clearMessages,
-    isProcessing,
-    activeRepo,
-    config,
-    modelFilter,
-    profiles,
-    activeProfileId,
-    selectProfile,
-    redactionOptions,
-    setRedactionOptions,
-  } = useAgent()
-  const [settingsOpen, setSettingsOpen] = useState(false)
+  const { dockMode, setDockMode, messages, sendMessage, retryMessage, clearMessages, isProcessing, activeRepo, config, modelFilter } = useAgent()
 
   const [input, setInput] = useState('')
   const [reference, setReference] = useState<AgentReference | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
+  const capabilities: AgentCapability[] = useMemo(
+    () => [
+      {
+        id: 'branches',
+        title: t('gitAgent.capBranchesTitle') || 'Branch Stats & List',
+        description: t('gitAgent.capBranchesDesc') || 'Count total branches and list local and remote branches',
+        prompt: t('gitAgent.capBranchesPrompt') || 'How many branches are there? Count them and list local and remote branches.',
+        icon: CAPABILITY_ICONS.branches,
+      },
+      {
+        id: 'status',
+        title: t('gitAgent.capStatusTitle') || 'Current HEAD & Workspace',
+        description: t('gitAgent.capStatusDesc') || 'Check the checked-out branch, latest commit, and working tree status',
+        prompt: t('gitAgent.capStatusPrompt') || 'Which branch am I on, and what is the latest commit?',
+        icon: CAPABILITY_ICONS.status,
+      },
+      {
+        id: 'search',
+        title: t('gitAgent.capSearchTitle') || 'Search Commits by Author/Keyword',
+        description: t('gitAgent.capSearchDesc') || 'Filter and locate commits by keyword, author, or time range',
+        prompt: t('gitAgent.capSearchPrompt') || 'Search commits from the last 3 days, sorted by time',
+        icon: CAPABILITY_ICONS.search,
+      },
+      {
+        id: 'details',
+        title: t('gitAgent.capDetailsTitle') || 'Commit Details & File Changes',
+        description: t('gitAgent.capDetailsDesc') || 'View changed files and diff stats for a specific commit',
+        prompt: t('gitAgent.capDetailsPrompt') || 'Show changed files and diff stats for the latest commit',
+        icon: CAPABILITY_ICONS.details,
+      },
+    ],
+    [t]
+  )
+
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH)
   const [isResizing, setIsResizing] = useState(false)
   const sidebarWidthRef = useRef(sidebarWidth)
@@ -212,9 +171,21 @@ export function AgentWorkspace({ repoPath, className }: Props) {
     if ((!trimmed && !reference) || isProcessing || isModelBlocked) return
 
     let finalPrompt = trimmed
+    let llmPrompt: string | undefined
+    let quotedMessage: { id: string; role: 'user' | 'assistant'; content: string } | undefined
+
     if (reference) {
-      if (trimmed) {
-        finalPrompt = `${reference.prompt || reference.title}\n\n用户附加提问: ${trimmed}`
+      if (reference.kind === 'reply' && typeof reference.quotedMessageId === 'string') {
+        const quotedContent = String(reference.summary || reference.title || '')
+        quotedMessage = {
+          id: reference.quotedMessageId,
+          role: reference.quotedRole === 'user' ? 'user' : 'assistant',
+          content: quotedContent,
+        }
+        finalPrompt = trimmed || quotedContent
+        llmPrompt = trimmed ? `Quoted message:\n> ${quotedContent.slice(0, 300)}\n\nFollow-up: ${trimmed}` : quotedContent
+      } else if (trimmed) {
+        finalPrompt = `${reference.prompt || reference.title}\n\nFollow-up question: ${trimmed}`
       } else {
         finalPrompt = reference.prompt || reference.title
       }
@@ -222,7 +193,7 @@ export function AgentWorkspace({ repoPath, className }: Props) {
 
     setInput('')
     setReference(null)
-    await sendMessage(finalPrompt, effectiveRepo)
+    await sendMessage(finalPrompt, effectiveRepo, quotedMessage ? { quotedMessage, llmPrompt } : undefined)
   }
 
   const handleCopy = (id: string, text: string) => {
@@ -245,7 +216,7 @@ export function AgentWorkspace({ repoPath, className }: Props) {
     <>
       {!isCollapsed && (
         <PanelSplitter
-          label={t('gitAgent.resizeSidebar') || '调整 Agent 侧栏宽度'}
+          label={t('gitAgent.resizeSidebar') || 'Resize Yggi sidebar'}
           value={sidebarWidth}
           min={MIN_SIDEBAR_WIDTH}
           max={MAX_SIDEBAR_WIDTH}
@@ -281,9 +252,6 @@ export function AgentWorkspace({ repoPath, className }: Props) {
           {/* Workspace Header - h-10 to match File Panel (GitCommitPanel) header height */}
           <div className="flex h-10 shrink-0 items-center justify-between border-b border-line px-2.5 bg-panel-2/70 select-none">
             <div className="flex items-center gap-1.5 min-w-0">
-              <div className="flex size-5 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent">
-                <LuSparkles className="size-3" />
-              </div>
               <span className="text-xs font-semibold text-ink truncate">{t('gitAgent.dockTitle')}</span>
               {effectiveRepo ? (
                 <span className="text-[11px] text-ink-soft truncate max-w-[140px]" title={effectiveRepo}>
@@ -311,85 +279,16 @@ export function AgentWorkspace({ repoPath, className }: Props) {
                 </button>
               </Tooltip>
 
-              {/* Quick Settings Popover */}
-              <Popover.Root open={settingsOpen} onOpenChange={setSettingsOpen}>
-                <Tooltip content={t('gitAgent.sidebarQuickSettings') || t('gitAgent.settingsTitle')} placement="bottom">
-                  <Popover.Trigger
-                    className={cn(
-                      'flex size-6 items-center justify-center rounded text-ink-soft hover:bg-[var(--overlay-06)] hover:text-ink active:scale-95 transition-all cursor-pointer',
-                      settingsOpen && 'bg-[var(--overlay-08)] text-ink'
-                    )}
-                    aria-label={t('gitAgent.sidebarQuickSettings') || t('gitAgent.settingsTitle')}
-                  >
-                    <LuSettings className="size-3.5" />
-                  </Popover.Trigger>
-                </Tooltip>
-                <Popover.Portal>
-                  <Popover.Positioner side="bottom" align="end" sideOffset={6} className="z-50">
-                    <Popover.Popup className={cn(dropdownPopupClass, 'w-64 p-2.5 flex flex-col gap-2.5')}>
-                      <div className="flex flex-col gap-1">
-                        <span className="px-1 text-[11px] font-semibold text-ink-soft">{t('gitAgent.sidebarActiveChannel') || '当前模型渠道'}</span>
-                        <div className="flex max-h-48 flex-col gap-0.5 overflow-y-auto">
-                          {profiles
-                            .filter((p) => p.enabled !== false)
-                            .map((profile) => {
-                              const isActive = profile.id === activeProfileId
-                              return (
-                                <button
-                                  key={profile.id}
-                                  type="button"
-                                  onClick={() => {
-                                    selectProfile(profile.id)
-                                    setSettingsOpen(false)
-                                  }}
-                                  className={cn(
-                                    'flex items-center justify-between gap-2 rounded px-2 py-1.5 text-left text-xs transition-colors cursor-pointer',
-                                    isActive ? 'bg-accent/12 text-accent font-medium' : 'text-ink hover:bg-[var(--overlay-06)]'
-                                  )}
-                                >
-                                  <span className="min-w-0 truncate">{profile.name || profile.config.model}</span>
-                                  {isActive && <LuCheck className="size-3.5 shrink-0 text-accent" aria-hidden="true" />}
-                                </button>
-                              )
-                            })}
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between gap-2 border-t border-line pt-2 px-1">
-                        <span className="text-xs text-ink">{t('gitAgent.privacyRedactTitle') || '客户端自动脱敏'}</span>
-                        <SwitchToggle
-                          size="sm"
-                          checked={redactionOptions.enabled}
-                          aria-label={t('gitAgent.privacyRedactTitle') || '客户端自动脱敏'}
-                          onCheckedChange={(enabled) => setRedactionOptions({ ...redactionOptions, enabled })}
-                        />
-                      </div>
-
-                      <Link
-                        href="/settings/models"
-                        onClick={() => {
-                          setSettingsOpen(false)
-                          if (typeof window !== 'undefined' && window.location.pathname.startsWith('/git')) {
-                            saveLastGitUrl(window.location.pathname + window.location.search)
-                          }
-                        }}
-                        className="flex items-center justify-between rounded border-t border-line pt-2 px-1 text-xs font-medium text-accent hover:underline"
-                      >
-                        <span>{t('gitAgent.sidebarOpenFullSettings') || '前往模型与接入设置'}</span>
-                        <LuArrowUpRight className="size-3.5 shrink-0" aria-hidden="true" />
-                      </Link>
-                    </Popover.Popup>
-                  </Popover.Positioner>
-                </Popover.Portal>
-              </Popover.Root>
+              {/* Quick Model & Channel Popover */}
+              <AgentQuickModelPopover side="bottom" className="size-6 rounded hover:bg-[var(--overlay-06)] hover:text-ink" />
 
               {/* Close Dock */}
-              <Tooltip content={t('common.close') || '关闭'} placement="bottom">
+              <Tooltip content={t('common.close') || 'Close'} placement="bottom">
                 <button
                   type="button"
                   onClick={() => setDockMode('collapsed')}
                   className="flex size-6 items-center justify-center rounded text-ink-soft hover:bg-[var(--overlay-06)] hover:text-ink active:scale-95 transition-all cursor-pointer"
-                  aria-label={t('common.close') || '关闭'}
+                  aria-label={t('common.close') || 'Close'}
                 >
                   <LuX className="size-3.5" />
                 </button>
@@ -398,14 +297,12 @@ export function AgentWorkspace({ repoPath, className }: Props) {
           </div>
 
           {/* Message List */}
-          <div className="flex-1 overflow-y-auto p-3 space-y-3">
+          <div className="flex-1 overflow-y-auto p-3 space-y-3 select-text">
             <GitAgentAssistiveReminder variant="embedded" />
 
             {messages.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center gap-3 text-center px-2 py-6">
-                <div className="flex size-10 items-center justify-center rounded-2xl bg-accent/15 text-accent shadow-xs">
-                  <LuBot className="size-5" />
-                </div>
+                <AgentFairyIcon className="size-10" active={isProcessing} />
                 <div className="space-y-1 max-w-sm">
                   <p className="text-xs font-semibold text-ink">{t('gitAgent.welcomeTitle')}</p>
                   <p className="text-[11px] text-ink-soft leading-relaxed">{t('gitAgent.welcomeDesc')}</p>
@@ -413,7 +310,7 @@ export function AgentWorkspace({ repoPath, className }: Props) {
 
                 {/* Quick Cards Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-md mt-2">
-                  {CAPABILITIES.map((cap) => {
+                  {capabilities.map((cap) => {
                     const Icon = cap.icon
                     return (
                       <button
@@ -448,42 +345,54 @@ export function AgentWorkspace({ repoPath, className }: Props) {
 
                 const isError = !isUser && Boolean(m.isError)
 
-                return (
-                  <div key={m.id} className={cn('flex flex-col gap-1', isUser ? 'items-end' : 'items-start')}>
-                    <div className="flex items-center gap-1.5 text-[10px] text-ink-soft px-1">
-                      {isUser ? (
-                        <>
-                          <span>You</span>
-                          <LuUser className="size-3" />
-                        </>
-                      ) : (
-                        <>
-                          <LuBot className={cn('size-3', isError ? 'text-fail' : 'text-accent')} />
-                          <span className="font-medium text-ink">Git Agent</span>
-                        </>
-                      )}
-                    </div>
+                const timeLabel = m.createdAt ? new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : ''
+                const durationLabel = typeof m.durationMs === 'number' ? (m.durationMs >= 1000 ? `${(m.durationMs / 1000).toFixed(1)}s` : `${m.durationMs}ms`) : ''
+                const totalTokens =
+                  m.tokenUsage?.totalTokens ??
+                  (typeof m.tokenUsage?.promptTokens === 'number' || typeof m.tokenUsage?.completionTokens === 'number'
+                    ? (m.tokenUsage?.promptTokens || 0) + (m.tokenUsage?.completionTokens || 0)
+                    : undefined)
 
+                return (
+                  <div key={m.id} id={`agent-msg-${m.id}`} className={cn('group flex flex-col gap-1', isUser ? 'items-end' : 'items-start')}>
+                    {isUser && m.quotedMessage && (
+                      <div className="flex max-w-[85%] flex-col items-end">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            document.getElementById(`agent-msg-${m.quotedMessage?.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                          }}
+                          className="rounded-xl border border-line/80 bg-panel-2/85 px-3 py-1.5 text-left text-[11px] leading-relaxed text-ink-soft hover:border-accent/50 hover:text-ink transition-colors cursor-pointer shadow-2xs"
+                          title={t('gitAgent.jumpToOriginalMessage') || 'Jump to original message'}
+                        >
+                          <div className="line-clamp-2 whitespace-pre-wrap">{m.quotedMessage.content}</div>
+                        </button>
+                        <svg width="24" height="14" viewBox="0 0 24 14" fill="none" aria-hidden="true" className="mr-3 text-accent/65 shrink-0">
+                          <path d="M4 1 C14 1, 18 4, 18 11" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                          <path d="M14.5 8.5 L18 12 L21.5 8.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </div>
+                    )}
                     <div
                       className={cn(
-                        'group relative max-w-[90%] rounded-2xl px-3.5 py-2 text-xs leading-relaxed select-text shadow-xs break-words',
+                        'relative max-w-[90%] rounded-2xl px-3.5 py-2 text-xs leading-relaxed select-text shadow-xs break-words',
                         isUser
-                          ? 'bg-accent text-white rounded-tr-xs'
+                          ? 'bg-accent text-white rounded-tr-xs selection:bg-black/30 selection:text-white'
                           : isError
                             ? 'border border-fail/35 bg-fail/10 text-ink rounded-tl-xs'
                             : 'bg-panel-2 border border-line text-ink rounded-tl-xs'
                       )}
                     >
                       {isUser ? (
-                        <div className="whitespace-pre-wrap">{m.content}</div>
+                        <div className="whitespace-pre-wrap selection:bg-black/30 selection:text-white">{m.content}</div>
                       ) : isError ? (
                         <div className="flex flex-col gap-2">
                           <div className="flex items-center gap-1.5 font-semibold text-fail">
                             <LuCircleAlert className="size-3.5 shrink-0" />
-                            <span>{t('gitAgent.requestFailed') || '请求失败'}</span>
+                            <span>{t('gitAgent.requestFailed') || 'Request failed'}</span>
                           </div>
                           <div className="whitespace-pre-wrap text-ink/90 pr-5">{m.content}</div>
-                          <div className="flex items-center pt-0.5">
+                          <div className="flex items-center gap-3 pt-0.5">
                             <button
                               type="button"
                               disabled={isProcessing}
@@ -491,8 +400,11 @@ export function AgentWorkspace({ repoPath, className }: Props) {
                               className="inline-flex items-center gap-1.5 rounded-md border border-fail/30 bg-panel px-2.5 py-1 text-[11px] font-medium text-ink hover:border-fail/60 hover:bg-fail/10 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               <LuRotateCcw className="size-3 text-fail" />
-                              <span>{t('gitAgent.retry') || '重试'}</span>
+                              <span>{t('gitAgent.retry') || 'Retry'}</span>
                             </button>
+                            <Link href="/dev/logs/operations" className="text-[11px] text-ink-soft hover:text-accent hover:underline">
+                              {t('gitAgent.viewDiagnosticsLog') || 'View Diagnostics Log'}
+                            </Link>
                           </div>
                         </div>
                       ) : m.content ? (
@@ -513,18 +425,69 @@ export function AgentWorkspace({ repoPath, className }: Props) {
                           </span>
                         </div>
                       ) : null}
-
-                      {!isUser && m.content && (
-                        <button
-                          type="button"
-                          onClick={() => handleCopy(m.id, m.content)}
-                          className="absolute right-1.5 top-1.5 opacity-0 group-hover:opacity-100 transition-opacity rounded p-1 text-ink-soft hover:text-ink bg-panel/80 hover:bg-panel cursor-pointer"
-                          title={t('gitAgent.copyAnswer')}
-                        >
-                          {copiedId === m.id ? <LuCheck className="size-3 text-emerald-500" /> : <LuCopy className="size-3" />}
-                        </button>
-                      )}
                     </div>
+
+                    {m.content && !m.isStreaming && (
+                      <div
+                        className={cn(
+                          'flex items-center gap-1 px-1 text-ink-soft opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100',
+                          isUser ? 'justify-end' : 'justify-start'
+                        )}
+                      >
+                        <Tooltip content={copiedId === m.id ? t('gitAgent.copied') || 'Copied' : t('gitAgent.copyAnswer') || 'Copy'} placement="top">
+                          <button
+                            type="button"
+                            onClick={() => handleCopy(m.id, m.content)}
+                            className="inline-flex size-5 items-center justify-center rounded hover:bg-[var(--overlay-06)] hover:text-ink cursor-pointer"
+                            aria-label={t('gitAgent.copyAnswer') || 'Copy'}
+                          >
+                            {copiedId === m.id ? <LuCheck className="size-3 text-emerald-500" /> : <LuCopy className="size-3" />}
+                          </button>
+                        </Tooltip>
+                        <Tooltip content={t('gitAgent.quoteReply') || 'Quote reply'} placement="top">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const preview = m.content.replace(/\s+/g, ' ').trim().slice(0, 48)
+                              setReference({
+                                kind: 'reply',
+                                title: preview || t('gitAgent.quoteReply') || 'Quote reply',
+                                summary: m.content,
+                                quotedMessageId: m.id,
+                                quotedRole: m.role,
+                              })
+                              setTimeout(() => inputRef.current?.focus(), 0)
+                            }}
+                            className="inline-flex size-5 items-center justify-center rounded hover:bg-[var(--overlay-06)] hover:text-ink cursor-pointer"
+                            aria-label={t('gitAgent.quoteReply') || 'Quote reply'}
+                          >
+                            <LuReply className="size-3" />
+                          </button>
+                        </Tooltip>
+                        {totalTokens !== undefined && (
+                          <Tooltip content={(t('gitAgent.tokenUsageLabel') || 'Tokens: {count}').replace('{count}', String(totalTokens))} placement="top">
+                            <span
+                              tabIndex={0}
+                              aria-label={(t('gitAgent.tokenUsageLabel') || 'Tokens: {count}').replace('{count}', String(totalTokens))}
+                              className="inline-flex size-5 items-center justify-center rounded hover:bg-[var(--overlay-06)] hover:text-ink cursor-default"
+                            >
+                              <LuCpu className="size-3" />
+                            </span>
+                          </Tooltip>
+                        )}
+                        {(timeLabel || durationLabel) && (
+                          <Tooltip content={`${timeLabel}${timeLabel && durationLabel ? ' · ' : ''}${durationLabel}`} placement="top">
+                            <span
+                              tabIndex={0}
+                              aria-label={`${timeLabel}${timeLabel && durationLabel ? ' · ' : ''}${durationLabel}`}
+                              className="inline-flex size-5 items-center justify-center rounded hover:bg-[var(--overlay-06)] hover:text-ink cursor-default"
+                            >
+                              <LuClock className="size-3" />
+                            </span>
+                          </Tooltip>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )
               })
@@ -557,8 +520,8 @@ export function AgentWorkspace({ repoPath, className }: Props) {
                       setReference(null)
                     }}
                     className="ml-0.5 rounded-full p-0.5 text-accent/70 hover:bg-accent/20 hover:text-accent focus:outline-none cursor-pointer"
-                    title={t('common.remove') || '移除'}
-                    aria-label={t('common.remove') || '移除'}
+                    title={t('common.remove') || 'Remove'}
+                    aria-label={t('common.remove') || 'Remove'}
                   >
                     <LuX className="size-3" />
                   </button>
@@ -578,7 +541,7 @@ export function AgentWorkspace({ repoPath, className }: Props) {
                   void handleSend()
                 }
               }}
-              placeholder={reference ? '向 Git Agent 追问或直接按回车发送...' : isModelBlocked ? t('gitAgent.modelBlockedNotice') : t('gitAgent.inputPlaceholder')}
+              placeholder={reference ? 'Ask Yggi a follow-up or press Enter to send...' : isModelBlocked ? t('gitAgent.modelBlockedNotice') : t('gitAgent.inputPlaceholder')}
               className="w-full resize-none border-0 bg-transparent px-3 pt-2.5 pb-1 text-xs leading-relaxed text-ink placeholder:text-ink-soft/60 outline-none disabled:opacity-60 disabled:cursor-not-allowed"
             />
             <div className="flex items-center justify-end px-2.5 pb-2 pt-0.5">

@@ -2,13 +2,13 @@
 
 import Link from 'next/link'
 import React from 'react'
-import { LuCpu, LuMousePointerClick, LuNetwork, LuShieldCheck, LuSlidersHorizontal, LuSparkles } from 'react-icons/lu'
+import { LuCpu, LuInfo, LuMousePointerClick, LuNetwork, LuShieldCheck, LuSlidersHorizontal, LuSparkles } from 'react-icons/lu'
 
 import { useT } from '@/components/i18n/LocaleProvider'
 import { Tooltip } from '@/components/sk'
 import { cn } from '@/lib/utils'
 
-export type SettingsSectionKey = 'models' | 'skills' | 'mcp' | 'privacy' | 'general' | 'menus'
+export type SettingsSectionKey = 'models' | 'skills' | 'mcp' | 'privacy' | 'general' | 'menus' | 'about'
 
 interface Props {
   activeSection: SettingsSectionKey
@@ -27,13 +27,13 @@ export function SettingsSideNav({ activeSection, onSelectSection }: Props) {
     },
     {
       id: 'skills' as const,
-      label: t('gitAgent.tabSkills') || '技能库 (Skills)',
+      label: t('gitAgent.tabSkills') || 'Skills',
       href: '/settings/skills',
       icon: <LuSparkles className="h-4.5 w-4.5" aria-hidden="true" />,
     },
     {
       id: 'mcp' as const,
-      label: t('gitAgent.tabMcp') || 'MCP 工具',
+      label: t('gitAgent.tabMcp') || 'MCP Tools',
       href: '/settings/mcp',
       icon: <LuNetwork className="h-4.5 w-4.5" aria-hidden="true" />,
     },
@@ -45,20 +45,22 @@ export function SettingsSideNav({ activeSection, onSelectSection }: Props) {
     },
     {
       id: 'general' as const,
-      label: t('gitAgent.tabGeneral') || '通用设置',
+      label: t('gitAgent.tabGeneral') || 'General',
       href: '/settings/general',
       icon: <LuSlidersHorizontal className="h-4.5 w-4.5" aria-hidden="true" />,
     },
     {
       id: 'menus' as const,
-      label: '右键菜单',
+      label: t('gitAgent.menusSettingsTitle') || 'Context Menus',
       href: '/settings/menus',
       icon: <LuMousePointerClick className="h-4.5 w-4.5" aria-hidden="true" />,
     },
   ]
 
+  const isAboutActive = activeSection === 'about'
+
   return (
-    <aside aria-label="Agent Settings Navigation" className="flex w-12 shrink-0 flex-col items-center gap-1.5 border-r border-line bg-paper-2 py-3 md:w-14">
+    <aside aria-label="Agent Settings Navigation" className="flex w-12 shrink-0 flex-col items-center justify-between border-r border-line bg-paper-2 py-3 md:w-14">
       <nav className="flex flex-col items-center gap-1">
         {navItems.map((item) => {
           const isActive = activeSection === item.id
@@ -82,6 +84,26 @@ export function SettingsSideNav({ activeSection, onSelectSection }: Props) {
           )
         })}
       </nav>
+
+      {/* Bottom About Us entry */}
+      <div className="flex flex-col items-center border-t border-line/60 pt-2">
+        <Tooltip content={t('gitAgent.tabAbout') || 'About'} placement="right">
+          <Link
+            href="/settings/about"
+            replace
+            aria-label={t('gitAgent.tabAbout') || 'About'}
+            aria-current={isAboutActive ? 'page' : undefined}
+            onClick={() => onSelectSection?.('about')}
+            className={cn(
+              'group relative flex h-9 w-9 items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent',
+              isAboutActive ? 'bg-accent/15 text-accent shadow-xs' : 'text-ink-soft hover:bg-[color-mix(in_oklab,var(--ink)_6%,transparent)] hover:text-ink'
+            )}
+          >
+            {isAboutActive && <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-r bg-accent" aria-hidden="true" />}
+            <LuInfo className="h-4.5 w-4.5" aria-hidden="true" />
+          </Link>
+        </Tooltip>
+      </div>
     </aside>
   )
 }

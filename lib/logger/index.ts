@@ -36,11 +36,11 @@ function notifyListeners() {
 }
 
 /** Open or create logs IndexedDB store */
-function openLogsDb(): Promise<IDBDatabase | null> {
+export function openLogsDb(): Promise<IDBDatabase | null> {
   if (typeof window === 'undefined' || !window.indexedDB) return Promise.resolve(null)
   return new Promise((resolve) => {
     try {
-      const req = window.indexedDB.open(LOGS_DATABASE, 1)
+      const req = window.indexedDB.open(LOGS_DATABASE, 2)
       req.onupgradeneeded = () => {
         const db = req.result
         if (!db.objectStoreNames.contains('service_logs')) {
@@ -48,6 +48,10 @@ function openLogsDb(): Promise<IDBDatabase | null> {
           store.createIndex('timestamp', 'timestamp')
           store.createIndex('level', 'level')
           store.createIndex('module', 'module')
+        }
+        if (!db.objectStoreNames.contains('agent_traces')) {
+          const traceStore = db.createObjectStore('agent_traces', { keyPath: 'id' })
+          traceStore.createIndex('timestamp', 'timestamp')
         }
       }
       req.onsuccess = () => resolve(req.result)

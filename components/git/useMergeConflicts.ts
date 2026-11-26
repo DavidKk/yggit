@@ -40,11 +40,13 @@ export function useMergeConflicts({ repo = '', commits, loading = false, scrollR
     if (mergeHashes.length === 0) return
 
     let cancelled = false
-    void getCachedConflictsBatch(repo, mergeHashes).then((cached) => {
-      if (!cancelled && Object.keys(cached).length > 0) {
-        setConflicts((prev) => ({ ...prev, ...cached }))
-      }
-    })
+    void getCachedConflictsBatch(repo, mergeHashes)
+      .then((cached) => {
+        if (!cancelled && Object.keys(cached).length > 0) {
+          setConflicts((prev) => ({ ...prev, ...cached }))
+        }
+      })
+      .catch(() => {})
 
     return () => {
       cancelled = true
@@ -101,6 +103,7 @@ export function useMergeConflicts({ repo = '', commits, loading = false, scrollR
           setConflicts((prev) => ({ ...prev, ...newlyResolved }))
         }
       })
+      .catch(() => {})
       .finally(() => {
         inFlightRef.current = false
       })

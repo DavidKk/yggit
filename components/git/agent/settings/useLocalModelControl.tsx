@@ -156,7 +156,7 @@ export function useLocalModelControl({
     } else if (aiStatus === 'available') {
       action = {
         icon: <LuCheck className="size-3.5" />,
-        label: t('gitAgent.browserAiStatusAvailable') || '已安装就绪',
+        label: t('gitAgent.browserAiStatusAvailable') || 'Installed & Ready',
         tone: 'ok',
         statusOnly: true,
       }
@@ -170,21 +170,22 @@ export function useLocalModelControl({
     } else if (aiStatus === 'preparing') {
       action = {
         icon: <Spinner className="size-3.5" />,
-        label: t('gitAgent.browserAiStatusPreparing') || '解压加载中…',
+        label: t('gitAgent.browserAiStatusPreparing') || 'Extracting & Loading…',
         tone: 'accent',
         statusOnly: true,
       }
     } else if (aiStatus === 'downloadable') {
       action = {
         icon: <LuDownload className="size-3.5" />,
-        label: t('gitAgent.browserAiInstallBtn') || '安装并启用',
-        title: t('gitAgent.browserAiInstallBtn') || '安装并启用 Browser AI',
+        label: t('gitAgent.browserAiInstallBtn') || 'Install & Enable',
+        title: t('gitAgent.browserAiInstallBtn') || 'Install & Enable Browser AI',
         tone: 'accent',
         disabled: isBusy,
         onClick: handleInstallBrowserAi,
       }
     } else {
-      const label = aiStatus === 'unavailable' ? t('gitAgent.browserAiStatusUnavailable') || '设备不可用' : t('gitAgent.browserAiStatusUnsupported') || '浏览器不支持'
+      const label =
+        aiStatus === 'unavailable' ? t('gitAgent.browserAiStatusUnavailable') || 'Device Unavailable' : t('gitAgent.browserAiStatusUnsupported') || 'Browser Unsupported'
       action = {
         icon: <LuTriangleAlert className="size-3.5" />,
         label,
@@ -197,7 +198,7 @@ export function useLocalModelControl({
     return {
       readOnly: true,
       hideDropdown: true,
-      description: t('gitAgent.browserAiSharedNote') || '跨站点共享缓存，已下载过可直接使用。',
+      description: t('gitAgent.browserAiSharedNote') || 'Shared cache across sites; ready to use if already downloaded.',
       action,
       warn,
       progress: {
@@ -212,9 +213,9 @@ export function useLocalModelControl({
     const isCached = cacheInfo.fileCount > 0
     const isBusy = localPhase === 'downloading' || localPhase === 'preparing'
     const runtimeLabel = hasWebGpu ? t('gitAgent.browserLocalRuntimeWebGpu') || 'WebGPU' : t('gitAgent.browserLocalRuntimeWasm') || 'WASM'
-    const baseDesc = t('gitAgent.browserLocalDesc') || '本地离线模型（WebGPU / WASM），权重缓存在当前站点浏览器缓存中。'
+    const baseDesc = t('gitAgent.browserLocalDesc') || 'Local offline model (WebGPU / WASM); weights are cached in this browser origin.'
     const cacheDesc = isCached
-      ? (t('gitAgent.browserLocalCacheInfo') || '当前源缓存：{count} 个分片 · {size}')
+      ? (t('gitAgent.browserLocalCacheInfo') || 'Origin cache: {count} shards · {size}')
           .replace('{count}', String(cacheInfo.fileCount))
           .replace('{size}', cacheInfo.bytes > 0 ? formatBytes(cacheInfo.bytes) : `~${formatBytes(localSpec.estimatedBytes)}`)
       : ''
@@ -232,30 +233,30 @@ export function useLocalModelControl({
     } else if (localPhase === 'preparing') {
       action = {
         icon: <Spinner className="size-3.5" />,
-        label: t('gitAgent.browserLocalStatusLoading') || '加载中…',
+        label: t('gitAgent.browserLocalStatusLoading') || 'Loading…',
         tone: 'accent',
         statusOnly: true,
       }
     } else if (localPhase === 'ready' || isCached) {
       action = {
         icon: <LuCheck className="size-3.5" />,
-        label: t('gitAgent.browserLocalStatusCached') || '已缓存就绪',
+        label: t('gitAgent.browserLocalStatusCached') || 'Cached & Ready',
         tone: 'ok',
         statusOnly: true,
       }
     } else if (localPhase === 'failed') {
       action = {
         icon: <LuDownload className="size-3.5" />,
-        label: t('gitAgent.retry') || '重试',
-        title: t('gitAgent.browserLocalDownloadBtnShort') || '下载',
+        label: t('gitAgent.retry') || 'Retry',
+        title: t('gitAgent.browserLocalDownloadBtnShort') || 'Download',
         tone: 'warn',
         onClick: handleDownloadLocal,
       }
     } else {
       action = {
         icon: <LuDownload className="size-3.5" />,
-        label: t('gitAgent.browserLocalDownloadBtnShort') || '下载',
-        title: t('gitAgent.browserLocalDownloadBtnShort') || '下载',
+        label: t('gitAgent.browserLocalDownloadBtnShort') || 'Download',
+        title: t('gitAgent.browserLocalDownloadBtnShort') || 'Download',
         tone: 'accent',
         onClick: handleDownloadLocal,
       }

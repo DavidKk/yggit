@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { LuArrowUpRight, LuSparkles, LuX } from 'react-icons/lu'
+import { LuArrowUpRight, LuQuote, LuSparkles, LuX } from 'react-icons/lu'
 
 import { useT } from '@/components/i18n/LocaleProvider'
 import { useWorkdeskProactiveReminder } from '@/lib/agent/useWorkdeskProactiveReminder'
@@ -51,24 +51,21 @@ export function GitAgentAssistiveReminder({ variant = 'floating', className, pro
           className
         )}
       >
-        {/* Header Row: Sparkles + Git Agent Badge + | + Title + Close Button */}
+        {/* Header Row: Yggi Badge + | + Title + Close Button */}
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 min-w-0">
-            <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-              <LuSparkles className="size-3 animate-pulse" />
-            </span>
-            <span className="rounded bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400 leading-none">Git Agent</span>
+            <span className="rounded bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400 leading-none">Yggi</span>
             <span className="mx-0.5 text-xs text-ink-muted/40 font-light" aria-hidden>
               |
             </span>
-            <span className="truncate text-xs font-normal text-ink-soft">{t('gitAgent.proactiveBadge') || '工作台辅助提醒'}</span>
+            <span className="truncate text-xs font-normal text-ink-soft">{t('gitAgent.proactiveBadge') || 'Workspace Assistant'}</span>
           </div>
           <button
             type="button"
             onClick={reminder.dismiss}
             className="flex size-5 shrink-0 items-center justify-center rounded text-ink-muted hover:bg-[var(--overlay-06)] hover:text-ink active:scale-90 transition-all cursor-pointer"
-            aria-label={t('common.close') || '关闭'}
-            title={t('gitAgent.proactiveDismiss') || '稍后再说'}
+            aria-label={t('common.close') || 'Close'}
+            title={t('gitAgent.proactiveDismiss') || 'Later'}
           >
             <LuX className="size-4" />
           </button>
@@ -90,15 +87,23 @@ export function GitAgentAssistiveReminder({ variant = 'floating', className, pro
             </button>
             <button
               type="button"
+              onClick={reminder.quote}
+              className="flex items-center gap-1 rounded-lg border border-line bg-panel px-2.5 py-1.5 text-xs font-medium text-ink hover:border-accent/40 hover:bg-accent/10 hover:text-accent active:scale-95 transition-all cursor-pointer"
+            >
+              <LuQuote className="size-3.5" />
+              <span>{t('gitAgent.proactiveActionQuote') || 'Ask Follow-up'}</span>
+            </button>
+            <button
+              type="button"
               onClick={reminder.viewTask}
               className="group flex items-center gap-1 text-xs font-normal text-ink-soft hover:text-accent active:scale-95 transition-colors cursor-pointer select-none"
             >
-              <span>{t('gitAgent.proactiveActionView') || '查看任务'}</span>
+              <span>{t('gitAgent.proactiveActionView') || 'View Tasks'}</span>
               <LuArrowUpRight className="size-3.5 opacity-70 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
             </button>
           </div>
           <button type="button" onClick={reminder.dismiss} className="ml-auto text-xs text-ink-soft hover:text-ink font-normal px-2 py-1 rounded transition-colors cursor-pointer">
-            {t('gitAgent.proactiveDismiss') || '稍后再说'}
+            {t('gitAgent.proactiveDismiss') || 'Later'}
           </button>
         </div>
       </aside>
@@ -114,18 +119,17 @@ export function GitAgentAssistiveReminder({ variant = 'floating', className, pro
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5">
-          <LuSparkles className="size-3 text-accent animate-pulse shrink-0" />
-          <span className="font-semibold text-accent text-[10px] leading-none">Git Agent</span>
+          <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 font-semibold text-accent text-[10px] leading-none">Yggi</span>
           <span className="text-[10px] text-ink-soft/40 font-light" aria-hidden>
             |
           </span>
-          <span className="text-[11px] font-medium text-ink-soft">{t('gitAgent.proactiveBadge') || '工作台辅助提醒'}</span>
+          <span className="text-[11px] font-medium text-ink-soft">{t('gitAgent.proactiveBadge') || 'Workspace Assistant'}</span>
         </div>
         <button
           type="button"
           onClick={reminder.dismiss}
           className="flex size-4 items-center justify-center rounded text-ink-soft hover:text-ink cursor-pointer"
-          aria-label={t('common.close') || '关闭'}
+          aria-label={t('common.close') || 'Close'}
         >
           <LuX className="size-3" />
         </button>
@@ -142,12 +146,20 @@ export function GitAgentAssistiveReminder({ variant = 'floating', className, pro
           <LuSparkles className="size-2.5" />
           <span>{reminder.actionLabel}</span>
         </button>
+        <button
+          type="button"
+          onClick={reminder.quote}
+          className="flex items-center gap-1 rounded border border-line bg-panel px-1.5 py-0.5 text-[11px] font-medium text-ink hover:border-accent/40 hover:bg-accent/10 hover:text-accent active:scale-95 transition-all cursor-pointer"
+        >
+          <LuQuote className="size-2.5" />
+          <span>{t('gitAgent.proactiveActionQuote') || 'Ask Follow-up'}</span>
+        </button>
         <button type="button" onClick={reminder.viewTask} className="group flex items-center gap-0.5 text-[11px] text-ink-soft hover:text-accent transition-colors cursor-pointer">
-          <span>{t('gitAgent.proactiveActionView') || '查看任务'}</span>
+          <span>{t('gitAgent.proactiveActionView') || 'View Tasks'}</span>
           <LuArrowUpRight className="size-3 opacity-70 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
         </button>
         <button type="button" onClick={reminder.dismiss} className="text-[10px] text-ink-soft hover:text-ink ml-auto px-1 py-0.5 cursor-pointer">
-          {t('gitAgent.proactiveDismiss') || '稍后再说'}
+          {t('gitAgent.proactiveDismiss') || 'Later'}
         </button>
       </div>
     </aside>
