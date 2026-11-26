@@ -33,6 +33,7 @@ Welcome to the Yggit documentation repository. Yggit is a high-performance, orga
 - [Smart Project Categorization & Governance Technical Architecture](technical/yggit-project-categorization-and-governance.md) - Technical specification for the organization hygiene detector, four-tier taxonomy pipeline, project-organizer Agent Skill, and dual-mode transactional catalog updates.
 - [Large Repository Scalability & Segmented Rendering PRD](prd/large-repository-scalability.md) - Product requirements for defensive thresholds, lazy directory tree mounting, deep Git log search, and anti-freeze boundaries.
 - [Large Repository Scalability & Segmented Rendering Technical Architecture](technical/large-repository-rendering-architecture.md) - Technical architecture for chunked branch listing, pruned tree traversal, native Git `--grep` / hash locate coordination, and SVG DAG safety limits.
+- [SEO & README Optimization PRD](prd/seo-and-readme-optimization.md) - Product requirements for fixing manifest metadata, adding `robots.ts` / `sitemap.ts`, locale-aware OpenGraph/JSON-LD, internal route `noindex`, and multilingual README structure.
 
 - [Theme Persistence & Hydration](technical/theme-hydration.md) - Cookie preference, system theme resolution, and consistent SSR/client initialization.
 

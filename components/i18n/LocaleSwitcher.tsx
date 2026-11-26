@@ -1,12 +1,13 @@
 'use client'
 
 import { Menu } from '@base-ui/react/menu'
+import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { IoCheckmark, IoGlobeOutline } from 'react-icons/io5'
 
 import { useLocale } from '@/components/i18n/LocaleProvider'
 import { dropdownItemClass, dropdownPopupClass, dropdownTriggerClass } from '@/components/sk/dropdownMenu'
-import { detectBrowserLocale, isLocalePreference, LOCALE_NATIVE_LABEL, LOCALES } from '@/lib/i18n'
+import { detectBrowserLocale, isLocale, isLocalePreference, LOCALE_NATIVE_LABEL, LOCALES } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 
 type Props = {
@@ -19,6 +20,8 @@ type Props = {
 /** 界面语言切换：首项跟随系统，其余用母语标签（不随 locale 翻译） */
 export function LocaleSwitcher({ className, compact, triggerClassName }: Props) {
   const { locale, preference, ready, setLocale, t } = useLocale()
+  const router = useRouter()
+  const pathname = usePathname()
   const anchorRef = useRef<HTMLSpanElement>(null)
   const [container, setContainer] = useState<ShadowRoot>()
 
@@ -45,7 +48,16 @@ export function LocaleSwitcher({ className, compact, triggerClassName }: Props) 
               <Menu.RadioGroup
                 value={preference}
                 onValueChange={(value: unknown) => {
-                  if (isLocalePreference(value)) setLocale(value)
+                  if (!isLocalePreference(value)) return
+                  setLocale(value)
+                  const isLandingPath = pathname === '/' || (pathname?.startsWith('/') && isLocale(pathname.slice(1)))
+                  if (isLandingPath) {
+                    const targetLocale = value === 'auto' ? detectBrowserLocale() : value
+                    const nextPath = targetLocale === 'en' ? '/' : `/${targetLocale}`
+                    if (nextPath !== pathname) {
+                      router.push(nextPath)
+                    }
+                  }
                 }}
               >
                 {options.map((opt, index) => (

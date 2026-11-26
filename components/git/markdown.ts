@@ -49,5 +49,11 @@ export const markdownBody = cn(
   '[&_.git-alert-warning]:border-[color-mix(in_oklab,var(--warn)_35%,transparent)] [&_.git-alert-warning]:bg-[color-mix(in_oklab,var(--warn)_8%,var(--panel))] [&_.git-alert-warning_.git-alert-title]:text-warn',
   '[&_.git-alert-caution]:border-[color-mix(in_oklab,var(--fail)_35%,transparent)] [&_.git-alert-caution]:bg-[color-mix(in_oklab,var(--fail)_8%,var(--panel))] [&_.git-alert-caution_.git-alert-title]:text-fail',
   // Code block container reset
-  '[&_.git-code-block_pre]:m-0 [&_.git-code-block_pre]:border-0 [&_.git-code-block_pre]:bg-transparent [&_.git-code-block_pre]:rounded-none [&_.git-code-block_pre]:p-0'
+  '[&_.git-code-block_pre]:m-0 [&_.git-code-block_pre]:border-0 [&_.git-code-block_pre]:bg-transparent [&_.git-code-block_pre]:rounded-none [&_.git-code-block_pre]:p-0',
+  // Images, badges, centered HTML blocks, and collapsible details
+  '[&_img]:inline-block [&_img]:max-w-full [&_img]:align-middle',
+  '[&_div[align="center"]]:text-center [&_div[align="center"]_h1]:border-l-0 [&_div[align="center"]_h1]:pl-0',
+  '[&_div[align="center"]>img]:rounded-xl [&_div[align="center"]>img]:my-2',
+  '[&_details]:my-4 [&_details]:rounded-lg [&_details]:border [&_details]:border-line [&_details]:bg-panel-2/40 [&_details]:px-4 [&_details]:py-2.5',
+  '[&_summary]:cursor-pointer [&_summary]:font-medium [&_summary]:text-ink [&_summary]:select-none'
 )

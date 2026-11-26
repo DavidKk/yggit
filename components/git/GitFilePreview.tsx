@@ -86,7 +86,30 @@ function SvgPreview({ content, repo, hash, path }: { content?: string; repo: str
   )
 }
 
-function MarkdownPreview({ content }: { content: string }) {
+function resolveRepoRelativePath(baseFilePath: string, relativeSrc: string): string {
+  const cleanSrc = relativeSrc.split('#')[0].split('?')[0].trim()
+  const baseParts = baseFilePath.split('/').slice(0, -1)
+  for (const seg of cleanSrc.split('/')) {
+    if (!seg || seg === '.') continue
+    if (seg === '..') baseParts.pop()
+    else baseParts.push(seg)
+  }
+  return baseParts.join('/')
+}
+
+function rewriteRelativeMarkdownImages(html: string, repo: string, hash: string, filePath: string): string {
+  if (!html || !repo || !hash) return html
+  return html.replace(/<img\b([^>]*?)\bsrc=(['"])([^'"]+)\2([^>]*)>/gi, (full, before, quote, src, after) => {
+    const trimmed = src.trim()
+    if (/^(https?:|data:|blob:|\/)/i.test(trimmed)) return full
+    const resolved = resolveRepoRelativePath(filePath, trimmed)
+    if (!resolved) return full
+    const blobUrl = gitBlobUrl(repo, hash, resolved)
+    return `<img${before}src=${quote}${blobUrl}${quote}${after}>`
+  })
+}
+
+function MarkdownPreview({ content, repo, hash, path }: { content: string; repo: string; hash: string; path: string }) {
   const theme = useThemeMode()
   const containerRef = useRef<HTMLDivElement>(null)
   const [html, setHtml] = useState<string>(() => {
@@ -119,14 +142,16 @@ function MarkdownPreview({ content }: { content: string }) {
     }
   }, [content, theme])
 
+  const resolvedHtml = useMemo(() => rewriteRelativeMarkdownImages(html, repo, hash, path), [html, repo, hash, path])
+
   useLayoutEffect(() => {
     if (!containerRef.current) return
     return installTableResizers(containerRef.current)
-  }, [html])
+  }, [resolvedHtml])
 
   return (
     <div className="mx-auto w-full max-w-[1100px] px-8 py-7 pb-[calc(100vh-140px)] font-sans">
-      <article ref={containerRef} className={cn(markdownBody)} dangerouslySetInnerHTML={{ __html: html }} />
+      <article ref={containerRef} className={cn(markdownBody)} dangerouslySetInnerHTML={{ __html: resolvedHtml }} />
     </div>
   )
 }
@@ -170,7 +195,7 @@ export function GitFilePreview({ kind, repo, hash, path, content, missing, binar
           kind === 'svg' ? (
             <SvgPreview content={source || undefined} repo={repo} hash={hash} path={path} />
           ) : (
-            <MarkdownPreview content={source} />
+            <MarkdownPreview content={source} repo={repo} hash={hash} path={path} />
           )
         ) : (
           <GitHighlightedCode content={source} path={path} searchNeedle={searchNeedle} activeIndex={activeLineIndex} blameMap={blameMap} />

@@ -11,6 +11,7 @@ import { ButtonGlow } from '@/components/ButtonGlow'
 import { PRODUCT_DISPLAY_NAME } from '@/constants/brand'
 import { LOCALE_HTML_LANG } from '@/lib/i18n'
 import { resolveRequestLocale } from '@/lib/i18n/server'
+import { HERO_OG_IMAGE, SITE_URL } from '@/lib/seo/landing-metadata'
 import { THEME_BOOT_SCRIPT } from '@/lib/theme'
 import { resolveRequestTheme } from '@/lib/theme/server'
 
@@ -37,8 +38,28 @@ const mono = localFont({
 })
 
 export const metadata: Metadata = {
-  title: PRODUCT_DISPLAY_NAME,
-  description: '世界树 Git 图谱与版本管理工具',
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: PRODUCT_DISPLAY_NAME,
+    template: `%s | ${PRODUCT_DISPLAY_NAME}`,
+  },
+  description: 'Organic World Tree Git graph visualization, repository diagnostics, and local-first AI workbench.',
+  openGraph: {
+    siteName: PRODUCT_DISPLAY_NAME,
+    type: 'website',
+    images: [
+      {
+        url: HERO_OG_IMAGE,
+        width: 1672,
+        height: 941,
+        alt: 'Yggit World Tree Git Visualization',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    images: [HERO_OG_IMAGE],
+  },
 }
 
 export const viewport: Viewport = {

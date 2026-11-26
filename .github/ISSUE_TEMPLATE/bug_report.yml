@@ -1,0 +1,39 @@
+name: Bug Report
+description: Report a bug or unexpected behavior in Yggit
+title: '[Bug]: '
+labels: ['bug']
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the bug
+      description: A clear and concise description of what happened.
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Runtime Mode
+      options:
+        - Local (Node.js server)
+        - Desktop App (Electron)
+        - Edge / Browser
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Steps to reproduce the behavior.
+      placeholder: |
+        1. Open repository...
+        2. Click on...
+        3. See error...
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: |
+        - OS: macOS / Windows / Linux
+        - Browser (if Edge): Chrome / Edge
+        - Node.js / App Version:
