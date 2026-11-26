@@ -477,22 +477,33 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
   // Staged Priority Preloading:
   // Tier 1: Daytime hero and water maps
   // Tier 2: Nighttime hero
+  // Tier 0: Active Day/Night landing hero (loads solo with high priority so canvas paints immediately)
+  // Tier 1: Active foreground + card shell + water textures (loads right after Tier 0 or 60ms)
+  // Tier 2: Opposite Day/Night hero (loads 250ms later for smooth manual toggling)
   // Tier 3: Module 02 & Inspector Decomposed Layers (loads 450ms later when idle)
   useEffect(() => {
-    const tier1CriticalDayUrls = Array.from(
-      new Set([
-        CARD_SHELL_PATH,
-        CARD_DAY_FOREGROUND_PATH,
-        fullScreenStage ? HERO_ASSETS.landingDayBase : DAY_PREVIEW_BG_PATH,
-        WATER_MASK_PATH,
-        WATER_FLOW_MAP_PATH,
-        WATER_NORMAL_MAP_PATH,
-        WATER_FG_OCCLUSION_PATH,
-        WATER_NIGHT_FG_OCCLUSION_PATH,
-      ])
-    )
+    const initialIsNight = sceneStateRef.current.dayNightMode === 'night'
+    const activeHeroUrl = fullScreenStage
+      ? initialIsNight
+        ? HERO_ASSETS.landingNightBase
+        : HERO_ASSETS.landingDayBase
+      : initialIsNight
+        ? NIGHT_PREVIEW_BG_PATH
+        : DAY_PREVIEW_BG_PATH
+    const oppositeHeroUrl = fullScreenStage
+      ? initialIsNight
+        ? HERO_ASSETS.landingDayBase
+        : HERO_ASSETS.landingNightBase
+      : initialIsNight
+        ? DAY_PREVIEW_BG_PATH
+        : NIGHT_PREVIEW_BG_PATH
 
-    const tier2NightHeroUrls = [fullScreenStage ? HERO_ASSETS.landingNightBase : NIGHT_PREVIEW_BG_PATH, CARD_NIGHT_FOREGROUND_PATH]
+    const activeOverhangUrl = initialIsNight ? CARD_NIGHT_FOREGROUND_PATH : CARD_DAY_FOREGROUND_PATH
+    const tier0HeroUrls = Array.from(new Set([activeHeroUrl, CARD_SHELL_PATH, activeOverhangUrl]))
+
+    const tier1WaterUrls = Array.from(new Set([WATER_MASK_PATH, WATER_FLOW_MAP_PATH, WATER_NORMAL_MAP_PATH, WATER_FG_OCCLUSION_PATH, WATER_NIGHT_FG_OCCLUSION_PATH]))
+
+    const tier2OppositeUrls = [oppositeHeroUrl, initialIsNight ? CARD_DAY_FOREGROUND_PATH : CARD_NIGHT_FOREGROUND_PATH]
 
     const tier3SecondaryUrls = Array.from(
       new Set([
@@ -529,32 +540,61 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
       }
     }
 
-    const loadBatch = (urls: string[]) => {
+    const loadBatch = (urls: string[], highPriority = false, onDone?: () => void): boolean => {
+      let allSyncReady = true
       urls.forEach((u) => {
-        if (loadedImgsRef.current[u]) return
+        if (loadedImgsRef.current[u]) {
+          onDone?.()
+          return
+        }
         const isLandingBase = u === HERO_ASSETS.landingDayBase || u === HERO_ASSETS.landingNightBase
         const img = new Image()
         if (!isLandingBase) img.crossOrigin = 'anonymous'
+        if (highPriority) img.fetchPriority = 'high'
         img.decoding = 'async'
-        img.onload = () => {
-          if (!cancelled) {
-            loadedImgsRef.current[u] = img
-            visibleStagesRef.current.pureStageDirty = true
-            tryUploadWaterTextures()
-          }
+        const handleReady = () => {
+          if (cancelled || loadedImgsRef.current[u]) return
+          loadedImgsRef.current[u] = img
+          visibleStagesRef.current.pureStageDirty = true
+          tryUploadWaterTextures()
+          onDone?.()
+        }
+        img.onload = handleReady
+        img.onerror = () => {
+          if (!cancelled) onDone?.()
         }
         const isVersionedAsset = u.startsWith('/world-tree-assets/') || u.startsWith('/assets/world-tree/')
         img.src = isVersionedAsset && !isLandingBase ? `${u}${HERO_ASSET_VERSION}` : u
+        if (img.complete && img.naturalWidth > 0) {
+          handleReady()
+        } else {
+          allSyncReady = false
+        }
       })
+      return allSyncReady
     }
 
-    // Start Tier 1 immediately
-    loadBatch(tier1CriticalDayUrls)
+    let tier1Started = false
+    const startTier1 = () => {
+      if (cancelled || tier1Started) return
+      tier1Started = true
+      loadBatch(tier1WaterUrls)
+    }
 
-    // Start Tier 2 shortly after the first-screen request
+    const onTier0ImageReady = () => {
+      const allReady = tier0HeroUrls.every((u) => Boolean(loadedImgsRef.current[u]))
+      if (!allReady) return
+      startTier1()
+    }
+
+    // Start active hero + card shell + overhang together with high priority so the full APP panel paints on frame 1
+    loadBatch(tier0HeroUrls, true, onTier0ImageReady)
+    const t1FallbackTimer = window.setTimeout(startTier1, 60)
+
+    // Start Tier 2 (opposite Day/Night hero) shortly after active hero settles
     const t2Timer = window.setTimeout(() => {
-      if (!cancelled) loadBatch(tier2NightHeroUrls)
-    }, 90)
+      if (!cancelled) loadBatch(tier2OppositeUrls)
+    }, 250)
 
     // Start Tier 3 (Module 02 & Inspector layers) once initial hero settles
     const t3Timer = window.setTimeout(() => {
@@ -563,6 +603,7 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
 
     return () => {
       cancelled = true
+      window.clearTimeout(t1FallbackTimer)
       window.clearTimeout(t2Timer)
       window.clearTimeout(t3Timer)
       waterRendererRef.current?.dispose()
@@ -668,7 +709,9 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
 
       const dayBaseImg = imgs[fullScreenStage ? HERO_ASSETS.landingDayBase : DAY_PREVIEW_BG_PATH]
       const nightBaseImg = imgs[fullScreenStage ? HERO_ASSETS.landingNightBase : NIGHT_PREVIEW_BG_PATH]
-      if (fullScreenStage && !(dnProgress >= 0.5 ? nightBaseImg : dayBaseImg)) return
+      const activeBaseReady = dnProgress >= 0.5 ? nightBaseImg : dayBaseImg
+      const activeOverhangReady = imgs[dnProgress >= 0.5 ? CARD_NIGHT_FOREGROUND_PATH : CARD_DAY_FOREGROUND_PATH]
+      if (fullScreenStage && (!activeBaseReady || !imgs[CARD_SHELL_PATH] || !activeOverhangReady)) return
       ctx.clearRect(0, 0, W, H)
 
       // Single-element isolation mode on dark checkerboard

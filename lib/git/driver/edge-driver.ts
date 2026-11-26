@@ -187,7 +187,8 @@ export class EdgeGitDriver implements IGitDriver {
         if (companionLog && companionLog.commits) {
           return companionLog
         }
-      } catch {
+      } catch (err) {
+        if (options.signal?.aborted) throw err
         // Local companion not available, fall through to client-side edge reader
       }
     }

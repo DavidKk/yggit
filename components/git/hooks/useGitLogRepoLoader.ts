@@ -4,8 +4,9 @@ import { type Dispatch, type SetStateAction, useEffect, useRef } from 'react'
 
 import { repoName } from '@/components/git/log-page/gitLogUtils'
 import type { useT } from '@/components/i18n/LocaleProvider'
-import { getDriverMode, getGitDriver } from '@/lib/git/driver'
+import { getDriverMode } from '@/lib/git/driver'
 import { saveLastGitUrl } from '@/lib/git/last-git-url'
+import { fetchRepoLogDeduplicated, getCachedRepoLog, hasGitLogViewChanged, isAbortError, prefetchTopCommitDiff } from '@/lib/git/log-view-cache'
 import { makeShareUrl } from '@/lib/git/resolver'
 import { addTemporaryRepo, parseRemoteUrl } from '@/lib/git/temporary-store'
 import { GIT_WORKTREE_HASH, type GitCommit, type GitLogView, type GitProjectView, type GitSelection } from '@/lib/git/types'
@@ -49,7 +50,15 @@ export function useGitLogRepoLoader({
   setProgressStage: Dispatch<SetStateAction<string>>
   t: ReturnType<typeof useT>
 }) {
+  const loadGenRef = useRef(0)
+  const abortRef = useRef<AbortController | null>(null)
+
   async function load(repo: string) {
+    loadGenRef.current += 1
+    const gen = loadGenRef.current
+    abortRef.current?.abort()
+    abortRef.current = null
+
     if (!repo || !repo.trim()) {
       setView(null)
       setCommits([])
@@ -70,17 +79,47 @@ export function useGitLogRepoLoader({
       }
       return
     }
+
+    const controller = new AbortController()
+    abortRef.current = controller
+
+    const cached = getCachedRepoLog(repo)
+    if (cached) {
+      setError('')
+      setBusy(false)
+      setProgressStage('')
+      applyView(cached.view)
+      prefetchTopCommitDiff(cached.view)
+      // Silently revalidate in the background so switching feels instant
+      void fetchRepoLogDeduplicated(repo, { signal: controller.signal })
+        .then((fresh) => {
+          if (gen !== loadGenRef.current) return
+          if (hasGitLogViewChanged(cached.view, fresh)) {
+            applyView(fresh)
+          }
+          prefetchTopCommitDiff(fresh)
+        })
+        .catch(() => {
+          // Keep cached view when background refresh is aborted or transiently fails
+        })
+      return
+    }
+
     setBusy(true)
     setError('')
     setProgressStage('正在准备加载项目...')
     try {
-      const driver = getGitDriver()
-      const body = await driver.readLog({
-        repo,
-        onProgress: (stage) => setProgressStage(stage),
+      const body = await fetchRepoLogDeduplicated(repo, {
+        signal: controller.signal,
+        onProgress: (stage) => {
+          if (gen === loadGenRef.current) setProgressStage(stage)
+        },
       })
+      if (gen !== loadGenRef.current) return
       applyView(body)
+      prefetchTopCommitDiff(body)
     } catch (loadError) {
+      if (gen !== loadGenRef.current || isAbortError(loadError)) return
       setView(null)
       setCommits([])
       setHasMore(false)
@@ -89,8 +128,10 @@ export function useGitLogRepoLoader({
       setSelectedFile('')
       setError(loadError instanceof Error ? loadError.message : t('git.errors.readGit'))
     } finally {
-      setBusy(false)
-      setProgressStage('')
+      if (gen === loadGenRef.current) {
+        setBusy(false)
+        setProgressStage('')
+      }
     }
   }
 

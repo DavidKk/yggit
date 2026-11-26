@@ -49,7 +49,8 @@ export class LocalGitDriver implements IGitDriver {
     if (options.take !== undefined) params.set('take', String(options.take))
     if (options.locate) params.set('locate', options.locate)
 
-    const res = await fetch(`/api/git/log?${params.toString()}`)
+    const url = `/api/git/log?${params.toString()}`
+    const res = options.signal ? await fetch(url, { signal: options.signal }) : await fetch(url)
     if (!res.ok) {
       const body: unknown = await res.json().catch(() => null)
       throw new Error(readApiErrorMessage(body, `Failed to read git log (${res.status})`))

@@ -8,6 +8,7 @@ import { AmbientBackground } from '@/components/AmbientBackground'
 import { AppProviders } from '@/components/AppProviders'
 import { AppShell } from '@/components/AppShell'
 import { ButtonGlow } from '@/components/ButtonGlow'
+import { StaticAssetCacheRegistrar } from '@/components/pwa/StaticAssetCacheRegistrar'
 import { PRODUCT_DISPLAY_NAME } from '@/constants/brand'
 import { LOCALE_HTML_LANG } from '@/lib/i18n'
 import { resolveRequestLocale } from '@/lib/i18n/server'
@@ -89,6 +90,7 @@ export default async function RootLayout({ children }: LayoutProps<'/'>) {
         <AppProviders locale={locale} preference={preference} theme={theme} themePreference={themePreference}>
           <AppShell>{children}</AppShell>
         </AppProviders>
+        <StaticAssetCacheRegistrar />
         {process.env.VERCEL === '1' ? <Analytics /> : null}
       </body>
     </html>

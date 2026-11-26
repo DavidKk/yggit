@@ -1,12 +1,13 @@
 'use client'
 
-import type { Dispatch, DragEvent, MouseEvent, SetStateAction } from 'react'
+import { type Dispatch, type DragEvent, type MouseEvent, type SetStateAction, useEffect, useRef } from 'react'
 import { LuCloud, LuCloudOff, LuGithub, LuGitlab, LuGlobe, LuHardDrive, LuLockKeyhole, LuPencil, LuTrash2 } from 'react-icons/lu'
 import { TbCloudLock } from 'react-icons/tb'
 
 import type { RemotesMenuAnchor } from '@/components/git/project-menu/ProjectMenuDialogs'
 import type { useT } from '@/components/i18n/LocaleProvider'
 import { Button, Tooltip } from '@/components/sk'
+import { prefetchRepoLog } from '@/lib/git/log-view-cache'
 import { extractProjectRemotes, getRemoteCloudType, projectOpenTarget, remoteIdentity } from '@/lib/git/project-access'
 import type { GitProjectHost, GitProjectView } from '@/lib/git/types'
 import { cn } from '@/lib/utils'
@@ -83,6 +84,25 @@ export function ProjectMenuItemRow({
   const remotes = extractProjectRemotes(project)
   const cloudType = getRemoteCloudType(remotes)
   const hasLocal = Boolean(project.localPath)
+  const prefetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const cancelPrefetch = () => {
+    if (prefetchTimerRef.current) {
+      clearTimeout(prefetchTimerRef.current)
+      prefetchTimerRef.current = null
+    }
+  }
+
+  const schedulePrefetch = () => {
+    if (!online || current || !target) return
+    cancelPrefetch()
+    prefetchTimerRef.current = setTimeout(() => {
+      prefetchTimerRef.current = null
+      prefetchRepoLog(target)
+    }, 150)
+  }
+
+  useEffect(() => cancelPrefetch, [])
 
   return (
     <div className="relative w-full" onDragOver={(event) => onProjectDragOver(event, group, project.id)} onDrop={(event) => void commitDrop(event)}>
@@ -133,7 +153,12 @@ export function ProjectMenuItemRow({
             )}
             onDragStart={(event) => onProjectDragStart(event, project.id)}
             onDragEnd={onProjectDragEnd}
+            onMouseEnter={schedulePrefetch}
+            onMouseLeave={cancelPrefetch}
+            onFocus={schedulePrefetch}
+            onBlur={cancelPrefetch}
             onClick={() => {
+              cancelPrefetch()
               if (target) onOpenTarget(target)
               else setCloneTarget(project)
             }}

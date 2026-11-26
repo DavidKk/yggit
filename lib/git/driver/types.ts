@@ -9,6 +9,7 @@ export interface ReadLogOptions {
   skip?: number
   take?: number
   locate?: string
+  signal?: AbortSignal
   onProgress?: (stage: string) => void
 }
 

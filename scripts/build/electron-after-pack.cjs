@@ -6,12 +6,36 @@
  * electron-builder may re-sign afterward when a real identity is configured.
  */
 const { spawnSync } = require('node:child_process')
+const { cpSync, existsSync } = require('node:fs')
 const path = require('node:path')
+
+/**
+ * Copy standalone node_modules into unpacked app-root when electron-builder strips it.
+ * @param {import('electron-builder').AfterPackContext} context
+ */
+function ensureStandaloneNodeModules(context) {
+  const appName = context.packager.appInfo.productFilename
+  const resourcesDir =
+    context.electronPlatformName === 'darwin'
+      ? path.join(context.appOutDir, `${appName}.app`, 'Contents', 'Resources')
+      : path.join(context.appOutDir, 'resources')
+
+  const srcNodeModules = path.join(context.packager.projectDir, '.electron-builder', 'app-root', 'node_modules')
+  const destAppRoot = path.join(resourcesDir, 'app-root')
+  const destNodeModules = path.join(destAppRoot, 'node_modules')
+
+  if (existsSync(srcNodeModules) && existsSync(destAppRoot) && !existsSync(destNodeModules)) {
+    console.log(`[after-pack] copying standalone node_modules → ${destNodeModules}`)
+    cpSync(srcNodeModules, destNodeModules, { recursive: true, verbatimSymlinks: true })
+  }
+}
 
 /**
  * @param {import('electron-builder').AfterPackContext} context
  */
 exports.default = async function afterPack(context) {
+  ensureStandaloneNodeModules(context)
+
   if (context.electronPlatformName !== 'darwin') return
 
   const appName = context.packager.appInfo.productFilename

@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation'
 
 import { LandingPage } from '@/components/landing/LandingPage'
 import { isLocale } from '@/lib/i18n'
+import { resolveLandingScene } from '@/lib/landing/server'
 import { buildLandingJsonLd, buildLandingMetadata, buildWebSiteJsonLd, LANDING_SUBPATH_LOCALES } from '@/lib/seo/landing-metadata'
 
 export function generateStaticParams() {
@@ -26,6 +27,7 @@ export default async function LocalizedLandingPage({ params }: PageProps<'/[loca
     notFound()
   }
 
+  const initialScene = await resolveLandingScene()
   const appJsonLd = buildLandingJsonLd(locale)
   const siteJsonLd = buildWebSiteJsonLd(locale)
 
@@ -33,7 +35,7 @@ export default async function LocalizedLandingPage({ params }: PageProps<'/[loca
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(appJsonLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(siteJsonLd) }} />
-      <LandingPage />
+      <LandingPage initialScene={initialScene} />
     </>
   )
 }

@@ -3,10 +3,12 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { LuMonitor } from 'react-icons/lu'
 
+import { HERO_ASSETS } from '@/components/homepage/data/heroAssets'
 import { YggitOfficialPreview } from '@/components/homepage/YggitOfficialPreview'
 import { useT } from '@/components/i18n/LocaleProvider'
 import { LandingHeader } from '@/components/landing/LandingHeader'
 import { LandingHero } from '@/components/landing/LandingHero'
+import { type LandingScene, resolveBrowserLandingScene, writeLandingScene } from '@/lib/landing/scene'
 
 import styles from './LandingPage.module.css'
 
@@ -26,44 +28,22 @@ function getServerDesktopViewport() {
   return false
 }
 
-const TIME_PRESET_STORAGE_KEY = 'yggit.landing.timePreset'
-
-function getAutoTimePreset(): 'day' | 'night' {
-  if (typeof window === 'undefined') return 'night'
-  try {
-    const saved = localStorage.getItem(TIME_PRESET_STORAGE_KEY)
-    if (saved === 'day' || saved === 'night') return saved
-  } catch {}
-
-  const hour = new Date().getHours()
-  // Daytime is strictly between 06:00 and 18:00
-  if (hour >= 6 && hour < 18) {
-    // If user's OS explicitly prefers dark mode, default to night
-    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      return 'night'
-    }
-    return 'day'
-  }
-  return 'night'
-}
-
-export function LandingPage() {
+export function LandingPage({ initialScene = 'night' }: { initialScene?: LandingScene }) {
   const t = useT()
   const isDesktopViewport = useSyncExternalStore(subscribeToViewport, getDesktopViewport, getServerDesktopViewport)
-  const [timePresetId, setTimePresetId] = useState<'day' | 'night'>(() => {
-    return typeof window !== 'undefined' ? getAutoTimePreset() : 'night'
-  })
+  // Start from the SSR cookie-resolved scene to prevent hydration mismatches and Day/Night flashes.
+  const [timePresetId, setTimePresetId] = useState<LandingScene>(initialScene)
 
   useEffect(() => {
-    setTimePresetId(getAutoTimePreset())
+    const resolved = resolveBrowserLandingScene()
+    setTimePresetId(resolved)
+    writeLandingScene(resolved)
   }, [])
 
   const handleToggleDayNight = () => {
     setTimePresetId((prev) => {
       const next = prev === 'day' ? 'night' : 'day'
-      try {
-        localStorage.setItem(TIME_PRESET_STORAGE_KEY, next)
-      } catch {}
+      writeLandingScene(next)
       return next
     })
   }
@@ -71,13 +51,17 @@ export function LandingPage() {
   const handleSelectPreset = (preset: { id: string }) => {
     const next = preset.id === 'night' ? 'night' : 'day'
     setTimePresetId(next)
-    try {
-      localStorage.setItem(TIME_PRESET_STORAGE_KEY, next)
-    } catch {}
+    writeLandingScene(next)
   }
+
+  const activeSceneHref = timePresetId === 'day' ? HERO_ASSETS.landingDayBase : HERO_ASSETS.landingNightBase
+  const activeOverhangHref = timePresetId === 'day' ? HERO_ASSETS.dayOverhang : HERO_ASSETS.nightOverhang
 
   return (
     <main className={styles.page} data-scene={timePresetId}>
+      <link rel="preload" as="image" href={activeSceneHref} fetchPriority="high" />
+      <link rel="preload" as="image" href={HERO_ASSETS.cardShell} fetchPriority="high" />
+      <link rel="preload" as="image" href={activeOverhangHref} fetchPriority="high" />
       <LandingHeader timePresetId={timePresetId} onToggleDayNight={handleToggleDayNight} />
       <LandingHero />
       <div className={styles.stage}>

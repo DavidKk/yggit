@@ -24,6 +24,7 @@
   --theme-shadow: inset 1px 0 5px #00e1c184, 0 0 9px #00e1c128;
   --button-light: 0.78;
   --scene-image: url('/world-tree-assets/hero/landing-night-scene.webp');
+  --overhang-image: url('/world-tree-assets/hero/hero_card_night_overhang.webp');
   position: relative;
   isolation: isolate;
   display: flex;
@@ -35,6 +36,9 @@
   background: var(--page-fill);
   color: #f6fbff;
   font-family: Arial, ui-sans-serif, sans-serif;
+  transition:
+    background-color 600ms ease,
+    color 400ms ease;
 }
 
 .page[data-scene='day'] {
@@ -53,6 +57,7 @@
   --theme-shadow: none;
   --button-light: 0.65;
   --scene-image: url('/world-tree-assets/hero/landing-day-scene.webp');
+  --overhang-image: url('/world-tree-assets/hero/hero_card_day_overhang.webp');
 }
 
 .header {
@@ -216,7 +221,10 @@
   position: absolute;
   inset: 0;
   z-index: 0;
-  background: var(--scene-image) center / cover no-repeat;
+  background-image: var(--overhang-image), url('/world-tree-assets/hero/hero_card_glass_shell.webp'), var(--scene-image);
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
 }
 
 .copy {
@@ -481,6 +489,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .page,
   .action {
     transition: none;
   }
