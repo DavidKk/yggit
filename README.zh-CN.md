@@ -4,12 +4,13 @@
 
 **Yggit**（世界树 Git）将传统的生硬工业网格 Git 提交图升级为**有机生命树网络**。基于 Next.js 16、React 19 与 Tailwind CSS 4 构建，提供高性能、Local-first 的 Git 图谱可视化、AI 仓库助手（**Yggi**）、工作台诊断以及可扩展的 Skills 与 MCP 工具能力。
 
-运行形态：
+运行形态（`YGGIT_SERVICE`）：
 
-| 形态             | 方式                                       | 磁盘与 Git 能力                                                                              |
-| ---------------- | ------------------------------------------ | -------------------------------------------------------------------------------------------- |
-| **Local**        | 本机 Node.js 服务贴着仓库目录运行          | 完整原生 Git CLI、本地磁盘读写、加密本地存储及本机 CLI Agent 适配                            |
-| **Edge / Cloud** | Vercel / 浏览器（`VERCEL=1` 或 Edge 驱动） | 服务端无盘——在 Chromium 浏览器中通过 File System Access API 与 `isomorphic-git` 读取本地仓库 |
+| 形态             | 方式                                                                 | 磁盘与 Git 能力                                                                              |
+| ---------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| **Local**        | 本机 Node.js 服务贴着仓库目录运行                                    | 完整原生 Git CLI、本地磁盘读写、加密本地存储及本机 CLI Agent 适配                            |
+| **Desktop App**  | 桌面客户端打包形态（`YGGIT_SERVICE=app` / `YGGIT_ELECTRON_BUILD=1`） | 完整原生 Git CLI、本地磁盘读写与桌面宿主集成                                                 |
+| **Cloud / Edge** | 浏览器端形态（`YGGIT_SERVICE=remote` / `VERCEL=1`）                  | 服务端无盘——在 Chromium 浏览器中通过 File System Access API 与 `isomorphic-git` 读取本地仓库 |
 
 ## 核心特性
 
@@ -22,16 +23,6 @@
 - **开发者可观测性** — 内置 `/dev/logs/operations` 与 `/dev/logs/context` 诊断视图，支持多级别日志筛选、Agent 上下文追踪与一键导出诊断报告。
 - **10 种语言全球化本地化** — 全量支持简体中文、英语、繁体中文、日语、韩语、法语、德语、西班牙语、巴西葡萄牙语与俄语。
 - **数据本地化与隐私优先** — 密钥与凭据均经本地加密保存，无需注册账号，不收集任何个人配置信息。
-
-## 部署到 Vercel（Cloud / Edge）
-
-[![Deploy to Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FDavidKk%2Fyggit)
-
-在 Vercel 上运行时，Yggit 自动切换为 **Edge / 浏览器** 模式：云端仅提供界面服务，仓库目录读取与 `isomorphic-git` 操作全部在本地浏览器中通过 File System Access API 完成。
-
-1. 将 [DavidKk/yggit](https://github.com/DavidKk/yggit) 导入 Vercel（或点击上方按钮）。
-2. 框架预设选择 **Next.js**，构建命令：`pnpm build`。
-3. 部署完成后使用 Chrome 或 Microsoft Edge 打开站点，授权本地 Git 仓库目录即可使用。
 
 ## 本地开发
 
@@ -51,7 +42,7 @@ pnpm dev
 | `pnpm dev`          | 启动本地开发服务（默认监听局域网）                                                                       |
 | `pnpm dev:lan`      | 显式以局域网模式启动开发服务                                                                             |
 | `pnpm dev:loopback` | 仅监听本机回环地址（`127.0.0.1`）                                                                        |
-| `pnpm build`        | 构建生产产物（`next build --webpack`）                                                                   |
+| `pnpm build`        | 构建生产产物（`next build --webpack`；配合 `YGGIT_ELECTRON_BUILD=1` 输出桌面 App standalone 产物）       |
 | `pnpm start`        | 启动生产服务                                                                                             |
 | `pnpm ok`           | 一键执行 `fix:imports`、Prettier 格式化、ESLint（`--max-warnings=0`）、类型检查、Jest 全量测试与生产构建 |
 | `pnpm ok:ci`        | CI 校验流水线（`format:check`、`lint:check`、`typecheck`、Jest 测试、生产构建）                          |
@@ -75,7 +66,7 @@ yggdrasil/
 
 ## 隐私说明
 
-Yggit 无需登录账号，不收集任何可识别个人身份的信息。本地模式下，仓库数据、缓存与加密凭据均严格保存在您的设备本地；对第三方大模型或远程 MCP 服务的请求仅按您配置的地址直接发起。完整内容见应用内 `/privacy` 页面。
+Yggit 无需登录账号，不收集任何可识别个人身份的信息。在 Local 与 Desktop App 模式下，仓库数据、缓存与加密凭据均严格保存在您的设备本地；对第三方大模型或远程 MCP 服务的请求仅按您配置的地址直接发起。完整内容见应用内 `/privacy` 页面。
 
 ## 开源协议
 

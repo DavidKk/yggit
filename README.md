@@ -4,12 +4,13 @@
 
 **Yggit** (World Tree Git) transforms standard industrial grid Git graphs into an **organic life-tree network**. Built with Next.js 16, React 19, and Tailwind CSS 4, Yggit delivers a fast, local-first Git commit history workbench with an integrated AI assistant (**Yggi**), repository diagnostics, and extensible Skills & MCP tooling.
 
-Runtime modes:
+Runtime modes (`YGGIT_SERVICE`):
 
-| Mode             | How                                          | Disk & Git Access                                                                                  |
-| ---------------- | -------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| **Local**        | Node.js server alongside your repositories   | Full native Git CLI, local file access, encrypted local storage, and local CLI agent adapters      |
-| **Edge / Cloud** | Vercel / browser (`VERCEL=1` or Edge driver) | No server disk — opens local folders in Chromium via the File System Access API (`isomorphic-git`) |
+| Mode             | How                                                                       | Disk & Git Access                                                                                  |
+| ---------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| **Local**        | Node.js server alongside your repositories                                | Full native Git CLI, local file access, encrypted local storage, and local CLI agent adapters      |
+| **Desktop App**  | Standalone desktop build (`YGGIT_SERVICE=app` / `YGGIT_ELECTRON_BUILD=1`) | Full native Git CLI, local file access, and desktop shell integration                              |
+| **Cloud / Edge** | Browser-first mode (`YGGIT_SERVICE=remote` / `VERCEL=1`)                  | No server disk — opens local folders in Chromium via the File System Access API (`isomorphic-git`) |
 
 ## Features
 
@@ -22,16 +23,6 @@ Runtime modes:
 - **Developer Observability** — Built-in `/dev/logs/operations` and `/dev/logs/context` views for inspecting operation error stacks, multi-level logs, and Agent context traces with one-click diagnostics export.
 - **10-Language Localization** — Full UI internationalization across English, Simplified Chinese, Traditional Chinese, Japanese, Korean, French, German, Spanish, Brazilian Portuguese, and Russian.
 - **Local-First & Privacy-First** — API keys and tokens are encrypted locally; no account is required and no personal configuration data is collected.
-
-## Deploy to Vercel (Cloud / Edge)
-
-[![Deploy to Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FDavidKk%2Fyggit)
-
-When deployed to Vercel, Yggit runs in **Edge / browser** mode: the UI is served from the cloud while repository reading and `isomorphic-git` operations run locally in your browser using the File System Access API.
-
-1. Import [DavidKk/yggit](https://github.com/DavidKk/yggit) into Vercel (or use the button above).
-2. Framework preset: **Next.js**. Build command: `pnpm build`.
-3. Open the deployed URL in Chrome or Microsoft Edge and select a local Git repository folder to begin.
 
 ## Local Development
 
@@ -46,15 +37,15 @@ pnpm dev
 
 Open [http://localhost:3000](http://localhost:3000) (or the LAN URL printed at startup) to view your repositories.
 
-| Command             | Purpose                                                                                                      |
-| ------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `pnpm dev`          | Start development server (listens on LAN by default)                                                         |
-| `pnpm dev:lan`      | Explicit LAN development server                                                                              |
-| `pnpm dev:loopback` | Loopback-only development server (`127.0.0.1`)                                                               |
-| `pnpm build`        | Build production Next.js bundle (`next build --webpack`)                                                     |
-| `pnpm start`        | Start production server                                                                                      |
-| `pnpm ok`           | Run `fix:imports`, Prettier format, ESLint (`--max-warnings=0`), typecheck, Jest tests, and production build |
-| `pnpm ok:ci`        | CI verification (`format:check`, `lint:check`, `typecheck`, Jest tests, production build)                    |
+| Command             | Purpose                                                                                                          |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `pnpm dev`          | Start development server (listens on LAN by default)                                                             |
+| `pnpm dev:lan`      | Explicit LAN development server                                                                                  |
+| `pnpm dev:loopback` | Loopback-only development server (`127.0.0.1`)                                                                   |
+| `pnpm build`        | Build production Next.js bundle (`next build --webpack`; set `YGGIT_ELECTRON_BUILD=1` for standalone App output) |
+| `pnpm start`        | Start production server                                                                                          |
+| `pnpm ok`           | Run `fix:imports`, Prettier format, ESLint (`--max-warnings=0`), typecheck, Jest tests, and production build     |
+| `pnpm ok:ci`        | CI verification (`format:check`, `lint:check`, `typecheck`, Jest tests, production build)                        |
 
 GitHub Actions: [CI](.github/workflows/ci.yml) runs automated checks on `main` and pull requests.
 
@@ -75,7 +66,7 @@ yggdrasil/
 
 ## Privacy
 
-Yggit requires no sign-in and collects no personally identifiable information. In local mode, repositories, caches, and encrypted credentials remain strictly on your device. Requests to third-party LLM providers or remote MCP servers are sent directly according to the endpoints you configure. See `/privacy` in the app for details.
+Yggit requires no sign-in and collects no personally identifiable information. In Local and Desktop App modes, repositories, caches, and encrypted credentials remain strictly on your device. Requests to third-party LLM providers or remote MCP servers are sent directly according to the endpoints you configure. See `/privacy` in the app for details.
 
 ## License
 
