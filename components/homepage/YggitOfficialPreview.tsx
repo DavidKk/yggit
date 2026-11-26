@@ -40,6 +40,7 @@ export interface YggitOfficialPreviewProps {
   hideTopNav?: boolean
   hideLeftCopy?: boolean
   fullScreenStage?: boolean
+  onFirstFrame?: () => void
 }
 
 // Separated Distant Background & Dedicated Foreground Layers (1672x941)
@@ -268,6 +269,7 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
   hideTopNav = false,
   hideLeftCopy = false,
   fullScreenStage = false,
+  onFirstFrame,
 }) => {
   const [internalSeasonId, setInternalSeasonId] = useState<SeasonThemePack['id']>('default')
   const [internalTimePresetId, setInternalTimePresetId] = useState<TimeOfDayPreset['id']>('day')
@@ -499,11 +501,11 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
         : NIGHT_PREVIEW_BG_PATH
 
     const activeOverhangUrl = initialIsNight ? CARD_NIGHT_FOREGROUND_PATH : CARD_DAY_FOREGROUND_PATH
-    const tier0HeroUrls = Array.from(new Set([activeHeroUrl, CARD_SHELL_PATH, activeOverhangUrl]))
+    const tier0HeroUrls: string[] = [activeHeroUrl, CARD_SHELL_PATH, activeOverhangUrl]
 
     const tier1WaterUrls = Array.from(new Set([WATER_MASK_PATH, WATER_FLOW_MAP_PATH, WATER_NORMAL_MAP_PATH, WATER_FG_OCCLUSION_PATH, WATER_NIGHT_FG_OCCLUSION_PATH]))
 
-    const tier2OppositeUrls = [oppositeHeroUrl, initialIsNight ? CARD_DAY_FOREGROUND_PATH : CARD_NIGHT_FOREGROUND_PATH]
+    const tier2OppositeUrls: string[] = [oppositeHeroUrl, initialIsNight ? CARD_DAY_FOREGROUND_PATH : CARD_NIGHT_FOREGROUND_PATH]
 
     const tier3SecondaryUrls = Array.from(
       new Set([
@@ -547,9 +549,9 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
           onDone?.()
           return
         }
-        const isLandingBase = u === HERO_ASSETS.landingDayBase || u === HERO_ASSETS.landingNightBase
+        const isLandingPreload = fullScreenStage && (tier0HeroUrls.includes(u) || tier2OppositeUrls.includes(u))
         const img = new Image()
-        if (!isLandingBase) img.crossOrigin = 'anonymous'
+        if (!isLandingPreload) img.crossOrigin = 'anonymous'
         if (highPriority) img.fetchPriority = 'high'
         img.decoding = 'async'
         const handleReady = () => {
@@ -564,7 +566,7 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
           if (!cancelled) onDone?.()
         }
         const isVersionedAsset = u.startsWith('/world-tree-assets/') || u.startsWith('/assets/world-tree/')
-        img.src = isVersionedAsset && !isLandingBase ? `${u}${HERO_ASSET_VERSION}` : u
+        img.src = isVersionedAsset && !isLandingPreload ? `${u}${HERO_ASSET_VERSION}` : u
         if (img.complete && img.naturalWidth > 0) {
           handleReady()
         } else {
@@ -623,6 +625,7 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
     let elapsedT = 0
     let streamPhase = 0
     let frameCount = 0
+    let hasPaintedCard = false
     // Continuous Day/Night progress: 0.0 = pure Daytime, 1.0 = pure Nighttime (Dark Mode)
     let currentDayNightProgress = sceneStateRef.current.dayNightMode === 'night' ? 1.0 : 0.0
 
@@ -682,6 +685,13 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
       p2: i * 2.414,
     }))
 
+    const canDrawLandingScene = (night: boolean) => {
+      const imgs = loadedImgsRef.current
+      return Boolean(
+        imgs[night ? HERO_ASSETS.landingNightBase : HERO_ASSETS.landingDayBase] && imgs[CARD_SHELL_PATH] && imgs[night ? CARD_NIGHT_FOREGROUND_PATH : CARD_DAY_FOREGROUND_PATH]
+      )
+    }
+
     const drawScene = (
       ctx: CanvasRenderingContext2D,
       t: number,
@@ -709,9 +719,7 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
 
       const dayBaseImg = imgs[fullScreenStage ? HERO_ASSETS.landingDayBase : DAY_PREVIEW_BG_PATH]
       const nightBaseImg = imgs[fullScreenStage ? HERO_ASSETS.landingNightBase : NIGHT_PREVIEW_BG_PATH]
-      const activeBaseReady = dnProgress >= 0.5 ? nightBaseImg : dayBaseImg
-      const activeOverhangReady = imgs[dnProgress >= 0.5 ? CARD_NIGHT_FOREGROUND_PATH : CARD_DAY_FOREGROUND_PATH]
-      if (fullScreenStage && (!activeBaseReady || !imgs[CARD_SHELL_PATH] || !activeOverhangReady)) return
+      if (fullScreenStage && !canDrawLandingScene(dnProgress >= 0.5)) return false
       ctx.clearRect(0, 0, W, H)
 
       // Single-element isolation mode on dark checkerboard
@@ -734,7 +742,7 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
         } else if (el) {
           drawCardLayer(ctx, el.id, dnProgress, st)
         }
-        return
+        return true
       }
 
       // ---------------------------------------------------------------------
@@ -1126,6 +1134,7 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
           ctx.fillText(name, tip[0] - 35, tip[1])
         }
       }
+      return true
     }
 
     const renderLoop = (now: number) => {
@@ -1143,7 +1152,9 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
 
       // Smoothly advance Scheme 1 Day/Night transition progress (~1.15 seconds duration)
       const targetProgress = s.dayNightMode === 'night' ? 1.0 : 0.0
-      const isTransitioning = Math.abs(currentDayNightProgress - targetProgress) > 0.0005
+      if (fullScreenStage && !hasPaintedCard) currentDayNightProgress = targetProgress
+      const targetReady = !fullScreenStage || canDrawLandingScene(targetProgress === 1)
+      const isTransitioning = targetReady && Math.abs(currentDayNightProgress - targetProgress) > 0.0005
       if (isTransitioning) {
         const step = (fullScreenStage ? frameSeconds : dt) / 1.15
         if (currentDayNightProgress < targetProgress) {
@@ -1151,7 +1162,7 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
         } else {
           currentDayNightProgress = Math.max(targetProgress, currentDayNightProgress - step)
         }
-      } else {
+      } else if (targetReady) {
         currentDayNightProgress = targetProgress
       }
 
@@ -1160,7 +1171,10 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
       // 1. Primary Hero Stage (Module 03): Full 60FPS when visible or transitioning
       if (cardStageCanvasRef.current && (vis.cardStage || isTransitioning)) {
         const ctx1 = cardStageCanvasRef.current.getContext('2d')
-        if (ctx1) drawScene(ctx1, elapsedT, streamPhase, true, currentDayNightProgress)
+        if (ctx1 && drawScene(ctx1, elapsedT, streamPhase, true, currentDayNightProgress) && !hasPaintedCard) {
+          hasPaintedCard = true
+          onFirstFrame?.()
+        }
       }
 
       // 2. Dual Day/Night Compare Stage (only mounted when compare mode is toggled on)
@@ -1190,7 +1204,7 @@ export const YggitOfficialPreview: React.FC<YggitOfficialPreviewProps> = ({
       cancelAnimationFrame(rafId)
       windRenderer?.dispose()
     }
-  }, [fullScreenStage])
+  }, [fullScreenStage, onFirstFrame])
 
   const handleDownloadStagePng = (canvas: HTMLCanvasElement | null, filename: string) => {
     if (!canvas) return
