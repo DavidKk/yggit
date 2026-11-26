@@ -25,11 +25,30 @@ interface UseMergeConflictsOptions {
  */
 export function useMergeConflicts({ repo = '', commits, loading = false, scrollRef, enabled = true, selectedHash }: UseMergeConflictsOptions) {
   const [conflicts, setConflicts] = useState<Record<string, MergeConflictRecord>>({})
+  const [driverModeVersion, setDriverModeVersion] = useState(0)
 
   const isScrollingRef = useRef(false)
   const idleTimerRef = useRef<number | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
   const inFlightRef = useRef(false)
+
+  const commitsRef = useRef(commits)
+  commitsRef.current = commits
+  const conflictsRef = useRef(conflicts)
+  conflictsRef.current = conflicts
+  const selectedHashRef = useRef(selectedHash)
+  selectedHashRef.current = selectedHash
+  const triggerIdleDetectionRef = useRef<() => void>(() => {})
+
+  // Re-trigger conflict detection when driver mode switches (edge <-> local) without a full page reload
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const handleModeChange = () => {
+      setDriverModeVersion((v) => v + 1)
+    }
+    window.addEventListener('yggit:driver_mode_changed', handleModeChange)
+    return () => window.removeEventListener('yggit:driver_mode_changed', handleModeChange)
+  }, [])
 
   // 1. Immediately hydrate any already-cached conflict records from IndexedDB/L1 memory (0ms)
   useEffect(() => {
@@ -57,6 +76,10 @@ export function useMergeConflicts({ repo = '', commits, loading = false, scrollR
   const triggerIdleDetection = useCallback(() => {
     if (!enabled || loading || isScrollingRef.current || inFlightRef.current || !repo) return
 
+    const currentCommits = commitsRef.current
+    const currentConflicts = conflictsRef.current
+    const currentSelectedHash = selectedHashRef.current
+
     // Find candidate merge commits that have not been cached yet
     const uncachedMerges: Array<{ hash: string; parents: string[] }> = []
 
@@ -67,18 +90,18 @@ export function useMergeConflicts({ repo = '', commits, loading = false, scrollR
     const rowHeight = 26
 
     const startIdx = Math.max(0, Math.floor(scrollTop / rowHeight) - 5)
-    const endIdx = Math.min(commits.length, Math.ceil((scrollTop + clientHeight) / rowHeight) + 10)
+    const endIdx = Math.min(currentCommits.length, Math.ceil((scrollTop + clientHeight) / rowHeight) + 10)
 
-    const selected = commits.find((commit) => commit.hash === selectedHash)
-    const visible = commits.slice(startIdx, endIdx)
+    const selected = currentCommits.find((commit) => commit.hash === currentSelectedHash)
+    const visible = currentCommits.slice(startIdx, endIdx)
     // The selected file panel may belong to a merge outside the visible graph.
     const slice = selected ? [selected, ...visible.filter((commit) => commit.hash !== selected.hash)] : visible
 
     for (const commit of slice) {
       if (commit && commit.parents && commit.parents.length >= 2) {
         if (
-          !conflicts[commit.hash] ||
-          (conflicts[commit.hash].hasConflict && (!conflicts[commit.hash].conflictFileCounts || conflicts[commit.hash].unresolvedConflictFiles === undefined))
+          !currentConflicts[commit.hash] ||
+          (currentConflicts[commit.hash].hasConflict && (!currentConflicts[commit.hash].conflictFileCounts || currentConflicts[commit.hash].unresolvedConflictFiles === undefined))
         ) {
           uncachedMerges.push({ hash: commit.hash, parents: commit.parents })
         }
@@ -89,6 +112,7 @@ export function useMergeConflicts({ repo = '', commits, loading = false, scrollR
 
     // Limit to at most 5 per idle cycle to keep load virtually invisible
     const batch = uncachedMerges.slice(0, 5)
+    const hasMore = uncachedMerges.length > batch.length
 
     if (abortControllerRef.current) {
       abortControllerRef.current.abort()
@@ -99,15 +123,30 @@ export function useMergeConflicts({ repo = '', commits, loading = false, scrollR
 
     void queryConflictsBatch(repo, batch, controller.signal)
       .then((newlyResolved) => {
-        if (!controller.signal.aborted && Object.keys(newlyResolved).length > 0) {
+        if (controller.signal.aborted) return
+        if (Object.keys(newlyResolved).length > 0) {
           setConflicts((prev) => ({ ...prev, ...newlyResolved }))
+          if (hasMore && !isScrollingRef.current) {
+            if (idleTimerRef.current !== null) {
+              window.clearTimeout(idleTimerRef.current)
+            }
+            idleTimerRef.current = window.setTimeout(() => {
+              idleTimerRef.current = null
+              triggerIdleDetectionRef.current()
+            }, 100)
+          }
         }
       })
       .catch(() => {})
       .finally(() => {
-        inFlightRef.current = false
+        if (abortControllerRef.current === controller) {
+          inFlightRef.current = false
+        }
       })
-  }, [enabled, loading, repo, commits, conflicts, scrollRef, selectedHash])
+  }, [enabled, loading, repo, scrollRef])
+  triggerIdleDetectionRef.current = triggerIdleDetection
+
+  const hasCommits = commits.length > 0
 
   // 3. Scroll listener: Cancel running task immediately during scroll, schedule idle detection when stopped
   useEffect(() => {
@@ -127,13 +166,15 @@ export function useMergeConflicts({ repo = '', commits, loading = false, scrollR
       if (abortControllerRef.current) {
         abortControllerRef.current.abort()
         abortControllerRef.current = null
+        inFlightRef.current = false
       }
 
-      // Wait for stable idle pause (800ms) after scroll completely stops
+      // Wait for stable idle pause (500ms) after scroll completely stops
       idleTimerRef.current = window.setTimeout(() => {
+        idleTimerRef.current = null
         isScrollingRef.current = false
         triggerIdleDetection()
-      }, 800)
+      }, 500)
     }
 
     el.addEventListener('scroll', handleScroll, { passive: true })
@@ -144,16 +185,19 @@ export function useMergeConflicts({ repo = '', commits, loading = false, scrollR
       isScrollingRef.current = false
       if (idleTimerRef.current !== null) {
         window.clearTimeout(idleTimerRef.current)
+        idleTimerRef.current = null
       }
       if (abortControllerRef.current) {
         abortControllerRef.current.abort()
+        abortControllerRef.current = null
+        inFlightRef.current = false
       }
     }
-  }, [scrollRef, triggerIdleDetection])
+  }, [scrollRef, triggerIdleDetection, hasCommits])
 
-  // 4. Loading state listener: Never trigger during loading, schedule idle detection after loading completes
+  // 4. Loading/repo/mode listener: Never trigger during loading, schedule idle detection after loading completes
   useEffect(() => {
-    if (loading) {
+    if (loading || !enabled || !repo) {
       if (idleTimerRef.current !== null) {
         window.clearTimeout(idleTimerRef.current)
         idleTimerRef.current = null
@@ -161,21 +205,21 @@ export function useMergeConflicts({ repo = '', commits, loading = false, scrollR
       if (abortControllerRef.current) {
         abortControllerRef.current.abort()
         abortControllerRef.current = null
+        inFlightRef.current = false
       }
       return
     }
 
-    // After loading completes, wait 800ms of stable idle before initiating any background check
-    idleTimerRef.current = window.setTimeout(() => {
-      triggerIdleDetection()
-    }, 800)
+    if (!commits.length) return
 
-    return () => {
-      if (idleTimerRef.current !== null) {
-        window.clearTimeout(idleTimerRef.current)
-      }
+    // Schedule idle detection without resetting an already-pending timer on pagination updates
+    if (idleTimerRef.current === null && !inFlightRef.current && !isScrollingRef.current) {
+      idleTimerRef.current = window.setTimeout(() => {
+        idleTimerRef.current = null
+        triggerIdleDetection()
+      }, 250)
     }
-  }, [loading, triggerIdleDetection])
+  }, [loading, enabled, repo, commits.length, driverModeVersion, selectedHash, triggerIdleDetection])
 
   return {
     conflicts,

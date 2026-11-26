@@ -122,6 +122,8 @@ export function GitFileDiff({
   const [conflictViewMode, setConflictViewMode] = useState<'3way' | 'remerge'>('3way')
   const [conflictContents, setConflictContents] = useState<[string | null, string | null, string | null]>([null, null, null])
   const [remergeDiff, setRemergeDiff] = useState('')
+  const [remergeFiles, setRemergeFiles] = useState<string[]>([])
+  const [remergeRecord, setRemergeRecord] = useState<MergeConflictRecord | null>(null)
   const [conflictLoading, setConflictLoading] = useState(false)
   const [conflictNavigation, setConflictNavigation] = useState({ index: -1, sequence: 0 })
 
@@ -155,12 +157,16 @@ export function GitFileDiff({
         return null
       }
     }
-    void Promise.all([blob(p1Hash), blob(p2Hash), blob(hash), fetchRemergeDiff(repo, hash).catch(() => ({ diff: '' }))]).then(([first, second, merged, diff]) => {
-      if (cancelled) return
-      setConflictContents([first, second, merged])
-      setRemergeDiff(diff.diff)
-      setConflictLoading(false)
-    })
+    void Promise.all([blob(p1Hash), blob(p2Hash), blob(hash), fetchRemergeDiff(repo, hash).catch(() => ({ diff: '', files: [], record: null }))]).then(
+      ([first, second, merged, diff]) => {
+        if (cancelled) return
+        setConflictContents([first, second, merged])
+        setRemergeDiff(diff.diff)
+        setRemergeFiles(diff.files || [])
+        setRemergeRecord(diff.record || null)
+        setConflictLoading(false)
+      }
+    )
     return () => {
       cancelled = true
     }
@@ -632,10 +638,15 @@ export function GitFileDiff({
           ) : null}
 
           {/* Conflict / Changes toggle button */}
-          {hasConflict || Boolean(conflict?.hasConflict) || Boolean(commit && commit.parents.length > 1) ? (
+          {hasConflict ||
+          Boolean(conflict?.hasConflict) ||
+          Boolean(remergeRecord?.hasConflict) ||
+          remergeFiles.includes(path) ||
+          regions.length > 0 ||
+          Boolean(commit && commit.parents.length > 1) ? (
             <Tooltip
               content={
-                !hasConflict && !conflict?.hasConflict && !conflictActive
+                !hasConflict && !conflict?.hasConflict && !remergeRecord?.hasConflict && !remergeFiles.includes(path) && regions.length === 0 && !conflictActive
                   ? t('git.diff.noConflict') || 'No conflict in current file'
                   : conflictActive
                     ? t('git.diff.diffView') || 'Diff'
@@ -645,10 +656,14 @@ export function GitFileDiff({
               <Button
                 variant="plain"
                 size="mini"
-                disabled={!hasConflict && !conflict?.hasConflict && !conflictActive}
-                className={!hasConflict && !conflict?.hasConflict && !conflictActive ? 'opacity-40 cursor-not-allowed' : ''}
+                disabled={!hasConflict && !conflict?.hasConflict && !remergeRecord?.hasConflict && !remergeFiles.includes(path) && regions.length === 0 && !conflictActive}
+                className={
+                  !hasConflict && !conflict?.hasConflict && !remergeRecord?.hasConflict && !remergeFiles.includes(path) && regions.length === 0 && !conflictActive
+                    ? 'opacity-40 cursor-not-allowed'
+                    : ''
+                }
                 onClick={() => {
-                  if (hasConflict || conflict?.hasConflict || conflictActive) {
+                  if (hasConflict || conflict?.hasConflict || remergeRecord?.hasConflict || remergeFiles.includes(path) || regions.length > 0 || conflictActive) {
                     setConflictActive(!conflictActive)
                   }
                 }}

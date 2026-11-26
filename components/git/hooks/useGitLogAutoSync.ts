@@ -1,6 +1,6 @@
 'use client'
 
-import { type Dispatch, type MutableRefObject, type SetStateAction, useCallback, useEffect, useRef } from 'react'
+import { type Dispatch, type MutableRefObject, type SetStateAction, useCallback, useEffect, useRef, useState } from 'react'
 
 import { getDriverMode, getGitDriver } from '@/lib/git/driver'
 import { areCommitListsEquivalent, hasGitLogViewMetadataChanged, reconcileCommitsPreservingRefs } from '@/lib/git/refresh-diff'
@@ -47,6 +47,16 @@ export function useGitLogAutoSync({
   setSelectedHash: Dispatch<SetStateAction<string>>
   setSelection: (next: GitSelection) => void
 }) {
+  const [driverMode, setDriverMode] = useState<'edge' | 'local'>(() => getDriverMode())
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const onModeChanged = () => {
+      setDriverMode(getDriverMode())
+    }
+    window.addEventListener('yggit:driver_mode_changed', onModeChanged)
+    return () => window.removeEventListener('yggit:driver_mode_changed', onModeChanged)
+  }, [])
+
   const silentRefreshingRef = useRef(false)
   const silentRefresh = useCallback(async () => {
     if (silentRefreshingRef.current || busy) return
@@ -286,7 +296,7 @@ export function useGitLogAutoSync({
       window.removeEventListener('focus', handleTrigger)
       document.removeEventListener('visibilitychange', handleTrigger)
     }
-  }, [silentRefresh, autoFetch, view?.repo, isMainOverview])
+  }, [silentRefresh, autoFetch, view?.repo, isMainOverview, driverMode])
 
   return { silentRefresh, autoFetch }
 }
