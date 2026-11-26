@@ -210,9 +210,14 @@ export function SkillEditor({ skillId }: SkillEditorProps) {
       confirmLabel: 'Remove',
       confirmVariant: 'fail',
       onConfirm: async () => {
-        await deleteSkill(skill.id)
-        notify.success(t('gitAgent.skillRemoved') || 'Skill removed')
-        router.replace('/settings/skills')
+        try {
+          await deleteSkill(skill.id)
+          notify.success(t('gitAgent.skillRemoved') || 'Skill removed')
+          router.replace('/settings/skills')
+        } catch (err) {
+          notify.error(err instanceof Error ? err.message : 'Failed to remove skill')
+          throw err
+        }
       },
     })
   }

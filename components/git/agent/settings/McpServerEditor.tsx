@@ -227,9 +227,14 @@ export function McpServerEditor({ serverId }: McpServerEditorProps) {
       confirmLabel: 'Remove',
       confirmVariant: 'fail',
       onConfirm: async () => {
-        await deleteMcpServer(server.id)
-        notify.success(t('gitAgent.mcpRemoved') || 'MCP Server removed')
-        router.replace('/settings/mcp')
+        try {
+          await deleteMcpServer(server.id)
+          notify.success(t('gitAgent.mcpRemoved') || 'MCP Server removed')
+          router.replace('/settings/mcp')
+        } catch (err) {
+          notify.error(err instanceof Error ? err.message : 'Failed to remove MCP server')
+          throw err
+        }
       },
     })
   }

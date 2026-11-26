@@ -409,7 +409,10 @@ export function MenuSettingsSection() {
       description: t('gitAgent.deleteActionHint'),
       confirmLabel: t('gitAgent.deleteAction', { name: action.label }),
       confirmVariant: 'fail',
-      onConfirm: () => setConfig({ ...config, agentActions: config.agentActions.filter((item) => item.id !== id) }),
+      onConfirm: () => {
+        setConfig({ ...config, agentActions: config.agentActions.filter((item) => item.id !== id) })
+        notify.success(t('common.remove') ? `${action.label} removed` : 'Action removed')
+      },
     })
   }
 

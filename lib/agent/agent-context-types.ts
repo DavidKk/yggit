@@ -85,7 +85,7 @@ export interface AgentContextValue {
   profiles: AgentModelProfile[]
   activeProfileId: string
   saveProfile: (profile: AgentModelProfile, options?: { clearApiKey?: boolean }) => void
-  deleteProfile: (id: string) => void
+  deleteProfile: (id: string) => void | Promise<void>
   selectProfile: (id: string) => void
   toggleProfileEnabled: (id: string, enabled: boolean) => void
   redactionOptions: RedactionOptions

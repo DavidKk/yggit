@@ -6,6 +6,7 @@ import { LuArrowLeft, LuSave, LuTrash2 } from 'react-icons/lu'
 
 import { useConfirm } from '@/components/confirm/ConfirmProvider'
 import { useT } from '@/components/i18n/LocaleProvider'
+import { useNotification } from '@/components/notification/useNotification'
 import { Button, TextInput } from '@/components/sk'
 import { useContextMenuConfig } from '@/lib/git/context-menu-config'
 
@@ -14,6 +15,7 @@ import { SettingsSectionCard } from './SettingsSectionCard'
 export function AgentMenuActionEditor({ actionId }: { actionId: string }) {
   const t = useT()
   const confirm = useConfirm()
+  const notify = useNotification()
   const router = useRouter()
   const [config, setConfig] = useContextMenuConfig()
   const action = config.agentActions.find((item) => item.id === actionId)
@@ -80,6 +82,7 @@ export function AgentMenuActionEditor({ actionId }: { actionId: string }) {
                     confirmVariant: 'fail',
                     onConfirm: () => {
                       setConfig({ ...config, agentActions: config.agentActions.filter((item) => item.id !== actionId) })
+                      notify.success(`${action.label} removed`)
                       back()
                     },
                   })

@@ -178,13 +178,18 @@ it('allows continuous key entry, saves multiple connections, keeps saved keys on
   await act(async () => key.blur())
   await save()
   expect(host.querySelector('output')!.textContent).toContain('session-key')
+  // Add a second saved connection so we can verify multi-profile switching without a forced default
+  await click('gitAgent.addModel')
+  await input('agent-model-name', 'First endpoint')
+  await input('agent-model-id', 'reflection/beam-free')
+  await save()
   const switches = Array.from(host.querySelectorAll<HTMLButtonElement>('[role="switch"]'))
   expect(switches).toHaveLength(2)
   expect(switches.every((sw) => sw.getAttribute('aria-checked') === 'true')).toBe(true)
   await act(async () => {
     switches[1].click()
   })
-  expect(host.querySelector('output')!.textContent).toContain('reflection/beam-free')
+  expect(host.querySelector('output')!.textContent).toContain('my-custom-model')
 })
 
 it('discards edits on return and validates required keys before saving', async () => {
@@ -205,7 +210,8 @@ it('discards edits on return and validates required keys before saving', async (
 })
 
 it('clears or replaces saved credentials without submitting the mask', async () => {
-  await click('gitAgent.editModel')
+  await click('gitAgent.addModel')
+  await input('agent-model-name', 'Saved endpoint')
   await input('agent-api-key', 'first-key')
   await save()
   await click('gitAgent.editModel')

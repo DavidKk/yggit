@@ -7,6 +7,7 @@ import { IoCheckmark } from 'react-icons/io5'
 import { LuActivity, LuArrowLeft, LuRefreshCw, LuSave, LuShieldCheck, LuTrash2, LuTriangleAlert } from 'react-icons/lu'
 
 import { ConfiguredSecretInput } from '@/components/ConfiguredSecretInput/configured-secret-input'
+import { useOptionalConfirm } from '@/components/confirm/ConfirmProvider'
 import { useT } from '@/components/i18n/LocaleProvider'
 import { useNotification } from '@/components/notification/useNotification'
 import { Badge, Button, InputSuggestion, Select, Spinner, SwitchToggle, TextInput } from '@/components/sk'
@@ -44,7 +45,8 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
   } catch {
     // Graceful fallback for environments outside Next router
   }
-  const { profiles, saveProfile, deleteProfile } = useAgent()
+  const { saveProfile, deleteProfile } = useAgent()
+  const confirm = useOptionalConfirm()
 
   const initialProfile: AgentModelProfile = useMemo(() => {
     if (profile) return profile
@@ -356,9 +358,30 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
   }
 
   function handleDelete() {
-    if (profiles.length <= 1) return
-    deleteProfile(draft.id)
-    handleNavigateBack()
+    const performDelete = async () => {
+      try {
+        await deleteProfile(draft.id)
+        notify.success('Model configuration deleted')
+        handleNavigateBack()
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Failed to delete model configuration'
+        notify.error(msg)
+        throw err
+      }
+    }
+
+    if (!confirm) {
+      void performDelete().catch(() => {})
+      return
+    }
+
+    void confirm({
+      title: `Delete "${draft.name || config.model || draft.id}"?`,
+      description: 'This model configuration and its stored credentials will be removed.',
+      confirmLabel: t('common.remove') || 'Delete',
+      confirmVariant: 'fail',
+      onConfirm: performDelete,
+    })
   }
 
   const notify = useNotification()
@@ -769,7 +792,7 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
                 >
                   {testButtonContent}
                 </Button>
-                {!isNew && profiles.length > 1 && (
+                {!isNew && (
                   <Button type="button" variant="outline-fail" onClick={handleDelete} disabled={testing || testState === 'loading'} title="Delete this model configuration">
                     <LuTrash2 aria-hidden="true" />
                     Delete

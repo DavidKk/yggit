@@ -17,7 +17,7 @@ import { parseFallbackToolCalls, stripToolCodeBlocks } from './fallback-tool-par
 import { getLocalModelSpec } from './local-models'
 import { isLocalRuntimeWarmedUp } from './local-warmup'
 import { DEFAULT_MODEL_FILTER, isModelAllowed, type ModelFilterOptions } from './model-filter'
-import { type AgentModelProfile, DEFAULT_BROWSER_AI_PROFILE, DEFAULT_MODEL_PROFILE, MODEL_PROFILES_STORAGE_KEY, parseModelProfiles, serializeModelProfiles } from './model-profiles'
+import { type AgentModelProfile, DEFAULT_BROWSER_AI_PROFILE, MODEL_PROFILES_STORAGE_KEY, parseModelProfiles, serializeModelProfiles } from './model-profiles'
 import { sendAgentCompletion } from './openapi-client'
 import { createRedactionSession } from './redact/engine'
 import { RedactionEngine } from './redact/engine'
@@ -26,7 +26,7 @@ import { useOptionalSpotlight } from './spotlight-context'
 import { addStepToTask, completeTask, createTask, failTask } from './tasks/storage'
 import { AGENT_GIT_TOOLS, buildMcpToolDefinitions, executeAgentTool } from './tools'
 import { type AgentTraceToolExecution, recordAgentTrace } from './trace-logger'
-import type { AgentChatMessage, AgentDockMode } from './types'
+import { type AgentChatMessage, type AgentDockMode, DEFAULT_AGENT_CONFIG } from './types'
 import { markBrowserAiDismissed, useBrowserAiAutoRegister } from './use-browser-ai-auto-register'
 import { getWorkdeskContext } from './workdesk-context'
 export { type AgentContextValue, DEFAULT_REDACTION_OPTIONS } from './agent-context-types'
@@ -40,10 +40,10 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
   const pathname = useOptionalPathname()
 
   const [driverMode, setDriverMode] = useState<GitDriverMode>(() => getDriverMode())
-  const [profiles, setProfiles] = useState<AgentModelProfile[]>([DEFAULT_MODEL_PROFILE])
-  const [activeProfileId, setActiveProfileId] = useState(DEFAULT_MODEL_PROFILE.id)
+  const [profiles, setProfiles] = useState<AgentModelProfile[]>([])
+  const [activeProfileId, setActiveProfileId] = useState('')
   const [profilesLoaded, setProfilesLoaded] = useState(false)
-  const config = (profiles.find((profile) => profile.id === activeProfileId) || profiles[0]).config
+  const config = (profiles.find((profile) => profile.id === activeProfileId) || profiles[0])?.config || DEFAULT_AGENT_CONFIG
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -58,8 +58,8 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
 
     if (useLocalServerStore) {
       // Local mode is strictly isolated from Edge browser localStorage
-      setProfiles([DEFAULT_MODEL_PROFILE])
-      setActiveProfileId(DEFAULT_MODEL_PROFILE.id)
+      setProfiles([])
+      setActiveProfileId('')
       setProfilesLoaded(false)
 
       if (!isAllowedAgentPath(pathname)) {
@@ -96,8 +96,8 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
         setProfiles(stored.profiles)
         setActiveProfileId(stored.activeId)
       } else {
-        setProfiles([DEFAULT_MODEL_PROFILE])
-        setActiveProfileId(DEFAULT_MODEL_PROFILE.id)
+        setProfiles([])
+        setActiveProfileId('')
       }
       if (typeof window !== 'undefined') {
         window.sessionStorage.removeItem('yggit.agent.session-keys.v1')
@@ -132,7 +132,11 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
     if (!profilesLoaded) return
     if (driverMode === 'local' && typeof fetch === 'function') return
     try {
-      localStorage.setItem(MODEL_PROFILES_STORAGE_KEY, serializeModelProfiles(profiles, activeProfileId))
+      if (profiles.length === 0) {
+        localStorage.removeItem(MODEL_PROFILES_STORAGE_KEY)
+      } else {
+        localStorage.setItem(MODEL_PROFILES_STORAGE_KEY, serializeModelProfiles(profiles, activeProfileId))
+      }
     } catch {
       // Profiles remain usable for this session when browser storage is unavailable.
     }
@@ -193,26 +197,27 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
   }, [])
 
   const deleteProfile = useCallback(
-    (id: string) => {
+    async (id: string) => {
+      if (getDriverMode() === 'local' && typeof fetch === 'function') {
+        const res = await fetch(`/api/git/agent/profiles?id=${encodeURIComponent(id)}`, { method: 'DELETE' })
+        if (!res.ok) {
+          const body = (await res.json().catch(() => null)) as { error?: string } | null
+          throw new Error(body?.error || `Failed to delete model profile (${res.status})`)
+        }
+      } else {
+        await deleteEdgeSecret(id)
+      }
       setProfiles((previous) => {
-        if (previous.length <= 1) return previous
         const target = previous.find((item) => item.id === id)
         if (target?.config.provider === 'browser-ai' || id === DEFAULT_BROWSER_AI_PROFILE.id) {
           markBrowserAiDismissed()
         }
         const next = previous.filter((item) => item.id !== id)
-        if (activeProfileId === id && next.length > 0) {
-          setActiveProfileId(next[0].id)
+        if (activeProfileId === id) {
+          setActiveProfileId(next.length > 0 ? next[0].id : '')
         }
         return next
       })
-      if (getDriverMode() === 'local') {
-        if (typeof fetch === 'function') {
-          void fetch(`/api/git/agent/profiles?id=${encodeURIComponent(id)}`, { method: 'DELETE' }).catch(() => {})
-        }
-      } else {
-        void deleteEdgeSecret(id)
-      }
     },
     [activeProfileId]
   )
