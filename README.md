@@ -43,6 +43,11 @@ Open [http://localhost:3000](http://localhost:3000) (or the LAN URL printed at s
 | `pnpm dev:lan`      | Explicit LAN development server                                                                                  |
 | `pnpm dev:loopback` | Loopback-only development server (`127.0.0.1`)                                                                   |
 | `pnpm build`        | Build production Next.js bundle (`next build --webpack`; set `YGGIT_ELECTRON_BUILD=1` for standalone App output) |
+| `pnpm build:app`    | Build standalone App bundle and assemble `.electron-builder/app-root`                                            |
+| `pnpm dist:mac`     | Package macOS `.app` and release `.zip` (`x64` + `arm64`)                                                        |
+| `pnpm dist:win`     | Package Windows NSIS installer (`.exe`)                                                                          |
+| `pnpm dist:dir`     | Package unpacked desktop app directory for local testing                                                         |
+| `pnpm electron`     | Launch Electron desktop shell against Next dev server                                                            |
 | `pnpm start`        | Start production server                                                                                          |
 | `pnpm ok`           | Run `fix:imports`, Prettier format, ESLint (`--max-warnings=0`), typecheck, Jest tests, and production build     |
 | `pnpm ok:ci`        | CI verification (`format:check`, `lint:check`, `typecheck`, Jest tests, production build)                        |

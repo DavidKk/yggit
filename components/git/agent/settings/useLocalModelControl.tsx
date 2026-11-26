@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { LuCheck, LuDownload, LuTriangleAlert } from 'react-icons/lu'
 
 import { useT } from '@/components/i18n/LocaleProvider'
@@ -9,8 +9,9 @@ import { type InputSuggestionAction, type InputSuggestionProgress, Spinner } fro
 import { type BrowserAiStatus, ensureBrowserAiSession, getBrowserAiAvailability } from '@/lib/agent/browser-ai'
 import { useBrowserAiDebugOverride } from '@/lib/agent/browser-ai-debug'
 import { type BrowserLocalPhase, ensureBrowserLocalModel } from '@/lib/agent/browser-local'
-import { getLocalModelSpec, inspectLocalModelCache, type LocalModelCacheInfo } from '@/lib/agent/local-models'
+import { getLocalModelSpec, inspectLocalModelCache, isLocalModelMarkedReady, type LocalModelCacheInfo } from '@/lib/agent/local-models'
 import type { AgentProviderType } from '@/lib/agent/types'
+import { useBrowserDownloads } from '@/lib/downloads/browser-downloads'
 
 function formatBytes(bytes: number): string {
   if (bytes <= 0) return '0 B'
@@ -27,6 +28,7 @@ function formatBytes(bytes: number): string {
 export interface UnifiedLocalModelControl {
   readOnly: boolean
   hideDropdown: boolean
+  isReady: boolean
   description: string
   runtimeBadge?: { label: string; isWebGpu: boolean }
   action?: InputSuggestionAction
@@ -52,6 +54,7 @@ export function useLocalModelControl({
   const t = useT()
   const notify = useNotification()
   const debugOverride = useBrowserAiDebugOverride()
+  const downloads = useBrowserDownloads()
 
   // Browser AI state
   const [aiStatus, setAiStatus] = useState<BrowserAiStatus>('unsupported')
@@ -66,6 +69,14 @@ export function useLocalModelControl({
   const [localChecking, setLocalChecking] = useState(false)
   const [localPhase, setLocalPhase] = useState<BrowserLocalPhase>('idle')
   const [localPercent, setLocalPercent] = useState<number | undefined>(undefined)
+
+  const activeAiDownload = downloads.find((d) => d.status === 'running' && d.kind === 'browser-ai')
+  const activeLocalDownload = downloads.find((d) => d.status === 'running' && d.id === `browser-local:${localSpec.id}`)
+
+  const effectiveAiStatus: BrowserAiStatus = activeAiDownload ? (activeAiDownload.phase === 'prepare' ? 'preparing' : 'downloading') : aiStatus
+  const effectiveAiPercent = activeAiDownload ? activeAiDownload.percent : aiPercent
+  const effectiveLocalPhase: BrowserLocalPhase = activeLocalDownload ? (activeLocalDownload.phase === 'prepare' ? 'preparing' : 'downloading') : localPhase
+  const effectiveLocalPercent = activeLocalDownload ? activeLocalDownload.percent : localPercent
 
   const refreshBrowserAi = useCallback(async () => {
     setAiChecking(true)
@@ -94,9 +105,20 @@ export function useLocalModelControl({
     }
   }, [provider, refreshBrowserAi, browserAiRefreshSignal, debugOverride])
 
+  const wasLocalDownloadingRef = useRef(false)
+  useEffect(() => {
+    const isRunning = Boolean(activeLocalDownload)
+    if (wasLocalDownloadingRef.current && !isRunning && provider === 'browser-local') {
+      void refreshLocalCache()
+    }
+    wasLocalDownloadingRef.current = isRunning
+  }, [activeLocalDownload, provider, refreshLocalCache])
+
   useEffect(() => {
     if (provider === 'browser-local') {
       setHasWebGpu(typeof navigator !== 'undefined' && 'gpu' in navigator)
+      setLocalPhase('idle')
+      setLocalPercent(undefined)
       void refreshLocalCache()
     }
   }, [provider, refreshLocalCache, localCacheRevision])
@@ -147,34 +169,34 @@ export function useLocalModelControl({
   }, [localSpec.id, notify, refreshLocalCache, t])
 
   if (provider === 'browser-ai') {
-    const isBusy = aiInstalling || aiStatus === 'downloading' || aiStatus === 'preparing'
+    const isBusy = aiInstalling || effectiveAiStatus === 'downloading' || effectiveAiStatus === 'preparing'
     let action: InputSuggestionAction
     let warn: string | undefined
 
-    if (aiChecking) {
+    if (aiChecking && !activeAiDownload) {
       action = { icon: <Spinner className="size-3.5" />, statusOnly: true }
-    } else if (aiStatus === 'available') {
+    } else if (effectiveAiStatus === 'available') {
       action = {
         icon: <LuCheck className="size-3.5" />,
         label: t('gitAgent.browserAiStatusAvailable') || 'Installed & Ready',
         tone: 'ok',
         statusOnly: true,
       }
-    } else if (aiStatus === 'downloading') {
+    } else if (effectiveAiStatus === 'downloading') {
       action = {
         icon: <Spinner className="size-3.5" />,
-        label: `${aiPercent ?? 0}%`,
+        label: `${effectiveAiPercent ?? 0}%`,
         tone: 'accent',
         statusOnly: true,
       }
-    } else if (aiStatus === 'preparing') {
+    } else if (effectiveAiStatus === 'preparing') {
       action = {
         icon: <Spinner className="size-3.5" />,
         label: t('gitAgent.browserAiStatusPreparing') || 'Extracting & Loading…',
         tone: 'accent',
         statusOnly: true,
       }
-    } else if (aiStatus === 'downloadable') {
+    } else if (effectiveAiStatus === 'downloadable') {
       action = {
         icon: <LuDownload className="size-3.5" />,
         label: t('gitAgent.browserAiInstallBtn') || 'Install & Enable',
@@ -185,7 +207,7 @@ export function useLocalModelControl({
       }
     } else {
       const label =
-        aiStatus === 'unavailable' ? t('gitAgent.browserAiStatusUnavailable') || 'Device Unavailable' : t('gitAgent.browserAiStatusUnsupported') || 'Browser Unsupported'
+        effectiveAiStatus === 'unavailable' ? t('gitAgent.browserAiStatusUnavailable') || 'Device Unavailable' : t('gitAgent.browserAiStatusUnsupported') || 'Browser Unsupported'
       action = {
         icon: <LuTriangleAlert className="size-3.5" />,
         label,
@@ -198,20 +220,22 @@ export function useLocalModelControl({
     return {
       readOnly: true,
       hideDropdown: true,
+      isReady: !aiChecking && !isBusy && effectiveAiStatus === 'available',
       description: t('gitAgent.browserAiSharedNote') || 'Shared cache across sites; ready to use if already downloaded.',
       action,
       warn,
       progress: {
-        active: aiStatus === 'downloading' || aiStatus === 'preparing',
-        percent: aiPercent,
-        indeterminate: aiStatus === 'preparing',
+        active: effectiveAiStatus === 'downloading' || effectiveAiStatus === 'preparing',
+        percent: effectiveAiPercent,
+        indeterminate: effectiveAiStatus === 'preparing',
       },
     }
   }
 
   if (provider === 'browser-local') {
     const isCached = cacheInfo.fileCount > 0
-    const isBusy = localPhase === 'downloading' || localPhase === 'preparing'
+    const isCacheComplete = isCached && (isLocalModelMarkedReady(localSpec.id) || cacheInfo.bytes >= localSpec.estimatedBytes * 0.75)
+    const isBusy = effectiveLocalPhase === 'downloading' || effectiveLocalPhase === 'preparing'
     const runtimeLabel = hasWebGpu ? t('gitAgent.browserLocalRuntimeWebGpu') || 'WebGPU' : t('gitAgent.browserLocalRuntimeWasm') || 'WASM'
     const baseDesc = t('gitAgent.browserLocalDesc') || 'Local offline model (WebGPU / WASM); weights are cached in this browser origin.'
     const cacheDesc = isCached
@@ -221,30 +245,30 @@ export function useLocalModelControl({
       : ''
 
     let action: InputSuggestionAction
-    if (localChecking) {
+    if (localChecking && !isBusy) {
       action = { icon: <Spinner className="size-3.5" />, statusOnly: true }
-    } else if (localPhase === 'downloading') {
+    } else if (effectiveLocalPhase === 'downloading') {
       action = {
         icon: <Spinner className="size-3.5" />,
-        label: `${localPercent ?? 0}%`,
+        label: `${effectiveLocalPercent ?? 0}%`,
         tone: 'accent',
         statusOnly: true,
       }
-    } else if (localPhase === 'preparing') {
+    } else if (effectiveLocalPhase === 'preparing') {
       action = {
         icon: <Spinner className="size-3.5" />,
         label: t('gitAgent.browserLocalStatusLoading') || 'Loading…',
         tone: 'accent',
         statusOnly: true,
       }
-    } else if (localPhase === 'ready' || isCached) {
+    } else if (!isBusy && (effectiveLocalPhase === 'ready' || isCacheComplete)) {
       action = {
         icon: <LuCheck className="size-3.5" />,
-        label: t('gitAgent.browserLocalStatusCached') || 'Cached & Ready',
+        label: t('gitAgent.browserLocalStatusCached') || 'Ready',
         tone: 'ok',
         statusOnly: true,
       }
-    } else if (localPhase === 'failed') {
+    } else if (effectiveLocalPhase === 'failed') {
       action = {
         icon: <LuDownload className="size-3.5" />,
         label: t('gitAgent.retry') || 'Retry',
@@ -265,6 +289,7 @@ export function useLocalModelControl({
     return {
       readOnly: true,
       hideDropdown: isBusy,
+      isReady: !isBusy && !localChecking && (effectiveLocalPhase === 'ready' || isCacheComplete),
       description: cacheDesc ? `${baseDesc} ${cacheDesc}` : baseDesc,
       runtimeBadge: {
         label: runtimeLabel,
@@ -273,8 +298,8 @@ export function useLocalModelControl({
       action,
       progress: {
         active: isBusy,
-        percent: localPercent,
-        indeterminate: localPhase === 'preparing',
+        percent: effectiveLocalPercent,
+        indeterminate: effectiveLocalPhase === 'preparing',
       },
     }
   }

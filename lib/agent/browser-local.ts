@@ -2,7 +2,7 @@
 
 import { removeBrowserDownload, requestOpenDownloadCenter, upsertBrowserDownload } from '@/lib/downloads/browser-downloads'
 
-import { clearLocalModelCache, getLocalModelSpec } from './local-models'
+import { clearLocalModelCache, getLocalModelSpec, markLocalModelReady } from './local-models'
 import { clearLocalRuntimeWarmup, markLocalRuntimeWarmedUp } from './local-warmup'
 import { RedactionEngine } from './redact/engine'
 import { StreamingUnmasker, unmaskText } from './redact/unmask'
@@ -46,22 +46,43 @@ function makeRequestId(): string {
   return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `local_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
 }
 
+function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 B'
+  const units = ['B', 'KB', 'MB', 'GB']
+  let value = bytes
+  let idx = 0
+  while (value >= 1024 && idx < units.length - 1) {
+    value /= 1024
+    idx += 1
+  }
+  return `${value >= 100 || idx === 0 ? Math.round(value) : value.toFixed(1)} ${units[idx]}`
+}
+
 function createProgressAggregator(modelId: string, onProgress?: (phase: BrowserLocalPhase, percent?: number) => void) {
   const spec = getLocalModelSpec(modelId)
   const downloadId = `${LOCAL_DOWNLOAD_ID_PREFIX}${spec.id}`
   const startedAt = Date.now()
   const fileProgress = new Map<string, { loaded: number; total: number }>()
   let isPreparing = false
+  let maxPercent = 0
+  let lastSampleAt = startedAt
+  let lastSampleLoaded = 0
+  let smoothedSpeedBps = 0
 
   return {
     handle(event: WorkerProgressPayload | undefined) {
       if (!event || !event.file) return
-      const loaded = typeof event.loaded === 'number' && Number.isFinite(event.loaded) ? event.loaded : 0
-      const total = typeof event.total === 'number' && Number.isFinite(event.total) ? event.total : 0
+      const prev = fileProgress.get(event.file)
+      const rawLoaded = typeof event.loaded === 'number' && Number.isFinite(event.loaded) ? event.loaded : 0
+      const rawTotal = typeof event.total === 'number' && Number.isFinite(event.total) ? event.total : 0
+      const total = Math.max(prev?.total ?? 0, rawTotal)
 
-      if (event.status === 'done' && total > 0) {
-        fileProgress.set(event.file, { loaded: total, total })
+      if (event.status === 'done') {
+        if (total > 0) {
+          fileProgress.set(event.file, { loaded: total, total })
+        }
       } else if (total > 0) {
+        const loaded = Math.min(total, Math.max(prev?.loaded ?? 0, rawLoaded))
         fileProgress.set(event.file, { loaded, total })
       }
 
@@ -72,12 +93,28 @@ function createProgressAggregator(modelId: string, onProgress?: (phase: BrowserL
         sumTotal += item.total
       }
 
+      // Sample smoothed download speed over >= 400ms intervals to avoid noisy jumps
+      const now = Date.now()
+      const dtMs = now - lastSampleAt
+      if (dtMs >= 400 && sumLoaded >= lastSampleLoaded) {
+        const deltaBytes = sumLoaded - lastSampleLoaded
+        const instantBps = (deltaBytes * 1000) / dtMs
+        smoothedSpeedBps = smoothedSpeedBps > 0 ? smoothedSpeedBps * 0.65 + instantBps * 0.35 : instantBps
+        lastSampleAt = now
+        lastSampleLoaded = sumLoaded
+      }
+
       // Use estimatedBytes as floor denominator until all ONNX weight shards register
       const denom = Math.max(sumTotal, spec.estimatedBytes)
-      const percent = denom > 0 ? Math.min(99, Math.max(0, Math.round((sumLoaded / denom) * 100))) : undefined
+      const computed = denom > 0 ? Math.min(99, Math.max(0, Math.round((sumLoaded / denom) * 100))) : undefined
+      if (computed != null) {
+        maxPercent = Math.max(maxPercent, computed)
+      }
+      const percent = computed != null ? maxPercent : undefined
 
       if (event.status === 'ready' || (sumTotal > 0 && sumLoaded >= sumTotal && sumTotal >= spec.estimatedBytes * 0.5)) {
         isPreparing = true
+        maxPercent = 100
         onProgress?.('preparing', 100)
         upsertBrowserDownload({
           id: downloadId,
@@ -91,7 +128,12 @@ function createProgressAggregator(modelId: string, onProgress?: (phase: BrowserL
           startedAt,
         })
       } else if (!isPreparing) {
-        onProgress?.('downloading', percent ?? 0)
+        const detailParts: string[] = []
+        if (percent != null) detailParts.push(`${percent}%`)
+        if (smoothedSpeedBps > 0) detailParts.push(`${formatBytes(smoothedSpeedBps)}/s`)
+        if (sumLoaded > 0 && denom > 0) detailParts.push(`${formatBytes(sumLoaded)} / ${formatBytes(denom)}`)
+
+        onProgress?.('downloading', percent ?? maxPercent)
         upsertBrowserDownload({
           id: downloadId,
           kind: 'browser-local',
@@ -100,7 +142,7 @@ function createProgressAggregator(modelId: string, onProgress?: (phase: BrowserL
           status: 'running',
           phase: 'download',
           percent,
-          detail: percent != null ? `${percent}%` : undefined,
+          detail: detailParts.length > 0 ? detailParts.join(' · ') : undefined,
           startedAt,
         })
       }
@@ -140,6 +182,7 @@ export async function ensureBrowserLocalModel(
         aggregator.handle(msg.event)
       } else if (msg.type === 'ready') {
         worker.removeEventListener('message', onMessage)
+        markLocalModelReady(spec.id)
         markLocalRuntimeWarmedUp(`browser-local:${spec.id}`)
         aggregator.finish()
         resolve()
@@ -181,6 +224,13 @@ export async function runBrowserLocalCompletion(options: {
   signal?: AbortSignal
 }): Promise<AgentCompletionResponse> {
   const { modelId, messages, redactionEngine, onDelta, signal } = options
+  if (activeLoadPromise) {
+    try {
+      await activeLoadPromise
+    } catch {
+      // Proceed to let completion attempt or surface load error
+    }
+  }
   const start = performance.now()
   const spec = getLocalModelSpec(modelId)
   const worker = getOrCreateWorker()
@@ -233,6 +283,7 @@ export async function runBrowserLocalCompletion(options: {
           }
         }
         cleanup()
+        markLocalModelReady(spec.id)
         aggregator.finish()
         resolve()
       } else if (msg.type === 'error') {

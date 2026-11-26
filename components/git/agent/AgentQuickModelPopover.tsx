@@ -11,6 +11,7 @@ import { dropdownPopupClass } from '@/components/sk/dropdownMenu'
 import { useAgent } from '@/lib/agent/agent-context'
 import { isModelAllowed } from '@/lib/agent/model-filter'
 import { AGENT_PRESETS } from '@/lib/agent/types'
+import { useLocalProfileReadiness } from '@/lib/agent/use-local-readiness'
 import { getDriverMode } from '@/lib/git/driver'
 import { saveLastGitUrl } from '@/lib/git/last-git-url'
 import { openEdgeSecret } from '@/lib/security/edge-vault'
@@ -25,22 +26,28 @@ interface Props {
 export function AgentQuickModelPopover({ tabIndex, className, side = 'top' }: Props) {
   const t = useT()
   const { profiles, activeProfileId, selectProfile, saveProfile, modelFilter } = useAgent()
+  const readinessMap = useLocalProfileReadiness(profiles)
   const [open, setOpen] = useState(false)
   const [remoteModelsByProfile, setRemoteModelsByProfile] = useState<Record<string, Array<{ id: string; name: string }>>>({})
   const [fetchingProfileId, setFetchingProfileId] = useState<string | null>(null)
 
   const activeProfile = profiles.find((p) => p.id === activeProfileId) || profiles[0]
 
-  // Build platform options: only enabled configured profiles
+  // Build platform options: enabled configured profiles (unready local models are shown disabled and unselectable)
   const platformOptions: SelectOption[] = useMemo(() => {
-    const enabled = profiles.filter((p) => p.enabled !== false)
+    const enabled = profiles.filter((p) => p.enabled !== false && readinessMap[p.id] !== false)
     const source = enabled.length > 0 ? enabled : profiles
     return source.map((p) => {
       const preset = AGENT_PRESETS[p.config.provider]
-      const label = p.name || preset?.name || p.config.provider
-      return { value: p.id, label }
+      const isReady = readinessMap[p.id] !== false
+      const baseLabel = p.name || preset?.name || p.config.provider
+      return {
+        value: p.id,
+        label: isReady ? baseLabel : `${baseLabel} (Not Ready)`,
+        disabled: !isReady,
+      }
     })
-  }, [profiles])
+  }, [profiles, readinessMap])
 
   // Current platform selection value (profile ID)
   const currentPlatformValue = activeProfile?.id || (platformOptions[0]?.value ?? '')
@@ -119,6 +126,7 @@ export function AgentQuickModelPopover({ tabIndex, className, side = 'top' }: Pr
   }, [activeProfile, remoteModelsByProfile, currentPreset, modelFilter])
 
   const handlePlatformChange = (value: string) => {
+    if (readinessMap[value] === false) return
     selectProfile(value)
   }
 

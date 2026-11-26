@@ -166,7 +166,7 @@ export const gitAgentCht: { gitAgent: GitAgentMessages } = {
     browserLocalRuntimeWebGpu: 'WebGPU 加速',
     browserLocalRuntimeWasm: 'WASM 執行環境',
     browserLocalChecking: '正在偵測本地快取…',
-    browserLocalStatusCached: '已快取就緒',
+    browserLocalStatusCached: '已就緒',
     browserLocalStatusNotCached: '未下載',
     browserLocalStatusDownloading: '下載中 {percent}%',
     browserLocalStatusLoading: '正在載入模型…',

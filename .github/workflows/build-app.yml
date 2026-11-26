@@ -1,0 +1,119 @@
+name: Build App
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-app-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS
+            os: macos-latest
+            dist_script: dist:mac
+          - name: Windows
+            os: windows-latest
+            dist_script: dist:win
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.19.0
+          cache: pnpm
+
+      - name: Use official Electron downloads
+        # Repo .npmrc may point at a China mirror that 502s in CI; use official GitHub Releases
+        shell: bash
+        run: |
+          if [ -f .npmrc ]; then
+            sed -i.bak '/^electron_mirror=/d' .npmrc || true
+            rm -f .npmrc.bak
+          fi
+          echo "ELECTRON_MIRROR=${ELECTRON_MIRROR:-}"
+
+      - name: Install dependencies
+        env:
+          HUSKY: '0'
+        run: pnpm install --frozen-lockfile
+
+      - name: Build installers
+        env:
+          HUSKY: '0'
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: pnpm ${{ matrix.dist_script }}
+
+      - name: Zip Windows installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Get-ChildItem release/*.exe | ForEach-Object {
+            Compress-Archive -Path $_.FullName -DestinationPath ($_.FullName -replace '\.exe$', '.zip') -Force
+          }
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: yggit-${{ matrix.name }}-${{ github.ref_name }}
+          path: |
+            release/*.zip
+            release/*.exe
+            release/*.yml
+            release/*.yaml
+            release/*.blockmap
+          if-no-files-found: error
+          retention-days: 30
+
+  # Tag builds → GitHub Release (matrix artifacts aggregated onto the Release)
+  release:
+    name: GitHub Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: yggit-*
+          merge-multiple: true
+          path: dist-out
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Yggit ${{ github.ref_name }}
+          draft: false
+          # Treat 0.x as prerelease; 1.0.0+ as stable
+          prerelease: ${{ startsWith(github.ref_name, 'v0.') }}
+          generate_release_notes: true
+          files: |
+            dist-out/*.zip
+            dist-out/*.exe
+            dist-out/*.blockmap
+            dist-out/*.yml
+            dist-out/*.yaml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -268,7 +268,7 @@ export const gitAgentZh: { gitAgent: GitAgentMessages } = {
     browserLocalRuntimeWebGpu: 'WebGPU 加速',
     browserLocalRuntimeWasm: 'WASM 运行时',
     browserLocalChecking: '正在检测本地缓存…',
-    browserLocalStatusCached: '已缓存就绪',
+    browserLocalStatusCached: '已就绪',
     browserLocalStatusNotCached: '未下载',
     browserLocalStatusDownloading: '下载中 {percent}%',
     browserLocalStatusLoading: '正在加载模型…',

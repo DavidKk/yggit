@@ -4,6 +4,8 @@ packages: []
 allowBuilds:
   '@parcel/watcher': true
   core-js: true
+  electron: true
+  electron-winstaller: false
   esbuild: true
   onnxruntime-node: false
   protobufjs: false

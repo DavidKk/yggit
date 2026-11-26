@@ -3,6 +3,8 @@ next-env.d.ts
 data/
 logs/
 .next/
+.electron-builder/
+release/
 coverage/
 out/
 build/

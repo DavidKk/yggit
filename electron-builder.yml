@@ -1,0 +1,53 @@
+appId: app.yggit.workbench
+productName: Yggit
+copyright: Copyright © 2026 DavidJones
+asar: true
+npmRebuild: false
+# Tag builds publish via Actions Release (do not implicit-publish here)
+publish: null
+directories:
+  output: release
+  buildResources: electron/assets
+files:
+  - package.json
+  - electron/**/*
+  - scripts/server/local-access.cjs
+  # Next runs from extraResources/app-root; keep production deps out of asar
+  - '!**/node_modules/**'
+  - '!**/.next/**'
+  - '!**/.electron-builder/**'
+  - '!**/release/**'
+  - '!**/docs/**'
+  - '!**/.agents/**'
+  - '!**/__tests__/**'
+extraResources:
+  - from: .electron-builder/app-root
+    to: app-root
+# Ad-hoc sign after pack when identity is null; with a real cert, skip if already valid
+afterPack: scripts/build/electron-after-pack.cjs
+mac:
+  category: public.app-category.developer-tools
+  icon: electron/assets/icon.icns
+  # Zip (app + README_FIRST.txt) is assembled by scripts/build/package-mac-zip.mjs
+  target:
+    - target: dir
+      arch:
+        - x64
+        - arm64
+  # Disable built-in signing; afterPack applies ad-hoc (avoids "damaged" Gatekeeper)
+  identity: null
+  hardenedRuntime: false
+  gatekeeperAssess: false
+win:
+  icon: electron/assets/icon.ico
+  target:
+    - target: nsis
+      arch:
+        - x64
+nsis:
+  oneClick: true
+  perMachine: false
+  runAfterFinish: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  artifactName: ${productName}-Setup-${version}-${arch}.${ext}

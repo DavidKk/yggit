@@ -19,6 +19,8 @@ let activeDevice: 'webgpu' | 'wasm' = 'wasm'
 let qwenModel: any = null
 let qwenProcessor: any = null
 let textPipeline: any = null
+let loadingPromise: Promise<void> | null = null
+let loadingSpecId: string | null = null
 
 async function detectDevice(): Promise<'webgpu' | 'wasm'> {
   try {
@@ -53,39 +55,51 @@ function disposeLoadedModel(): void {
 async function ensureLoaded(spec: LocalBrowserModelSpec, requestId: string): Promise<void> {
   if (loadedSpecId === spec.id && (qwenModel || textPipeline)) return
 
-  disposeLoadedModel()
-  activeDevice = await detectDevice()
-
-  const progress_callback = (event: ProgressEventPayload) => {
-    self.postMessage({
-      type: 'progress',
-      requestId,
-      modelId: spec.id,
-      event,
-    })
+  if (loadingPromise && loadingSpecId === spec.id) {
+    return loadingPromise
   }
 
-  if (spec.pipelineTask === 'qwen35') {
-    qwenProcessor = await AutoProcessor.from_pretrained(spec.repository, {
-      revision: spec.revision,
-      progress_callback,
-    })
-    qwenModel = await Qwen3_5ForConditionalGeneration.from_pretrained(spec.repository, {
-      revision: spec.revision,
-      device: activeDevice,
-      dtype: spec.dtype as any,
-      progress_callback,
-    })
-  } else {
-    textPipeline = await pipeline('text-generation', spec.repository, {
-      revision: spec.revision,
-      device: activeDevice,
-      dtype: spec.dtype as any,
-      progress_callback,
-    })
-  }
+  loadingSpecId = spec.id
+  loadingPromise = (async () => {
+    disposeLoadedModel()
+    activeDevice = await detectDevice()
 
-  loadedSpecId = spec.id
+    const progress_callback = (event: ProgressEventPayload) => {
+      self.postMessage({
+        type: 'progress',
+        requestId,
+        modelId: spec.id,
+        event,
+      })
+    }
+
+    if (spec.pipelineTask === 'qwen35') {
+      qwenProcessor = await AutoProcessor.from_pretrained(spec.repository, {
+        revision: spec.revision,
+        progress_callback,
+      })
+      qwenModel = await Qwen3_5ForConditionalGeneration.from_pretrained(spec.repository, {
+        revision: spec.revision,
+        device: activeDevice,
+        dtype: spec.dtype as any,
+        progress_callback,
+      })
+    } else {
+      textPipeline = await pipeline('text-generation', spec.repository, {
+        revision: spec.revision,
+        device: activeDevice,
+        dtype: spec.dtype as any,
+        progress_callback,
+      })
+    }
+
+    loadedSpecId = spec.id
+  })().finally(() => {
+    loadingPromise = null
+    loadingSpecId = null
+  })
+
+  return loadingPromise
 }
 
 self.addEventListener('message', (ev: MessageEvent<WorkerInMessage>) => {

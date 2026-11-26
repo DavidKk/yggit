@@ -11,6 +11,7 @@ import { useAgent } from '@/lib/agent/agent-context'
 import { getModelFilterConflicts, isModelAllowed } from '@/lib/agent/model-filter'
 import type { AgentModelProfile } from '@/lib/agent/model-profiles'
 import { AGENT_PRESETS, DEFAULT_AGENT_CONFIG } from '@/lib/agent/types'
+import { useLocalProfileReadiness } from '@/lib/agent/use-local-readiness'
 import { getDriverMode } from '@/lib/git/driver'
 
 import { ModelChannelEditor } from './ModelChannelEditor'
@@ -36,6 +37,7 @@ export function ModelChannelSection({ inline = false, onAdd, onEdit }: ModelChan
   }
 
   const { profiles, activeProfileId, toggleProfileEnabled, modelFilter, setModelFilter } = useAgent()
+  const readinessMap = useLocalProfileReadiness(profiles)
   const notify = useNotification()
   const [inlineEditing, setInlineEditing] = useState<AgentModelProfile | null>(null)
   const [draftFilter, setDraftFilter] = useState(modelFilter)
@@ -107,6 +109,8 @@ export function ModelChannelSection({ inline = false, onAdd, onEdit }: ModelChan
           {profiles.map((profile) => {
             const hasBlacklist = Boolean(profile.filter?.blacklist?.length)
             const hasWhitelist = Boolean(profile.filter?.whitelist?.length)
+            const isReady = readinessMap[profile.id] !== false
+            const isEnabled = isReady && profile.enabled !== false
 
             return (
               <li key={profile.id} className="flex flex-wrap items-center gap-3 px-3.5 py-2.5">
@@ -140,12 +144,24 @@ export function ModelChannelSection({ inline = false, onAdd, onEdit }: ModelChan
                   <Badge tone="warn">{t('gitAgent.keyRequired')}</Badge>
                 )}
 
+                {!isReady && <Badge tone="warn">Not Ready</Badge>}
+
                 <SwitchToggle
                   size="sm"
-                  checked={profile.enabled !== false}
-                  aria-label={profile.enabled !== false ? t('gitAgent.skillEnabled') || 'Enabled' : t('gitAgent.skillDisabled') || 'Disabled'}
-                  tooltip={profile.enabled !== false ? t('gitAgent.skillEnabled') || 'Enabled' : t('gitAgent.skillDisabled') || 'Disabled'}
-                  onCheckedChange={(checked) => toggleProfileEnabled(profile.id, checked)}
+                  checked={isEnabled}
+                  disabled={!isReady}
+                  aria-label={isEnabled ? t('gitAgent.skillEnabled') || 'Enabled' : t('gitAgent.skillDisabled') || 'Disabled'}
+                  tooltip={
+                    !isReady
+                      ? 'Model is not ready yet; download or install it first'
+                      : isEnabled
+                        ? t('gitAgent.skillEnabled') || 'Enabled'
+                        : t('gitAgent.skillDisabled') || 'Disabled'
+                  }
+                  onCheckedChange={(checked) => {
+                    if (!isReady) return
+                    toggleProfileEnabled(profile.id, checked)
+                  }}
                 />
               </li>
             )

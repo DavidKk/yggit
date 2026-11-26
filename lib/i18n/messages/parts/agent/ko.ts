@@ -59,7 +59,7 @@ export const gitAgentKo: { gitAgent: GitAgentMessages } = {
     browserLocalRuntimeWebGpu: 'WebGPU',
     browserLocalRuntimeWasm: 'WASM',
     browserLocalChecking: '로컬 캐시 확인 중…',
-    browserLocalStatusCached: '캐시 완료',
+    browserLocalStatusCached: '준비 완료',
     browserLocalStatusNotCached: '미다운로드',
     browserLocalStatusDownloading: '다운로드 중 {percent}%',
     browserLocalStatusLoading: '모델 로드 중…',

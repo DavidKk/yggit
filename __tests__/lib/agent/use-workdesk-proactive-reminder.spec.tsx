@@ -405,5 +405,33 @@ describe('useWorkdeskProactiveReminder', () => {
 
       mockActiveBranch = ''
     })
+
+    it('does not show a reminder while agent is actively processing', () => {
+      mockIsProcessing = true
+      const scanData: ScanResult = {
+        lastChecked: Date.now(),
+        findings: [],
+        cards: [],
+        items: {
+          sync: mockItemSync,
+        },
+      }
+
+      // @ts-expect-error accessing private notify for testing
+      workdeskEngine.notify(scanData)
+
+      act(() => {
+        root.render(<TestComponent projects={sampleProjects} />)
+      })
+
+      expect(latestReminder).toBeNull()
+
+      mockIsProcessing = false
+      act(() => {
+        root.render(<TestComponent projects={sampleProjects} />)
+      })
+
+      expect(latestReminder?.cardId).toBe('sync-default-branches')
+    })
   })
 })

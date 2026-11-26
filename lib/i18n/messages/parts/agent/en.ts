@@ -269,7 +269,7 @@ export const gitAgentEn: { gitAgent: GitAgentMessages } = {
     browserLocalRuntimeWebGpu: 'WebGPU',
     browserLocalRuntimeWasm: 'WASM',
     browserLocalChecking: 'Checking local cache…',
-    browserLocalStatusCached: 'Cached & Ready',
+    browserLocalStatusCached: 'Ready',
     browserLocalStatusNotCached: 'Not Downloaded',
     browserLocalStatusDownloading: 'Downloading {percent}%',
     browserLocalStatusLoading: 'Loading model…',

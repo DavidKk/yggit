@@ -195,9 +195,17 @@ export function useWorkdeskProactiveReminder(projects?: GitProjectView[]) {
   }, [activeRepo])
 
   // Idle detection: listen only to real user operations (clicks, keys, scrolls, navigation), NOT hover/mousemove.
+  // Active agent execution (isProcessing) is not idle; reset and pause the idle countdown until it finishes.
   // Once a reminder is pinned/shown, keep it visible until the user explicitly closes or acts on it.
   useEffect(() => {
     if (isTest || typeof window === 'undefined') return
+
+    if (isProcessing) {
+      if (!pinnedIdRef.current) {
+        setIsIdle(false)
+      }
+      return
+    }
 
     let idleTimer: number | null = null
 
@@ -225,7 +233,7 @@ export function useWorkdeskProactiveReminder(projects?: GitProjectView[]) {
       if (idleTimer) window.clearTimeout(idleTimer)
       events.forEach((evt) => window.removeEventListener(evt, handleUserActivity, { capture: true }))
     }
-  }, [isTest])
+  }, [isTest, isProcessing])
 
   useEffect(() => {
     const unsubscribe = workdeskEngine.subscribe((result) => {
@@ -262,7 +270,7 @@ export function useWorkdeskProactiveReminder(projects?: GitProjectView[]) {
       }
     }
 
-    if (!isIdle) return null
+    if (!isIdle || isProcessing) return null
 
     // Find the first non-dismissed item
     return (
@@ -271,7 +279,7 @@ export function useWorkdeskProactiveReminder(projects?: GitProjectView[]) {
         return !dismissedSet.has(compositeId)
       }) ?? null
     )
-  }, [activeRepo, activeBranch, scanResult, projects, dismissedSet, sessionSnoozed, handledCount, pinnedId, isIdle])
+  }, [activeRepo, activeBranch, scanResult, projects, dismissedSet, sessionSnoozed, handledCount, pinnedId, isIdle, isProcessing])
 
   // Latch/pin the reminder once shown, and unpin if the underlying item was resolved/removed
   useEffect(() => {

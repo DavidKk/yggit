@@ -401,11 +401,14 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
     </>
   )
   let buttonTooltip = testTooltip || testActionLabel || 'Test connection'
-  const isButtonDisabled = testing || testState === 'loading'
+  const isLocalNotReady = Boolean(localModelControl && !localModelControl.isReady)
+  const isButtonDisabled = testing || testState === 'loading' || isLocalNotReady
 
   if (testState === 'loading') {
     testButtonContent = <Spinner className="size-3.5 text-accent" />
     buttonTooltip = 'Testing connection, please wait…'
+  } else if (isLocalNotReady) {
+    buttonTooltip = 'Model is not ready yet; download or install it first'
   } else if (testState === 'success') {
     testButtonContent = <IoCheckmark className="size-4 text-ok" />
   } else if (testState === 'failure') {
@@ -444,10 +447,20 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
           titleAction={
             <SwitchToggle
               size="sm"
-              checked={draft.enabled !== false}
-              aria-label={draft.enabled !== false ? t('gitAgent.skillEnabled') || 'Enabled' : t('gitAgent.skillDisabled') || 'Disabled'}
-              tooltip={draft.enabled !== false ? t('gitAgent.skillEnabled') || 'Enabled' : t('gitAgent.skillDisabled') || 'Disabled'}
-              onCheckedChange={(checked) => setDraft((prev) => ({ ...prev, enabled: checked }))}
+              checked={!isLocalNotReady && draft.enabled !== false}
+              disabled={isLocalNotReady}
+              aria-label={!isLocalNotReady && draft.enabled !== false ? t('gitAgent.skillEnabled') || 'Enabled' : t('gitAgent.skillDisabled') || 'Disabled'}
+              tooltip={
+                isLocalNotReady
+                  ? 'Model is not ready yet; download or install it first'
+                  : draft.enabled !== false
+                    ? t('gitAgent.skillEnabled') || 'Enabled'
+                    : t('gitAgent.skillDisabled') || 'Disabled'
+              }
+              onCheckedChange={(checked) => {
+                if (isLocalNotReady) return
+                setDraft((prev) => ({ ...prev, enabled: checked }))
+              }}
             />
           }
         >
@@ -455,13 +468,13 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
             <fieldset disabled={testing} className="divide-y divide-line/60">
               {/* Row 1: Profile Name */}
               <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 first:pt-0 items-center">
-                <div className="md:col-span-4 min-w-0">
+                <div className="md:col-span-6 min-w-0">
                   <label htmlFor="agent-model-name" className="text-xs font-semibold text-ink">
                     {t('gitAgent.profileName')}
                   </label>
                   <p className="text-xs text-ink-soft leading-relaxed mt-0.5">A recognizable alias for this channel.</p>
                 </div>
-                <div className="md:col-span-8 min-w-0 max-w-[460px] md:ml-auto w-full">
+                <div className="md:col-span-6 min-w-0 max-w-[340px] md:ml-auto w-full">
                   <TextInput
                     id="agent-model-name"
                     fullWidth
@@ -474,13 +487,13 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
 
               {/* Row 2: Provider */}
               <div className={cn('grid grid-cols-1 md:grid-cols-12 gap-3 py-3', preset.noZdrNotice ? 'items-start' : 'items-center')}>
-                <div className={cn('md:col-span-4 min-w-0', preset.noZdrNotice && 'pt-1.5')}>
+                <div className={cn('md:col-span-6 min-w-0', preset.noZdrNotice && 'pt-1.5')}>
                   <span className="text-xs font-semibold text-ink" id="agent-provider-label">
                     {t('gitAgent.modelProvider')}
                   </span>
                   <p className="text-xs text-ink-soft leading-relaxed mt-0.5">{preset.description || 'Provider protocol or direct connection.'}</p>
                 </div>
-                <div className="md:col-span-8 min-w-0 max-w-[460px] md:ml-auto w-full flex flex-col gap-2">
+                <div className="md:col-span-6 min-w-0 max-w-[340px] md:ml-auto w-full flex flex-col gap-2">
                   <Select
                     aria-labelledby="agent-provider-label"
                     className="w-full"
@@ -542,7 +555,7 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
                 !isBrowserLocal &&
                 (preset.isCli ? (
                   <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 items-center">
-                    <div className="md:col-span-4 min-w-0">
+                    <div className="md:col-span-6 min-w-0">
                       <label htmlFor="agent-cli-command" className="text-xs font-semibold text-ink">
                         CLI Executable / Path
                       </label>
@@ -552,7 +565,7 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
                           : 'Leave empty to auto-detect from system PATH or common locations, or specify an absolute path.'}
                       </p>
                     </div>
-                    <div className="md:col-span-8 min-w-0 max-w-[460px] md:ml-auto w-full">
+                    <div className="md:col-span-6 min-w-0 max-w-[340px] md:ml-auto w-full">
                       <TextInput
                         id="agent-cli-command"
                         fullWidth
@@ -564,13 +577,13 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 items-center">
-                    <div className="md:col-span-4 min-w-0">
+                    <div className="md:col-span-6 min-w-0">
                       <label htmlFor="agent-model-endpoint" className="text-xs font-semibold text-ink">
                         {t('gitAgent.endpoint')}
                       </label>
                       <p className="text-xs text-ink-soft leading-relaxed mt-0.5">{t('gitAgent.endpointDesc') || 'OpenAI-compatible service base URL.'}</p>
                     </div>
-                    <div className="md:col-span-8 min-w-0 max-w-[460px] md:ml-auto w-full">
+                    <div className="md:col-span-6 min-w-0 max-w-[340px] md:ml-auto w-full">
                       <InputSuggestion
                         id="agent-model-endpoint"
                         name="agent-model-endpoint"
@@ -598,7 +611,7 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
               {/* Row 4: Custom Models Catalog Endpoint (Hidden for CLI, Browser AI, and Browser Local AI providers) */}
               {!preset.isCli && !isBrowserAi && !isBrowserLocal && (
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 items-center">
-                  <div className="md:col-span-4 min-w-0">
+                  <div className="md:col-span-6 min-w-0">
                     <label htmlFor="agent-models-endpoint" className="text-xs font-semibold text-ink">
                       {t('integration.agentModelsEndpoint') || 'Models Endpoint'}
                     </label>
@@ -606,7 +619,7 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
                       {t('integration.agentModelsEndpointDesc') || 'Optional. Custom path or URL to fetch available models.'}
                     </p>
                   </div>
-                  <div className="md:col-span-8 min-w-0 max-w-[460px] md:ml-auto w-full">
+                  <div className="md:col-span-6 min-w-0 max-w-[340px] md:ml-auto w-full">
                     <TextInput
                       id="agent-models-endpoint"
                       fullWidth
@@ -621,13 +634,13 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
               {/* Row 5: API Key (Placed before Model Selection) */}
               {showApiKeyField && (
                 <div className={cn('grid grid-cols-1 md:grid-cols-12 gap-3 py-3', getDriverMode() === 'edge' ? 'items-start' : 'items-center')}>
-                  <div className={cn('md:col-span-4 min-w-0', getDriverMode() === 'edge' && 'pt-1.5')}>
+                  <div className={cn('md:col-span-6 min-w-0', getDriverMode() === 'edge' && 'pt-1.5')}>
                     <label htmlFor="agent-api-key" className="text-xs font-semibold text-ink">
                       {t('gitAgent.apiKey')}
                     </label>
                     <p className="text-xs text-ink-soft leading-relaxed mt-0.5">All tokens are strongly encrypted and stored locally; plaintext is never persisted.</p>
                   </div>
-                  <div className="md:col-span-8 min-w-0 max-w-[460px] md:ml-auto w-full">
+                  <div className="md:col-span-6 min-w-0 max-w-[340px] md:ml-auto w-full">
                     <ConfiguredSecretInput
                       key={config.provider}
                       configured={hasSavedApiKey}
@@ -663,7 +676,7 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
 
               {/* Row 6: Default Model with InputSuggestion, unified local/browser AI status & download action */}
               <div className="grid grid-cols-1 md:grid-cols-12 gap-3 py-3 items-center">
-                <div className="md:col-span-4 min-w-0">
+                <div className="md:col-span-6 min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <label htmlFor="agent-model-id" className="text-xs font-semibold text-ink">
                       {t('gitAgent.defaultModel') || 'Default Model'}
@@ -678,7 +691,7 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
                     {localModelControl ? localModelControl.description : 'Fetch available models from remote or enter a model ID directly.'}
                   </p>
                 </div>
-                <div className="md:col-span-8 min-w-0 max-w-[460px] md:ml-auto w-full flex flex-col gap-1">
+                <div className="md:col-span-6 min-w-0 max-w-[340px] md:ml-auto w-full flex flex-col gap-1">
                   <InputSuggestion
                     id="agent-model-id"
                     name="agent-model-id"
@@ -773,5 +786,11 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
       </form>
     </>
   )
-  return showTools ? <SettingsColumns tools={<RuleDebugger filter={channelFilter} modelId={config.model} />}>{content}</SettingsColumns> : content
+  return showTools ? (
+    <SettingsColumns className="max-w-[1160px] @min-[960px]/settings:grid-cols-[minmax(0,780px)_340px]" tools={<RuleDebugger filter={channelFilter} modelId={config.model} />}>
+      {content}
+    </SettingsColumns>
+  ) : (
+    content
+  )
 }

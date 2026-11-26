@@ -11,7 +11,7 @@ const ENGINE_VERSION = '1.0.0'
 
 // Recognized standard branch prefixes and primary branches
 const STANDARD_BRANCH_PATTERN =
-  /^(main|master|develop|release(\/.*)?|hotfix\/.*|fix\/.*|feat\/.*|feature\/.*|chore\/.*|refactor\/.*|test\/.*|docs\/.*|merge\/.*|local\/.*|build\/.*|ci\/.*|perf\/.*)$/i
+  /^(main|master|develop|dev|test(\/.*)?|staging|uat|prod|release(\/.*)?|hotfix\/.*|fix\/.*|feat\/.*|feature\/.*|chore\/.*|refactor\/.*|docs\/.*|merge\/.*|local\/.*|build\/.*|ci\/.*|perf\/.*)$/i
 
 // Conventional commits subject pattern (e.g., feat: ..., fix(scope): ...)
 const CONVENTIONAL_COMMIT_PATTERN = /^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-zA-Z0-9_\-./]+\))?!?: .+/i

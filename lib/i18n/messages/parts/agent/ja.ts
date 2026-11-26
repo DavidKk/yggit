@@ -59,7 +59,7 @@ export const gitAgentJa: { gitAgent: GitAgentMessages } = {
     browserLocalRuntimeWebGpu: 'WebGPU',
     browserLocalRuntimeWasm: 'WASM',
     browserLocalChecking: 'キャッシュを確認中…',
-    browserLocalStatusCached: 'キャッシュ済み',
+    browserLocalStatusCached: '準備完了',
     browserLocalStatusNotCached: '未ダウンロード',
     browserLocalStatusDownloading: 'ダウンロード中 {percent}%',
     browserLocalStatusLoading: 'モデルを読み込み中…',

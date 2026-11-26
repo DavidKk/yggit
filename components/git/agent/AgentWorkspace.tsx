@@ -298,8 +298,6 @@ export function AgentWorkspace({ repoPath, className }: Props) {
 
           {/* Message List */}
           <div className="flex-1 overflow-y-auto p-3 space-y-3 select-text">
-            <GitAgentAssistiveReminder variant="embedded" />
-
             {messages.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center gap-3 text-center px-2 py-6">
                 <AgentFairyIcon className="size-10" active={isProcessing} />
@@ -492,6 +490,7 @@ export function AgentWorkspace({ repoPath, className }: Props) {
                 )
               })
             )}
+            <GitAgentAssistiveReminder variant="embedded" />
             <div ref={messagesEndRef} />
           </div>
 

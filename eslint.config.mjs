@@ -11,6 +11,7 @@ const eslintConfig = defineConfig([
   globalIgnores([
     '.next/**',
     '.electron-builder/**',
+    'release/**',
     'out/**',
     'build/**',
     'coverage/**',

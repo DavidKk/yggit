@@ -10,6 +10,52 @@ export interface LocalBrowserModelSpec {
 }
 
 export const TRANSFORMERS_CACHE_NAME = 'transformers-cache'
+const READY_MODELS_STORAGE_KEY = 'yggit.browser-local.ready-models'
+
+export function markLocalModelReady(modelId: string): void {
+  if (typeof window === 'undefined') return
+  try {
+    const raw = window.localStorage.getItem(READY_MODELS_STORAGE_KEY)
+    const list: string[] = raw ? JSON.parse(raw) : []
+    if (!Array.isArray(list)) {
+      window.localStorage.setItem(READY_MODELS_STORAGE_KEY, JSON.stringify([modelId]))
+      return
+    }
+    if (!list.includes(modelId)) {
+      window.localStorage.setItem(READY_MODELS_STORAGE_KEY, JSON.stringify([...list, modelId]))
+    }
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+export function isLocalModelMarkedReady(modelId: string): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    const raw = window.localStorage.getItem(READY_MODELS_STORAGE_KEY)
+    const list = raw ? JSON.parse(raw) : []
+    return Array.isArray(list) && list.includes(modelId)
+  } catch {
+    return false
+  }
+}
+
+export function clearLocalModelReadyMarks(modelId?: string): void {
+  if (typeof window === 'undefined') return
+  try {
+    if (!modelId) {
+      window.localStorage.removeItem(READY_MODELS_STORAGE_KEY)
+      return
+    }
+    const raw = window.localStorage.getItem(READY_MODELS_STORAGE_KEY)
+    const list = raw ? JSON.parse(raw) : []
+    if (Array.isArray(list)) {
+      window.localStorage.setItem(READY_MODELS_STORAGE_KEY, JSON.stringify(list.filter((id) => id !== modelId)))
+    }
+  } catch {
+    // Ignore storage errors
+  }
+}
 
 export const LOCAL_BROWSER_MODELS: LocalBrowserModelSpec[] = [
   {
@@ -79,6 +125,15 @@ export async function inspectLocalModelCache(repository?: string): Promise<Local
  * When `repository` is omitted, clears all cached Transformers.js model weights for this origin.
  */
 export async function clearLocalModelCache(repository?: string): Promise<number> {
+  if (!repository) {
+    clearLocalModelReadyMarks()
+  } else {
+    for (const spec of LOCAL_BROWSER_MODELS) {
+      if (spec.repository === repository) {
+        clearLocalModelReadyMarks(spec.id)
+      }
+    }
+  }
   if (typeof globalThis === 'undefined' || typeof globalThis.caches === 'undefined') {
     return 0
   }

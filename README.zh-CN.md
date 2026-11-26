@@ -43,6 +43,11 @@ pnpm dev
 | `pnpm dev:lan`      | 显式以局域网模式启动开发服务                                                                             |
 | `pnpm dev:loopback` | 仅监听本机回环地址（`127.0.0.1`）                                                                        |
 | `pnpm build`        | 构建生产产物（`next build --webpack`；配合 `YGGIT_ELECTRON_BUILD=1` 输出桌面 App standalone 产物）       |
+| `pnpm build:app`    | 构建桌面 App standalone 产物并组装 `.electron-builder/app-root`                                          |
+| `pnpm dist:mac`     | 打包 macOS `.app` 与发布 `.zip`（`x64` + `arm64`）                                                       |
+| `pnpm dist:win`     | 打包 Windows NSIS 安装包（`.exe`）                                                                       |
+| `pnpm dist:dir`     | 打包免安装桌面应用目录（用于本地验证）                                                                   |
+| `pnpm electron`     | 启动 Electron 桌面壳（连接 Next 开发服务）                                                               |
 | `pnpm start`        | 启动生产服务                                                                                             |
 | `pnpm ok`           | 一键执行 `fix:imports`、Prettier 格式化、ESLint（`--max-warnings=0`）、类型检查、Jest 全量测试与生产构建 |
 | `pnpm ok:ci`        | CI 校验流水线（`format:check`、`lint:check`、`typecheck`、Jest 测试、生产构建）                          |
