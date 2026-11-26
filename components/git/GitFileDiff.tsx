@@ -149,8 +149,8 @@ export function GitFileDiff({
     const blob = async (h: string) => {
       if (!h || !path) return null
       try {
-        const response = await fetch(`/api/git/blob?repo=${encodeURIComponent(repo)}&hash=${encodeURIComponent(h)}&path=${encodeURIComponent(path)}`)
-        return response.ok ? await response.text() : null
+        const res = await getGitDriver().readBlob({ repo, hash: h, path })
+        return res.binary ? null : res.content
       } catch {
         return null
       }

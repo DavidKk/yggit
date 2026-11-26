@@ -128,8 +128,8 @@ export class LocalGitDriver implements IGitDriver {
       throw new Error(text || `Failed to read blob (${res.status})`)
     }
 
-    const contentType = res.headers.get('content-type') || ''
-    const isBinary = !contentType.startsWith('text/') && !contentType.includes('json') && !contentType.includes('javascript')
+    const contentType = res.headers?.get('content-type') || ''
+    const isBinary = Boolean(contentType) && !contentType.startsWith('text/') && !contentType.includes('json') && !contentType.includes('javascript')
     const text = await res.text()
     return {
       content: text,

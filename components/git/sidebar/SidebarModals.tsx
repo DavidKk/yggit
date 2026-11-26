@@ -126,6 +126,9 @@ export function SidebarModals({
   const handleSetUpstream = async (branch: string, upstream: string) => {
     setSetUpstreamBusy(true)
     try {
+      if (getGitDriver().mode === 'edge') {
+        throw new Error('Setting upstream branch is not supported in pure-browser Edge mode; switch to Local mode')
+      }
       const res = await fetch('/api/git/remote', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

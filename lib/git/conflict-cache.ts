@@ -162,10 +162,21 @@ export async function getCachedConflictsBatch(repo: string, hashes: string[]): P
   return result
 }
 
+function isEdgeDriverActive(): boolean {
+  if (typeof window === 'undefined') return process.env.NEXT_PUBLIC_YGGIT_TARGET === 'cloud'
+  try {
+    const saved = window.localStorage.getItem('yggit.driver_mode')
+    if (saved === 'edge') return true
+    if (saved === 'local') return false
+  } catch {
+    // ignore storage read error
+  }
+  return process.env.NEXT_PUBLIC_YGGIT_TARGET === 'cloud'
+}
+
 /**
  * Queries conflicts for a batch of commits.
- * First reads from L1/L2 caches. For uncached items, triggers the backend API which
- * checks local file cache and executes git merge-tree if needed, then caches into IndexedDB.
+ * First reads from L1/L2 caches. In Edge mode, detects conflicts purely in-browser without calling server APIs.
  */
 export async function queryConflictsBatch(repo: string, commits: Array<{ hash: string; parents: string[] }>, signal?: AbortSignal): Promise<Record<string, MergeConflictRecord>> {
   if (!repo || !commits.length) return {}
@@ -179,6 +190,21 @@ export async function queryConflictsBatch(repo: string, commits: Array<{ hash: s
       (!cachedMap[c.hash] || (cachedMap[c.hash].hasConflict && (!cachedMap[c.hash].conflictFileCounts || cachedMap[c.hash].unresolvedConflictFiles === undefined)))
   )
   if (uncached.length === 0) {
+    return cachedMap
+  }
+
+  if (isEdgeDriverActive()) {
+    try {
+      const { EdgeGitDriver } = await import('@/lib/git/driver/edge-driver')
+      const edge = new EdgeGitDriver()
+      const fetched = await edge.detectConflictsBatch(repo, uncached)
+      for (const [hash, record] of Object.entries(fetched)) {
+        cachedMap[hash] = record
+        void saveConflictToCache(repo, record)
+      }
+    } catch {
+      // Ignore pure-browser detection errors
+    }
     return cachedMap
   }
 
@@ -207,6 +233,16 @@ export async function queryConflictsBatch(repo: string, commits: Array<{ hash: s
 }
 
 export async function fetchRemergeDiff(repo: string, hash: string): Promise<{ diff: string; files: string[]; record: MergeConflictRecord | null }> {
+  if (isEdgeDriverActive()) {
+    try {
+      const { EdgeGitDriver } = await import('@/lib/git/driver/edge-driver')
+      const edge = new EdgeGitDriver()
+      return await edge.readRemergeDiff(repo, hash)
+    } catch {
+      return { diff: '', files: [], record: null }
+    }
+  }
+
   const params = new URLSearchParams()
   if (repo) params.set('repo', repo)
   params.set('hash', hash)
