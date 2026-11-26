@@ -48,6 +48,11 @@ export function useGitProjectActions({
   setSelectedHash: Dispatch<SetStateAction<string>>
   setSelectedFile: Dispatch<SetStateAction<string>>
 }) {
+  function reportError(message: string) {
+    setError(message)
+    if (message) notification.error(message)
+  }
+
   async function pickFolders(prompt: string, multiple = false) {
     setPicking(true)
     try {
@@ -64,12 +69,14 @@ export function useGitProjectActions({
           ? [String(body.path).trim()]
           : []
       if (!response.ok || body.ok === false || paths.length === 0) {
-        setError(readApiErrorMessage(body, t('git.errors.openFolder')))
+        reportError(
+          getDriverMode() === 'edge' && (!response.ok || body.ok === false) ? t('git.errors.unsupportedFileSystemAccess') : readApiErrorMessage(body, t('git.errors.openFolder'))
+        )
         return [] as string[]
       }
       return paths
     } catch {
-      setError(t('git.errors.openFolder'))
+      reportError(getDriverMode() === 'edge' ? t('git.errors.unsupportedFileSystemAccess') : t('git.errors.openFolder'))
       return [] as string[]
     } finally {
       setPicking(false)
@@ -93,7 +100,7 @@ export function useGitProjectActions({
             const { discoverEdgeGitRepos } = await import('@/lib/git/driver/edge-discover')
             const discovered = await discoverEdgeGitRepos(handle)
             if (discovered.length === 0) {
-              setError(t('git.errors.noReposFound'))
+              reportError(t('git.errors.noReposFound'))
               return
             }
 
@@ -116,7 +123,7 @@ export function useGitProjectActions({
             }
 
             if (!firstProject) {
-              setError(t('git.errors.noReposFound'))
+              reportError(t('git.errors.noReposFound'))
               return
             }
 
@@ -130,7 +137,7 @@ export function useGitProjectActions({
           }
         } catch (e: unknown) {
           if (e instanceof Error && e.name === 'AbortError') return
-          setError(e instanceof Error ? e.message : t('git.errors.openFolder'))
+          reportError(e instanceof Error ? e.message : t('git.errors.openFolder'))
           return
         } finally {
           setBusy(false)
@@ -154,14 +161,14 @@ export function useGitProjectActions({
             count?: number
           }
           if (!response.ok || body.ok === false || !body.openPath) {
-            setError(readApiErrorMessage(body, t('git.errors.noReposFound')))
+            reportError(readApiErrorMessage(body, t('git.errors.noReposFound')))
             return
           }
           applyCatalog(body)
           closeMenu()
           await load(body.openPath)
         } catch {
-          setError(t('git.errors.unsupportedFileSystemAccess'))
+          reportError(t('git.errors.unsupportedFileSystemAccess'))
         } finally {
           setBusy(false)
         }

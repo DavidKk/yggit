@@ -22,20 +22,25 @@ export type DriverModeChangedDetail = {
   targetUrl?: string
 }
 
+function defaultDriverMode(): GitDriverMode {
+  return process.env.NEXT_PUBLIC_YGGIT_TARGET === 'cloud' ? 'edge' : 'local'
+}
+
 /**
  * Read the current driver preference from localStorage.
- * Defaults to 'local' when running on localhost / dev server, or 'edge' when in browser without Node API.
+ * Defaults to 'local' when running on localhost / dev server, or 'edge' on cloud builds.
  */
 export function getDriverMode(): GitDriverMode {
+  const fallback = defaultDriverMode()
   const storage = typeof window !== 'undefined' ? window.localStorage : typeof localStorage !== 'undefined' ? localStorage : null
-  if (!storage) return 'local'
+  if (!storage) return fallback
   try {
     const saved = storage.getItem(DRIVER_MODE_KEY)
     if (saved === 'edge' || saved === 'local') return saved
   } catch {
     // ignore
   }
-  return 'local'
+  return fallback
 }
 
 /**
@@ -66,7 +71,7 @@ export function getGitDriver(mode?: GitDriverMode): IGitDriver {
  * React hook to observe and toggle Git driver mode in UI
  */
 export function useGitDriver() {
-  const [mode, setModeState] = useState<GitDriverMode>('local')
+  const [mode, setModeState] = useState<GitDriverMode>(defaultDriverMode)
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {

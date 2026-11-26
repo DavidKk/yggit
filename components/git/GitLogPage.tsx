@@ -480,6 +480,7 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
     setLineageHashes,
     setConflictViewActive,
     setError,
+    onError: (msg) => notification.error(msg),
     setBusy,
     setProgressStage,
     t,
