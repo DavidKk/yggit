@@ -140,4 +140,43 @@ test.describe('Git Write Workflows E2E (P0: Worktree, Branch Lifecycle, Stash, R
     await expect.poll(() => runGit(fixture.bareDir, ['log', '-n', '1', '--pretty=%s'])).toBe('feat: local commit to push')
     void branchNav
   })
+
+  test('Toolbar Pull syncs remote commits and Undo resets last local commit', async ({ page }) => {
+    const peerClone = path.join(fixture.rootDir, 'peer-clone')
+    runGit(fixture.rootDir, ['clone', fixture.bareDir, peerClone])
+    runGit(peerClone, ['config', 'user.name', 'Peer Bot'])
+    runGit(peerClone, ['config', 'user.email', 'peer@yggit.local'])
+    fs.writeFileSync(path.join(peerClone, 'remote-peer.txt'), 'from peer\n')
+    runGit(peerClone, ['add', 'remote-peer.txt'])
+    runGit(peerClone, ['commit', '-m', 'feat: remote peer commit'])
+    runGit(peerClone, ['push', 'origin', 'main'])
+
+    await page.goto(`/git?repo=${encodeURIComponent(fixture.repoDir)}`)
+    await expect(page.getByText('chore: initial remote commit').first()).toBeVisible()
+    await page.waitForTimeout(400)
+
+    // Pull via toolbar Pull button
+    await page
+      .getByRole('button', { name: /^Pull$|^拉取$/i })
+      .first()
+      .click()
+    await expect(page.getByText('feat: remote peer commit').first()).toBeVisible({ timeout: 15_000 })
+
+    // Create a local commit and Undo it via toolbar Undo
+    fs.writeFileSync(path.join(fixture.repoDir, 'undo-me.txt'), 'undo content\n')
+    runGit(fixture.repoDir, ['add', 'undo-me.txt'])
+    runGit(fixture.repoDir, ['commit', '-m', 'chore: commit to undo'])
+
+    await page
+      .getByRole('button', { name: /^Refresh$|^刷新$/i })
+      .first()
+      .click()
+    await expect(page.getByText('chore: commit to undo').first()).toBeVisible({ timeout: 15_000 })
+
+    await page
+      .getByRole('button', { name: /^Undo$|^撤销$/i })
+      .first()
+      .click()
+    await expect.poll(() => runGit(fixture.repoDir, ['log', '-n', '1', '--pretty=%s']), { timeout: 15_000 }).toBe('feat: remote peer commit')
+  })
 })
