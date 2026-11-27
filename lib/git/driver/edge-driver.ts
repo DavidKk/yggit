@@ -353,19 +353,22 @@ export class EdgeGitDriver implements IGitDriver {
       for (const filepath of paths) {
         await git.add({ fs: reader.fs, dir: '/', filepath })
       }
+      reader.invalidateWorktree()
       return { ok: true, message: '暂存成功' }
     } catch (err) {
       throw new Error(`暂存失败: ${err instanceof Error ? err.message : String(err)}`)
     }
   }
 
-  async unstage(repo: string, files?: string[], _all = false): Promise<{ ok: boolean; message: string }> {
+  async unstage(repo: string, files?: string[], all = false): Promise<{ ok: boolean; message: string }> {
     const target = await this.resolveRepo(repo)
     const reader = await this.repository(target)
     try {
-      for (const filepath of files || []) {
+      const paths = all ? (await reader.worktreeFiles()).filter((f) => f.staged).map((f) => f.path) : files || []
+      for (const filepath of paths) {
         await git.resetIndex({ fs: reader.fs, dir: '/', filepath })
       }
+      reader.invalidateWorktree()
       return { ok: true, message: '取消暂存成功' }
     } catch (err) {
       throw new Error(`取消暂存失败: ${err instanceof Error ? err.message : String(err)}`)

@@ -172,7 +172,7 @@ describe('Edge repository reads against a packed Git repository', () => {
       ].sort()
       const changes = await reader.readChanges({ repo: 'edge', hash: 'WORKTREE', all: true })
       expect(changes.files.map((file) => file.path).sort()).toEqual(expected)
-      expect(changes.files).toContainEqual({ path: 'unchanged/stable.txt', status: 'D', oldPath: '' })
+      expect(changes.files).toContainEqual({ path: 'unchanged/stable.txt', status: 'D', oldPath: '', staged: false, unstaged: true })
       const status = await reader.readWorktreeStatus()
       expect(status).toEqual({ files: expected.length, insertions: 3, deletions: 3, addedFiles: 2, deletedFiles: 1, modifiedFiles: 1 })
       const modified = await reader.readChanges({ repo: 'edge', hash: 'WORKTREE', file: '中文目录/space #file.txt' })
@@ -226,7 +226,9 @@ describe('Edge repository reads against a packed Git repository', () => {
       await fs.writeFile(file, 'staged version\n')
       command('add', '中文目录/space #file.txt')
       await fs.writeFile(file, 'after\nsame\n')
-      expect((await reader.readChanges({ repo: 'edge', hash: 'WORKTREE' })).files).toEqual([{ path: '中文目录/space #file.txt', status: 'M', oldPath: '' }])
+      expect((await reader.readChanges({ repo: 'edge', hash: 'WORKTREE' })).files).toEqual([
+        { path: '中文目录/space #file.txt', status: 'M', oldPath: '', staged: true, unstaged: true },
+      ])
       expect((await reader.readWorktreeStatus())?.files).toBe(1)
     } finally {
       command('reset', '-q', 'HEAD', '--', '中文目录/space #file.txt')

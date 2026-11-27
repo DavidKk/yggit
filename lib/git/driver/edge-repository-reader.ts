@@ -20,6 +20,10 @@ export class EdgeRepositoryReader {
     this.fs = createDirectoryHandleFs(handle)
   }
 
+  invalidateWorktree(): void {
+    this.worktreeSnapshot = undefined
+  }
+
   readChanges(options: ReadCommitDiffOptions): Promise<GitCommitChanges> {
     const key = JSON.stringify([options.hash, options.tree, options.all, options.file])
     if (!/^[a-f0-9]{40}$/i.test(options.hash)) return this.loadChanges(options)
@@ -70,7 +74,7 @@ export class EdgeRepositoryReader {
     }
   }
 
-  private async worktreeFiles(): Promise<GitFileChange[]> {
+  async worktreeFiles(): Promise<GitFileChange[]> {
     // Never refresh the on-disk index: Edge requires read permission only.
     // Filter out bulky dependency and build directories to avoid thousands of FileSystem API IPC calls
     const ignoredTopDirs = new Set(['node_modules', '.next', '.git', 'dist', 'build', '.turbo', '.cache', 'coverage', '.temp'])
@@ -86,7 +90,13 @@ export class EdgeRepositoryReader {
     })
     return matrix
       .filter(([, head, disk, stage]) => head !== disk || head !== stage)
-      .map(([path, head, disk]) => ({ path, status: !head ? 'A' : !disk ? 'D' : 'M', oldPath: '' }))
+      .map(([path, head, disk, stage]) => ({
+        path,
+        status: !head ? 'A' : !disk ? 'D' : 'M',
+        oldPath: '',
+        staged: stage !== head,
+        unstaged: disk !== stage,
+      }))
       .sort((a, b) => a.path.localeCompare(b.path))
   }
 

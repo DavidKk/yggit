@@ -106,11 +106,12 @@ test.describe('Worktree -> File Diff -> Stage -> Commit -> Push Full Chain (Loca
 
     await expect(page.getByText('Modified in worktree').first()).toBeVisible({ timeout: 15_000 })
 
-    // 3. Stage all changes
+    // 3. Stage all changes and verify UI moves file into Staged section (Unstage All visible)
     await treePanel
       .getByRole('button', { name: /Stage All|全部暂存/i })
       .first()
       .click()
+    await expect(treePanel.getByRole('button', { name: /Unstage All|全部取消暂存/i }).first()).toBeVisible({ timeout: 10_000 })
 
     // 4. Commit changes purely in browser (isomorphic-git)
     const summaryInput = treePanel.getByRole('textbox', { name: /Commit summary|提交摘要/i }).first()
