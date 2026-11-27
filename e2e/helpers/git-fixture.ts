@@ -74,3 +74,34 @@ export function cleanupTestRepo(repoDir: string): void {
     fs.rmSync(repoDir, { recursive: true, force: true })
   }
 }
+
+export interface RemoteRepoFixture {
+  rootDir: string
+  bareDir: string
+  repoDir: string
+}
+
+export function createRepoWithBareRemote(): RemoteRepoFixture {
+  const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'yggit-e2e-remote-'))
+  const bareDir = path.join(rootDir, 'origin.git')
+  const repoDir = path.join(rootDir, 'workspace')
+
+  fs.mkdirSync(bareDir, { recursive: true })
+  runGit(bareDir, ['init', '--bare', '-b', 'main'])
+
+  fs.mkdirSync(repoDir, { recursive: true })
+  runGit(repoDir, ['init', '-b', 'main'])
+  runGit(repoDir, ['config', 'user.name', 'E2E Bot'])
+  runGit(repoDir, ['config', 'user.email', 'e2e@yggit.local'])
+  fs.writeFileSync(path.join(repoDir, 'README.md'), '# Remote Fixture\n')
+  runGit(repoDir, ['add', 'README.md'])
+  runGit(repoDir, ['commit', '-m', 'chore: initial remote commit'])
+  runGit(repoDir, ['remote', 'add', 'origin', bareDir])
+  runGit(repoDir, ['push', '-u', 'origin', 'main'])
+
+  // Create a tracked modification + untracked file for stage/commit/stash tests
+  fs.writeFileSync(path.join(repoDir, 'README.md'), '# Remote Fixture\nModified in worktree\n')
+  fs.writeFileSync(path.join(repoDir, 'worktree.txt'), 'draft change 1\n')
+
+  return { rootDir, bareDir, repoDir }
+}

@@ -57,6 +57,8 @@ test.describe('Shared Components E2E (Search, Collapse, Drag, ContextMenu)', () 
 
   test('PanelSplitter drag-to-resize updates sidebar and file-tree widths', async ({ page }) => {
     await page.goto(`/git?repo=${encodeURIComponent(fixture.repoDir)}`)
+    await expect(page.getByText('merge: conflicted feat/ui into main').first()).toBeVisible()
+    await page.waitForTimeout(300)
 
     const branchSplitter = page.getByRole('separator', { name: /branch panel|分支面板/i }).first()
     await expect(branchSplitter).toBeAttached()
@@ -144,8 +146,10 @@ test.describe('Shared Components E2E (Search, Collapse, Drag, ContextMenu)', () 
 
   test('Context menu opens on right-click and closes on Escape', async ({ page }) => {
     await page.goto(`/git?repo=${encodeURIComponent(fixture.repoDir)}`)
+    await expect(page.getByText('merge: conflicted feat/ui into main').first()).toBeVisible()
 
-    const branchItem = page.getByRole('treeitem', { name: /^ui/i }).first()
+    const branchNav = page.getByRole('navigation', { name: /Branches|分支/i }).first()
+    const branchItem = branchNav.getByRole('treeitem', { name: /^ui/i }).first()
     await expect(branchItem).toBeVisible()
     await branchItem.click({ button: 'right' })
 
