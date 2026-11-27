@@ -78,7 +78,7 @@ export class EdgeRepositoryReader {
       fs: this.fs,
       dir: '/',
       refresh: false,
-      cache: {},
+      cache: this.cache,
       filter: (filepath) => {
         const top = filepath.split('/')[0]
         return !ignoredTopDirs.has(top)

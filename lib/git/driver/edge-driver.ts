@@ -70,12 +70,12 @@ export class EdgeGitDriver implements IGitDriver {
     const cached = this.repoPathCache.get(repo)
     if (cached) return cached
 
-    // 1. Keep explicit edge_ handle IDs or remote URLs directly
-    if (repo.startsWith('edge_') || parseGitHubRepo(repo)) {
+    // 1. Keep explicit edge_ handle IDs directly
+    if (repo.startsWith('edge_')) {
       return repo
     }
 
-    // 2. Look up in Edge IndexedDB catalog
+    // 2. Look up in Edge IndexedDB catalog first (including matching a mounted edge_ folder for a GitHub slug/URL)
     const edgeProjects = typeof getEdgeCatalog === 'function' ? (await getEdgeCatalog().catch(() => ({ projects: [] }))).projects || [] : []
     const edgeProj = edgeProjects.find((p) => p.id === repo || p.name === repo || p.localPath === repo)
     if (edgeProj?.localPath?.startsWith('edge_')) {
@@ -83,16 +83,21 @@ export class EdgeGitDriver implements IGitDriver {
       return edgeProj.localPath
     }
 
-    if (edgeProj?.httpsUrl) {
-      const localMatch = uniqueLocalProject(edgeProjects, edgeProj.httpsUrl)?.localPath
-      if (localMatch && localMatch.startsWith('edge_')) {
-        this.repoPathCache.set(repo, localMatch)
-        return localMatch
-      }
-      if (parseGitHubRepo(edgeProj.httpsUrl)) {
-        this.repoPathCache.set(repo, edgeProj.httpsUrl)
-        return edgeProj.httpsUrl
-      }
+    const gh = parseGitHubRepo(repo)
+    const lookupUrl = edgeProj?.httpsUrl || (gh ? `https://github.com/${gh.owner}/${gh.repo}.git` : repo)
+    const localMatch = uniqueLocalProject(edgeProjects, lookupUrl)?.localPath
+    if (localMatch && localMatch.startsWith('edge_')) {
+      this.repoPathCache.set(repo, localMatch)
+      return localMatch
+    }
+
+    if (gh) {
+      return repo
+    }
+
+    if (edgeProj?.httpsUrl && parseGitHubRepo(edgeProj.httpsUrl)) {
+      this.repoPathCache.set(repo, edgeProj.httpsUrl)
+      return edgeProj.httpsUrl
     }
 
     return repo
