@@ -32,6 +32,7 @@ export class EdgeRepositoryReader {
   private worktreeSnapshot?: GitFileChange[]
   private worktreeInFlight?: Promise<GitFileChange[]>
   private lastWorktreeStatus?: GitWorktree | null
+  private lastIndexMtimeMs = -1
   private observer?: { disconnect: () => void }
   private observerStarted = false
   private observerClean = false
@@ -52,6 +53,7 @@ export class EdgeRepositoryReader {
   invalidateWorktree(): void {
     this.worktreeSnapshot = undefined
     this.worktreeInFlight = undefined
+    this.lastIndexMtimeMs = -1
     this.observerClean = false
     this.observerDirtyPaths.clear()
     this.fs.clearCache()
@@ -133,7 +135,7 @@ export class EdgeRepositoryReader {
           if (PRUNED_WORKTREE_REFS_DIRS.has(top)) continue
           const relPath = parts.join('/')
           if (top === '.git') {
-            if (relPath === '.git/index' || relPath === '.git/HEAD' || relPath.startsWith('.git/refs/')) {
+            if (relPath !== '.git/FETCH_HEAD') {
               this.observerClean = false
               this.observerDirtyPaths.clear()
               return
@@ -160,16 +162,22 @@ export class EdgeRepositoryReader {
   worktreeFiles(): Promise<GitFileChange[]> {
     if (this.worktreeInFlight) return this.worktreeInFlight
 
-    if (this.observerClean && this.worktreeSnapshot) {
-      if (this.observerDirtyPaths.size === 0) {
-        return Promise.resolve(this.worktreeSnapshot)
-      }
-      const dirty = [...this.observerDirtyPaths]
-      this.observerDirtyPaths.clear()
-      return this.refreshWorktreePaths(dirty).then(() => this.worktreeSnapshot || [])
-    }
-
     const scan = (async () => {
+      const currentIndexMtimeMs = await this.fs.promises
+        .stat('/.git/index')
+        .then((s) => s.mtimeMs)
+        .catch(() => 0)
+
+      if (this.observerClean && this.worktreeSnapshot && this.lastIndexMtimeMs >= 0 && currentIndexMtimeMs === this.lastIndexMtimeMs) {
+        if (this.observerDirtyPaths.size === 0) {
+          return this.worktreeSnapshot
+        }
+        const dirty = [...this.observerDirtyPaths]
+        this.observerDirtyPaths.clear()
+        await this.refreshWorktreePaths(dirty)
+        return this.worktreeSnapshot || []
+      }
+      this.observerDirtyPaths.clear()
       this.fs.clearCache()
       const gitignoreCache = new Map<string, Promise<Uint8Array | string>>()
       // Prune heavy build/dependency directories in readdir before isomorphic-git stats their children,
@@ -198,10 +206,7 @@ export class EdgeRepositoryReader {
         },
       }
 
-      const indexMtimeMs = await this.fs.promises
-        .stat('/.git/index')
-        .then((s) => s.mtimeMs)
-        .catch(() => 0)
+      const indexMtimeMs = currentIndexMtimeMs
 
       const raw = (await git.walk({
         fs: prunedFs,
@@ -259,6 +264,7 @@ export class EdgeRepositoryReader {
       })) as GitFileChange[]
 
       const files = raw.sort((a, b) => a.path.localeCompare(b.path))
+      this.lastIndexMtimeMs = indexMtimeMs
       this.worktreeSnapshot = files
       this.ensureObserver()
       if (this.observer) this.observerClean = true
@@ -314,6 +320,10 @@ export class EdgeRepositoryReader {
     merged.push(...updated)
     merged.sort((a, b) => a.path.localeCompare(b.path))
     this.worktreeSnapshot = merged
+    this.lastIndexMtimeMs = await this.fs.promises
+      .stat('/.git/index')
+      .then((s) => s.mtimeMs)
+      .catch(() => this.lastIndexMtimeMs)
   }
 
   getLastWorktreeStatus(): GitWorktree | null | undefined {

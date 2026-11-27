@@ -70,6 +70,7 @@ test.describe('Yggit Core Git & Edge Parity E2E', () => {
   })
 
   test('Edge mode renders remote GitHub commit with zero /api/git/* server calls', async ({ page }) => {
+    test.setTimeout(25_000)
     const apiGitRequests: string[] = []
     page.on('request', (req) => {
       if (req.url().includes('/api/git/')) {
@@ -81,9 +82,13 @@ test.describe('Yggit Core Git & Edge Parity E2E', () => {
       window.localStorage.setItem('yggit.driver_mode', 'edge')
     })
 
-    await page.goto('/git/github/DavidKk/yggit/commit/6a922046d41060920247ce7730686c9084077c95')
-    await expect(page.getByText('feat(edge): enforce pure-browser Edge parity', { exact: false }).first()).toBeVisible()
-    await page.waitForTimeout(1200)
+    await page.goto('/git/github/DavidKk/yggit')
+    const historyRegion = page.getByRole('region', { name: /Commit history|提交历史/i }).first()
+    const firstCommitMessage = historyRegion.getByRole('row').first().locator('[data-git-message-cell]').first()
+    await expect(firstCommitMessage).toBeVisible({ timeout: 15_000 })
+    await firstCommitMessage.click()
+    await expect.poll(() => page.url(), { timeout: 10_000 }).toContain('/commit/')
+    await expect(page.getByRole('complementary', { name: /Files|文件/i }).first()).toBeVisible({ timeout: 12_000 })
 
     expect(apiGitRequests).toEqual([])
   })
@@ -104,12 +109,12 @@ test.describe('Yggit Core Git & Edge Parity E2E', () => {
 
     // Verify merge commit appears in history and conflict detection fires automatically without refresh
     await expect(page.getByText('merge: conflicted merge').first()).toBeVisible()
-    await expect.poll(() => conflictBatchCalls.length, { timeout: 15_000 }).toBeGreaterThan(0)
+    await expect.poll(() => conflictBatchCalls.length).toBeGreaterThan(0)
 
     // Navigate directly to the conflicted merge commit + file
     await page.goto(`/git?repo=${encodeURIComponent(repoDir)}&hash=${mergeHash}&file=${encodeURIComponent(conflictFile)}`)
     const conflictBtn = page.getByRole('button', { name: /Conflict|冲突/i }).first()
-    await expect(conflictBtn).toBeEnabled({ timeout: 15_000 })
+    await expect(conflictBtn).toBeEnabled()
 
     await conflictBtn.click()
     await expect(page.getByText('ours-value').first()).toBeVisible()
@@ -121,9 +126,14 @@ test.describe('Yggit Core Git & Edge Parity E2E', () => {
       window.localStorage.setItem('yggit.driver_mode', 'local')
     })
 
+    const initialConflictsRes = page.waitForResponse((res) => res.url().includes('/api/git/conflicts'))
+    const initialProjectsRes = page.waitForResponse((res) => res.url().includes('/api/git/projects'))
     await page.goto(`/git?repo=${encodeURIComponent(repoDir)}`)
+    await Promise.all([initialConflictsRes, initialProjectsRes])
     await expect(page.getByText('merge: conflicted merge').first()).toBeVisible()
-    await page.waitForTimeout(1000)
+    await expect(page.getByText(/All history commits loaded|已加载全部/i).first()).toBeVisible()
+    // Let initial watch EventSource & canonical path settlement finish before switching mode
+    await page.waitForTimeout(200)
 
     const localBtn = page.getByRole('button', { name: /Local|本地/i }).first()
     await expect(localBtn).toBeVisible()
@@ -137,7 +147,7 @@ test.describe('Yggit Core Git & Edge Parity E2E', () => {
 
     await localBtn.click()
     await expect.poll(() => page.evaluate(() => window.localStorage.getItem('yggit.driver_mode'))).toBe('edge')
-    await page.waitForTimeout(1200)
+    await page.waitForTimeout(300)
 
     expect(postSwitchApiCalls).toEqual([])
   })

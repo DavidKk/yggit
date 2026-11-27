@@ -41,8 +41,8 @@ test.describe('Workspace, Settings & Yggi Assistant E2E (P2)', () => {
     await expect(saveBtn).toBeVisible()
     await saveBtn.click()
 
-    await expect(page).toHaveURL(/\/settings\/models/, { timeout: 15_000 })
-    await expect(page.getByText(channelName).first()).toBeVisible({ timeout: 10_000 })
+    await expect(page).toHaveURL(/\/settings\/models/)
+    await expect(page.getByText(channelName).first()).toBeVisible()
 
     // Open channel or delete directly with confirmation
     await page.getByText(channelName).first().click()
@@ -54,7 +54,7 @@ test.describe('Workspace, Settings & Yggi Assistant E2E (P2)', () => {
     await expect(confirmBtn).toBeVisible()
     await confirmBtn.click()
 
-    await expect(page).toHaveURL(/\/settings\/models$/, { timeout: 15_000 })
+    await expect(page).toHaveURL(/\/settings\/models$/)
     await expect(page.getByText(channelName)).toHaveCount(0)
   })
 
@@ -67,11 +67,8 @@ test.describe('Workspace, Settings & Yggi Assistant E2E (P2)', () => {
       await expect(page.locator('body')).toBeVisible()
     }
 
-    // Wake Yggi assistant drawer on /git/github/DavidKk/yggit
-    await page.addInitScript(() => {
-      window.localStorage.setItem('yggit.driver_mode', 'edge')
-    })
-    await page.goto('/git/github/DavidKk/yggit')
+    // Wake Yggi assistant drawer on local /git page without waiting on remote GitHub
+    await page.goto('/git')
     const wakeYggiBtn = page.getByRole('button', { name: /Wake Yggi|唤醒 Yggi/i }).first()
     await expect(wakeYggiBtn).toBeVisible()
     await wakeYggiBtn.click()

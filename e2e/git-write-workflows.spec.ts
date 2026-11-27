@@ -32,17 +32,23 @@ test.describe('Git Write Workflows E2E (P0: Worktree, Branch Lifecycle, Stash, R
     await expect(treePanel).toBeVisible()
     await expect(treePanel.getByText('README.md', { exact: true }).first()).toBeVisible()
 
-    // Stage all via Stage All button or file action, then enter commit summary and commit
+    // Stage all, then unstage all, then stage again before committing
     const stageAllBtn = treePanel.getByRole('button', { name: /Stage All|全部暂存/i }).first()
     await expect(stageAllBtn).toBeVisible()
     await stageAllBtn.click()
+    const unstageAllBtn = treePanel.getByRole('button', { name: /Unstage All|全部取消暂存/i }).first()
+    await expect(unstageAllBtn).toBeVisible()
+    await unstageAllBtn.click()
+    await expect(unstageAllBtn).toBeHidden()
+    await stageAllBtn.click()
+    await expect(unstageAllBtn).toBeVisible()
 
     const summaryInput = treePanel.getByRole('textbox', { name: /Commit summary|提交摘要/i }).first()
     await expect(summaryInput).toBeVisible()
     await summaryInput.fill('feat(e2e): commit from worktree')
     await summaryInput.press('ControlOrMeta+Enter')
 
-    await expect(page.getByText('feat(e2e): commit from worktree').first()).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByText('feat(e2e): commit from worktree').first()).toBeVisible()
   })
 
   test('Create, checkout, rename, and delete branch with confirmation', async ({ page }) => {
@@ -63,7 +69,7 @@ test.describe('Git Write Workflows E2E (P0: Worktree, Branch Lifecycle, Stash, R
 
     const branchNav = page.getByRole('navigation', { name: /Branches|分支/i }).first()
     const newBranchLeaf = branchNav.getByRole('treeitem', { name: /^e2e-branch/i }).first()
-    await expect(newBranchLeaf).toBeVisible({ timeout: 15_000 })
+    await expect(newBranchLeaf).toBeVisible()
 
     // Switch back to main via context menu Switch to
     const mainBranch = branchNav.getByRole('treeitem', { name: /^main/i }).first()
@@ -72,7 +78,7 @@ test.describe('Git Write Workflows E2E (P0: Worktree, Branch Lifecycle, Stash, R
       .getByRole('menuitem', { name: /Switch to|Checkout|检出|切换/i })
       .first()
       .click()
-    await expect.poll(() => runGit(fixture.repoDir, ['rev-parse', '--abbrev-ref', 'HEAD']), { timeout: 15_000 }).toBe('main')
+    await expect.poll(() => runGit(fixture.repoDir, ['rev-parse', '--abbrev-ref', 'HEAD'])).toBe('main')
 
     // Delete feat/e2e-branch via context menu -> Branch Operations -> Delete branch + native confirm
     await expect(newBranchLeaf).toBeVisible()
@@ -87,39 +93,29 @@ test.describe('Git Write Workflows E2E (P0: Worktree, Branch Lifecycle, Stash, R
     // Inline dangerConfirm requires a second click on the menuitem, followed by window.confirm
     page.once('dialog', (dialog) => void dialog.accept())
     const confirmMenuItem = page.getByRole('menuitem', { name: /Click again|Delete this branch|确认/i }).first()
-    if (await confirmMenuItem.isVisible().catch(() => false)) {
-      await confirmMenuItem.click({ force: true })
-    }
+    await expect(confirmMenuItem).toBeVisible()
+    await confirmMenuItem.click({ force: true })
 
-    await expect.poll(() => runGit(fixture.repoDir, ['branch']), { timeout: 15_000 }).not.toContain('feat/e2e-branch')
+    await expect.poll(() => runGit(fixture.repoDir, ['branch'])).not.toContain('feat/e2e-branch')
   })
 
   test('Toolbar Stash, Pop, Refresh, and Push/Pull with bare origin remote', async ({ page }) => {
     await page.goto(`/git?repo=${encodeURIComponent(fixture.repoDir)}`)
     await expect(page.getByText('chore: initial remote commit').first()).toBeVisible()
-    await page.waitForTimeout(500)
+    await expect(page.getByRole('status', { name: /Switching repository/i })).toHaveCount(0)
 
-    // Stash uncommitted README.md via toolbar Stash button
-    const stashBtn = page.getByRole('button', { name: /^Stash$|^暂存$/i }).first()
+    // Stash uncommitted README.md via toolbar Stash button (scoped to banner so it never hits sidebar section header)
+    const banner = page.getByRole('banner').first()
+    const stashBtn = banner.getByRole('button', { name: /^Stash$|^暂存$/i }).first()
     await expect(stashBtn).toBeEnabled()
     await stashBtn.click()
-    await page.waitForTimeout(500)
-    const stashModalBtn = page
-      .getByRole('dialog')
-      .getByRole('button', { name: /Stash|Confirm|确认/i })
-      .last()
-    if (await stashModalBtn.isVisible().catch(() => false)) {
-      await stashModalBtn.click()
-    }
 
-    const branchNav = page.getByRole('navigation', { name: /Branches|分支/i }).first()
     await expect.poll(() => runGit(fixture.repoDir, ['stash', 'list']).length).toBeGreaterThan(0)
 
     // Pop stash via toolbar Pop button
-    await page
-      .getByRole('button', { name: /^Pop$|^弹出$/i })
-      .first()
-      .click()
+    const popBtn = banner.getByRole('button', { name: /^Pop$|^弹出$/i }).first()
+    await expect(popBtn).toBeEnabled()
+    await popBtn.click()
     await expect.poll(() => runGit(fixture.repoDir, ['stash', 'list']).length).toBe(0)
 
     // Commit locally and Push to bare origin via toolbar
@@ -138,7 +134,6 @@ test.describe('Git Write Workflows E2E (P0: Worktree, Branch Lifecycle, Stash, R
       .first()
       .click()
     await expect.poll(() => runGit(fixture.bareDir, ['log', '-n', '1', '--pretty=%s'])).toBe('feat: local commit to push')
-    void branchNav
   })
 
   test('Toolbar Pull syncs remote commits and Undo resets last local commit', async ({ page }) => {
@@ -153,14 +148,14 @@ test.describe('Git Write Workflows E2E (P0: Worktree, Branch Lifecycle, Stash, R
 
     await page.goto(`/git?repo=${encodeURIComponent(fixture.repoDir)}`)
     await expect(page.getByText('chore: initial remote commit').first()).toBeVisible()
-    await page.waitForTimeout(400)
+    await expect(page.getByRole('status', { name: /Switching repository/i })).toHaveCount(0)
 
     // Pull via toolbar Pull button
     await page
       .getByRole('button', { name: /^Pull$|^拉取$/i })
       .first()
       .click()
-    await expect(page.getByText('feat: remote peer commit').first()).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByText('feat: remote peer commit').first()).toBeVisible()
 
     // Create a local commit and Undo it via toolbar Undo
     fs.writeFileSync(path.join(fixture.repoDir, 'undo-me.txt'), 'undo content\n')
@@ -171,12 +166,12 @@ test.describe('Git Write Workflows E2E (P0: Worktree, Branch Lifecycle, Stash, R
       .getByRole('button', { name: /^Refresh$|^刷新$/i })
       .first()
       .click()
-    await expect(page.getByText('chore: commit to undo').first()).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByText('chore: commit to undo').first()).toBeVisible()
 
     await page
       .getByRole('button', { name: /^Undo$|^撤销$/i })
       .first()
       .click()
-    await expect.poll(() => runGit(fixture.repoDir, ['log', '-n', '1', '--pretty=%s']), { timeout: 15_000 }).toBe('feat: remote peer commit')
+    await expect.poll(() => runGit(fixture.repoDir, ['log', '-n', '1', '--pretty=%s'])).toBe('feat: remote peer commit')
   })
 })

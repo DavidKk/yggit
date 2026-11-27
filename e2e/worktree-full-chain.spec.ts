@@ -36,7 +36,7 @@ test.describe('Worktree -> File Diff -> Stage -> Commit -> Push Full Chain (Loca
     await expect(treePanel.getByText('worktree.txt', { exact: true }).first()).toBeVisible()
     await readmeBtn.click()
 
-    await expect(page.getByText('Modified in worktree').first()).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByText('Modified in worktree').first()).toBeVisible()
 
     // 3. Stage all changes and verify Commit button enables
     await treePanel
@@ -49,14 +49,14 @@ test.describe('Worktree -> File Diff -> Stage -> Commit -> Push Full Chain (Loca
     const summaryInput = treePanel.getByRole('textbox', { name: /Commit summary|提交摘要/i }).first()
     await summaryInput.fill('feat(e2e): local full chain commit')
     await summaryInput.press('ControlOrMeta+Enter')
-    await expect(page.getByText('feat(e2e): local full chain commit').first()).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByText('feat(e2e): local full chain commit').first()).toBeVisible()
 
     // 5. Push to bare origin remote and verify remote HEAD
     await page
       .getByRole('button', { name: /^Push$|^推送$/i })
       .first()
       .click()
-    await expect.poll(() => runGit(fixture.bareDir, ['log', '-n', '1', '--pretty=%s']), { timeout: 15_000 }).toBe('feat(e2e): local full chain commit')
+    await expect.poll(() => runGit(fixture.bareDir, ['log', '-n', '1', '--pretty=%s'])).toBe('feat(e2e): local full chain commit')
   })
 
   test('Edge mode: Worktree -> expand files -> view diff -> stage -> commit -> push with zero /api/git/* calls', async ({ page }) => {
@@ -93,7 +93,7 @@ test.describe('Worktree -> File Diff -> Stage -> Commit -> Push Full Chain (Loca
     // 1. Verify Working tree row appears in Edge mode
     const historyRegion = page.getByRole('region', { name: /Commit history|提交历史/i }).first()
     const worktreeRow = historyRegion.getByRole('row').first()
-    await expect(worktreeRow).toBeVisible({ timeout: 20_000 })
+    await expect(worktreeRow).toBeVisible()
     await expect(worktreeRow).toContainText(/Working tree|工作区/i)
     await worktreeRow.click()
 
@@ -104,20 +104,26 @@ test.describe('Worktree -> File Diff -> Stage -> Commit -> Push Full Chain (Loca
     await expect(readmeBtn).toBeVisible()
     await readmeBtn.click()
 
-    await expect(page.getByText('Modified in worktree').first()).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByText('Modified in worktree').first()).toBeVisible()
 
-    // 3. Stage all changes and verify UI moves file into Staged section (Unstage All visible)
+    // 3. Stage all, unstage all, then re-stage all purely in browser (Edge mode)
     await treePanel
       .getByRole('button', { name: /Stage All|全部暂存/i })
       .first()
       .click()
-    await expect(treePanel.getByRole('button', { name: /Unstage All|全部取消暂存/i }).first()).toBeVisible({ timeout: 10_000 })
+    const unstageAllBtn = treePanel.getByRole('button', { name: /Unstage All|全部取消暂存/i }).first()
+    await expect(unstageAllBtn).toBeVisible()
+    await unstageAllBtn.click()
+    const stageAllBtn = treePanel.getByRole('button', { name: /Stage All|全部暂存/i }).first()
+    await expect(stageAllBtn).toBeVisible()
+    await stageAllBtn.click()
+    await expect(unstageAllBtn).toBeVisible()
 
     // 4. Commit changes purely in browser (isomorphic-git)
     const summaryInput = treePanel.getByRole('textbox', { name: /Commit summary|提交摘要/i }).first()
     await summaryInput.fill('feat(e2e): edge full chain commit')
     await summaryInput.press('ControlOrMeta+Enter')
-    await expect(page.getByText('feat(e2e): edge full chain commit').first()).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByText('feat(e2e): edge full chain commit').first()).toBeVisible()
 
     // 5. Trigger Push in Edge mode: verify Edge driver handles it without /api/git/* calls
     //    and surfaces the explicit pure-browser Edge push boundary error
@@ -125,7 +131,7 @@ test.describe('Worktree -> File Diff -> Stage -> Commit -> Push Full Chain (Loca
       .getByRole('button', { name: /^Push$|^推送$/i })
       .first()
       .click()
-    await expect(page.getByText(/Push is not supported in pure-browser Edge mode/i).first()).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByText(/Push is not supported in pure-browser Edge mode/i).first()).toBeVisible()
     expect(apiGitRequests).toEqual([])
   })
 })

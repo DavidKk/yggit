@@ -28,12 +28,12 @@ test.describe('Git Sidebar Icons, Remote Menus, Copy Actions & Conflict View E2E
 
     // Wait for automatic conflict detection badge on the conflicted merge commit row
     const conflictBadge = page.getByRole('button', { name: /Merge encountered conflicts|冲突/i }).first()
-    await expect(conflictBadge).toBeVisible({ timeout: 15_000 })
+    await expect(conflictBadge).toBeVisible()
     await conflictBadge.click()
 
     // 3-Way conflict view should open immediately showing both sides
-    await expect(page.getByText('feat-ui').first()).toBeVisible({ timeout: 15_000 })
-    await expect(page.getByText('main-line').first()).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByText('feat-ui').first()).toBeVisible()
+    await expect(page.getByText('main-line').first()).toBeVisible()
 
     // Switch to Remerge Diff tab
     const remergeTab = page.getByRole('tab', { name: /Remerge Diff/i }).first()
@@ -68,13 +68,13 @@ test.describe('Git Sidebar Icons, Remote Menus, Copy Actions & Conflict View E2E
     await page.locator('#add-remote-pull-url-input').fill(remoteFixture.bareDir)
     await page.getByRole('dialog').last().locator('button[type="submit"]').first().click()
 
-    await expect.poll(() => runGit(remoteFixture.repoDir, ['remote']), { timeout: 15_000 }).toContain('upstream')
+    await expect.poll(() => runGit(remoteFixture.repoDir, ['remote'])).toContain('upstream')
 
     // 3. Expand Remote section, right-click origin remote group -> Fetch origin & Copy link
     const remoteSectionBtn = branchNav.getByRole('button', { name: /^Remote|^远程/i }).first()
     await remoteSectionBtn.click()
     const originGroupItem = branchNav.getByRole('treeitem', { name: /origin/i }).first()
-    await expect(originGroupItem).toBeVisible({ timeout: 10_000 })
+    await expect(originGroupItem).toBeVisible()
 
     await originGroupItem.click({ button: 'right', position: { x: 20, y: 10 } })
     const remoteMenu = page.getByRole('menu').first()
@@ -139,13 +139,13 @@ test.describe('Git Sidebar Icons, Remote Menus, Copy Actions & Conflict View E2E
     // 2. Stash panel on remoteFixture (has uncommitted README.md)
     await page.goto(`/git?repo=${encodeURIComponent(remoteFixture.repoDir)}`)
     await expect(page.getByText('chore: initial remote commit').first()).toBeVisible()
-    await page.waitForTimeout(400)
+    await expect(page.getByRole('status', { name: /Switching repository/i })).toHaveCount(0)
 
-    await page
-      .getByRole('button', { name: /^Stash$|^暂存$/i })
-      .first()
-      .click()
-    await expect.poll(() => runGit(remoteFixture.repoDir, ['stash', 'list']).length, { timeout: 15_000 }).toBeGreaterThan(0)
+    const banner = page.getByRole('banner').first()
+    const toolbarStashBtn = banner.getByRole('button', { name: /^Stash$|^暂存$/i }).first()
+    await expect(toolbarStashBtn).toBeEnabled()
+    await toolbarStashBtn.click()
+    await expect.poll(() => runGit(remoteFixture.repoDir, ['stash', 'list']).length).toBeGreaterThan(0)
 
     const stashSectionBtn = branchNav.getByRole('button', { name: /^Stash|^暂存/i }).first()
     if ((await stashSectionBtn.getAttribute('aria-expanded')) !== 'true') {
@@ -155,23 +155,23 @@ test.describe('Git Sidebar Icons, Remote Menus, Copy Actions & Conflict View E2E
       .getByRole('treeitem')
       .filter({ hasText: /WIP on|On main|stash/i })
       .first()
-    await expect(stashItem).toBeVisible({ timeout: 10_000 })
+    await expect(stashItem).toBeVisible()
     await stashItem.click({ button: 'right', position: { x: 20, y: 10 } })
     await expect(page.getByRole('menu').first()).toBeVisible()
     await page.keyboard.press('Escape')
 
     // Restore stashed changes so fixture stays clean
-    await page
-      .getByRole('button', { name: /^Pop$|^弹出$/i })
-      .first()
-      .click()
-    await expect.poll(() => runGit(remoteFixture.repoDir, ['stash', 'list']).length, { timeout: 15_000 }).toBe(0)
+    const toolbarPopBtn = banner.getByRole('button', { name: /^Pop$|^弹出$/i }).first()
+    await expect(toolbarPopBtn).toBeEnabled()
+    await toolbarPopBtn.click()
+    await expect.poll(() => runGit(remoteFixture.repoDir, ['stash', 'list']).length).toBe(0)
   })
 
   test('Context menu Copy actions copy Commit SHA/Message and File Path to clipboard', async ({ page }) => {
     await page.goto(`/git?repo=${encodeURIComponent(richFixture.repoDir)}`)
     await expect(page.getByText('feat(ui): add sub helper and ui mode').first()).toBeVisible()
-    await page.waitForTimeout(300)
+    await expect(page.getByRole('button', { name: /Merge encountered conflicts|冲突/i }).first()).toBeVisible()
+    await expect(page.getByRole('status', { name: /Switching repository/i })).toHaveCount(0)
 
     // 1. Commit row right-click -> Copy -> Copy Commit SHA
     const commitRow = page.getByText('feat(ui): add sub helper and ui mode').first()

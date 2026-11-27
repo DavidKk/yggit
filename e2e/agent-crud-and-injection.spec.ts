@@ -79,7 +79,7 @@ test.describe('Agent CRUD (Model, Skill, MCP) & Runtime Injection E2E', () => {
       .getByRole('button', { name: /Save|Create|保存|创建/i })
       .first()
       .click()
-    await expect(page).toHaveURL(/\/settings\/models/, { timeout: 15_000 })
+    await expect(page).toHaveURL(/\/settings\/models/)
     await expect(page.getByText(modelName).first()).toBeVisible()
 
     // 2. Create Custom Skill
@@ -91,7 +91,7 @@ test.describe('Agent CRUD (Model, Skill, MCP) & Runtime Injection E2E', () => {
       .getByRole('button', { name: /^Save$|^保存$/i })
       .first()
       .click()
-    await expect(page).toHaveURL(/\/settings\/skills$/, { timeout: 15_000 })
+    await expect(page).toHaveURL(/\/settings\/skills$/)
     await expect(page.getByText(skillName).first()).toBeVisible()
 
     // 3. Create MCP Server & verify tool discovery
@@ -102,7 +102,7 @@ test.describe('Agent CRUD (Model, Skill, MCP) & Runtime Injection E2E', () => {
       .getByRole('button', { name: /Save|Connect|Test|保存|连接/i })
       .last()
       .click()
-    await expect(page).toHaveURL(/\/settings\/mcp$/, { timeout: 15_000 })
+    await expect(page).toHaveURL(/\/settings\/mcp$/)
     await expect(page.getByText(mcpName).first()).toBeVisible()
     await expect(page.getByText(/1 tools/i).first()).toBeVisible()
 
@@ -152,8 +152,8 @@ test.describe('Agent CRUD (Model, Skill, MCP) & Runtime Injection E2E', () => {
     await yggiInput.fill(`Please execute ${skillName}`)
     await yggiInput.press('Enter')
 
-    await expect.poll(() => capturedGatewayPayload !== null, { timeout: 15_000 }).toBe(true)
-    await expect(page.getByText('E2E_INJECTION_VERIFIED').first()).toBeVisible({ timeout: 15_000 })
+    await expect.poll(() => capturedGatewayPayload !== null).toBe(true)
+    await expect(page.getByText('E2E_INJECTION_VERIFIED').first()).toBeVisible()
 
     const payload = capturedGatewayPayload as GatewayPayload | null
     // Verify Skill instructions were injected into system/request messages
@@ -175,7 +175,7 @@ test.describe('Agent CRUD (Model, Skill, MCP) & Runtime Injection E2E', () => {
       .getByRole('button', { name: /^Remove$|^Delete$|^Confirm$|^确认$|^删除$|^移除$/i })
       .last()
       .click()
-    await expect(page).toHaveURL(/\/settings\/models$/, { timeout: 15_000 })
+    await expect(page).toHaveURL(/\/settings\/models$/)
 
     await page.goto('/settings/skills')
     await page.getByText(skillName).first().click()
@@ -185,7 +185,7 @@ test.describe('Agent CRUD (Model, Skill, MCP) & Runtime Injection E2E', () => {
       .click()
     const skillConfirm = page.getByRole('button', { name: /^Remove$|^Delete$|^Confirm$|^确认$|^删除$|^移除$/i }).last()
     if (await skillConfirm.isVisible().catch(() => false)) await skillConfirm.click()
-    await expect(page).toHaveURL(/\/settings\/skills$/, { timeout: 15_000 })
+    await expect(page).toHaveURL(/\/settings\/skills$/)
 
     await page.goto('/settings/mcp')
     await page.getByText(mcpName).first().click()
@@ -195,6 +195,6 @@ test.describe('Agent CRUD (Model, Skill, MCP) & Runtime Injection E2E', () => {
       .click()
     const mcpConfirm = page.getByRole('button', { name: /^Remove$|^Delete$|^Confirm$|^确认$|^删除$|^移除$/i }).last()
     if (await mcpConfirm.isVisible().catch(() => false)) await mcpConfirm.click()
-    await expect(page).toHaveURL(/\/settings\/mcp$/, { timeout: 15_000 })
+    await expect(page).toHaveURL(/\/settings\/mcp$/)
   })
 })

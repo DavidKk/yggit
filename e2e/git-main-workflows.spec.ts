@@ -81,11 +81,13 @@ test.describe('Git Main Workflows E2E (Open Local, Branch, File, Context Menus)'
 
   test('Right-click context menus work across Branch, Commit, and File panels', async ({ page }) => {
     await page.goto(`/git?repo=${encodeURIComponent(fixture.repoDir)}`)
+    await expect(page.getByText('feat(ui): add sub helper and ui mode').first()).toBeVisible()
+    await expect(page.getByRole('button', { name: /Merge encountered conflicts|冲突/i }).first()).toBeVisible()
 
     // 1. Branch right-click context menu
     const fixBranch = page.getByRole('treeitem', { name: /^api/i }).first()
     await expect(fixBranch).toBeVisible()
-    await fixBranch.click({ button: 'right' })
+    await fixBranch.click({ button: 'right', position: { x: 20, y: 10 } })
 
     const branchMenu = page.getByRole('menu').first()
     await expect(branchMenu).toBeVisible()

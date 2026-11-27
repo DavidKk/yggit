@@ -218,7 +218,7 @@ describe('Edge repository reads against a packed Git repository', () => {
     expect(hashes[0]).toBe(tip)
     expect(hashes.at(-1)).toBe(first)
     await expect(driver.readLog({ repo: 'edge-fixture', branch: 'missing-ref' })).rejects.toThrow()
-  }, 15000)
+  }, 8000)
 
   it('keeps staged changes visible even when the disk content is restored to HEAD', async () => {
     const file = path.join(directory, '中文目录', 'space #file.txt')

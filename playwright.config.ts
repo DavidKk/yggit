@@ -1,12 +1,11 @@
 import { defineConfig } from '@playwright/test'
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3001'
-
 export default defineConfig({
   testDir: './e2e',
-  timeout: 45_000,
+  timeout: 15_000,
   expect: {
-    timeout: 15_000,
+    timeout: 5_000,
   },
   fullyParallel: false,
   workers: 1,
@@ -20,6 +19,6 @@ export default defineConfig({
     command: 'pnpm dev',
     url: baseURL,
     reuseExistingServer: true,
-    timeout: 60_000,
+    timeout: 30_000,
   },
 })
