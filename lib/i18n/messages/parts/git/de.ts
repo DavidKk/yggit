@@ -25,6 +25,18 @@ export const gitDe: GitMessages = {
     unsupportedFileSystemAccess: 'Ihr Browser unterstützt die Web File System API nicht. Bitte verwenden Sie Chrome/Edge oder wechseln Sie in den Local-Modus.',
     cloneEdgeUnsupported:
       'Im Edge-Modus ist kein Klonen auf den lokalen Server erforderlich. Sie können direkt einen lokalen Ordner hinzufügen oder auf ein Remote-Repository zugreifen.',
+    renameFolderFailed: 'Ordner konnte nicht umbenannt werden',
+    clearFolderFailed: 'Ordner konnte nicht geleert werden',
+    setLabelFailed: 'Bezeichnung konnte nicht festgelegt werden',
+    removeProjectFailed: 'Projekt konnte nicht entfernt werden',
+    operationFailed: 'Vorgang fehlgeschlagen',
+    pushFailed: 'Push fehlgeschlagen',
+    pullFailed: 'Pull fehlgeschlagen',
+    deleteBranchFailed: 'Zweig konnte nicht gelöscht werden',
+    renameBranchFailed: 'Zweig konnte nicht umbenannt werden',
+    createBranchFailed: 'Zweig konnte nicht erstellt werden',
+    addWorktreeFailed: 'Worktree konnte nicht erstellt werden',
+    addWorktreeUnsupported: 'Das Erstellen eines Worktrees wird im aktuellen Modus nicht unterstützt',
   },
   pickFolder: {
     multi: 'Ordner auswählen (Mehrfachauswahl; enthaltene Git-Repositories werden automatisch erkannt)',
@@ -46,6 +58,7 @@ export const gitDe: GitMessages = {
     noCommitsHint: 'Versuchen Sie andere Zweige, Remotes oder Tags auf der linken Seite.',
     switchingProject: 'Projekt wird gewechselt...',
     switchingProjectHint: 'Zweige und Commit-Graph werden geladen',
+    preparingRepo: 'Repository wird vorbereitet...',
   },
   history: {
     historicalConflicts: 'Konflikte beim Zusammenführen ({count} Dateien)',

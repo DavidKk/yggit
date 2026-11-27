@@ -8,6 +8,21 @@ import type { ReadCommitDiffOptions } from './types'
 
 const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'
 const CONTENT_LIMIT = 2 * 1024 * 1024
+const IGNORED_WORKTREE_TOP_DIRS = new Set(['node_modules', '.next', '.git', 'dist', 'build', '.turbo', '.cache', 'coverage', '.temp', '.playwright-mcp', 'test-results'])
+const PRUNED_WORKTREE_REFS_DIRS = new Set(['node_modules', '.next', 'dist', 'build', '.turbo', '.cache', 'coverage', '.temp', '.playwright-mcp', 'test-results'])
+
+function mapStatusMatrixRows(matrix: Array<[string, number, number, number]>): GitFileChange[] {
+  return matrix
+    .filter(([, head, disk, stage]) => head !== disk || head !== stage)
+    .map(([path, head, disk, stage]) => ({
+      path,
+      status: (!head ? 'A' : !disk ? 'D' : 'M') as GitFileChange['status'],
+      oldPath: '',
+      staged: stage !== head,
+      unstaged: disk !== stage,
+    }))
+    .sort((a, b) => a.path.localeCompare(b.path))
+}
 
 /** Share pack indexes and immutable reads across clicks, with bounded result caches. */
 export class EdgeRepositoryReader {
@@ -15,13 +30,31 @@ export class EdgeRepositoryReader {
   readonly fs: ReturnType<typeof createDirectoryHandleFs>
   private readonly results = new Map<string, Promise<GitCommitChanges>>()
   private worktreeSnapshot?: GitFileChange[]
+  private worktreeInFlight?: Promise<GitFileChange[]>
+  private lastWorktreeStatus?: GitWorktree | null
+  private observer?: { disconnect: () => void }
+  private observerStarted = false
+  private observerClean = false
+  private readonly observerDirtyPaths = new Set<string>()
 
   constructor(readonly handle: FileSystemDirectoryHandle) {
     this.fs = createDirectoryHandleFs(handle)
   }
 
+  dispose(): void {
+    this.observer?.disconnect()
+    this.observer = undefined
+    this.observerStarted = false
+    this.observerClean = false
+    this.observerDirtyPaths.clear()
+  }
+
   invalidateWorktree(): void {
     this.worktreeSnapshot = undefined
+    this.worktreeInFlight = undefined
+    this.observerClean = false
+    this.observerDirtyPaths.clear()
+    this.fs.clearCache()
   }
 
   readChanges(options: ReadCommitDiffOptions): Promise<GitCommitChanges> {
@@ -74,37 +107,227 @@ export class EdgeRepositoryReader {
     }
   }
 
-  async worktreeFiles(): Promise<GitFileChange[]> {
-    // Never refresh the on-disk index: Edge requires read permission only.
-    // Filter out bulky dependency and build directories to avoid thousands of FileSystem API IPC calls
-    const ignoredTopDirs = new Set(['node_modules', '.next', '.git', 'dist', 'build', '.turbo', '.cache', 'coverage', '.temp'])
+  private ensureObserver(): void {
+    if (this.observerStarted) return
+    this.observerStarted = true
+    const ObserverCtor = (
+      globalThis as unknown as {
+        FileSystemObserver?: new (cb: (records: Array<{ type?: string; relativePathComponents?: string[] }>) => void) => {
+          observe: (handle: FileSystemDirectoryHandle, opts?: { recursive?: boolean }) => Promise<void>
+          disconnect: () => void
+        }
+      }
+    ).FileSystemObserver
+    if (typeof ObserverCtor !== 'function') return
+
+    try {
+      const observer = new ObserverCtor((records) => {
+        for (const rec of records) {
+          const parts = rec.relativePathComponents
+          if (!parts || parts.length === 0 || rec.type === 'unknown' || rec.type === 'errored') {
+            this.observerClean = false
+            this.observerDirtyPaths.clear()
+            return
+          }
+          const top = parts[0]
+          if (PRUNED_WORKTREE_REFS_DIRS.has(top)) continue
+          const relPath = parts.join('/')
+          if (top === '.git') {
+            if (relPath === '.git/index' || relPath === '.git/HEAD' || relPath.startsWith('.git/refs/')) {
+              this.observerClean = false
+              this.observerDirtyPaths.clear()
+              return
+            }
+            continue
+          }
+          this.observerDirtyPaths.add(relPath)
+        }
+      })
+      this.observer = observer
+      void observer
+        .observe(this.handle, { recursive: true })
+        .then(() => {
+          this.observerClean = true
+        })
+        .catch(() => {
+          this.observerClean = false
+        })
+    } catch {
+      this.observerClean = false
+    }
+  }
+
+  worktreeFiles(): Promise<GitFileChange[]> {
+    if (this.worktreeInFlight) return this.worktreeInFlight
+
+    if (this.observerClean && this.worktreeSnapshot) {
+      if (this.observerDirtyPaths.size === 0) {
+        return Promise.resolve(this.worktreeSnapshot)
+      }
+      const dirty = [...this.observerDirtyPaths]
+      this.observerDirtyPaths.clear()
+      return this.refreshWorktreePaths(dirty).then(() => this.worktreeSnapshot || [])
+    }
+
+    const scan = (async () => {
+      this.fs.clearCache()
+      const gitignoreCache = new Map<string, Promise<Uint8Array | string>>()
+      // Prune heavy build/dependency directories in readdir before isomorphic-git stats their children,
+      // while preserving `/.git` access and caching `.gitignore` reads during the walk.
+      const prunedFs = {
+        promises: {
+          ...this.fs.promises,
+          readFile: (filepath: string, opts?: unknown) => {
+            if (typeof filepath === 'string' && (filepath.endsWith('/.gitignore') || filepath === '.gitignore')) {
+              const key = `${filepath}:${typeof opts === 'string' ? opts : JSON.stringify(opts || '')}`
+              const hit = gitignoreCache.get(key)
+              if (hit) return hit
+              const p = this.fs.promises.readFile(filepath, opts)
+              gitignoreCache.set(key, p)
+              return p
+            }
+            return this.fs.promises.readFile(filepath, opts)
+          },
+          readdir: async (dirpath: string): Promise<string[]> => {
+            const top = typeof dirpath === 'string' ? dirpath.replace(/^\/+/, '').split('/')[0] : ''
+            if (top && PRUNED_WORKTREE_REFS_DIRS.has(top)) {
+              return []
+            }
+            return this.fs.promises.readdir(dirpath)
+          },
+        },
+      }
+
+      const indexMtimeMs = await this.fs.promises
+        .stat('/.git/index')
+        .then((s) => s.mtimeMs)
+        .catch(() => 0)
+
+      const raw = (await git.walk({
+        fs: prunedFs,
+        dir: '/',
+        cache: this.cache,
+        trees: [git.TREE({ ref: 'HEAD' }), git.WORKDIR({ refresh: false }), git.STAGE()],
+        map: async (filepath, [head, workdir, stage]) => {
+          if (filepath === '.') return undefined
+          const top = filepath.split('/')[0]
+          if (IGNORED_WORKTREE_TOP_DIRS.has(top)) return null
+
+          if (!head && !stage && workdir) {
+            const ignored = await git.isIgnored({ fs: prunedFs, dir: '/', filepath })
+            if (ignored) return null
+          }
+
+          const [headType, workdirType, stageType] = await Promise.all([head && head.type(), workdir && workdir.type(), stage && stage.type()])
+          const isBlob = headType === 'blob' || workdirType === 'blob' || stageType === 'blob'
+          if (!isBlob) {
+            if (headType === 'commit' || stageType === 'commit') return null
+            return undefined
+          }
+
+          const headOid = headType === 'blob' ? await head!.oid() : undefined
+          const stageOid = stageType === 'blob' ? await stage!.oid() : undefined
+          let workdirOid: string | undefined
+
+          if (workdirType !== 'blob') {
+            workdirOid = undefined
+          } else if (headType !== 'blob' && stageType !== 'blob') {
+            workdirOid = '42'
+          } else if (stageType === 'blob') {
+            // Browser FileSystemHandle omits POSIX ino/uid/gid/ctime, which causes isomorphic-git's
+            // compareStats to hash 100% of tracked files. Compare browser-exposed size + mtime instead.
+            const [stageStat, diskStat] = await Promise.all([stage!.stat(), workdir!.stat()])
+            const sameSize = diskStat.size === stageStat.size
+            const sameMtime = diskStat.mtimeSeconds === stageStat.mtimeSeconds
+            const diskMtimeMs = diskStat.mtimeSeconds * 1000 + Math.floor((diskStat.mtimeNanoseconds || 0) / 1e6)
+            const notRacy = indexMtimeMs > 0 && diskMtimeMs < indexMtimeMs - 2000
+            workdirOid = sameSize && sameMtime && notRacy ? stageOid : await workdir!.oid()
+          } else {
+            workdirOid = await workdir!.oid()
+          }
+
+          if (headOid === workdirOid && headOid === stageOid) return undefined
+
+          return {
+            path: filepath,
+            status: (!headOid ? 'A' : !workdirOid ? 'D' : 'M') as GitFileChange['status'],
+            oldPath: '',
+            staged: stageOid !== headOid,
+            unstaged: workdirOid !== stageOid,
+          }
+        },
+      })) as GitFileChange[]
+
+      const files = raw.sort((a, b) => a.path.localeCompare(b.path))
+      this.worktreeSnapshot = files
+      this.ensureObserver()
+      if (this.observer) this.observerClean = true
+      return files
+    })()
+
+    this.worktreeInFlight = scan.finally(() => {
+      if (this.worktreeInFlight === scan) {
+        this.worktreeInFlight = undefined
+      }
+    })
+    return this.worktreeInFlight
+  }
+
+  async refreshWorktreePaths(paths: string[]): Promise<void> {
+    const cleanPaths = [...new Set(paths.map((p) => p.replace(/^\/+/, '')).filter(Boolean))]
+    if (!cleanPaths.length || !this.worktreeSnapshot) {
+      this.invalidateWorktree()
+      return
+    }
+    const allowedDirs = new Set<string>(['', '.'])
+    for (const p of cleanPaths) {
+      const parts = p.split('/')
+      let acc = ''
+      for (let i = 0; i < parts.length - 1; i++) {
+        acc = acc ? `${acc}/${parts[i]}` : parts[i]
+        allowedDirs.add(acc)
+      }
+    }
+    const targetedFs = {
+      promises: {
+        ...this.fs.promises,
+        readdir: async (dirpath: string): Promise<string[]> => {
+          const clean = typeof dirpath === 'string' ? dirpath.replace(/^\/+|\/+$/g, '') : ''
+          if (clean === '.git' || clean.startsWith('.git/') || allowedDirs.has(clean)) {
+            return this.fs.promises.readdir(dirpath)
+          }
+          return []
+        },
+      },
+    }
     const matrix = await git.statusMatrix({
-      fs: this.fs,
+      fs: targetedFs,
       dir: '/',
+      filepaths: cleanPaths,
       refresh: false,
       cache: this.cache,
-      filter: (filepath) => {
-        const top = filepath.split('/')[0]
-        return !ignoredTopDirs.has(top)
-      },
+      filter: (filepath) => cleanPaths.includes(filepath),
     })
-    return matrix
-      .filter(([, head, disk, stage]) => head !== disk || head !== stage)
-      .map(([path, head, disk, stage]) => ({
-        path,
-        status: !head ? 'A' : !disk ? 'D' : 'M',
-        oldPath: '',
-        staged: stage !== head,
-        unstaged: disk !== stage,
-      }))
-      .sort((a, b) => a.path.localeCompare(b.path))
+    const updated = mapStatusMatrixRows(matrix)
+    const targetSet = new Set(cleanPaths)
+    const merged = this.worktreeSnapshot.filter((f) => !targetSet.has(f.path))
+    merged.push(...updated)
+    merged.sort((a, b) => a.path.localeCompare(b.path))
+    this.worktreeSnapshot = merged
+  }
+
+  getLastWorktreeStatus(): GitWorktree | null | undefined {
+    return this.lastWorktreeStatus
   }
 
   async readWorktreeStatus(): Promise<GitWorktree | null> {
     try {
       const files = await this.worktreeFiles()
       this.worktreeSnapshot = files
-      if (!files.length) return null
+      if (!files.length) {
+        this.lastWorktreeStatus = null
+        return null
+      }
       const head = await this.head()
       let insertions = 0
       let deletions = 0
@@ -127,9 +350,11 @@ export class EdgeRepositoryReader {
         else if (file.status === 'D') deletedFiles++
         else modifiedFiles++
       }
-      return { files: files.length, insertions, deletions, addedFiles, deletedFiles, modifiedFiles }
+      const summary = { files: files.length, insertions, deletions, addedFiles, deletedFiles, modifiedFiles }
+      this.lastWorktreeStatus = summary
+      return summary
     } catch {
-      return null
+      return this.lastWorktreeStatus ?? null
     }
   }
 

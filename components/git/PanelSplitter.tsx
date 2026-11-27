@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 
 type Props = {
   label: string
@@ -18,9 +18,41 @@ type Props = {
 export function PanelSplitter({ label, value, min, max, onResize, onResizeEnd, onAutoFit, line = true, className }: Props) {
   const origin = useRef(0)
   const dragging = useRef(false)
+  const activePointerId = useRef<number | null>(null)
   const moved = useRef(false)
   const rafRef = useRef<number | null>(null)
   const pendingDeltaRef = useRef(0)
+  const onResizeRef = useRef(onResize)
+  onResizeRef.current = onResize
+  const onResizeEndRef = useRef(onResizeEnd)
+  onResizeEndRef.current = onResizeEnd
+  const cleanupRef = useRef<(() => void) | null>(null)
+
+  const stopDrag = useCallback((shouldCommit: boolean) => {
+    if (!dragging.current) return
+    dragging.current = false
+    activePointerId.current = null
+    cleanupRef.current?.()
+    cleanupRef.current = null
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current)
+      rafRef.current = null
+    }
+    if (shouldCommit && pendingDeltaRef.current) {
+      onResizeRef.current(pendingDeltaRef.current)
+    }
+    pendingDeltaRef.current = 0
+    document.body.style.cursor = ''
+    document.body.style.userSelect = ''
+    if (moved.current) onResizeEndRef.current?.()
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      cleanupRef.current?.()
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
+    }
+  }, [])
 
   return (
     <div
@@ -36,61 +68,60 @@ export function PanelSplitter({ label, value, min, max, onResize, onResizeEnd, o
         if (event.button !== 0) return
         event.preventDefault()
         dragging.current = true
+        activePointerId.current = event.pointerId
         moved.current = false
         origin.current = event.clientX
         pendingDeltaRef.current = 0
-        event.currentTarget.setPointerCapture(event.pointerId)
+        try {
+          event.currentTarget.setPointerCapture(event.pointerId)
+        } catch {
+          // Synthetic pointer events may not support capture
+        }
         document.body.style.cursor = 'col-resize'
         document.body.style.userSelect = 'none'
-      }}
-      onPointerMove={(event) => {
-        if (!dragging.current || !event.currentTarget.hasPointerCapture(event.pointerId)) return
-        const delta = event.clientX - origin.current
-        if (!delta) return
-        origin.current = event.clientX
-        moved.current = true
-        pendingDeltaRef.current += delta
-        if (rafRef.current === null) {
-          rafRef.current = requestAnimationFrame(() => {
-            rafRef.current = null
-            const d = pendingDeltaRef.current
-            pendingDeltaRef.current = 0
-            if (d) onResize(d)
-          })
+
+        const targetEl = event.currentTarget
+        const onWindowMove = (moveEvent: PointerEvent) => {
+          if (!dragging.current) return
+          if (activePointerId.current !== null && moveEvent.pointerId !== activePointerId.current) return
+          const delta = moveEvent.clientX - origin.current
+          if (!delta) return
+          origin.current = moveEvent.clientX
+          moved.current = true
+          pendingDeltaRef.current += delta
+          if (rafRef.current === null) {
+            rafRef.current = requestAnimationFrame(() => {
+              rafRef.current = null
+              const d = pendingDeltaRef.current
+              pendingDeltaRef.current = 0
+              if (d) onResizeRef.current(d)
+            })
+          }
         }
-      }}
-      onPointerUp={(event) => {
-        if (!dragging.current) return
-        dragging.current = false
-        if (rafRef.current !== null) {
-          cancelAnimationFrame(rafRef.current)
-          rafRef.current = null
+        const onWindowUp = (upEvent: PointerEvent) => {
+          if (activePointerId.current !== null && upEvent.pointerId !== activePointerId.current) return
+          try {
+            if (targetEl.hasPointerCapture(upEvent.pointerId)) {
+              targetEl.releasePointerCapture(upEvent.pointerId)
+            }
+          } catch {
+            // Ignore capture release errors
+          }
+          stopDrag(true)
         }
-        if (pendingDeltaRef.current) {
-          onResize(pendingDeltaRef.current)
-          pendingDeltaRef.current = 0
+        const onWindowCancel = (cancelEvent: PointerEvent) => {
+          if (activePointerId.current !== null && cancelEvent.pointerId !== activePointerId.current) return
+          stopDrag(false)
         }
-        if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-          event.currentTarget.releasePointerCapture(event.pointerId)
+
+        window.addEventListener('pointermove', onWindowMove)
+        window.addEventListener('pointerup', onWindowUp)
+        window.addEventListener('pointercancel', onWindowCancel)
+        cleanupRef.current = () => {
+          window.removeEventListener('pointermove', onWindowMove)
+          window.removeEventListener('pointerup', onWindowUp)
+          window.removeEventListener('pointercancel', onWindowCancel)
         }
-        document.body.style.cursor = ''
-        document.body.style.userSelect = ''
-        if (moved.current) onResizeEnd?.()
-      }}
-      onPointerCancel={(event) => {
-        if (!dragging.current) return
-        dragging.current = false
-        if (rafRef.current !== null) {
-          cancelAnimationFrame(rafRef.current)
-          rafRef.current = null
-        }
-        pendingDeltaRef.current = 0
-        if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-          event.currentTarget.releasePointerCapture(event.pointerId)
-        }
-        document.body.style.cursor = ''
-        document.body.style.userSelect = ''
-        if (moved.current) onResizeEnd?.()
       }}
       onDoubleClick={(event) => {
         event.preventDefault()

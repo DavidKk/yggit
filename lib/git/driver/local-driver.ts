@@ -182,9 +182,9 @@ export class LocalGitDriver implements IGitDriver {
     })
     const data = (await res.json()) as { ok?: boolean; message?: string; error?: string }
     if (!res.ok || data.ok === false) {
-      throw new Error(readApiErrorMessage(data, '切换分支失败'))
+      throw new Error(readApiErrorMessage(data, 'Failed to checkout branch'))
     }
-    return { ok: true, message: data.message || `已切换到分支 ${branch}` }
+    return { ok: true, message: data.message || `Switched to branch ${branch}` }
   }
 
   async createBranch(repo: string, branch: string, startPoint?: string, checkout = true): Promise<{ ok: boolean; message: string }> {
@@ -195,9 +195,9 @@ export class LocalGitDriver implements IGitDriver {
     })
     const data = (await res.json()) as { ok?: boolean; message?: string; error?: string }
     if (!res.ok || data.ok === false) {
-      throw new Error(readApiErrorMessage(data, '创建分支失败'))
+      throw new Error(readApiErrorMessage(data, 'Failed to create branch'))
     }
-    return { ok: true, message: data.message || `已创建分支 ${branch}` }
+    return { ok: true, message: data.message || `Created branch ${branch}` }
   }
 
   async deleteBranch(repo: string, branch: string, force = false): Promise<{ ok: boolean; message: string }> {
@@ -208,9 +208,9 @@ export class LocalGitDriver implements IGitDriver {
     })
     const data = (await res.json()) as { ok?: boolean; message?: string; error?: string }
     if (!res.ok || data.ok === false) {
-      throw new Error(readApiErrorMessage(data, '删除分支失败'))
+      throw new Error(readApiErrorMessage(data, 'Failed to delete branch'))
     }
-    return { ok: true, message: data.message || `已删除分支 ${branch}` }
+    return { ok: true, message: data.message || `Deleted branch ${branch}` }
   }
 
   async renameBranch(repo: string, oldName: string, newName: string): Promise<{ ok: boolean; message: string }> {
@@ -221,9 +221,9 @@ export class LocalGitDriver implements IGitDriver {
     })
     const data = (await res.json()) as { ok?: boolean; message?: string; error?: string }
     if (!res.ok || data.ok === false) {
-      throw new Error(readApiErrorMessage(data, '重命名分支失败'))
+      throw new Error(readApiErrorMessage(data, 'Failed to rename branch'))
     }
-    return { ok: true, message: data.message || `已重命名分支为 ${newName}` }
+    return { ok: true, message: data.message || `Renamed branch to ${newName}` }
   }
 
   async mergeBranch(repo: string, branch: string): Promise<{ ok: boolean; message: string; conflict?: boolean }> {
@@ -235,11 +235,11 @@ export class LocalGitDriver implements IGitDriver {
     const data = (await res.json()) as { ok?: boolean; message?: string; error?: string; conflict?: boolean }
     if (!res.ok || data.ok === false) {
       if (data.conflict) {
-        return { ok: false, message: data.message || '合并存在冲突', conflict: true }
+        return { ok: false, message: data.message || 'Merge conflict detected', conflict: true }
       }
-      throw new Error(readApiErrorMessage(data, '合并分支失败'))
+      throw new Error(readApiErrorMessage(data, 'Failed to merge branch'))
     }
-    return { ok: true, message: data.message || `已合并分支 ${branch}`, conflict: false }
+    return { ok: true, message: data.message || `Merged branch ${branch}`, conflict: false }
   }
 
   async rebaseBranch(repo: string, branch: string, options?: { abort?: boolean; continue?: boolean }): Promise<{ ok: boolean; message: string; conflict?: boolean }> {
@@ -251,11 +251,11 @@ export class LocalGitDriver implements IGitDriver {
     const data = (await res.json()) as { ok?: boolean; message?: string; error?: string; conflict?: boolean }
     if (!res.ok || data.ok === false) {
       if (data.conflict) {
-        return { ok: false, message: data.message || '变基存在冲突', conflict: true }
+        return { ok: false, message: data.message || 'Rebase conflict detected', conflict: true }
       }
-      throw new Error(readApiErrorMessage(data, '变基分支失败'))
+      throw new Error(readApiErrorMessage(data, 'Failed to rebase branch'))
     }
-    return { ok: true, message: data.message || `已将当前分支变基到 ${branch}`, conflict: false }
+    return { ok: true, message: data.message || `Rebased onto ${branch}`, conflict: false }
   }
 
   async cherryPick(repo: string, hash: string, options?: { abort?: boolean; continue?: boolean }): Promise<{ ok: boolean; message: string; conflict?: boolean }> {
@@ -267,11 +267,11 @@ export class LocalGitDriver implements IGitDriver {
     const data = (await res.json()) as { ok?: boolean; message?: string; error?: string; conflict?: boolean }
     if (!res.ok || data.ok === false) {
       if (data.conflict) {
-        return { ok: false, message: data.message || '遴选存在冲突', conflict: true }
+        return { ok: false, message: data.message || 'Cherry-pick conflict detected', conflict: true }
       }
-      throw new Error(readApiErrorMessage(data, '遴选提交失败'))
+      throw new Error(readApiErrorMessage(data, 'Failed to cherry-pick commit'))
     }
-    return { ok: true, message: data.message || `已成功遴选提交 ${hash.slice(0, 7)}`, conflict: false }
+    return { ok: true, message: data.message || `Cherry-picked commit ${hash.slice(0, 7)}`, conflict: false }
   }
 
   async commit(repo: string, message: string, options?: boolean | GitCommitOptions): Promise<{ ok: boolean; message: string; hash?: string }> {
@@ -291,9 +291,9 @@ export class LocalGitDriver implements IGitDriver {
     })
     const data = (await res.json()) as { ok?: boolean; message?: string; error?: string; hash?: string }
     if (!res.ok || data.ok === false) {
-      throw new Error(readApiErrorMessage(data, '提交失败'))
+      throw new Error(readApiErrorMessage(data, 'Failed to commit'))
     }
-    return { ok: true, message: data.message || '提交成功', hash: data.hash }
+    return { ok: true, message: data.message || 'Committed successfully', hash: data.hash }
   }
 
   async undo(repo: string, soft = true): Promise<{ ok: boolean; message: string; undoneHash?: string }> {
@@ -308,9 +308,9 @@ export class LocalGitDriver implements IGitDriver {
     })
     const data = (await res.json()) as { ok?: boolean; message?: string; error?: string; undoneHash?: string }
     if (!res.ok || data.ok === false) {
-      throw new Error(readApiErrorMessage(data, '撤销提交失败'))
+      throw new Error(readApiErrorMessage(data, 'Failed to undo commit'))
     }
-    return { ok: true, message: data.message || '已撤销上一次提交', undoneHash: data.undoneHash }
+    return { ok: true, message: data.message || 'Undid last commit', undoneHash: data.undoneHash }
   }
 
   async redo(repo: string, soft = true): Promise<{ ok: boolean; message: string }> {
@@ -325,9 +325,9 @@ export class LocalGitDriver implements IGitDriver {
     })
     const data = (await res.json()) as { ok?: boolean; message?: string; error?: string }
     if (!res.ok || data.ok === false) {
-      throw new Error(readApiErrorMessage(data, '重做提交失败'))
+      throw new Error(readApiErrorMessage(data, 'Failed to redo commit'))
     }
-    return { ok: true, message: data.message || '已重做提交' }
+    return { ok: true, message: data.message || 'Redid commit' }
   }
 
   async getLastCommit(repo: string): Promise<{ summary: string; description: string }> {
@@ -358,9 +358,9 @@ export class LocalGitDriver implements IGitDriver {
     })
     const data = (await res.json()) as { ok?: boolean; message?: string; error?: string }
     if (!res.ok || data.ok === false) {
-      throw new Error(readApiErrorMessage(data, '忽略操作失败'))
+      throw new Error(readApiErrorMessage(data, 'Failed to add ignore rule'))
     }
-    return { ok: true, message: data.message || '已添加到 .gitignore' }
+    return { ok: true, message: data.message || 'Added to .gitignore' }
   }
 
   async createFile(repo: string, relativePath: string): Promise<{ ok: boolean; message: string }> {
@@ -371,9 +371,9 @@ export class LocalGitDriver implements IGitDriver {
     })
     const data = (await res.json()) as { ok?: boolean; message?: string; error?: string }
     if (!res.ok || data.ok === false) {
-      throw new Error(readApiErrorMessage(data, '创建文件失败'))
+      throw new Error(readApiErrorMessage(data, 'Failed to create file'))
     }
-    return { ok: true, message: data.message || '已创建文件' }
+    return { ok: true, message: data.message || 'File created' }
   }
 
   async deleteFile(repo: string, relativePath: string): Promise<{ ok: boolean; message: string }> {
@@ -384,9 +384,9 @@ export class LocalGitDriver implements IGitDriver {
     })
     const data = (await res.json()) as { ok?: boolean; message?: string; error?: string }
     if (!res.ok || data.ok === false) {
-      throw new Error(readApiErrorMessage(data, '删除文件失败'))
+      throw new Error(readApiErrorMessage(data, 'Failed to delete file'))
     }
-    return { ok: true, message: data.message || '已删除文件' }
+    return { ok: true, message: data.message || 'File deleted' }
   }
 
   async stage(repo: string, files?: string[], all = false): Promise<{ ok: boolean; message: string }> {
@@ -397,9 +397,9 @@ export class LocalGitDriver implements IGitDriver {
     })
     const data = (await res.json()) as { ok?: boolean; message?: string; error?: string }
     if (!res.ok || data.ok === false) {
-      throw new Error(readApiErrorMessage(data, '暂存文件失败'))
+      throw new Error(readApiErrorMessage(data, 'Failed to stage changes'))
     }
-    return { ok: true, message: data.message || '已暂存更改' }
+    return { ok: true, message: data.message || 'Changes staged' }
   }
 
   async unstage(repo: string, files?: string[], all = false): Promise<{ ok: boolean; message: string }> {
@@ -410,9 +410,9 @@ export class LocalGitDriver implements IGitDriver {
     })
     const data = (await res.json()) as { ok?: boolean; message?: string; error?: string }
     if (!res.ok || data.ok === false) {
-      throw new Error(readApiErrorMessage(data, '取消暂存失败'))
+      throw new Error(readApiErrorMessage(data, 'Failed to unstage changes'))
     }
-    return { ok: true, message: data.message || '已取消暂存' }
+    return { ok: true, message: data.message || 'Changes unstaged' }
   }
 
   async discard(repo: string, files?: string[], all = false): Promise<{ ok: boolean; message: string }> {
@@ -423,9 +423,9 @@ export class LocalGitDriver implements IGitDriver {
     })
     const data = (await res.json()) as { ok?: boolean; message?: string; error?: string }
     if (!res.ok || data.ok === false) {
-      throw new Error(readApiErrorMessage(data, '放弃更改失败'))
+      throw new Error(readApiErrorMessage(data, 'Failed to discard changes'))
     }
-    return { ok: true, message: data.message || '已放弃更改' }
+    return { ok: true, message: data.message || 'Changes discarded' }
   }
 
   async push(repo: string, options?: GitPushOptions): Promise<{ ok: boolean; message: string }> {
@@ -436,9 +436,9 @@ export class LocalGitDriver implements IGitDriver {
     })
     const data = (await res.json()) as { ok?: boolean; message?: string; error?: string }
     if (!res.ok || data.ok === false) {
-      throw new Error(readApiErrorMessage(data, '推送失败'))
+      throw new Error(readApiErrorMessage(data, 'Failed to push'))
     }
-    return { ok: true, message: data.message || '推送成功' }
+    return { ok: true, message: data.message || 'Pushed successfully' }
   }
 
   async pull(repo: string, options?: GitPullOptions): Promise<{ ok: boolean; message: string }> {
@@ -449,9 +449,9 @@ export class LocalGitDriver implements IGitDriver {
     })
     const data = (await res.json()) as { ok?: boolean; message?: string; error?: string }
     if (!res.ok || data.ok === false) {
-      throw new Error(readApiErrorMessage(data, '拉取失败'))
+      throw new Error(readApiErrorMessage(data, 'Failed to pull'))
     }
-    return { ok: true, message: data.message || '拉取成功' }
+    return { ok: true, message: data.message || 'Pulled successfully' }
   }
 
   async fetch(repo: string, options?: GitFetchOptions): Promise<{ ok: boolean; message: string }> {
@@ -462,16 +462,16 @@ export class LocalGitDriver implements IGitDriver {
     })
     const data = (await res.json()) as { ok?: boolean; message?: string; error?: string }
     if (!res.ok || data.ok === false) {
-      throw new Error(readApiErrorMessage(data, '抓取失败'))
+      throw new Error(readApiErrorMessage(data, 'Failed to fetch'))
     }
-    return { ok: true, message: data.message || '抓取完成' }
+    return { ok: true, message: data.message || 'Fetch completed' }
   }
 
   async getRemotes(repo: string): Promise<GitRemoteSource[]> {
     const res = await fetch(`/api/git/remote?${new URLSearchParams({ repo })}`)
     const data = (await res.json()) as { ok?: boolean; remotes?: GitRemoteSource[]; error?: string }
     if (!res.ok || data.ok === false) {
-      throw new Error(readApiErrorMessage(data, '获取远程源列表失败'))
+      throw new Error(readApiErrorMessage(data, 'Failed to get remotes'))
     }
     return data.remotes || []
   }
@@ -480,7 +480,7 @@ export class LocalGitDriver implements IGitDriver {
     const res = await fetch(`/api/git/remote?${new URLSearchParams({ repo, remote })}`)
     const data = (await res.json()) as { ok?: boolean; url?: string; error?: string }
     if (!res.ok || data.ok === false) {
-      throw new Error(readApiErrorMessage(data, '获取远程源 URL 失败'))
+      throw new Error(readApiErrorMessage(data, 'Failed to get remote URL'))
     }
     return data.url || ''
   }
@@ -493,9 +493,9 @@ export class LocalGitDriver implements IGitDriver {
     })
     const data = (await res.json()) as { ok?: boolean; message?: string; error?: string }
     if (!res.ok || data.ok === false) {
-      throw new Error(readApiErrorMessage(data, '更新远程源 URL 失败'))
+      throw new Error(readApiErrorMessage(data, 'Failed to update remote URL'))
     }
-    return { ok: true, message: data.message || '更新成功' }
+    return { ok: true, message: data.message || 'Updated remote' }
   }
 
   async renameRemote(repo: string, oldName: string, newName: string): Promise<{ ok: boolean; message: string }> {
@@ -506,9 +506,9 @@ export class LocalGitDriver implements IGitDriver {
     })
     const data = (await res.json()) as { ok?: boolean; message?: string; error?: string }
     if (!res.ok || data.ok === false) {
-      throw new Error(readApiErrorMessage(data, '重命名远程源失败'))
+      throw new Error(readApiErrorMessage(data, 'Failed to rename remote'))
     }
-    return { ok: true, message: data.message || '重命名成功' }
+    return { ok: true, message: data.message || 'Renamed remote' }
   }
 
   async addRemote(repo: string, name: string, url: string, pushUrl?: string): Promise<{ ok: boolean; message: string }> {
@@ -519,9 +519,9 @@ export class LocalGitDriver implements IGitDriver {
     })
     const data = (await res.json()) as { ok?: boolean; message?: string; error?: string }
     if (!res.ok || data.ok === false) {
-      throw new Error(readApiErrorMessage(data, '添加远程源失败'))
+      throw new Error(readApiErrorMessage(data, 'Failed to add remote'))
     }
-    return { ok: true, message: data.message || `成功添加远程源 ${name}` }
+    return { ok: true, message: data.message || `Added remote ${name}` }
   }
 
   async removeRemote(repo: string, remote: string): Promise<{ ok: boolean; message: string }> {
@@ -532,9 +532,9 @@ export class LocalGitDriver implements IGitDriver {
     })
     const data = (await res.json()) as { ok?: boolean; message?: string; error?: string }
     if (!res.ok || data.ok === false) {
-      throw new Error(readApiErrorMessage(data, '删除远程源失败'))
+      throw new Error(readApiErrorMessage(data, 'Failed to remove remote'))
     }
-    return { ok: true, message: data.message || '删除成功' }
+    return { ok: true, message: data.message || 'Removed remote' }
   }
 
   async stash(repo: string, options: GitStashOptions): Promise<{ ok: boolean; message: string }> {
@@ -552,9 +552,9 @@ export class LocalGitDriver implements IGitDriver {
     })
     const data = (await res.json()) as { ok?: boolean; message?: string; error?: string }
     if (!res.ok || data.ok === false) {
-      throw new Error(readApiErrorMessage(data, '暂存操作失败'))
+      throw new Error(readApiErrorMessage(data, 'Stash operation failed'))
     }
-    return { ok: true, message: data.message || '暂存操作成功' }
+    return { ok: true, message: data.message || 'Stash operation succeeded' }
   }
 
   async getProjects(): Promise<GitProjectCatalog> {
@@ -745,9 +745,9 @@ export class LocalGitDriver implements IGitDriver {
     })
     const data = (await res.json().catch(() => ({}))) as { ok?: boolean; message?: string }
     if (!res.ok || data.ok === false) {
-      throw new Error(data.message || '创建 Worktree 失败')
+      throw new Error(data.message || 'Failed to add worktree')
     }
-    return { ok: true, message: data.message || `已添加工作树 ${path}` }
+    return { ok: true, message: data.message || `Added worktree ${path}` }
   }
 
   async createTag(repo: string, tag: string, options?: { target?: string; message?: string }): Promise<{ ok: boolean; message: string }> {
@@ -758,9 +758,9 @@ export class LocalGitDriver implements IGitDriver {
     })
     const data = (await res.json().catch(() => ({}))) as { ok?: boolean; message?: string }
     if (!res.ok || data.ok === false) {
-      throw new Error(data.message || '创建标签失败')
+      throw new Error(data.message || 'Failed to create tag')
     }
-    return { ok: true, message: data.message || `已创建标签 ${tag}` }
+    return { ok: true, message: data.message || `Created tag ${tag}` }
   }
 
   async deleteTag(repo: string, tag: string, options?: { remote?: string }): Promise<{ ok: boolean; message: string }> {
@@ -771,9 +771,9 @@ export class LocalGitDriver implements IGitDriver {
     })
     const data = (await res.json().catch(() => ({}))) as { ok?: boolean; message?: string }
     if (!res.ok || data.ok === false) {
-      throw new Error(data.message || '删除标签失败')
+      throw new Error(data.message || 'Failed to delete tag')
     }
-    return { ok: true, message: data.message || `已删除标签 ${tag}` }
+    return { ok: true, message: data.message || `Deleted tag ${tag}` }
   }
 
   async restoreFile(repo: string, commitHash: string, filePath: string): Promise<{ ok: boolean; message: string }> {
@@ -784,9 +784,9 @@ export class LocalGitDriver implements IGitDriver {
     })
     const data = (await res.json().catch(() => ({}))) as { ok?: boolean; message?: string }
     if (!res.ok || data.ok === false) {
-      throw new Error(data.message || '恢复文件失败')
+      throw new Error(data.message || 'Failed to restore file')
     }
-    return { ok: true, message: data.message || `已恢复文件 ${filePath}` }
+    return { ok: true, message: data.message || `Restored file ${filePath}` }
   }
 
   async reset(repo: string, target: string, mode: 'soft' | 'mixed' | 'hard' = 'mixed'): Promise<{ ok: boolean; message: string }> {
@@ -797,9 +797,9 @@ export class LocalGitDriver implements IGitDriver {
     })
     const data = (await res.json().catch(() => ({}))) as { ok?: boolean; message?: string }
     if (!res.ok || data.ok === false) {
-      throw new Error(data.message || '重置失败')
+      throw new Error(data.message || 'Failed to reset')
     }
-    return { ok: true, message: data.message || `已重置到 ${target} (${mode})` }
+    return { ok: true, message: data.message || `Reset to ${target} (${mode})` }
   }
 
   async revert(repo: string, commit: string): Promise<{ ok: boolean; message: string }> {
@@ -810,8 +810,8 @@ export class LocalGitDriver implements IGitDriver {
     })
     const data = (await res.json().catch(() => ({}))) as { ok?: boolean; message?: string }
     if (!res.ok || data.ok === false) {
-      throw new Error(data.message || '撤销提交失败')
+      throw new Error(data.message || 'Failed to revert commit')
     }
-    return { ok: true, message: data.message || `已撤销提交 ${commit.slice(0, 7)}` }
+    return { ok: true, message: data.message || `Reverted commit ${commit.slice(0, 7)}` }
   }
 }

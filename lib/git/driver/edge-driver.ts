@@ -57,6 +57,9 @@ export class EdgeGitDriver implements IGitDriver {
     if (repo) {
       this.repoPathCache.delete(repo)
     } else {
+      for (const pending of this.repositories.values()) {
+        void pending.then((r) => r.dispose()).catch(() => {})
+      }
       this.repositories.clear()
       this.repoPathCache.clear()
     }
@@ -94,6 +97,17 @@ export class EdgeGitDriver implements IGitDriver {
       return repo
     }
 
+    if (repo.startsWith('/')) {
+      const folderName = repo.split('/').filter(Boolean).pop()
+      if (folderName) {
+        const nameMatches = edgeProjects.filter((p) => p.localPath?.startsWith('edge_') && p.name === folderName)
+        if (nameMatches.length === 1 && nameMatches[0].localPath) {
+          this.repoPathCache.set(repo, nameMatches[0].localPath)
+          return nameMatches[0].localPath
+        }
+      }
+    }
+
     if (edgeProj?.httpsUrl && parseGitHubRepo(edgeProj.httpsUrl)) {
       this.repoPathCache.set(repo, edgeProj.httpsUrl)
       return edgeProj.httpsUrl
@@ -104,7 +118,7 @@ export class EdgeGitDriver implements IGitDriver {
 
   private repository(repo: string): Promise<EdgeRepositoryReader> {
     if (!repo || !repo.trim()) {
-      return Promise.reject(new Error('未指定项目仓库路径'))
+      return Promise.reject(new Error('Repository path is required'))
     }
     const hit = this.repositories.get(repo)
     if (hit) return hit
@@ -118,13 +132,18 @@ export class EdgeGitDriver implements IGitDriver {
         throw error
       })
     this.repositories.set(repo, pending)
-    if (this.repositories.size > 2) this.repositories.delete(this.repositories.keys().next().value!)
+    if (this.repositories.size > 2) {
+      const oldestKey = this.repositories.keys().next().value!
+      const oldest = this.repositories.get(oldestKey)
+      this.repositories.delete(oldestKey)
+      void oldest?.then((r) => r.dispose()).catch(() => {})
+    }
     return pending
   }
 
   async readLog(options: ReadLogOptions): Promise<GitLogView> {
     if (!options.repo || !options.repo.trim()) {
-      throw new Error('未指定项目仓库路径')
+      throw new Error('Repository path is required')
     }
 
     const resolvedRepo = await this.resolveRepo(options.repo)
@@ -240,9 +259,9 @@ export class EdgeGitDriver implements IGitDriver {
     try {
       await git.checkout({ fs: reader.fs, dir: '/', ref: branch })
       this.repositories.delete(target)
-      return { ok: true, message: `已切换到 ${branch}` }
+      return { ok: true, message: `Switched to ${branch}` }
     } catch (err) {
-      throw new Error(`切换分支失败: ${err instanceof Error ? err.message : String(err)}`)
+      throw new Error(`Failed to checkout branch: ${err instanceof Error ? err.message : String(err)}`)
     }
   }
 
@@ -252,9 +271,9 @@ export class EdgeGitDriver implements IGitDriver {
     try {
       await git.branch({ fs: reader.fs, dir: '/', ref: branch, object: startPoint, checkout })
       this.repositories.delete(target)
-      return { ok: true, message: `已创建分支 ${branch}` }
+      return { ok: true, message: `Created branch ${branch}` }
     } catch (err) {
-      throw new Error(`创建分支失败: ${err instanceof Error ? err.message : String(err)}`)
+      throw new Error(`Failed to create branch: ${err instanceof Error ? err.message : String(err)}`)
     }
   }
 
@@ -265,9 +284,9 @@ export class EdgeGitDriver implements IGitDriver {
     try {
       await git.deleteBranch({ fs, dir: '/', ref: branch })
       this.repositories.delete(target)
-      return { ok: true, message: `已删除分支 ${branch}` }
+      return { ok: true, message: `Deleted branch ${branch}` }
     } catch (error) {
-      throw new Error(`删除分支失败: ${error instanceof Error ? error.message : String(error)}`)
+      throw new Error(`Failed to delete branch: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
 
@@ -302,9 +321,9 @@ export class EdgeGitDriver implements IGitDriver {
         author: { name: 'Edge User', email: 'edge@yggdrasil.local' },
       })
       this.repositories.delete(target)
-      return { ok: true, message: '提交完成', hash: sha }
+      return { ok: true, message: 'Committed successfully', hash: sha }
     } catch (err) {
-      throw new Error(`提交失败: ${err instanceof Error ? err.message : String(err)}`)
+      throw new Error(`Failed to commit: ${err instanceof Error ? err.message : String(err)}`)
     }
   }
 
@@ -353,10 +372,14 @@ export class EdgeGitDriver implements IGitDriver {
       for (const filepath of paths) {
         await git.add({ fs: reader.fs, dir: '/', filepath })
       }
-      reader.invalidateWorktree()
-      return { ok: true, message: '暂存成功' }
+      if (all) {
+        reader.invalidateWorktree()
+      } else {
+        await reader.refreshWorktreePaths(paths)
+      }
+      return { ok: true, message: 'Changes staged' }
     } catch (err) {
-      throw new Error(`暂存失败: ${err instanceof Error ? err.message : String(err)}`)
+      throw new Error(`Failed to stage: ${err instanceof Error ? err.message : String(err)}`)
     }
   }
 
@@ -368,10 +391,10 @@ export class EdgeGitDriver implements IGitDriver {
       for (const filepath of paths) {
         await git.resetIndex({ fs: reader.fs, dir: '/', filepath })
       }
-      reader.invalidateWorktree()
-      return { ok: true, message: '取消暂存成功' }
+      await reader.refreshWorktreePaths(paths)
+      return { ok: true, message: 'Changes unstaged' }
     } catch (err) {
-      throw new Error(`取消暂存失败: ${err instanceof Error ? err.message : String(err)}`)
+      throw new Error(`Failed to unstage: ${err instanceof Error ? err.message : String(err)}`)
     }
   }
 
@@ -400,9 +423,9 @@ export class EdgeGitDriver implements IGitDriver {
         author: { name: 'Edge User', email: 'edge@yggdrasil.local' },
       })
       this.repositories.delete(target)
-      return { ok: true, message: '拉取完成' }
+      return { ok: true, message: 'Pulled successfully' }
     } catch (error) {
-      throw new Error(`拉取失败: ${error instanceof Error ? error.message : String(error)}`)
+      throw new Error(`Failed to pull: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
 
@@ -420,10 +443,9 @@ export class EdgeGitDriver implements IGitDriver {
         prune: options?.prune !== false,
         tags: true,
       })
-      this.repositories.delete(target)
-      return { ok: true, message: '抓取完成' }
+      return { ok: true, message: 'Fetch completed' }
     } catch (error) {
-      throw new Error(`抓取失败: ${error instanceof Error ? error.message : String(error)}`)
+      throw new Error(`Failed to fetch: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
 
@@ -441,9 +463,9 @@ export class EdgeGitDriver implements IGitDriver {
     try {
       await git.tag({ fs: reader.fs, dir: '/', ref: tag, object: options?.target })
       this.repositories.delete(target)
-      return { ok: true, message: `已创建标签 ${tag}` }
+      return { ok: true, message: `Created tag ${tag}` }
     } catch (err) {
-      throw new Error(`创建标签失败: ${err instanceof Error ? err.message : String(err)}`)
+      throw new Error(`Failed to create tag: ${err instanceof Error ? err.message : String(err)}`)
     }
   }
 
@@ -453,9 +475,9 @@ export class EdgeGitDriver implements IGitDriver {
     try {
       await git.deleteTag({ fs: reader.fs, dir: '/', ref: tag })
       this.repositories.delete(target)
-      return { ok: true, message: `已删除标签 ${tag}` }
+      return { ok: true, message: `Deleted tag ${tag}` }
     } catch (err) {
-      throw new Error(`删除标签失败: ${err instanceof Error ? err.message : String(err)}`)
+      throw new Error(`Failed to delete tag: ${err instanceof Error ? err.message : String(err)}`)
     }
   }
 
@@ -496,9 +518,9 @@ export class EdgeGitDriver implements IGitDriver {
       const reader = await this.repository(target)
       const { fs } = reader
       await git.addRemote({ fs, dir: '/', remote: name, url, force: true })
-      return { ok: true, message: `成功添加远程源 ${name}` }
+      return { ok: true, message: `Added remote ${name}` }
     } catch (err) {
-      return { ok: false, message: err instanceof Error ? err.message : '添加远程源失败' }
+      return { ok: false, message: err instanceof Error ? err.message : 'Failed to add remote' }
     }
   }
 
@@ -509,9 +531,9 @@ export class EdgeGitDriver implements IGitDriver {
       const { fs } = reader
       await git.deleteRemote({ fs, dir: '/', remote }).catch(() => {})
       await git.addRemote({ fs, dir: '/', remote, url, force: true })
-      return { ok: true, message: `成功更新远程源 ${remote}` }
+      return { ok: true, message: `Updated remote ${remote}` }
     } catch (err) {
-      return { ok: false, message: err instanceof Error ? err.message : '更新远程源失败' }
+      return { ok: false, message: err instanceof Error ? err.message : 'Failed to update remote' }
     }
   }
 
@@ -522,12 +544,12 @@ export class EdgeGitDriver implements IGitDriver {
       const { fs } = reader
       const remotes = await git.listRemotes({ fs, dir: '/' })
       const found = remotes.find((r) => r.remote === oldName)
-      if (!found?.url) throw new Error(`未找到远程源 ${oldName}`)
+      if (!found?.url) throw new Error(`Remote not found: ${oldName}`)
       await git.deleteRemote({ fs, dir: '/', remote: oldName })
       await git.addRemote({ fs, dir: '/', remote: newName, url: found.url, force: true })
-      return { ok: true, message: `远程源已重命名为 ${newName}` }
+      return { ok: true, message: `Renamed remote to ${newName}` }
     } catch (err) {
-      return { ok: false, message: err instanceof Error ? err.message : '重命名远程源失败' }
+      return { ok: false, message: err instanceof Error ? err.message : 'Failed to rename remote' }
     }
   }
 
@@ -537,9 +559,9 @@ export class EdgeGitDriver implements IGitDriver {
       const reader = await this.repository(target)
       const { fs } = reader
       await git.deleteRemote({ fs, dir: '/', remote })
-      return { ok: true, message: `成功删除远程源 ${remote}` }
+      return { ok: true, message: `Removed remote ${remote}` }
     } catch (err) {
-      return { ok: false, message: err instanceof Error ? err.message : '删除远程源失败' }
+      return { ok: false, message: err instanceof Error ? err.message : 'Failed to remove remote' }
     }
   }
 
@@ -565,7 +587,7 @@ export class EdgeGitDriver implements IGitDriver {
         const fs = createDirectoryHandleFs(payload.handle)
         await fs.promises.stat('/.git')
       } catch {
-        throw new Error(`所选目录 "${payload.handle.name}" 不是一个有效的 Git 仓库（未找到 .git 目录）`)
+        throw new Error(`Selected folder "${payload.handle.name}" is not a valid Git repository (.git not found)`)
       }
 
       await saveDirectoryHandle(id, payload.handle, payload.name, group)

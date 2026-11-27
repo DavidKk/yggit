@@ -109,7 +109,7 @@ export function useGitLogRepoLoader({
 
     setBusy(true)
     setError('')
-    setProgressStage('正在准备加载项目...')
+    setProgressStage(t('git.page.preparingRepo') || 'Preparing repository...')
     try {
       const body = await fetchRepoLogDeduplicated(repo, {
         signal: controller.signal,

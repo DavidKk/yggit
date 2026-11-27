@@ -58,18 +58,20 @@ test.describe('Shared Components E2E (Search, Collapse, Drag, ContextMenu)', () 
   test('PanelSplitter drag-to-resize updates sidebar and file-tree widths', async ({ page }) => {
     await page.goto(`/git?repo=${encodeURIComponent(fixture.repoDir)}`)
     await expect(page.getByText('merge: conflicted feat/ui into main').first()).toBeVisible()
-    await page.waitForTimeout(300)
+    await expect(page.getByRole('status', { name: /Switching repository|正在切换/i })).toHaveCount(0)
 
     const branchSplitter = page.getByRole('separator', { name: /branch panel|分支面板/i }).first()
     await expect(branchSplitter).toBeAttached()
     const initialBranchWidth = Number(await branchSplitter.getAttribute('aria-valuenow'))
-    const box = await branchSplitter.boundingBox()
+    const box = await branchSplitter.locator('span').first().boundingBox()
     expect(box).not.toBeNull()
 
     if (box) {
-      await page.mouse.move(box.x, box.y + box.height / 2)
+      const cx = box.x + box.width / 2
+      const cy = box.y + box.height / 2
+      await page.mouse.move(cx, cy)
       await page.mouse.down()
-      await page.mouse.move(box.x + 60, box.y + box.height / 2, { steps: 10 })
+      await page.mouse.move(cx + 60, cy, { steps: 10 })
       await page.mouse.up()
     }
 
@@ -80,13 +82,15 @@ test.describe('Shared Components E2E (Search, Collapse, Drag, ContextMenu)', () 
     const treeSplitter = page.getByRole('separator', { name: /file tree|文件树/i }).first()
     await expect(treeSplitter).toBeAttached()
     const initialTreeWidth = Number(await treeSplitter.getAttribute('aria-valuenow'))
-    const treeBox = await treeSplitter.boundingBox()
+    const treeBox = await treeSplitter.locator('span').first().boundingBox()
     expect(treeBox).not.toBeNull()
 
     if (treeBox) {
-      await page.mouse.move(treeBox.x, treeBox.y + treeBox.height / 2)
+      const cx = treeBox.x + treeBox.width / 2
+      const cy = treeBox.y + treeBox.height / 2
+      await page.mouse.move(cx, cy)
       await page.mouse.down()
-      await page.mouse.move(treeBox.x - 50, treeBox.y + treeBox.height / 2, { steps: 10 })
+      await page.mouse.move(cx - 50, cy, { steps: 10 })
       await page.mouse.up()
     }
 

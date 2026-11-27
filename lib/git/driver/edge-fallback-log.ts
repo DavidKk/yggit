@@ -348,14 +348,16 @@ export async function readClientLogFallback(reader: EdgeRepositoryReader, option
   let worktreeStatus: GitWorktree | null = null
   let worktreeTimer: ReturnType<typeof setTimeout> | undefined
   try {
-    worktreeStatus = await Promise.race([
+    const WORKTREE_TIMEOUT = Symbol('worktree-timeout')
+    const result = await Promise.race([
       reader.readWorktreeStatus(),
-      new Promise<null>((resolve) => {
-        worktreeTimer = setTimeout(() => resolve(null), 15000)
+      new Promise<typeof WORKTREE_TIMEOUT>((resolve) => {
+        worktreeTimer = setTimeout(() => resolve(WORKTREE_TIMEOUT), 15000)
       }),
     ])
+    worktreeStatus = result === WORKTREE_TIMEOUT ? (reader.getLastWorktreeStatus() ?? null) : result
   } catch {
-    worktreeStatus = null
+    worktreeStatus = reader.getLastWorktreeStatus() ?? null
   } finally {
     if (worktreeTimer) clearTimeout(worktreeTimer)
   }

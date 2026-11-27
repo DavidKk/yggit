@@ -248,4 +248,60 @@ describe('Edge repository reads against a packed Git repository', () => {
       await fs.rm(unborn, { recursive: true, force: true })
     }
   })
+
+  it('coalesces concurrent worktree scans, prunes heavy ignored directories, and supports incremental single-path stage/unstage', async () => {
+    const heavyDir = path.join(directory, 'node_modules', 'pkg')
+    await fs.mkdir(heavyDir, { recursive: true })
+    await fs.writeFile(path.join(heavyDir, 'index.js'), 'module.exports = 1\n')
+
+    const readdirCalls: string[] = []
+    const originalReaddir = reader.fs.promises.readdir.bind(reader.fs.promises)
+    jest.spyOn(reader.fs.promises, 'readdir').mockImplementation(async (dirpath: string) => {
+      readdirCalls.push(dirpath)
+      return originalReaddir(dirpath)
+    })
+
+    try {
+      const p1 = reader.worktreeFiles()
+      const p2 = reader.worktreeFiles()
+      expect(p1).toBe(p2)
+      const files = await p1
+      expect(files.some((f) => f.path.startsWith('node_modules'))).toBe(false)
+      expect(readdirCalls.some((d) => d.includes('node_modules'))).toBe(false)
+
+      command('add', '中文目录/space #file.txt')
+      readdirCalls.length = 0
+      await reader.refreshWorktreePaths(['中文目录/space #file.txt'])
+      const afterStage = await reader.readChanges({ repo: 'edge', hash: 'WORKTREE' })
+      expect(afterStage.files).toEqual([{ path: '中文目录/space #file.txt', status: 'M', oldPath: '', staged: true, unstaged: false }])
+      expect(readdirCalls.some((d) => d.includes('unchanged') || d.includes('node_modules'))).toBe(false)
+
+      // Clean files whose mtime precedes .git/index by >2s must NOT incur byte reads during worktreeFiles()
+      const stableFile = path.join(directory, 'unchanged', 'stable.txt')
+      const past = new Date(Date.now() - 10_000)
+      await fs.utimes(stableFile, past, past)
+      command('reset', '-q', 'HEAD', '--', '中文目录/space #file.txt')
+      await fs.writeFile(path.join(directory, '中文目录', 'space #file.txt'), 'after\nsame\n')
+      await fs.utimes(path.join(directory, '中文目录', 'space #file.txt'), past, past)
+      command('update-index', '--refresh')
+      // Ensure .git/index mtime is >=2s newer than tracked files
+      const futureIndex = new Date(Date.now() + 5_000)
+      await fs.utimes(path.join(directory, '.git', 'index'), futureIndex, futureIndex)
+
+      reader.invalidateWorktree()
+      const readPaths: string[] = []
+      const origReadFile = reader.fs.promises.readFile.bind(reader.fs.promises)
+      jest.spyOn(reader.fs.promises, 'readFile').mockImplementation((filepath: string, opts?: unknown) => {
+        if (typeof filepath === 'string') readPaths.push(filepath)
+        return origReadFile(filepath, opts)
+      })
+      const cleanScan = await reader.worktreeFiles()
+      expect(cleanScan).toEqual([])
+      expect(readPaths.filter((p) => !p.includes('/.git/') && !p.endsWith('/.gitignore'))).toEqual([])
+    } finally {
+      command('reset', '-q', 'HEAD', '--', '中文目录/space #file.txt')
+      await fs.writeFile(path.join(directory, '中文目录', 'space #file.txt'), 'uncommitted\n')
+      await fs.rm(path.join(directory, 'node_modules'), { recursive: true, force: true })
+    }
+  })
 })

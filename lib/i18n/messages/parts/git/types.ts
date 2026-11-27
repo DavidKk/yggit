@@ -19,6 +19,18 @@ export type GitMessages = {
     readTree: string
     unsupportedFileSystemAccess: string
     cloneEdgeUnsupported: string
+    renameFolderFailed: string
+    clearFolderFailed: string
+    setLabelFailed: string
+    removeProjectFailed: string
+    operationFailed: string
+    pushFailed: string
+    pullFailed: string
+    deleteBranchFailed: string
+    renameBranchFailed: string
+    createBranchFailed: string
+    addWorktreeFailed: string
+    addWorktreeUnsupported: string
   }
   pickFolder: { multi: string; clone: string }
   page: {
@@ -37,6 +49,7 @@ export type GitMessages = {
     noCommitsHint: string
     switchingProject: string
     switchingProjectHint: string
+    preparingRepo: string
   }
   history: {
     historicalConflicts: string
@@ -365,12 +378,24 @@ export type GitMessages = {
   }
   operations: {
     checkoutSuccess: string
+    checkoutRemoteSuccess: string
     checkoutFailed: string
+    checkingOutBranch: string
+    switchingBranch: string
+    pushingBranch: string
+    pullingBranch: string
+    deletingBranch: string
+    renamingBranchProgress: string
+    creatingBranchProgress: string
     createBranchSuccess: string
     deleteBranchSuccess: string
     deleteBranchConfirm: string
     renameBranchSuccess: string
     mergeBranchSuccess: string
+    addWorktreePromptPath: string
+    addWorktreePromptBranch: string
+    creatingWorktree: string
+    addWorktreeSuccess: string
     commitSuccess: string
     stageSuccess: string
     unstageSuccess: string

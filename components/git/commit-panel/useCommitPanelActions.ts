@@ -148,7 +148,7 @@ export function useCommitPanelActions({
         noVerify: skipGitHooks,
         pushAfter: pushAfterCommit,
       })
-      notify.success(res.message || t('git.operations.commitSuccess') || 'Commit succeeded')
+      notify.success(t('git.operations.commitSuccess') || res.message || 'Commit succeeded')
       setCommitSummary('')
       setCommitDesc('')
       setAmendCommit(false)
@@ -168,7 +168,7 @@ export function useCommitPanelActions({
     try {
       const driver = getGitDriver()
       const res = await driver.stash(repo, { action: 'save', message: fullMessage || undefined })
-      notify.success(res.message || t('git.operations.stashSuccess') || 'Stashed workspace changes')
+      notify.success(t('git.operations.stashSuccess') || res.message || 'Stashed workspace changes')
       setStashTitle('')
       setStashDesc('')
       await reloadDiff()

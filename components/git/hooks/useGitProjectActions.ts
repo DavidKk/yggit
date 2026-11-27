@@ -271,7 +271,7 @@ export function useGitProjectActions({
       applyCatalog(catalog)
       return ''
     } catch (err) {
-      return err instanceof Error ? err.message : '重命名文件夹失败'
+      return err instanceof Error ? err.message : t('git.errors.renameFolderFailed')
     } finally {
       setBusy(false)
     }
@@ -285,7 +285,7 @@ export function useGitProjectActions({
       applyCatalog(catalog)
       return ''
     } catch (err) {
-      return err instanceof Error ? err.message : '清空文件夹失败'
+      return err instanceof Error ? err.message : t('git.errors.clearFolderFailed')
     } finally {
       setBusy(false)
     }
@@ -299,7 +299,7 @@ export function useGitProjectActions({
       applyCatalog(catalog)
       return ''
     } catch (err) {
-      return err instanceof Error ? err.message : '设置备注失败'
+      return err instanceof Error ? err.message : t('git.errors.setLabelFailed')
     } finally {
       setBusy(false)
     }
@@ -325,7 +325,7 @@ export function useGitProjectActions({
       }
       return ''
     } catch (err) {
-      return err instanceof Error ? err.message : '移除项目失败'
+      return err instanceof Error ? err.message : t('git.errors.removeProjectFailed')
     } finally {
       setBusy(false)
     }

@@ -116,8 +116,12 @@ test.describe('Git Advanced & Edge Flows E2E (P1: Merge Lineage, Solo, Folders, 
     })
 
     await page.goto('/git/github/DavidKk/yggdrasil'.replace('yggdrasil', 'yggit'))
-    await expect(page.getByText('feat(edge): enforce pure-browser Edge parity').first()).toBeVisible({ timeout: 20_000 })
-    await page.goto('/git/github/DavidKk/yggit/commit/6a922046d41060920247ce7730686c9084077c95')
+    const targetCommit = page.getByText('feat(edge): enforce pure-browser Edge parity').first()
+    await expect(targetCommit).toBeVisible({ timeout: 20_000 })
+    await targetCommit.click()
+    await expect.poll(() => page.url(), { timeout: 10_000 }).toContain('/commit/')
+    const commitUrl = new URL(page.url()).pathname
+    await page.goto(commitUrl)
     const treePanel = page.getByRole('complementary', { name: /Files|文件/i }).first()
     await expect(treePanel).toBeVisible({ timeout: 20_000 })
 

@@ -65,18 +65,18 @@ export function GitToolbar({ repo, currentBranch, hasStashes = false, disabled =
       const driver = getGitDriver()
       if (op === 'fetch-all') {
         const res = await driver.fetch(repo, { all: true, prune: true })
-        notify.success(res.message || t('git.operations.fetchSuccess') || 'Fetch complete')
+        notify.success(t('git.operations.fetchSuccess') || res.message || 'Fetch complete')
       } else {
         await driver.fetch(repo, { all: true, prune: true }).catch(() => {})
         if (op === 'pull-ff-only') {
           const res = await driver.pull(repo, { ffOnly: true })
-          notify.success(res.message || t('git.operations.pullSuccess') || 'Pull successful')
+          notify.success(t('git.operations.pullSuccess') || res.message || 'Pull successful')
         } else if (op === 'pull-rebase') {
           const res = await driver.pull(repo, { rebase: true })
-          notify.success(res.message || t('git.operations.pullSuccess') || 'Pull successful')
+          notify.success(t('git.operations.pullSuccess') || res.message || 'Pull successful')
         } else {
           const res = await driver.pull(repo)
-          notify.success(res.message || t('git.operations.pullSuccess') || 'Pull successful')
+          notify.success(t('git.operations.pullSuccess') || res.message || 'Pull successful')
         }
       }
       await onRefresh()
@@ -93,10 +93,10 @@ export function GitToolbar({ repo, currentBranch, hasStashes = false, disabled =
     try {
       const driver = getGitDriver()
       const res = await driver.push(repo, { setUpstream: true })
-      notify.success(res.message || t('git.operations.pushSuccess') || 'Push successful')
+      notify.success(t('git.operations.pushSuccess') || res.message || 'Push successful')
       await onRefresh()
     } catch (error) {
-      notify.error(error instanceof Error ? error.message : t('git.operations.pushFailed') || 'Push failed')
+      notify.error(error instanceof Error ? error.message : t('git.errors.pushFailed') || 'Push failed')
     } finally {
       setPushing(false)
     }
@@ -106,10 +106,10 @@ export function GitToolbar({ repo, currentBranch, hasStashes = false, disabled =
     try {
       const driver = getGitDriver()
       const res = await driver.createBranch(repo, name, startPoint, checkout)
-      notify.success(res.message || t('git.operations.createBranchSuccess', { branch: name }) || `Branch ${name} created`)
+      notify.success(t('git.operations.createBranchSuccess', { branch: name }) || res.message || `Branch ${name} created`)
       await onRefresh()
     } catch (error) {
-      notify.error(error instanceof Error ? error.message : t('git.operations.createBranchTitle') ? 'Create branch failed' : 'Failed to create branch')
+      notify.error(error instanceof Error ? error.message : t('git.errors.createBranchFailed') || 'Failed to create branch')
     }
   }
 
@@ -119,10 +119,10 @@ export function GitToolbar({ repo, currentBranch, hasStashes = false, disabled =
     try {
       const driver = getGitDriver()
       const res = await driver.stash(repo, { action: 'save' })
-      notify.success(res.message || t('git.operations.stashSuccess') || 'Stash saved')
+      notify.success(t('git.operations.stashSuccess') || res.message || 'Stash saved')
       await onRefresh()
     } catch (error) {
-      notify.error(error instanceof Error ? error.message : t('git.operations.stashFailed') || 'Stash failed')
+      notify.error(error instanceof Error ? error.message : t('git.errors.operationFailed') || 'Stash failed')
     } finally {
       setStashing(false)
     }
@@ -134,10 +134,10 @@ export function GitToolbar({ repo, currentBranch, hasStashes = false, disabled =
     try {
       const driver = getGitDriver()
       const res = await driver.stash(repo, { action: 'pop' })
-      notify.success(res.message || t('git.operations.popTooltipAction') || 'Popped stash')
+      notify.success(t('git.operations.popTooltipAction') || res.message || 'Popped stash')
       await onRefresh()
     } catch (error) {
-      notify.error(error instanceof Error ? error.message : t('git.operations.popTooltipAction') ? 'Pop stash failed' : 'Failed to pop stash')
+      notify.error(error instanceof Error ? error.message : t('git.errors.operationFailed') || 'Failed to pop stash')
     } finally {
       setStashing(false)
     }
@@ -149,7 +149,7 @@ export function GitToolbar({ repo, currentBranch, hasStashes = false, disabled =
     try {
       const driver = getGitDriver()
       const res = await driver.undo(repo)
-      notify.success(res.message || t('git.operations.undoSuccess') || 'Undid last commit')
+      notify.success(t('git.operations.undoSuccess') || res.message || 'Undid last commit')
       await onRefresh()
     } catch (error) {
       notify.error(error instanceof Error ? error.message : t('git.operations.undoError') || 'Undo failed')
@@ -164,7 +164,7 @@ export function GitToolbar({ repo, currentBranch, hasStashes = false, disabled =
     try {
       const driver = getGitDriver()
       const res = await driver.redo(repo)
-      notify.success(res.message || t('git.operations.redoSuccess') || 'Redid commit')
+      notify.success(t('git.operations.redoSuccess') || res.message || 'Redid commit')
       await onRefresh()
     } catch (error) {
       notify.error(error instanceof Error ? error.message : t('git.operations.redoError') || 'Redo failed')
