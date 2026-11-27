@@ -558,8 +558,8 @@ export async function getEdgeCatalog(): Promise<GitProjectCatalog> {
       let remotesList: Array<{ name: string; url: string; isPrivate: boolean }> = []
       if (authorized) {
         try {
-          const [{ default: git }, { createDirectoryHandleFs }] = await Promise.all([import('isomorphic-git'), import('./driver/handle-fs')])
-          const gitRemotes = await git.listRemotes({ fs: createDirectoryHandleFs(h.handle), dir: '/' })
+          const { readGitRemotesFromHandle } = await import('./driver/edge-git-config')
+          const gitRemotes = await readGitRemotesFromHandle(h.handle)
           remotesList = gitRemotes.map((r) => ({
             name: r.remote,
             url: r.url,

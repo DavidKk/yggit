@@ -1,11 +1,11 @@
 import git from 'isomorphic-git'
 
 import { GIT_LOG_PAGE_SIZE } from '@/lib/git/identity'
-import { isPrivateRemote } from '@/lib/git/project-access'
-import type { GitCommit, GitLogView, GitRemoteBranch, GitRemoteSource, GitWorktree, GitWorktreeEntry } from '@/lib/git/types'
+import type { GitCommit, GitLogView, GitWorktree, GitWorktreeEntry } from '@/lib/git/types'
 import { parseGitHubRepo, readRemoteGitLog } from '@/services/git/remote-provider'
 
-import { computeBranchAheadBehind, type RawCommitItem, walkMultiBranchLog } from './edge-log-walker'
+import { readEdgeRefsSnapshot } from './edge-git-refs'
+import { type RawCommitItem, walkMultiBranchLog } from './edge-log-walker'
 import type { EdgeRepositoryReader } from './edge-repository-reader'
 import type { ReadLogOptions } from './types'
 
@@ -75,137 +75,9 @@ export async function readClientLogFallback(reader: EdgeRepositoryReader, option
 
   options.onProgress?.('Parsing branches and refs...')
 
-  // 1. Current Branch
-  let currentBranch = 'main'
-  try {
-    currentBranch = (await git.currentBranch({ fs, dir: '/' })) || 'main'
-  } catch {
-    // Fallback
-  }
+  const { currentBranch, headOid, branches, tags, remotes, remoteSources, remoteUrl } = await readEdgeRefsSnapshot(reader)
 
-  // 2. Local Branches
-  let branchNames: string[] = []
-  try {
-    branchNames = await git.listBranches({ fs, dir: '/' })
-  } catch {
-    branchNames = [currentBranch]
-  }
-  if (!branchNames.includes(currentBranch)) {
-    branchNames.unshift(currentBranch)
-  }
-
-  const branches = await Promise.all(
-    branchNames.map(async (name) => {
-      let tip = ''
-      try {
-        tip = await git.resolveRef({ fs, dir: '/', ref: name })
-      } catch {
-        // ignore
-      }
-      let upstream = ''
-      let ahead: number | undefined
-      let behind: number | undefined
-      try {
-        const remoteCfg = await git.getConfig({ fs, dir: '/', path: `branch.${name}.remote` })
-        const mergeCfg = await git.getConfig({ fs, dir: '/', path: `branch.${name}.merge` })
-        if (remoteCfg && mergeCfg && typeof remoteCfg === 'string' && typeof mergeCfg === 'string') {
-          const mergeBranch = mergeCfg.replace(/^refs\/heads\//, '')
-          upstream = `${remoteCfg}/${mergeBranch}`
-          const remoteTip = await git.resolveRef({ fs, dir: '/', ref: `refs/remotes/${upstream}` }).catch(() => '')
-          if (tip && remoteTip) {
-            if (tip === remoteTip) {
-              ahead = 0
-              behind = 0
-            } else {
-              const counts = await computeBranchAheadBehind(fs, cache, '/', tip, remoteTip)
-              if (counts) {
-                ahead = counts.ahead
-                behind = counts.behind
-              }
-            }
-          }
-        }
-      } catch {
-        // ignore
-      }
-      return {
-        name,
-        current: name === currentBranch,
-        tip,
-        upstream,
-        ahead,
-        behind,
-      }
-    })
-  )
-
-  // 3. Tags
-  let tags: { name: string; tip: string }[] = []
-  try {
-    const tagNames = await git.listTags({ fs, dir: '/' })
-    tags = await Promise.all(
-      tagNames.map(async (name) => {
-        let tip = ''
-        try {
-          tip = await git.resolveRef({ fs, dir: '/', ref: name })
-        } catch {
-          // ignore
-        }
-        return { name, tip }
-      })
-    )
-  } catch {
-    // ignore
-  }
-
-  // 4. Remotes & Origin URL
-  const remotes: GitRemoteBranch[] = []
-  const remoteSources: GitRemoteSource[] = []
-  let remoteUrl = ''
-  try {
-    const rawRemotes = await git.listRemotes({ fs, dir: '/' })
-    for (const r of rawRemotes) {
-      if (!r.remote) continue
-      const bNames = await git.listBranches({ fs, dir: '/', remote: r.remote }).catch(() => [])
-      if (!bNames.length && !r.url) continue
-
-      if (r.url && !remoteSources.some((item) => item.name === r.remote)) {
-        remoteSources.push({
-          name: r.remote,
-          url: r.url,
-          isPrivate: isPrivateRemote(r.url),
-        })
-        if (!remoteUrl || r.remote === 'origin') {
-          remoteUrl = r.url
-        }
-      }
-
-      const resolvedTips = await Promise.all(
-        bNames.map(async (b) => {
-          if (!b || b === 'HEAD') return null
-          const tip = await git.resolveRef({ fs, dir: '/', ref: `refs/remotes/${r.remote}/${b}` }).catch(() => '')
-          return { name: `${r.remote}/${b}`, remote: r.remote, branch: b, tip }
-        })
-      )
-
-      for (const item of resolvedTips) {
-        if (item && !remotes.some((existing) => existing.name === item.name)) {
-          remotes.push(item)
-        }
-      }
-    }
-
-    if (!remoteUrl) {
-      const cfgUrl = await git.getConfig({ fs, dir: '/', path: 'remote.origin.url' })
-      if (cfgUrl && typeof cfgUrl === 'string') {
-        remoteUrl = cfgUrl
-      }
-    }
-  } catch {
-    // ignore
-  }
-
-  // 4b. Stashes
+  // Stashes
   let stashes: GitLogView['stashes'] = []
   try {
     const stashLog = (await fs.promises.readFile('/.git/logs/refs/stash', 'utf8').catch(() => '')) as string
@@ -245,12 +117,11 @@ export async function readClientLogFallback(reader: EdgeRepositoryReader, option
     stashes = []
   }
 
-  // 4c. Worktrees
+  // Worktrees
   const worktrees = await readClientWorktrees(fs)
 
-  // 5. Commits
+  // Commits
   options.onProgress?.('Reading Git commits and graph...')
-  const headOid = await git.resolveRef({ fs, dir: '/', ref: 'HEAD' }).catch(() => '')
   const isAllRefs = !branch && (!ref || ref === '*' || ref === '')
   const targetRef = branch || ref || currentBranch || 'HEAD'
   let commits: GitCommit[] = []

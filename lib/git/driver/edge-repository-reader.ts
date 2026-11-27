@@ -36,6 +36,8 @@ export class EdgeRepositoryReader {
   private observer?: { disconnect: () => void }
   private observerStarted = false
   private observerClean = false
+  private internalIndexWriteDepth = 0
+  private internalIndexGraceUntil = 0
   private readonly observerDirtyPaths = new Set<string>()
 
   constructor(readonly handle: FileSystemDirectoryHandle) {
@@ -47,16 +49,42 @@ export class EdgeRepositoryReader {
     this.observer = undefined
     this.observerStarted = false
     this.observerClean = false
+    this.internalIndexWriteDepth = 0
+    this.internalIndexGraceUntil = 0
     this.observerDirtyPaths.clear()
   }
 
   invalidateWorktree(): void {
     this.worktreeSnapshot = undefined
     this.worktreeInFlight = undefined
+    this.lastWorktreeStatus = undefined
     this.lastIndexMtimeMs = -1
     this.observerClean = false
     this.observerDirtyPaths.clear()
     this.fs.clearCache()
+  }
+
+  /** Expose cached worktree paths and observer cleanliness for targeted staging without full walks. */
+  peekWorktreeState(): { files?: GitFileChange[]; dirtyPaths: string[]; canUseSnapshotForStageAll: boolean } {
+    return {
+      files: this.worktreeSnapshot,
+      dirtyPaths: [...this.observerDirtyPaths],
+      canUseSnapshotForStageAll: Boolean(this.observerClean && this.worktreeSnapshot && this.lastIndexMtimeMs >= 0),
+    }
+  }
+
+  /**
+   * Shield `observerClean` against self-inflicted `.git/index*` and `.git/objects*` notifications
+   * emitted asynchronously by `FileSystemObserver` right after internal Edge writes.
+   */
+  async runInternalIndexWrite<T>(fn: () => Promise<T>): Promise<T> {
+    this.internalIndexWriteDepth++
+    try {
+      return await fn()
+    } finally {
+      this.internalIndexWriteDepth = Math.max(0, this.internalIndexWriteDepth - 1)
+      this.internalIndexGraceUntil = Date.now() + 600
+    }
   }
 
   readChanges(options: ReadCommitDiffOptions): Promise<GitCommitChanges> {
@@ -135,12 +163,18 @@ export class EdgeRepositoryReader {
           if (PRUNED_WORKTREE_REFS_DIRS.has(top)) continue
           const relPath = parts.join('/')
           if (top === '.git') {
-            if (relPath !== '.git/FETCH_HEAD') {
-              this.observerClean = false
-              this.observerDirtyPaths.clear()
-              return
+            if (relPath === '.git/FETCH_HEAD') {
+              continue
             }
-            continue
+            const isInternalIndexOrObjectWrite =
+              (relPath === '.git/index' || relPath.startsWith('.git/index.') || relPath.startsWith('.git/objects')) &&
+              (this.internalIndexWriteDepth > 0 || Date.now() <= this.internalIndexGraceUntil)
+            if (isInternalIndexOrObjectWrite) {
+              continue
+            }
+            this.observerClean = false
+            this.observerDirtyPaths.clear()
+            return
           }
           this.observerDirtyPaths.add(relPath)
         }
@@ -271,16 +305,20 @@ export class EdgeRepositoryReader {
       return files
     })()
 
-    this.worktreeInFlight = scan.finally(() => {
-      if (this.worktreeInFlight === scan) {
+    const inFlight = scan.finally(() => {
+      if (this.worktreeInFlight === inFlight) {
         this.worktreeInFlight = undefined
       }
     })
-    return this.worktreeInFlight
+    this.worktreeInFlight = inFlight
+    return inFlight
   }
 
-  async refreshWorktreePaths(paths: string[]): Promise<void> {
+  async refreshWorktreePaths(paths: string[], options?: { preserveObserver?: boolean }): Promise<void> {
     const cleanPaths = [...new Set(paths.map((p) => p.replace(/^\/+/, '')).filter(Boolean))]
+    for (const p of cleanPaths) {
+      this.observerDirtyPaths.delete(p)
+    }
     if (!cleanPaths.length || !this.worktreeSnapshot) {
       this.invalidateWorktree()
       return
@@ -320,6 +358,12 @@ export class EdgeRepositoryReader {
     merged.push(...updated)
     merged.sort((a, b) => a.path.localeCompare(b.path))
     this.worktreeSnapshot = merged
+    if (merged.length === 0) {
+      this.lastWorktreeStatus = null
+    }
+    if (options?.preserveObserver && this.observer) {
+      this.observerClean = true
+    }
     this.lastIndexMtimeMs = await this.fs.promises
       .stat('/.git/index')
       .then((s) => s.mtimeMs)

@@ -1,5 +1,3 @@
-import git from 'isomorphic-git'
-
 import type { MergeConflictRecord } from '@/lib/git/conflict-cache'
 import {
   clearEdgeFolder,
@@ -18,7 +16,7 @@ import {
   saveEdgeRemoteProject,
   setEdgeProjectLabel,
 } from '@/lib/git/indexeddb-handles'
-import { isPrivateRemote, remoteIdentity, uniqueLocalProject } from '@/lib/git/project-access'
+import { remoteIdentity, uniqueLocalProject } from '@/lib/git/project-access'
 import { listRemoteGroup } from '@/lib/git/remote-groups'
 import { parseRemoteUrl } from '@/lib/git/temporary-store'
 import type { GitCommit, GitCommitChanges, GitLogView, GitProjectCatalog, GitProjectHost, GitProjectView, GitRemoteSource } from '@/lib/git/types'
@@ -26,6 +24,20 @@ import { parseGitHubRepo, readRemoteBlobData, readRemoteCommitChanges, readRemot
 
 import { buildEdgeRemergeDiff, detectEdgeMergeConflict } from './edge-conflicts'
 import { readClientLogFallback } from './edge-fallback-log'
+import {
+  addEdgeRemote,
+  checkoutEdgeBranch,
+  createEdgeBranch,
+  createEdgeTag,
+  deleteEdgeBranch,
+  deleteEdgeTag,
+  getEdgeRemoteUrl,
+  listEdgeRemotes,
+  removeEdgeRemote,
+  renameEdgeRemote,
+  setEdgeRemoteUrl,
+} from './edge-git-refs'
+import { commitEdgeChanges, fetchEdgeRepo, pullEdgeRepo, readEdgeLastCommit, stageEdgeFiles, unstageEdgeFiles } from './edge-git-write'
 import { EdgeRepositoryReader } from './edge-repository-reader'
 import type {
   AddProjectPayload,
@@ -228,6 +240,7 @@ export class EdgeGitDriver implements IGitDriver {
       return { commits: [] }
     }
     try {
+      const { default: git } = await import('isomorphic-git')
       const reader = await this.repository(resolvedRepo)
       const logs = await git.log({
         fs: reader.fs,
@@ -254,40 +267,18 @@ export class EdgeGitDriver implements IGitDriver {
   }
 
   async checkoutBranch(repo: string, branch: string, _options?: GitCheckoutOptions): Promise<{ ok: boolean; message: string }> {
-    const target = await this.resolveRepo(repo)
-    const reader = await this.repository(target)
-    try {
-      await git.checkout({ fs: reader.fs, dir: '/', ref: branch })
-      this.repositories.delete(target)
-      return { ok: true, message: `Switched to ${branch}` }
-    } catch (err) {
-      throw new Error(`Failed to checkout branch: ${err instanceof Error ? err.message : String(err)}`)
-    }
+    const reader = await this.repository(await this.resolveRepo(repo))
+    return checkoutEdgeBranch(reader, branch)
   }
 
   async createBranch(repo: string, branch: string, startPoint?: string, checkout = true): Promise<{ ok: boolean; message: string }> {
-    const target = await this.resolveRepo(repo)
-    const reader = await this.repository(target)
-    try {
-      await git.branch({ fs: reader.fs, dir: '/', ref: branch, object: startPoint, checkout })
-      this.repositories.delete(target)
-      return { ok: true, message: `Created branch ${branch}` }
-    } catch (err) {
-      throw new Error(`Failed to create branch: ${err instanceof Error ? err.message : String(err)}`)
-    }
+    const reader = await this.repository(await this.resolveRepo(repo))
+    return createEdgeBranch(reader, branch, startPoint, checkout)
   }
 
   async deleteBranch(repo: string, branch: string, _force = false): Promise<{ ok: boolean; message: string }> {
-    const target = await this.resolveRepo(repo)
-    const reader = await this.repository(target)
-    const { fs } = reader
-    try {
-      await git.deleteBranch({ fs, dir: '/', ref: branch })
-      this.repositories.delete(target)
-      return { ok: true, message: `Deleted branch ${branch}` }
-    } catch (error) {
-      throw new Error(`Failed to delete branch: ${error instanceof Error ? error.message : String(error)}`)
-    }
+    const reader = await this.repository(await this.resolveRepo(repo))
+    return deleteEdgeBranch(reader, branch)
   }
 
   private unsupportedInEdge(action: string): never {
@@ -311,20 +302,8 @@ export class EdgeGitDriver implements IGitDriver {
   }
 
   async commit(repo: string, message: string, _options?: boolean | GitCommitOptions): Promise<{ ok: boolean; message: string; hash?: string }> {
-    const target = await this.resolveRepo(repo)
-    const reader = await this.repository(target)
-    try {
-      const sha = await git.commit({
-        fs: reader.fs,
-        dir: '/',
-        message,
-        author: { name: 'Edge User', email: 'edge@yggdrasil.local' },
-      })
-      this.repositories.delete(target)
-      return { ok: true, message: 'Committed successfully', hash: sha }
-    } catch (err) {
-      throw new Error(`Failed to commit: ${err instanceof Error ? err.message : String(err)}`)
-    }
+    const reader = await this.repository(await this.resolveRepo(repo))
+    return commitEdgeChanges(reader, message)
   }
 
   async undo(_repo: string, _soft = true): Promise<{ ok: boolean; message: string; undoneHash?: string }> {
@@ -337,12 +316,8 @@ export class EdgeGitDriver implements IGitDriver {
 
   async getLastCommit(repo: string): Promise<{ summary: string; description: string }> {
     try {
-      const target = await this.resolveRepo(repo)
-      const reader = await this.repository(target)
-      const [latest] = await git.log({ fs: reader.fs, dir: '/', depth: 1, cache: reader.cache })
-      if (!latest) return { summary: '', description: '' }
-      const lines = (latest.commit.message || '').split('\n')
-      return { summary: lines[0] || '', description: lines.slice(1).join('\n').trim() }
+      const reader = await this.repository(await this.resolveRepo(repo))
+      return readEdgeLastCommit(reader)
     } catch {
       return { summary: '', description: '' }
     }
@@ -365,37 +340,13 @@ export class EdgeGitDriver implements IGitDriver {
   }
 
   async stage(repo: string, files?: string[], all = false): Promise<{ ok: boolean; message: string }> {
-    const target = await this.resolveRepo(repo)
-    const reader = await this.repository(target)
-    try {
-      const paths = all ? ['.'] : files || []
-      for (const filepath of paths) {
-        await git.add({ fs: reader.fs, dir: '/', filepath })
-      }
-      if (all) {
-        reader.invalidateWorktree()
-      } else {
-        await reader.refreshWorktreePaths(paths)
-      }
-      return { ok: true, message: 'Changes staged' }
-    } catch (err) {
-      throw new Error(`Failed to stage: ${err instanceof Error ? err.message : String(err)}`)
-    }
+    const reader = await this.repository(await this.resolveRepo(repo))
+    return stageEdgeFiles(reader, files, all)
   }
 
   async unstage(repo: string, files?: string[], all = false): Promise<{ ok: boolean; message: string }> {
-    const target = await this.resolveRepo(repo)
-    const reader = await this.repository(target)
-    try {
-      const paths = all ? (await reader.worktreeFiles()).filter((f) => f.staged).map((f) => f.path) : files || []
-      for (const filepath of paths) {
-        await git.resetIndex({ fs: reader.fs, dir: '/', filepath })
-      }
-      await reader.refreshWorktreePaths(paths)
-      return { ok: true, message: 'Changes unstaged' }
-    } catch (err) {
-      throw new Error(`Failed to unstage: ${err instanceof Error ? err.message : String(err)}`)
-    }
+    const reader = await this.repository(await this.resolveRepo(repo))
+    return unstageEdgeFiles(reader, files, all)
   }
 
   async discard(_repo: string, _files?: string[], _all = false): Promise<{ ok: boolean; message: string }> {
@@ -407,46 +358,13 @@ export class EdgeGitDriver implements IGitDriver {
   }
 
   async pull(repo: string, options?: GitPullOptions): Promise<{ ok: boolean; message: string }> {
-    const target = await this.resolveRepo(repo)
-    try {
-      const reader = await this.repository(target)
-      const { fs } = reader
-      const http = (await import('isomorphic-git/http/web')).default
-      await git.pull({
-        fs,
-        http,
-        dir: '/',
-        remote: options?.remote || 'origin',
-        ref: options?.branch,
-        singleBranch: true,
-        fastForwardOnly: true,
-        author: { name: 'Edge User', email: 'edge@yggdrasil.local' },
-      })
-      this.repositories.delete(target)
-      return { ok: true, message: 'Pulled successfully' }
-    } catch (error) {
-      throw new Error(`Failed to pull: ${error instanceof Error ? error.message : String(error)}`)
-    }
+    const reader = await this.repository(await this.resolveRepo(repo))
+    return pullEdgeRepo(reader, options)
   }
 
   async fetch(repo: string, options?: GitFetchOptions): Promise<{ ok: boolean; message: string }> {
-    const target = await this.resolveRepo(repo)
-    try {
-      const reader = await this.repository(target)
-      const { fs } = reader
-      const http = (await import('isomorphic-git/http/web')).default
-      await git.fetch({
-        fs,
-        http,
-        dir: '/',
-        remote: options?.remote || 'origin',
-        prune: options?.prune !== false,
-        tags: true,
-      })
-      return { ok: true, message: 'Fetch completed' }
-    } catch (error) {
-      throw new Error(`Failed to fetch: ${error instanceof Error ? error.message : String(error)}`)
-    }
+    const reader = await this.repository(await this.resolveRepo(repo))
+    return fetchEdgeRepo(reader, options)
   }
 
   async stash(_repo: string, _options: GitStashOptions): Promise<{ ok: boolean; message: string }> {
@@ -458,111 +376,51 @@ export class EdgeGitDriver implements IGitDriver {
   }
 
   async createTag(repo: string, tag: string, options?: { target?: string; message?: string }): Promise<{ ok: boolean; message: string }> {
-    const target = await this.resolveRepo(repo)
-    const reader = await this.repository(target)
-    try {
-      await git.tag({ fs: reader.fs, dir: '/', ref: tag, object: options?.target })
-      this.repositories.delete(target)
-      return { ok: true, message: `Created tag ${tag}` }
-    } catch (err) {
-      throw new Error(`Failed to create tag: ${err instanceof Error ? err.message : String(err)}`)
-    }
+    const reader = await this.repository(await this.resolveRepo(repo))
+    return createEdgeTag(reader, tag, options)
   }
 
   async deleteTag(repo: string, tag: string): Promise<{ ok: boolean; message: string }> {
-    const target = await this.resolveRepo(repo)
-    const reader = await this.repository(target)
-    try {
-      await git.deleteTag({ fs: reader.fs, dir: '/', ref: tag })
-      this.repositories.delete(target)
-      return { ok: true, message: `Deleted tag ${tag}` }
-    } catch (err) {
-      throw new Error(`Failed to delete tag: ${err instanceof Error ? err.message : String(err)}`)
-    }
+    const reader = await this.repository(await this.resolveRepo(repo))
+    return deleteEdgeTag(reader, tag)
   }
 
   async getRemotes(repo: string): Promise<GitRemoteSource[]> {
-    const target = await this.resolveRepo(repo)
     try {
-      const reader = await this.repository(target)
-      const { fs } = reader
-      const rawRemotes = await git.listRemotes({ fs, dir: '/' })
-      return rawRemotes
-        .filter((r) => r.url)
-        .map((r) => ({
-          name: r.remote,
-          url: r.url!,
-          isPrivate: isPrivateRemote(r.url!),
-        }))
+      const reader = await this.repository(await this.resolveRepo(repo))
+      return listEdgeRemotes(reader)
     } catch {
       return []
     }
   }
 
   async getRemoteUrl(repo: string, remote: string): Promise<string> {
-    const target = await this.resolveRepo(repo)
     try {
-      const reader = await this.repository(target)
-      const { fs } = reader
-      const rawRemotes = await git.listRemotes({ fs, dir: '/' })
-      const found = rawRemotes.find((r) => r.remote === remote)
-      return found?.url || ''
+      const reader = await this.repository(await this.resolveRepo(repo))
+      return getEdgeRemoteUrl(reader, remote)
     } catch {
       return ''
     }
   }
 
   async addRemote(repo: string, name: string, url: string, _pushUrl?: string): Promise<{ ok: boolean; message: string }> {
-    const target = await this.resolveRepo(repo)
-    try {
-      const reader = await this.repository(target)
-      const { fs } = reader
-      await git.addRemote({ fs, dir: '/', remote: name, url, force: true })
-      return { ok: true, message: `Added remote ${name}` }
-    } catch (err) {
-      return { ok: false, message: err instanceof Error ? err.message : 'Failed to add remote' }
-    }
+    const reader = await this.repository(await this.resolveRepo(repo))
+    return addEdgeRemote(reader, name, url)
   }
 
   async setRemoteUrl(repo: string, remote: string, url: string): Promise<{ ok: boolean; message: string }> {
-    const target = await this.resolveRepo(repo)
-    try {
-      const reader = await this.repository(target)
-      const { fs } = reader
-      await git.deleteRemote({ fs, dir: '/', remote }).catch(() => {})
-      await git.addRemote({ fs, dir: '/', remote, url, force: true })
-      return { ok: true, message: `Updated remote ${remote}` }
-    } catch (err) {
-      return { ok: false, message: err instanceof Error ? err.message : 'Failed to update remote' }
-    }
+    const reader = await this.repository(await this.resolveRepo(repo))
+    return setEdgeRemoteUrl(reader, remote, url)
   }
 
   async renameRemote(repo: string, oldName: string, newName: string): Promise<{ ok: boolean; message: string }> {
-    const target = await this.resolveRepo(repo)
-    try {
-      const reader = await this.repository(target)
-      const { fs } = reader
-      const remotes = await git.listRemotes({ fs, dir: '/' })
-      const found = remotes.find((r) => r.remote === oldName)
-      if (!found?.url) throw new Error(`Remote not found: ${oldName}`)
-      await git.deleteRemote({ fs, dir: '/', remote: oldName })
-      await git.addRemote({ fs, dir: '/', remote: newName, url: found.url, force: true })
-      return { ok: true, message: `Renamed remote to ${newName}` }
-    } catch (err) {
-      return { ok: false, message: err instanceof Error ? err.message : 'Failed to rename remote' }
-    }
+    const reader = await this.repository(await this.resolveRepo(repo))
+    return renameEdgeRemote(reader, oldName, newName)
   }
 
   async removeRemote(repo: string, remote: string): Promise<{ ok: boolean; message: string }> {
-    const target = await this.resolveRepo(repo)
-    try {
-      const reader = await this.repository(target)
-      const { fs } = reader
-      await git.deleteRemote({ fs, dir: '/', remote })
-      return { ok: true, message: `Removed remote ${remote}` }
-    } catch (err) {
-      return { ok: false, message: err instanceof Error ? err.message : 'Failed to remove remote' }
-    }
+    const reader = await this.repository(await this.resolveRepo(repo))
+    return removeEdgeRemote(reader, remote)
   }
 
   async getProjects(): Promise<GitProjectCatalog> {
