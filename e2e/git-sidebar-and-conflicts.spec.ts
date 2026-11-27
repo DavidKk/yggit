@@ -56,9 +56,13 @@ test.describe('Git Sidebar Icons, Remote Menus, Copy Actions & Conflict View E2E
     await expect(branchNav.getByRole('treeitem', { name: /^main/i }).first()).toHaveAttribute('aria-selected', 'true')
 
     // 2. Add Remote icon -> fill AddRemoteModal -> verify new remote appears
+    await branchNav
+      .getByRole('button', { name: /^Remote|^远程/i })
+      .first()
+      .hover()
     const addRemoteBtn = branchNav.getByRole('button', { name: /Add remote|添加远程源/i }).first()
     await expect(addRemoteBtn).toBeVisible()
-    await addRemoteBtn.click({ force: true })
+    await addRemoteBtn.click()
 
     await page.locator('#add-remote-name-input').fill('upstream')
     await page.locator('#add-remote-pull-url-input').fill(remoteFixture.bareDir)

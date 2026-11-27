@@ -55,7 +55,6 @@ export class EdgeGitDriver implements IGitDriver {
 
   clearCache(repo?: string): void {
     if (repo) {
-      this.repositories.delete(repo)
       this.repoPathCache.delete(repo)
     } else {
       this.repositories.clear()

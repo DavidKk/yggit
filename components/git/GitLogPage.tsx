@@ -285,6 +285,8 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
   })
 
   function applyView(next: GitLogView) {
+    const prevRepo = viewRef.current?.repo
+    const isRepoSwitch = Boolean(prevRepo && prevRepo !== next.repo && !prevRepo.includes(next.repo) && !next.repo.includes(prevRepo))
     const nextSelection = readGitUiPref(repoPrefKey(next.repo, 'selection'), isGitSelection) || selectionFor(next)
     setView(next)
     setSelection(nextSelection)
@@ -292,10 +294,12 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
     setHasMore(next.hasMore)
     setHasPrev(Boolean(next.hasPrev))
     setStartIndex(next.startIndex ?? 0)
-    setSelectedHash('')
-    setSelectedFile('')
-    setSelectedStatus('')
-    setFocusRequest(null)
+    if (isRepoSwitch) {
+      setSelectedHash('')
+      setSelectedFile('')
+      setSelectedStatus('')
+      setFocusRequest(null)
+    }
     setSoloBranch(null)
     setSoloRemote(null)
     writeGitUiPref(repoPrefKey(next.repo, 'sectionQueries'), {})
@@ -303,7 +307,9 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
       window.dispatchEvent(new CustomEvent('yggit:clear_searches', { detail: { repo: next.repo } }))
       const matchProject = projects.find((p) => p.localPath === next.repo || p.id === next.repo || (next.repo && p.localPath && next.repo.endsWith(p.localPath)))
       const remoteUrl = matchProject?.httpsUrl || next.remoteUrl || next.remoteSources?.find((r) => r.name === 'origin')?.url || next.remoteSources?.[0]?.url
-      const canonical = makeShareUrl(remoteUrl || next.repo, { remoteUrl })
+      const activeHash = isRepoSwitch ? undefined : selectedHashRef.current || undefined
+      const activeFile = isRepoSwitch ? undefined : selectedFileRef.current || undefined
+      const canonical = makeShareUrl(remoteUrl || next.repo, { remoteUrl, hash: activeHash, file: activeFile })
       const currentTarget = `${window.location.pathname}${window.location.search}`
       if (canonical && currentTarget !== canonical) {
         window.history.replaceState(window.history.state, '', canonical)

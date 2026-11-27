@@ -171,7 +171,7 @@ export function useGitLogRepoLoader({
       } else {
         void loadRef.current(targetUrl)
       }
-    } else if (view?.repo && !view.repo.startsWith('/')) {
+    } else if (view?.repo && !view.repo.startsWith('/') && getDriverMode() !== 'edge') {
       // Remote repository already resolved on SSR; keep it and warm the in-memory cache.
       setCachedRepoLog(view.repo, view)
     } else if (getDriverMode() === 'edge') {

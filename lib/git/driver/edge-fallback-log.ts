@@ -351,7 +351,7 @@ export async function readClientLogFallback(reader: EdgeRepositoryReader, option
     worktreeStatus = await Promise.race([
       reader.readWorktreeStatus(),
       new Promise<null>((resolve) => {
-        worktreeTimer = setTimeout(() => resolve(null), 8000)
+        worktreeTimer = setTimeout(() => resolve(null), 15000)
       }),
     ])
   } catch {
