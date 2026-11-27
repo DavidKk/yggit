@@ -128,7 +128,6 @@ export function GitProjectMenu({
         copy[next] = true
         return copy
       })
-      notify.success(t('git.project.renameFolderSuccess') || 'Folder renamed successfully')
     }
   }
 
@@ -139,8 +138,6 @@ export function GitProjectMenu({
     const errorMsg = await onSetProjectLabel(id, next)
     if (errorMsg) {
       notify.error(errorMsg)
-    } else {
-      notify.success(next ? t('git.project.setAliasSuccess') || 'Project alias set' : t('git.project.clearAliasSuccess') || 'Project alias cleared')
     }
   }
 

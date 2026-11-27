@@ -48,6 +48,7 @@ export function GitLogHeader({
   moveProject,
   refreshProjects,
   silentRefresh,
+  onCreateBranch,
   t,
 }: {
   inWorkspace: boolean
@@ -77,6 +78,7 @@ export function GitLogHeader({
   moveProject: (id: string, group: string, beforeId?: string) => Promise<string>
   refreshProjects: () => Promise<void>
   silentRefresh: () => Promise<void>
+  onCreateBranch?: (name: string, startPoint?: string, checkout?: boolean) => Promise<void>
   t: ReturnType<typeof useT>
 }) {
   const projectSwitcher = (
@@ -141,7 +143,16 @@ export function GitLogHeader({
 
   const toolbar = (
     <div className="flex flex-1 items-center justify-center min-w-0">
-      {view?.repo ? <GitToolbar repo={view.repo} currentBranch={view.head || view.branch} hasStashes={view.stashes.length > 0} disabled={busy} onRefresh={silentRefresh} /> : null}
+      {view?.repo ? (
+        <GitToolbar
+          repo={view.repo}
+          currentBranch={view.head || view.branch}
+          hasStashes={view.stashes.length > 0}
+          disabled={busy}
+          onRefresh={silentRefresh}
+          onCreateBranch={onCreateBranch}
+        />
+      ) : null}
     </div>
   )
 

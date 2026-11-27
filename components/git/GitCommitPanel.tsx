@@ -49,6 +49,7 @@ type Props = {
   onOpenFileHistory?: (path: string) => void
   onOpenFileBlame?: (path: string) => void
   onFilesLoaded?: (files: GitFileChange[]) => void
+  onCommitSuccess?: (params: { hash?: string; subject: string; remainingFilesCount?: number }) => void
   onClose: () => void
   onRefresh?: () => Promise<void> | void
 }
@@ -65,6 +66,7 @@ function GitCommitPanelInner({
   onOpenFileHistory,
   onOpenFileBlame,
   onFilesLoaded,
+  onCommitSuccess,
   onClose,
   onRefresh,
 }: Props) {
@@ -438,10 +440,19 @@ function GitCommitPanelInner({
     })
   }
 
+  const pendingStageCountRef = useRef(0)
+
+  const handleOptimisticFilesChange = useCallback((nextFiles: GitFileChange[]) => {
+    setChanges((prev) => (prev ? { ...prev, files: nextFiles } : prev))
+    onFilesLoadedRef.current?.(nextFiles)
+  }, [])
+
   const reloadDiff = useCallback(async () => {
+    if (pendingStageCountRef.current > 0) return
     try {
       const driver = getGitDriver()
       const body = await driver.readCommitDiff({ repo, hash: commit.hash, tree: true })
+      if (pendingStageCountRef.current > 0) return
       if (body?.files) {
         setChanges(body)
         onFilesLoaded?.(body.files)
@@ -456,9 +467,12 @@ function GitCommitPanelInner({
     if (!isWorktree) return
     let timer: ReturnType<typeof setTimeout> | null = null
     const onFocus = () => {
+      if (pendingStageCountRef.current > 0) return
       if (timer) clearTimeout(timer)
       timer = setTimeout(() => {
-        void reloadDiff()
+        if (pendingStageCountRef.current === 0) {
+          void reloadDiff()
+        }
       }, 150)
     }
     window.addEventListener('focus', onFocus)
@@ -479,10 +493,14 @@ function GitCommitPanelInner({
     handleCreatePatch,
     handleIgnore,
     handleCreateFileSubmit,
+    flushPendingStageOps,
   } = useCommitPanelActions({
     repo,
+    files: changes?.files || [],
     stagedFiles,
     unstagedFiles,
+    onOptimisticFilesChange: handleOptimisticFilesChange,
+    pendingStageCountRef,
     commitSummary,
     setCommitSummary,
     commitDesc,
@@ -501,6 +519,7 @@ function GitCommitPanelInner({
     setNewFileDialog,
     reloadDiff,
     onRefresh,
+    onCommitSuccess,
     onSelect,
     notify,
     confirm,
@@ -564,6 +583,7 @@ function GitCommitPanelInner({
     handleIgnore,
     handleCreatePatch,
     reloadDiff,
+    flushPendingStageOps,
     onRefresh,
     onOpenFileHistory,
     onOpenFileBlame,

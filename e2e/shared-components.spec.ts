@@ -59,6 +59,7 @@ test.describe('Shared Components E2E (Search, Collapse, Drag, ContextMenu)', () 
     await page.goto(`/git?repo=${encodeURIComponent(fixture.repoDir)}`)
     await expect(page.getByText('merge: conflicted feat/ui into main').first()).toBeVisible()
     await expect(page.getByRole('status', { name: /Switching repository|正在切换/i })).toHaveCount(0)
+    await page.waitForFunction(() => document.documentElement.style.getPropertyValue('--git-sidebar-w') !== '')
 
     const branchSplitter = page.getByRole('separator', { name: /branch panel|分支面板/i }).first()
     await expect(branchSplitter).toBeAttached()
@@ -151,11 +152,13 @@ test.describe('Shared Components E2E (Search, Collapse, Drag, ContextMenu)', () 
   test('Context menu opens on right-click and closes on Escape', async ({ page }) => {
     await page.goto(`/git?repo=${encodeURIComponent(fixture.repoDir)}`)
     await expect(page.getByText('merge: conflicted feat/ui into main').first()).toBeVisible()
+    await expect(page.getByRole('status', { name: /Switching repository|正在切换/i })).toHaveCount(0)
+    await page.waitForFunction(() => document.documentElement.style.getPropertyValue('--git-sidebar-w') !== '')
 
     const branchNav = page.getByRole('navigation', { name: /Branches|分支/i }).first()
     const branchItem = branchNav.getByRole('treeitem', { name: /^ui/i }).first()
     await expect(branchItem).toBeVisible()
-    await branchItem.click({ button: 'right' })
+    await branchItem.click({ button: 'right', position: { x: 20, y: 10 } })
 
     const menu = page.getByRole('menu').first()
     await expect(menu).toBeVisible()

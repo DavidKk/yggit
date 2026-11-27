@@ -18,9 +18,10 @@ interface GitToolbarProps {
   hasStashes?: boolean
   disabled?: boolean
   onRefresh: () => Promise<void> | void
+  onCreateBranch?: (name: string, startPoint?: string, checkout?: boolean) => Promise<void> | void
 }
 
-export function GitToolbar({ repo, currentBranch, hasStashes = false, disabled = false, onRefresh }: GitToolbarProps) {
+export function GitToolbar({ repo, currentBranch, hasStashes = false, disabled = false, onRefresh, onCreateBranch }: GitToolbarProps) {
   const t = useT()
   const notify = useNotification()
   const [pulling, setPulling] = useState(false)
@@ -103,10 +104,16 @@ export function GitToolbar({ repo, currentBranch, hasStashes = false, disabled =
   }
 
   const handleCreateBranch = async (name: string, startPoint?: string, checkout = true) => {
+    if (onCreateBranch) {
+      if (!checkout) {
+        setBranchModalOpen(false)
+      }
+      await onCreateBranch(name, startPoint, checkout)
+      return
+    }
     try {
       const driver = getGitDriver()
-      const res = await driver.createBranch(repo, name, startPoint, checkout)
-      notify.success(t('git.operations.createBranchSuccess', { branch: name }) || res.message || `Branch ${name} created`)
+      await driver.createBranch(repo, name, startPoint, checkout)
       await onRefresh()
     } catch (error) {
       notify.error(error instanceof Error ? error.message : t('git.errors.createBranchFailed') || 'Failed to create branch')

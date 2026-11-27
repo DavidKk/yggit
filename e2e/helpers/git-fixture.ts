@@ -71,7 +71,7 @@ export function createRichTestRepo(): RichRepoFixture {
 
 export function cleanupTestRepo(repoDir: string): void {
   if (repoDir && fs.existsSync(repoDir)) {
-    fs.rmSync(repoDir, { recursive: true, force: true })
+    fs.rmSync(repoDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 })
   }
 }
 

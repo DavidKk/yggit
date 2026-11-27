@@ -23,11 +23,13 @@ import {
   LuTrash2,
 } from 'react-icons/lu'
 
+import type { RunWithGraphRollback } from '@/components/git/hooks/useOptimisticGitActions'
 import type { FloatingMenuItem } from '@/components/git/RefChipsCell'
 import { useT } from '@/components/i18n/LocaleProvider'
 import { quoteRemoteToAgent, quoteStashToAgent, quoteTagToAgent, quoteWorktreeToAgent } from '@/lib/agent/agent-quote'
 import { copyToClipboard } from '@/lib/clipboard'
 import { getGitDriver } from '@/lib/git/driver'
+import { applyOptimisticRemoteRemove, applyOptimisticTagDelete } from '@/lib/git/optimistic-updates'
 import type { GitLogView } from '@/lib/git/types'
 
 import { type BranchNode, collectAllBranchItems } from './sidebarUtils'
@@ -55,6 +57,7 @@ export interface UseSidebarContextMenusOptions {
     error: (msg: string) => void
     info: (msg: string) => void
   }
+  runWithGraphRollback?: RunWithGraphRollback
 }
 
 export function useSidebarContextMenus({
@@ -76,6 +79,7 @@ export function useSidebarContextMenus({
   setDeleteFolderModal,
   setEditRemoteState,
   notify,
+  runWithGraphRollback,
 }: UseSidebarContextMenusOptions) {
   const t = useT()
 
@@ -170,10 +174,21 @@ export function useSidebarContextMenus({
         onSelect: async () => {
           const confirmed = window.confirm(`Are you sure you want to delete tag "${tag.name}"?`)
           if (!confirmed) return
+          if (runWithGraphRollback) {
+            await runWithGraphRollback(
+              (state) => applyOptimisticTagDelete(state, tag.name),
+              async () => {
+                const driver = getGitDriver()
+                const res = await driver.deleteTag?.(view.repo, tag.name)
+                if (res && !res.ok) throw new Error(res.message || 'Failed to delete tag')
+              },
+              'Failed to delete tag'
+            )
+            return
+          }
           try {
             const driver = getGitDriver()
             await driver.deleteTag?.(view.repo, tag.name)
-            notify.success(`Deleted tag ${tag.name}`)
             await onRefresh?.()
           } catch (err) {
             notify.error(err instanceof Error ? err.message : 'Failed to delete tag')
@@ -470,11 +485,21 @@ export function useSidebarContextMenus({
             )
           )
           if (!confirmed) return
+          if (runWithGraphRollback) {
+            await runWithGraphRollback(
+              (state) => applyOptimisticRemoteRemove(state, group.source),
+              async () => {
+                const driver = getGitDriver()
+                const res = await driver.removeRemote?.(view.repo, group.source)
+                if (res && !res.ok) throw new Error(res.message || 'Failed to remove remote')
+              },
+              'Failed to remove remote'
+            )
+            return
+          }
           try {
-            notify.info(`Removing remote ${group.source}...`)
             const driver = getGitDriver()
             await driver.removeRemote?.(view.repo, group.source)
-            notify.success((t('git.operations.removeRemoteSuccess') || `Successfully removed remote ${group.source}`).replace('{remote}', group.source))
             await onRefresh?.()
           } catch (err) {
             notify.error(err instanceof Error ? err.message : 'Failed to remove remote')

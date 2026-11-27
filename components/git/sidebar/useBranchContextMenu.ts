@@ -2,12 +2,14 @@
 
 import React from 'react'
 
+import type { RunWithGraphRollback } from '@/components/git/hooks/useOptimisticGitActions'
 import type { FloatingMenuItem } from '@/components/git/RefChipsCell'
 import { useT } from '@/components/i18n/LocaleProvider'
 import { quotePromptToAgent } from '@/lib/agent/agent-quote'
 import { buildBranchContextMenu } from '@/lib/git/branch-context-menu'
 import type { ContextMenuUserConfig } from '@/lib/git/context-menu-config'
 import { getGitDriver } from '@/lib/git/driver'
+import { applyOptimisticTagCreate } from '@/lib/git/optimistic-updates'
 import type { GitCommit, GitLogView, GitSelection } from '@/lib/git/types'
 
 import type { BranchItem } from './sidebarUtils'
@@ -22,6 +24,7 @@ export interface UseBranchContextMenuOptions {
     error: (msg: string) => void
     info: (msg: string) => void
   }
+  runWithGraphRollback?: RunWithGraphRollback
   onCheckoutBranch?: (branch: string, isRemote?: boolean) => Promise<void> | void
   onCreateBranch?: (branch: string, startPoint?: string) => void
   onDeleteBranch?: (branch: string) => void
@@ -57,6 +60,7 @@ export function useBranchContextMenu({
   onPullBranch,
   onSoloBranch,
   onRefresh,
+  runWithGraphRollback,
   setSetUpstreamBranch,
   setPinnedBranches,
   pinnedBranches,
@@ -165,10 +169,22 @@ export function useBranchContextMenu({
       onCreateTag: async (target) => {
         const tagName = window.prompt('Enter tag name:')
         if (!tagName?.trim() || !target) return
+        const cleanName = tagName.trim()
+        if (runWithGraphRollback) {
+          await runWithGraphRollback(
+            (state) => applyOptimisticTagCreate(state, cleanName, target),
+            async () => {
+              const driver = getGitDriver()
+              const res = await driver.createTag?.(view.repo, cleanName, { target })
+              if (res && !res.ok) throw new Error(res.message || 'Failed to create tag')
+            },
+            'Failed to create tag'
+          )
+          return
+        }
         try {
           const driver = getGitDriver()
-          await driver.createTag?.(view.repo, tagName.trim(), { target })
-          notify.success(`Created tag ${tagName.trim()}`)
+          await driver.createTag?.(view.repo, cleanName, { target })
           await onRefresh?.()
         } catch (err) {
           notify.error(err instanceof Error ? err.message : 'Failed to create tag')
@@ -179,10 +195,23 @@ export function useBranchContextMenu({
         if (!tagName?.trim() || !target) return
         const msg = window.prompt('Enter annotation message:')
         if (!msg?.trim()) return
+        const cleanName = tagName.trim()
+        const cleanMsg = msg.trim()
+        if (runWithGraphRollback) {
+          await runWithGraphRollback(
+            (state) => applyOptimisticTagCreate(state, cleanName, target),
+            async () => {
+              const driver = getGitDriver()
+              const res = await driver.createTag?.(view.repo, cleanName, { target, message: cleanMsg })
+              if (res && !res.ok) throw new Error(res.message || 'Failed to create annotated tag')
+            },
+            'Failed to create annotated tag'
+          )
+          return
+        }
         try {
           const driver = getGitDriver()
-          await driver.createTag?.(view.repo, tagName.trim(), { target, message: msg.trim() })
-          notify.success(`Created annotated tag ${tagName.trim()}`)
+          await driver.createTag?.(view.repo, cleanName, { target, message: cleanMsg })
           await onRefresh?.()
         } catch (err) {
           notify.error(err instanceof Error ? err.message : 'Failed to create annotated tag')

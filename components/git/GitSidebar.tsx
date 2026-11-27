@@ -5,6 +5,7 @@ import { LuChevronDown, LuChevronRight, LuChevronsDownUp, LuChevronsUpDown, LuCr
 
 import { AnimatedCounter } from '@/components/git/AnimatedCounter'
 import { GitSearchDropdown } from '@/components/git/GitSearchDropdown'
+import type { RunWithGraphRollback } from '@/components/git/hooks/useOptimisticGitActions'
 import { FloatingMenu, type FloatingMenuItem } from '@/components/git/RefChipsCell'
 import { SidebarModals } from '@/components/git/sidebar/SidebarModals'
 import {
@@ -62,6 +63,7 @@ type Props = {
   onBranchHoverStart?: (branchName: string) => void
   onBranchHoverEnd?: () => void
   onRefresh?: () => Promise<void> | void
+  runWithGraphRollback?: RunWithGraphRollback
 }
 
 export function GitSidebar({
@@ -90,6 +92,7 @@ export function GitSidebar({
   onBranchHoverStart,
   onBranchHoverEnd,
   onRefresh,
+  runWithGraphRollback,
 }: Props) {
   const t = useT()
   const ready = useGitUiReady()
@@ -340,6 +343,7 @@ export function GitSidebar({
     onPullBranch,
     onSoloBranch,
     onRefresh,
+    runWithGraphRollback,
     setSetUpstreamBranch,
     setPinnedBranches,
     pinnedBranches,
@@ -367,6 +371,7 @@ export function GitSidebar({
     setDeleteFolderModal,
     setEditRemoteState,
     notify,
+    runWithGraphRollback,
   })
 
   const sections = useSidebarSections({
@@ -579,6 +584,7 @@ export function GitSidebar({
       <SidebarModals
         view={view}
         onRefresh={onRefresh}
+        runWithGraphRollback={runWithGraphRollback}
         notify={notify}
         deleteFolderModal={deleteFolderModal}
         setDeleteFolderModal={setDeleteFolderModal}

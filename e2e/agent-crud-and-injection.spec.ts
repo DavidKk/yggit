@@ -14,6 +14,7 @@ test.describe('Agent CRUD (Model, Skill, MCP) & Runtime Injection E2E', () => {
   })
 
   test('Create Model, Skill, and MCP Server, verify runtime injection into gateway payload, then clean up', async ({ page }) => {
+    test.setTimeout(30_000)
     const stamp = Date.now()
     const modelName = `E2E-Inject-Model-${stamp}`
     const skillName = `e2e-skill-magic-${stamp}`
@@ -74,12 +75,15 @@ test.describe('Agent CRUD (Model, Skill, MCP) & Runtime Injection E2E', () => {
 
     // 1. Create Model Channel
     await page.goto('/settings/models/new')
-    await page.locator('input').first().fill(modelName)
+    const modelNameInput = page.getByPlaceholder(/DeepSeek-V3/i).first()
+    await expect(modelNameInput).toBeVisible()
+    await modelNameInput.fill(modelName)
+    await expect(modelNameInput).toHaveValue(modelName)
     await page
       .getByRole('button', { name: /Save|Create|保存|创建/i })
       .first()
       .click()
-    await expect(page).toHaveURL(/\/settings\/models/)
+    await expect(page).not.toHaveURL(/\/settings\/models\/new/)
     await expect(page.getByText(modelName).first()).toBeVisible()
 
     // 2. Create Custom Skill

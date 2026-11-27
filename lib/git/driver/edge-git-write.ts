@@ -1,7 +1,7 @@
 import git from 'isomorphic-git'
 
 import type { EdgeRepositoryReader } from './edge-repository-reader'
-import type { GitFetchOptions, GitPullOptions } from './types'
+import type { GitCommitOptions, GitFetchOptions, GitPullOptions } from './types'
 
 async function pathExistsOnDisk(reader: EdgeRepositoryReader, filepath: string): Promise<boolean> {
   try {
@@ -119,8 +119,16 @@ export async function unstageEdgeFiles(reader: EdgeRepositoryReader, files?: str
 }
 
 /** Create a commit using cached object/index handles and invalidate only the worktree cache. */
-export async function commitEdgeChanges(reader: EdgeRepositoryReader, message: string): Promise<{ ok: boolean; message: string; hash?: string }> {
+export async function commitEdgeChanges(
+  reader: EdgeRepositoryReader,
+  message: string,
+  options?: boolean | GitCommitOptions
+): Promise<{ ok: boolean; message: string; hash?: string }> {
   try {
+    const stageAll = typeof options === 'boolean' ? options : Boolean(options?.stageAll)
+    if (stageAll) {
+      await stageEdgeFiles(reader, undefined, true)
+    }
     const sha = await reader.runInternalIndexWrite(() =>
       git.commit({
         fs: reader.fs,

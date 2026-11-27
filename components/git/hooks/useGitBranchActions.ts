@@ -2,8 +2,10 @@
 
 import { type Dispatch, type MutableRefObject, type SetStateAction, useCallback } from 'react'
 
+import type { RunWithGraphRollback } from '@/components/git/hooks/useOptimisticGitActions'
 import { useT } from '@/components/i18n/LocaleProvider'
 import { getGitDriver } from '@/lib/git/driver'
+import { applyOptimisticBranchCreate, applyOptimisticBranchDelete } from '@/lib/git/optimistic-updates'
 import type { GitLogView } from '@/lib/git/types'
 
 export function useGitBranchActions({
@@ -14,6 +16,7 @@ export function useGitBranchActions({
   setProgressStage,
   setRenameModal,
   setCreateBranchModal,
+  runWithGraphRollback,
 }: {
   view: GitLogView | null
   loadRef: MutableRefObject<(repo: string) => Promise<void>>
@@ -22,6 +25,7 @@ export function useGitBranchActions({
   setProgressStage: Dispatch<SetStateAction<string>>
   setRenameModal: Dispatch<SetStateAction<{ open: boolean; oldName: string }>>
   setCreateBranchModal: Dispatch<SetStateAction<{ open: boolean; startPoint?: string; currentBranch?: string }>>
+  runWithGraphRollback?: RunWithGraphRollback
 }) {
   const t = useT()
 
@@ -134,27 +138,40 @@ export function useGitBranchActions({
   const handleDeleteBranch = useCallback(
     async (branchName: string) => {
       if (!view?.repo) return
+      const repo = view.repo
       const confirmed = window.confirm(t('git.operations.deleteBranchConfirm', { branch: branchName }) || `Are you sure you want to delete branch ${branchName}?`)
       if (!confirmed) return
+      const fallbackMsg = t('git.errors.deleteBranchFailed') || 'Failed to delete branch'
+      if (runWithGraphRollback) {
+        await runWithGraphRollback(
+          (state) => applyOptimisticBranchDelete(state, branchName),
+          async () => {
+            const driver = getGitDriver()
+            const res = await driver.deleteBranch(repo, branchName)
+            if (!res.ok) throw new Error(res.message || fallbackMsg)
+          },
+          fallbackMsg
+        )
+        return
+      }
       setBusy(true)
       setProgressStage(t('git.operations.deletingBranch', { branch: branchName }) || `Deleting branch ${branchName}...`)
       try {
         const driver = getGitDriver()
-        const res = await driver.deleteBranch(view.repo, branchName)
+        const res = await driver.deleteBranch(repo, branchName)
         if (res.ok) {
-          notification.success(t('git.operations.deleteBranchSuccess', { branch: branchName }) || res.message || `Deleted branch ${branchName}`)
-          await loadRef.current(view.repo)
+          await loadRef.current(repo)
         } else {
-          notification.error(res.message || t('git.errors.deleteBranchFailed') || 'Failed to delete branch')
+          notification.error(res.message || fallbackMsg)
         }
       } catch (err) {
-        notification.error(err instanceof Error ? err.message : t('git.errors.deleteBranchFailed') || 'Failed to delete branch')
+        notification.error(err instanceof Error ? err.message : fallbackMsg)
       } finally {
         setBusy(false)
         setProgressStage('')
       }
     },
-    [view, notification, loadRef, setBusy, setProgressStage, t]
+    [view, notification, loadRef, setBusy, setProgressStage, runWithGraphRollback, t]
   )
 
   const handleRenameBranch = useCallback(
@@ -200,25 +217,40 @@ export function useGitBranchActions({
   const executeCreateBranch = useCallback(
     async (name: string, startPoint?: string, checkout = true) => {
       if (!view?.repo) return
+      const repo = view.repo
+      const cleanName = name.trim()
+      const fallbackMsg = t('git.errors.createBranchFailed') || 'Failed to create branch'
+      if (!checkout && runWithGraphRollback) {
+        await runWithGraphRollback(
+          (state) => applyOptimisticBranchCreate(state, cleanName, startPoint, false),
+          async () => {
+            const driver = getGitDriver()
+            const res = await driver.createBranch(repo, cleanName, startPoint, false)
+            if (!res.ok) throw new Error(res.message || fallbackMsg)
+          },
+          fallbackMsg
+        )
+        return
+      }
       setBusy(true)
-      setProgressStage(t('git.operations.creatingBranchProgress', { branch: name.trim() }) || `Creating branch ${name.trim()}...`)
+      setProgressStage(t('git.operations.creatingBranchProgress', { branch: cleanName }) || `Creating branch ${cleanName}...`)
       try {
         const driver = getGitDriver()
-        const res = await driver.createBranch(view.repo, name.trim(), startPoint, checkout)
+        const res = await driver.createBranch(repo, cleanName, startPoint, checkout)
         if (res.ok) {
-          notification.success(t('git.operations.createBranchSuccess', { branch: name.trim() }) || res.message || `Created branch ${name.trim()}`)
-          await loadRef.current(view.repo)
+          notification.success(t('git.operations.createBranchSuccess', { branch: cleanName }) || res.message || `Created branch ${cleanName}`)
+          await loadRef.current(repo)
         } else {
-          notification.error(res.message || t('git.errors.createBranchFailed') || 'Failed to create branch')
+          notification.error(res.message || fallbackMsg)
         }
       } catch (err) {
-        notification.error(err instanceof Error ? err.message : t('git.errors.createBranchFailed') || 'Failed to create branch')
+        notification.error(err instanceof Error ? err.message : fallbackMsg)
       } finally {
         setBusy(false)
         setProgressStage('')
       }
     },
-    [view, notification, loadRef, setBusy, setProgressStage, t]
+    [view, notification, loadRef, setBusy, setProgressStage, runWithGraphRollback, t]
   )
 
   return {

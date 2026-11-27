@@ -301,9 +301,9 @@ export class EdgeGitDriver implements IGitDriver {
     this.unsupportedInEdge('Cherry-pick')
   }
 
-  async commit(repo: string, message: string, _options?: boolean | GitCommitOptions): Promise<{ ok: boolean; message: string; hash?: string }> {
+  async commit(repo: string, message: string, options?: boolean | GitCommitOptions): Promise<{ ok: boolean; message: string; hash?: string }> {
     const reader = await this.repository(await this.resolveRepo(repo))
-    return commitEdgeChanges(reader, message)
+    return commitEdgeChanges(reader, message, options)
   }
 
   async undo(_repo: string, _soft = true): Promise<{ ok: boolean; message: string; undoneHash?: string }> {

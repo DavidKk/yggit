@@ -23,6 +23,7 @@ export interface UseCommitPanelContextMenusOptions {
   handleIgnore: (pattern: string) => void | Promise<void>
   handleCreatePatch: (pathTarget?: string) => void | Promise<void>
   reloadDiff: () => Promise<void> | void
+  flushPendingStageOps?: () => Promise<boolean>
   onRefresh?: () => Promise<void> | void
   onOpenFileHistory?: (path: string) => void
   onOpenFileBlame?: (path: string) => void
@@ -49,6 +50,7 @@ export function useCommitPanelContextMenus({
   handleIgnore,
   handleCreatePatch,
   reloadDiff,
+  flushPendingStageOps,
   onRefresh,
   onOpenFileHistory,
   onOpenFileBlame,
@@ -109,6 +111,7 @@ export function useCommitPanelContextMenus({
         icon: <LuArchive className="size-3.5 text-accent" />,
         onSelect: async () => {
           try {
+            await flushPendingStageOps?.()
             const driver = getGitDriver()
             await driver.stash(repo, { action: 'save', message: `Stash ${name}`, paths: [filePath] })
             notify.success(`Stashed file ${name}`)

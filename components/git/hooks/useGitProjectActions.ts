@@ -1,13 +1,22 @@
 'use client'
 
-import type { Dispatch, SetStateAction } from 'react'
+import type { Dispatch, MutableRefObject, SetStateAction } from 'react'
 
 import type { useT } from '@/components/i18n/LocaleProvider'
 import { readApiErrorMessage } from '@/lib/api-error'
 import { getDriverMode, getGitDriver } from '@/lib/git/driver'
 import type { AddRemoteProjectOptions } from '@/lib/git/driver/types'
 import { isFileSystemAccessSupported } from '@/lib/git/indexeddb-handles'
-import type { GitCommit, GitLogView, GitProjectView, GitSelection } from '@/lib/git/types'
+import {
+  applyOptimisticClearFolder,
+  applyOptimisticCreateFolder,
+  applyOptimisticDeleteFolder,
+  applyOptimisticMoveProject,
+  applyOptimisticRemoveProject,
+  applyOptimisticRenameFolder,
+  applyOptimisticSetProjectLabel,
+} from '@/lib/git/optimistic-updates'
+import type { GitCommit, GitLogView, GitProjectCatalog, GitProjectView, GitSelection } from '@/lib/git/types'
 
 export function useGitProjectActions({
   view,
@@ -15,6 +24,8 @@ export function useGitProjectActions({
   t,
   notification,
   applyCatalog,
+  projectsRef,
+  foldersRef,
   refreshProjects,
   closeMenu,
   load,
@@ -34,6 +45,8 @@ export function useGitProjectActions({
   t: ReturnType<typeof useT>
   notification: { success: (msg: string) => void; error: (msg: string) => void }
   applyCatalog: (body: { projects?: GitProjectView[]; folders?: string[] }) => void
+  projectsRef?: MutableRefObject<GitProjectView[]>
+  foldersRef?: MutableRefObject<string[]>
   refreshProjects: () => Promise<void>
   closeMenu: () => void
   load: (repo: string) => Promise<void>
@@ -221,92 +234,97 @@ export function useGitProjectActions({
     }
   }
 
-  async function createFolder(name: string) {
-    setBusy(true)
+  function snapshotCatalog(): GitProjectCatalog | null {
+    if (!projectsRef || !foldersRef) return null
+    return { projects: projectsRef.current, folders: foldersRef.current }
+  }
+
+  async function runOptimisticCatalog(
+    transform: (catalog: GitProjectCatalog) => GitProjectCatalog,
+    execute: () => Promise<GitProjectCatalog>,
+    errorFallback: string
+  ): Promise<string> {
+    const snapshot = snapshotCatalog()
+    if (snapshot) {
+      applyCatalog(transform(snapshot))
+    }
     try {
-      const driver = getGitDriver()
-      const catalog = await driver.createFolder(name)
+      const catalog = await execute()
       applyCatalog(catalog)
       return ''
     } catch (err) {
-      return err instanceof Error ? err.message : t('git.errors.createFolderFailed')
-    } finally {
-      setBusy(false)
+      if (snapshot) {
+        applyCatalog(snapshot)
+      }
+      return err instanceof Error ? err.message : errorFallback
     }
+  }
+
+  async function createFolder(name: string) {
+    return runOptimisticCatalog(
+      (catalog) => applyOptimisticCreateFolder(catalog, name),
+      () => getGitDriver().createFolder(name),
+      t('git.errors.createFolderFailed')
+    )
   }
 
   async function moveProject(id: string, group: string, beforeId?: string) {
-    setBusy(true)
-    try {
-      const driver = getGitDriver()
-      const catalog = await driver.moveProject(id, group, beforeId)
-      applyCatalog(catalog)
-      return ''
-    } catch (err) {
-      return err instanceof Error ? err.message : t('git.errors.moveFailed')
-    } finally {
-      setBusy(false)
-    }
+    return runOptimisticCatalog(
+      (catalog) => applyOptimisticMoveProject(catalog, id, group, beforeId),
+      () => getGitDriver().moveProject(id, group, beforeId),
+      t('git.errors.moveFailed')
+    )
   }
 
   async function deleteFolder(name: string) {
-    setBusy(true)
+    const snapshot = snapshotCatalog()
+    let optimisticCount: number | undefined
+    if (snapshot) {
+      const next = applyOptimisticDeleteFolder(snapshot, name)
+      optimisticCount = next.removedCount
+      applyCatalog(next.catalog)
+    }
     try {
-      const driver = getGitDriver()
-      const result = await driver.deleteFolder(name)
+      const result = await getGitDriver().deleteFolder(name)
       applyCatalog(result.catalog)
-      return { error: '', removedCount: result.removedCount }
+      return { error: '', removedCount: result.removedCount ?? optimisticCount }
     } catch (err) {
+      if (snapshot) {
+        applyCatalog(snapshot)
+      }
       return { error: err instanceof Error ? err.message : t('git.errors.deleteFolderFailed') }
-    } finally {
-      setBusy(false)
     }
   }
 
   async function renameFolder(oldName: string, newName: string) {
-    setBusy(true)
-    try {
-      const driver = getGitDriver()
-      const catalog = await driver.renameFolder(oldName, newName)
-      applyCatalog(catalog)
-      return ''
-    } catch (err) {
-      return err instanceof Error ? err.message : t('git.errors.renameFolderFailed')
-    } finally {
-      setBusy(false)
-    }
+    return runOptimisticCatalog(
+      (catalog) => applyOptimisticRenameFolder(catalog, oldName, newName),
+      () => getGitDriver().renameFolder(oldName, newName),
+      t('git.errors.renameFolderFailed')
+    )
   }
 
   async function clearFolder(name: string) {
-    setBusy(true)
-    try {
-      const driver = getGitDriver()
-      const catalog = await driver.clearFolder(name)
-      applyCatalog(catalog)
-      return ''
-    } catch (err) {
-      return err instanceof Error ? err.message : t('git.errors.clearFolderFailed')
-    } finally {
-      setBusy(false)
-    }
+    return runOptimisticCatalog(
+      (catalog) => applyOptimisticClearFolder(catalog, name),
+      () => getGitDriver().clearFolder(name),
+      t('git.errors.clearFolderFailed')
+    )
   }
 
   async function setProjectLabel(id: string, label: string) {
-    setBusy(true)
-    try {
-      const driver = getGitDriver()
-      const catalog = await driver.setProjectLabel(id, label)
-      applyCatalog(catalog)
-      return ''
-    } catch (err) {
-      return err instanceof Error ? err.message : t('git.errors.setLabelFailed')
-    } finally {
-      setBusy(false)
-    }
+    return runOptimisticCatalog(
+      (catalog) => applyOptimisticSetProjectLabel(catalog, id, label),
+      () => getGitDriver().setProjectLabel(id, label),
+      t('git.errors.setLabelFailed')
+    )
   }
 
   async function removeProject(id: string) {
-    setBusy(true)
+    const snapshot = snapshotCatalog()
+    if (snapshot) {
+      applyCatalog(applyOptimisticRemoveProject(snapshot, id))
+    }
     try {
       const driver = getGitDriver()
       const catalog = await driver.removeProject(id)
@@ -325,9 +343,10 @@ export function useGitProjectActions({
       }
       return ''
     } catch (err) {
+      if (snapshot) {
+        applyCatalog(snapshot)
+      }
       return err instanceof Error ? err.message : t('git.errors.removeProjectFailed')
-    } finally {
-      setBusy(false)
     }
   }
 

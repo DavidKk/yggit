@@ -4,14 +4,17 @@ import React, { useState } from 'react'
 import { LuCircleAlert, LuGitBranch } from 'react-icons/lu'
 
 import { AddRemoteModal, EditRemoteModal, SetUpstreamModal } from '@/components/git/GitRemoteModal'
+import type { RunWithGraphRollback } from '@/components/git/hooks/useOptimisticGitActions'
 import { useT } from '@/components/i18n/LocaleProvider'
 import { Button, Modal } from '@/components/sk'
 import { getGitDriver } from '@/lib/git/driver'
+import { applyOptimisticRemoteAdd, applyOptimisticRemoteUpdate } from '@/lib/git/optimistic-updates'
 import type { GitLogView } from '@/lib/git/types'
 
 export interface SidebarModalsProps {
   view: GitLogView
   onRefresh?: () => Promise<void> | void
+  runWithGraphRollback?: RunWithGraphRollback
   notify: {
     success: (msg: string) => void
     error: (msg: string) => void
@@ -42,6 +45,7 @@ export interface SidebarModalsProps {
 export function SidebarModals({
   view,
   onRefresh,
+  runWithGraphRollback,
   notify,
   deleteFolderModal,
   setDeleteFolderModal,
@@ -88,16 +92,34 @@ export function SidebarModals({
   }
 
   const handleSaveRemote = async (oldName: string, newName: string, newUrl: string) => {
+    const repo = view.repo
+    const prevUrl = editRemoteState.url
+    if (runWithGraphRollback) {
+      setEditRemoteState({ open: false, remote: '', url: '' })
+      await runWithGraphRollback(
+        (state) => applyOptimisticRemoteUpdate(state, oldName, newName, newUrl),
+        async () => {
+          const driver = getGitDriver()
+          if (newUrl !== prevUrl) {
+            await driver.setRemoteUrl(repo, oldName, newUrl)
+          }
+          if (newName !== oldName) {
+            await driver.renameRemote(repo, oldName, newName)
+          }
+        },
+        'Failed to update remote'
+      )
+      return
+    }
     setEditRemoteBusy(true)
     try {
       const driver = getGitDriver()
-      if (newUrl !== editRemoteState.url) {
-        await driver.setRemoteUrl(view.repo, oldName, newUrl)
+      if (newUrl !== prevUrl) {
+        await driver.setRemoteUrl(repo, oldName, newUrl)
       }
       if (newName !== oldName) {
-        await driver.renameRemote(view.repo, oldName, newName)
+        await driver.renameRemote(repo, oldName, newName)
       }
-      notify.success(t('git.operations.editRemoteSuccess', { remote: newName }) || `Successfully updated remote ${newName}`)
       setEditRemoteState({ open: false, remote: '', url: '' })
       await onRefresh?.()
     } catch (err) {
@@ -108,12 +130,25 @@ export function SidebarModals({
   }
 
   const handleAddRemote = async (name: string, pullUrl: string, pushUrl: string) => {
+    const repo = view.repo
+    if (runWithGraphRollback) {
+      setAddRemoteOpen(false)
+      await runWithGraphRollback(
+        (state) => ({ ...state, view: applyOptimisticRemoteAdd(state.view, name, pullUrl) }),
+        async () => {
+          const driver = getGitDriver()
+          const res = await driver.addRemote(repo, name, pullUrl, pushUrl)
+          if (!res.ok) throw new Error(res.message || 'Failed to add remote')
+        },
+        'Failed to add remote'
+      )
+      return
+    }
     setAddRemoteBusy(true)
     try {
       const driver = getGitDriver()
-      const res = await driver.addRemote(view.repo, name, pullUrl, pushUrl)
+      const res = await driver.addRemote(repo, name, pullUrl, pushUrl)
       if (!res.ok) throw new Error(res.message || 'Failed to add remote')
-      notify.success(t('git.operations.remoteAdded', { name }) || `Successfully added remote ${name}`)
       setAddRemoteOpen(false)
       await onRefresh?.()
     } catch (err) {

@@ -5,6 +5,8 @@ import path from 'node:path'
 
 import { expect, test } from '@playwright/test'
 
+import { openMockGitHubInEdgeMode } from './helpers/mock-github'
+
 function runGit(cwd: string, args: string[]): string {
   return execFileSync('git', ['-c', 'core.hooksPath=/dev/null', ...args], {
     cwd,
@@ -78,11 +80,7 @@ test.describe('Yggit Core Git & Edge Parity E2E', () => {
       }
     })
 
-    await page.addInitScript(() => {
-      window.localStorage.setItem('yggit.driver_mode', 'edge')
-    })
-
-    await page.goto('/git/github/DavidKk/yggit')
+    await openMockGitHubInEdgeMode(page)
     const historyRegion = page.getByRole('region', { name: /Commit history|提交历史/i }).first()
     const firstCommitMessage = historyRegion.getByRole('row').first().locator('[data-git-message-cell]').first()
     await expect(firstCommitMessage).toBeVisible({ timeout: 15_000 })

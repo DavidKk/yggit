@@ -69,7 +69,6 @@ export function buildFolderContextItems({
             onSelect: async () => {
               const msg = await onClearFolder(group)
               if (msg) notify.error(msg)
-              else notify.success(t('git.project.clearFolderSuccess') || 'Folder cleared')
             },
             dividerBefore: true,
           },

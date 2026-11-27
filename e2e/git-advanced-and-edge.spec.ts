@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 
 import { cleanupTestRepo, createRichTestRepo, type RichRepoFixture } from './helpers/git-fixture'
+import { openMockGitHubInEdgeMode } from './helpers/mock-github'
 
 test.describe('Git Advanced & Edge Flows E2E (P1: Merge Lineage, Solo, Folders, Edge Parity)', () => {
   let fixture: RichRepoFixture
@@ -42,6 +43,7 @@ test.describe('Git Advanced & Edge Flows E2E (P1: Merge Lineage, Solo, Folders, 
 
     await page.goto(`/git?repo=${encodeURIComponent(fixture.repoDir)}`)
     await expect(page.getByText('merge: conflicted feat/ui into main').first()).toBeVisible()
+    await expect(page.getByRole('button', { name: /Merge encountered conflicts|冲突/i }).first()).toBeVisible()
     await expect(page.getByRole('status', { name: /Switching repository/i })).toHaveCount(0)
 
     const branchNav = page.getByRole('navigation', { name: /Branches|分支/i }).first()
@@ -112,20 +114,20 @@ test.describe('Git Advanced & Edge Flows E2E (P1: Merge Lineage, Solo, Folders, 
       }
     })
 
-    await page.addInitScript(() => {
-      window.localStorage.setItem('yggit.driver_mode', 'edge')
-    })
+    await openMockGitHubInEdgeMode(page)
+    const branchNav = page.getByRole('navigation', { name: /Branches|分支/i }).first()
+    await expect(branchNav.getByText(/mock-edge/i).first()).toBeVisible({ timeout: 12_000 })
 
-    await page.goto('/git/github/DavidKk/yggit')
     const historyRegion = page.getByRole('region', { name: /Commit history|提交历史/i }).first()
-    const firstCommitRow = historyRegion.getByRole('row').first()
-    await expect(firstCommitRow).toBeVisible({ timeout: 12_000 })
-    await firstCommitRow.click()
+    const firstCommitMessage = historyRegion.getByRole('row').first().locator('[data-git-message-cell]').first()
+    await expect(firstCommitMessage).toBeVisible({ timeout: 12_000 })
+    await firstCommitMessage.click()
     await expect.poll(() => page.url(), { timeout: 10_000 }).toContain('/commit/')
-    const commitUrl = new URL(page.url()).pathname
-    await page.goto(commitUrl)
     const treePanel = page.getByRole('complementary', { name: /Files|文件/i }).first()
     await expect(treePanel).toBeVisible({ timeout: 12_000 })
+    await expect(treePanel.getByText('README.md', { exact: true }).first()).toBeVisible()
+    await treePanel.getByText('README.md', { exact: true }).first().click()
+    await expect(page.getByText(/Added offline Edge mock diff line/i).first()).toBeVisible({ timeout: 10_000 })
 
     await page.waitForTimeout(300)
     expect(apiGitRequests).toEqual([])
