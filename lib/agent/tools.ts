@@ -672,8 +672,8 @@ export async function executeAgentTool(toolName: string, args: Record<string, un
         }
       }
 
-      // 3. Trigger workdesk scan to update findings
-      workdeskEngine.scan().catch(() => {})
+      // 3. Recompute organization hygiene findings without rescanning repositories
+      void workdeskEngine.recomputeOrganizationHygiene().catch(() => {})
 
       return {
         ok: true,

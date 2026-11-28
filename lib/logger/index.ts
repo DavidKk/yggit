@@ -7,11 +7,15 @@
 
 import { LOGS_DATABASE } from '@/lib/storage/databases'
 
+import { getLogRetentionPolicy, pruneIndexedDbStore, retainRecentEntries } from './retention'
+import { createTraceId, resolveTraceId } from './trace-context'
+
 export type LogLevel = 'info' | 'warn' | 'error' | 'debug'
 export type LogModule = 'agent' | 'mcp' | 'skill' | 'git' | 'system'
 
 export interface ServiceLogEntry {
   id: string
+  traceId: string
   timestamp: number
   level: LogLevel
   module: LogModule
@@ -19,8 +23,21 @@ export interface ServiceLogEntry {
   details?: string
 }
 
-const MAX_MEMORY_LOGS = 500
+export interface ScopedLogger {
+  traceId: string
+  info: (message: string, details?: unknown, moduleOverride?: LogModule) => ServiceLogEntry
+  warn: (message: string, details?: unknown, moduleOverride?: LogModule) => ServiceLogEntry
+  error: (message: string, details?: unknown, moduleOverride?: LogModule) => ServiceLogEntry
+  debug: (message: string, details?: unknown, moduleOverride?: LogModule) => ServiceLogEntry
+  child: (moduleOverride: LogModule) => ScopedLogger
+}
+
+export { createTraceId, getActiveTraceId, resolveTraceId, runWithTrace } from './trace-context'
+
+const PRUNE_WRITE_INTERVAL = 20
 const memoryLogs: ServiceLogEntry[] = []
+let hydratedLogsFromDb = false
+let writesSinceLastPrune = 0
 type LogListener = (logs: ServiceLogEntry[]) => void
 const listeners = new Set<LogListener>()
 
@@ -40,18 +57,27 @@ export function openLogsDb(): Promise<IDBDatabase | null> {
   if (typeof window === 'undefined' || !window.indexedDB) return Promise.resolve(null)
   return new Promise((resolve) => {
     try {
-      const req = window.indexedDB.open(LOGS_DATABASE, 2)
+      const req = window.indexedDB.open(LOGS_DATABASE, 3)
       req.onupgradeneeded = () => {
         const db = req.result
+        const tx = req.transaction
         if (!db.objectStoreNames.contains('service_logs')) {
           const store = db.createObjectStore('service_logs', { keyPath: 'id' })
           store.createIndex('timestamp', 'timestamp')
           store.createIndex('level', 'level')
           store.createIndex('module', 'module')
+          store.createIndex('traceId', 'traceId')
+        } else if (tx) {
+          const store = tx.objectStore('service_logs')
+          if (!store.indexNames.contains('traceId')) store.createIndex('traceId', 'traceId')
         }
         if (!db.objectStoreNames.contains('agent_traces')) {
           const traceStore = db.createObjectStore('agent_traces', { keyPath: 'id' })
           traceStore.createIndex('timestamp', 'timestamp')
+          traceStore.createIndex('traceId', 'traceId')
+        } else if (tx) {
+          const traceStore = tx.objectStore('agent_traces')
+          if (!traceStore.indexNames.contains('traceId')) traceStore.createIndex('traceId', 'traceId')
         }
       }
       req.onsuccess = () => resolve(req.result)
@@ -62,20 +88,26 @@ export function openLogsDb(): Promise<IDBDatabase | null> {
   })
 }
 
-/** Asynchronously persist entry to IndexedDB */
+/** Asynchronously persist entry to IndexedDB and periodically prune expired/excess records */
 async function persistLogEntry(entry: ServiceLogEntry): Promise<void> {
   const db = await openLogsDb()
   if (!db) return
   try {
     const tx = db.transaction('service_logs', 'readwrite')
     tx.objectStore('service_logs').put(entry)
+    writesSinceLastPrune += 1
+    if (writesSinceLastPrune >= PRUNE_WRITE_INTERVAL) {
+      writesSinceLastPrune = 0
+      const policy = getLogRetentionPolicy()
+      void pruneIndexedDbStore(db, 'service_logs', policy.maxLogs, policy.maxLogAgeMs)
+    }
   } catch {
     // Fail silently on storage error
   }
 }
 
 /** Append a log entry */
-export function recordLog(level: LogLevel, module: LogModule, message: string, details?: unknown): ServiceLogEntry {
+export function recordLog(level: LogLevel, module: LogModule, message: string, details?: unknown, traceId?: string): ServiceLogEntry {
   let detailsStr: string | undefined
   if (details !== undefined) {
     if (typeof details === 'string') {
@@ -93,6 +125,7 @@ export function recordLog(level: LogLevel, module: LogModule, message: string, d
 
   const entry: ServiceLogEntry = {
     id: `log_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    traceId: resolveTraceId(traceId),
     timestamp: Date.now(),
     level,
     module,
@@ -100,20 +133,34 @@ export function recordLog(level: LogLevel, module: LogModule, message: string, d
     details: detailsStr,
   }
 
-  memoryLogs.unshift(entry)
-  if (memoryLogs.length > MAX_MEMORY_LOGS) {
-    memoryLogs.pop()
-  }
+  const policy = getLogRetentionPolicy()
+  const retained = retainRecentEntries([entry, ...memoryLogs], policy.maxLogs, policy.maxLogAgeMs)
+  memoryLogs.splice(0, memoryLogs.length, ...retained)
 
   void persistLogEntry(entry)
   notifyListeners()
   return entry
 }
 
-export const logInfo = (module: LogModule, message: string, details?: unknown) => recordLog('info', module, message, details)
-export const logWarn = (module: LogModule, message: string, details?: unknown) => recordLog('warn', module, message, details)
-export const logError = (module: LogModule, message: string, details?: unknown) => recordLog('error', module, message, details)
-export const logDebug = (module: LogModule, message: string, details?: unknown) => recordLog('debug', module, message, details)
+export const logInfo = (module: LogModule, message: string, details?: unknown, traceId?: string) => recordLog('info', module, message, details, traceId)
+export const logWarn = (module: LogModule, message: string, details?: unknown, traceId?: string) => recordLog('warn', module, message, details, traceId)
+export const logError = (module: LogModule, message: string, details?: unknown, traceId?: string) => recordLog('error', module, message, details, traceId)
+export const logDebug = (module: LogModule, message: string, details?: unknown, traceId?: string) => recordLog('debug', module, message, details, traceId)
+
+/**
+ * Create a scoped logger bound to a single Trace ID so multi-step async flows correlate cleanly.
+ */
+export function createScopedLogger(defaultModule: LogModule, explicitTraceId?: string): ScopedLogger {
+  const traceId = explicitTraceId?.trim() || createTraceId()
+  return {
+    traceId,
+    info: (message, details, moduleOverride) => recordLog('info', moduleOverride ?? defaultModule, message, details, traceId),
+    warn: (message, details, moduleOverride) => recordLog('warn', moduleOverride ?? defaultModule, message, details, traceId),
+    error: (message, details, moduleOverride) => recordLog('error', moduleOverride ?? defaultModule, message, details, traceId),
+    debug: (message, details, moduleOverride) => recordLog('debug', moduleOverride ?? defaultModule, message, details, traceId),
+    child: (moduleOverride) => createScopedLogger(moduleOverride, traceId),
+  }
+}
 
 export function getMemoryLogs(): ServiceLogEntry[] {
   return [...memoryLogs]
@@ -129,6 +176,7 @@ export function subscribeLogs(listener: LogListener): () => void {
 /** Clear all logs in memory and IndexedDB */
 export async function clearAllLogs(): Promise<void> {
   memoryLogs.length = 0
+  hydratedLogsFromDb = true
   notifyListeners()
   const db = await openLogsDb()
   if (!db) return
@@ -140,11 +188,27 @@ export async function clearAllLogs(): Promise<void> {
   }
 }
 
-/** Load past logs from IndexedDB if memory logs are empty */
-export async function loadPersistedLogs(limit = 100): Promise<ServiceLogEntry[]> {
-  if (memoryLogs.length > 0) return [...memoryLogs]
+/** Load retained logs from IndexedDB, pruning expired/excess entries according to mode retention policy. */
+export async function loadPersistedLogs(limit?: number, force = false): Promise<ServiceLogEntry[]> {
+  const policy = getLogRetentionPolicy()
+  const effectiveLimit = Math.min(limit ?? policy.maxLogs, policy.maxLogs)
+
+  if (hydratedLogsFromDb && !force) {
+    const trimmed = retainRecentEntries(memoryLogs, policy.maxLogs, policy.maxLogAgeMs)
+    memoryLogs.splice(0, memoryLogs.length, ...trimmed)
+    return memoryLogs.slice(0, effectiveLimit)
+  }
+
   const db = await openLogsDb()
-  if (!db) return []
+  if (!db) {
+    const trimmed = retainRecentEntries(memoryLogs, policy.maxLogs, policy.maxLogAgeMs)
+    memoryLogs.splice(0, memoryLogs.length, ...trimmed)
+    return memoryLogs.slice(0, effectiveLimit)
+  }
+
+  const now = Date.now()
+  const cutoff = now - policy.maxLogAgeMs
+
   return new Promise((resolve) => {
     try {
       const tx = db.transaction('service_logs', 'readonly')
@@ -155,21 +219,28 @@ export async function loadPersistedLogs(limit = 100): Promise<ServiceLogEntry[]>
 
       req.onsuccess = () => {
         const cursor = req.result
-        if (cursor && results.length < limit) {
-          results.push(cursor.value)
-          cursor.continue()
-        } else {
-          for (const item of results) {
-            if (!memoryLogs.some((l) => l.id === item.id)) {
-              memoryLogs.push(item)
-            }
+        if (cursor && results.length < effectiveLimit) {
+          const item = cursor.value as ServiceLogEntry
+          if (item.timestamp >= cutoff) {
+            results.push(item)
+            cursor.continue()
+            return
           }
-          resolve([...memoryLogs])
         }
+
+        const deduped = new Map<string, ServiceLogEntry>()
+        for (const item of memoryLogs) deduped.set(item.id, item)
+        for (const item of results) deduped.set(item.id, item)
+        const merged = retainRecentEntries([...deduped.values()], policy.maxLogs, policy.maxLogAgeMs, now)
+        memoryLogs.splice(0, memoryLogs.length, ...merged)
+        hydratedLogsFromDb = true
+
+        void pruneIndexedDbStore(db, 'service_logs', policy.maxLogs, policy.maxLogAgeMs, now)
+        resolve(memoryLogs.slice(0, effectiveLimit))
       }
-      req.onerror = () => resolve([])
+      req.onerror = () => resolve(retainRecentEntries(memoryLogs, effectiveLimit, policy.maxLogAgeMs, now))
     } catch {
-      resolve([])
+      resolve(retainRecentEntries(memoryLogs, effectiveLimit, policy.maxLogAgeMs, now))
     }
   })
 }
@@ -192,7 +263,7 @@ export function generateIssueReportMarkdown(entries: ServiceLogEntry[]): string 
       ? errorOrWarnLogs
           .map(
             (e) =>
-              `\`[${new Date(e.timestamp).toISOString()}] [${e.level.toUpperCase()}] [${e.module}]\` ${e.message}${e.details ? `\n\`\`\`\n${e.details.slice(0, 500)}\n\`\`\`` : ''}`
+              `\`[${new Date(e.timestamp).toISOString()}] [${e.level.toUpperCase()}] [${e.module}] [${e.traceId || '-'}]\` ${e.message}${e.details ? `\n\`\`\`\n${e.details.slice(0, 500)}\n\`\`\`` : ''}`
           )
           .join('\n\n')
       : 'No error or warning events recorded.'

@@ -15,11 +15,7 @@ test.describe('Git Advanced & Edge Flows E2E (P1: Merge Lineage, Solo, Folders, 
   })
 
   test('Merge lineage panel highlights ancestors and locates parent commit', async ({ page }) => {
-    await page.addInitScript(() => {
-      window.localStorage.setItem('yggit.driver_mode', 'local')
-    })
-
-    await page.goto(`/git?repo=${encodeURIComponent(fixture.repoDir)}`)
+    await page.goto(`/local/git?repo=${encodeURIComponent(fixture.repoDir)}`)
 
     // Click the merge commit row
     const mergeRow = page.getByText('merge: conflicted feat/ui into main').first()
@@ -37,11 +33,7 @@ test.describe('Git Advanced & Edge Flows E2E (P1: Merge Lineage, Solo, Folders, 
   })
 
   test('Branch Solo filter isolates branch commits via context menu', async ({ page }) => {
-    await page.addInitScript(() => {
-      window.localStorage.setItem('yggit.driver_mode', 'local')
-    })
-
-    await page.goto(`/git?repo=${encodeURIComponent(fixture.repoDir)}`)
+    await page.goto(`/local/git?repo=${encodeURIComponent(fixture.repoDir)}`)
     await expect(page.getByText('merge: conflicted feat/ui into main').first()).toBeVisible()
     await expect(page.getByRole('button', { name: /Merge encountered conflicts|冲突/i }).first()).toBeVisible()
     await expect(page.getByRole('status', { name: /Switching repository/i })).toHaveCount(0)
@@ -61,11 +53,7 @@ test.describe('Git Advanced & Edge Flows E2E (P1: Merge Lineage, Solo, Folders, 
   })
 
   test('Project switcher can create and delete a custom folder', async ({ page }) => {
-    await page.addInitScript(() => {
-      window.localStorage.setItem('yggit.driver_mode', 'local')
-    })
-
-    await page.goto(`/git?repo=${encodeURIComponent(fixture.repoDir)}`)
+    await page.goto(`/local/git?repo=${encodeURIComponent(fixture.repoDir)}`)
 
     const repoFolderName = fixture.repoDir.split('/').pop() || ''
     await page

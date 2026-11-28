@@ -8,6 +8,7 @@ import { LuBookOpen, LuPlus, LuSparkles } from 'react-icons/lu'
 import { useT } from '@/components/i18n/LocaleProvider'
 import { useNotification } from '@/components/notification/useNotification'
 import { Badge, Button, SwitchToggle } from '@/components/sk'
+import { useModeHref } from '@/lib/git/driver'
 import { listSkills, subscribeSkills, toggleSkill } from '@/lib/skills/storage'
 import type { SkillDescriptor } from '@/lib/skills/types'
 import { cn } from '@/lib/utils'
@@ -17,6 +18,7 @@ import { SettingsSectionCard } from './SettingsSectionCard'
 export function SkillsSettingsSection() {
   const t = useT()
   const router = useRouter()
+  const modeHref = useModeHref()
   const notify = useNotification()
   const [skills, setSkills] = useState<SkillDescriptor[]>([])
   const [loading, setLoading] = useState(true)
@@ -54,7 +56,7 @@ export function SkillsSettingsSection() {
           'Manage Agent domain knowledge, workflow specifications, and external guidelines following the Agent Skills standard (SKILL.md). Click an item to configure.'
         }
         titleAction={
-          <Button variant="accent" size="sm" onClick={() => router.push('/settings/skills/new')}>
+          <Button variant="accent" size="sm" onClick={() => router.push(modeHref('/settings/skills/new'))}>
             <LuPlus className="size-3.5 mr-1" />
             <span>{t('gitAgent.skillsAddBtn') || 'Add'}</span>
           </Button>
@@ -81,7 +83,7 @@ export function SkillsSettingsSection() {
               >
                 <div className="flex items-center justify-between gap-3">
                   <Link
-                    href={`/settings/skills/${encodeURIComponent(s.id)}`}
+                    href={modeHref(`/settings/skills/${encodeURIComponent(s.id)}`)}
                     className="min-w-0 flex-1 flex items-center gap-2 group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-sm"
                     aria-label={s.name}
                   >

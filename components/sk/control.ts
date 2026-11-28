@@ -5,7 +5,7 @@ export const FORM_CONTROL_H = 'h-8'
 
 /** Unified input chrome: fixed 32px height, 6px radius, 1px border, paper background */
 export const formControlChrome = cn(
-  'box-border h-8 appearance-none rounded-md border border-line bg-paper font-inherit text-xs leading-none text-ink placeholder:text-ink-soft/70 outline-none transition-colors duration-100 focus:border-accent'
+  'box-border h-8 appearance-none rounded-md border border-line bg-paper font-inherit text-xs leading-none text-ink placeholder:text-ink-soft/70 outline-none transition-colors duration-100 hover:border-[color-mix(in_oklab,var(--accent)_38%,var(--line))] focus:border-accent'
 )
 
 export const formControlPadX = 'px-2.5'

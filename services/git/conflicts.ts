@@ -5,27 +5,10 @@ import path from 'node:path'
 import { promisify } from 'node:util'
 
 import { ROOT_PATH } from '@/constants/paths'
-import { remergeHeaderPath } from '@/lib/git/conflict-regions'
+import { containsConflictMarkers, remergeHeaderPath } from '@/lib/git/conflict-regions'
 
 const execFileAsync = promisify(execFile)
 const CONFLICTS_DIR = path.join(ROOT_PATH, 'data', 'git-conflicts')
-
-function containsConflictMarkers(content: string): boolean {
-  let width = 0
-  let separator = false
-  for (const line of content.split(/\r?\n/)) {
-    const start = line.match(/^(<{7,})(?: .*)?$/)
-    if (start) {
-      width = start[1].length
-      separator = false
-    } else if (width && line === '='.repeat(width)) {
-      separator = true
-    } else if (width && separator && new RegExp(`^>{${width}}(?: .*)?$`).test(line)) {
-      return true
-    }
-  }
-  return false
-}
 
 export interface MergeConflictRecord {
   hash: string
@@ -60,9 +43,22 @@ export function writeCachedConflicts(repo: string, conflicts: Record<string, Mer
   try {
     fs.mkdirSync(CONFLICTS_DIR, { recursive: true })
     const file = conflictsFile(repo)
-    fs.writeFileSync(file, JSON.stringify({ repo, conflicts, updatedAt: Date.now() }, null, 2), 'utf8')
+    fs.writeFileSync(file, JSON.stringify({ repo, conflicts, updatedAt: Date.now() }), 'utf8')
   } catch {
     // Ignore cache write errors
+  }
+}
+
+export function deleteCachedConflictsForRepo(repo: string): boolean {
+  const target = repo.trim()
+  if (!target) return false
+  try {
+    const file = conflictsFile(target)
+    if (!fs.existsSync(file)) return false
+    fs.unlinkSync(file)
+    return true
+  } catch {
+    return false
   }
 }
 

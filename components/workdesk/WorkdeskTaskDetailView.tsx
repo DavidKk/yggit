@@ -9,6 +9,7 @@ import { useLocale, useT } from '@/components/i18n/LocaleProvider'
 import { Button, Tooltip } from '@/components/sk'
 import { quoteWorkdeskTaskToAgent } from '@/lib/agent/agent-quote'
 import { setWorkdeskContext } from '@/lib/agent/workdesk-context'
+import { useModeHref } from '@/lib/git/driver'
 import type { MessageKey } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 import { workdeskEngine } from '@/lib/workdesk/engine'
@@ -41,6 +42,7 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
   const t = useT()
   const { locale } = useLocale()
   const router = useRouter()
+  const modeHref = useModeHref()
 
   const [card, setCard] = useState<WorkCard | undefined>(initialCard)
   const [isLoading, setIsLoading] = useState<boolean>(!initialCard)
@@ -66,37 +68,45 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
       const foundCard = result.cards.find((c) => c.id === taskId)
       if (foundCard) {
         setCard(foundCard)
+        setItemsMap(result.items)
+        setIsLoading(false)
+      } else if (!initialCard && Object.keys(result.items).length > 0) {
+        setItemsMap(result.items)
+        setIsLoading(false)
       }
-      setItemsMap(result.items)
-      setIsLoading(false)
     })
 
     if (!card) {
-      workdeskEngine.loadInitial().then((cached) => {
-        if (!mounted) return
-        if (cached) {
-          const found = cached.cards.find((c) => c.id === taskId)
-          if (found) {
-            setCard(found)
-            setItemsMap(cached.items)
-            setIsLoading(false)
-            return
+      void workdeskEngine
+        .loadInitial()
+        .then((cached) => {
+          if (!mounted) return
+          if (cached) {
+            const found = cached.cards.find((c) => c.id === taskId)
+            if (found) {
+              setCard(found)
+              setItemsMap(cached.items)
+              setIsLoading(false)
+              return
+            }
           }
-        }
-        // If not in cache or card not found, trigger scan
-        workdeskEngine
-          .scan()
-          .then((scanned) => {
-            if (!mounted) return
-            const found = scanned.cards.find((c) => c.id === taskId)
-            if (found) setCard(found)
-            setItemsMap(scanned.items)
-            setIsLoading(false)
-          })
-          .catch(() => {
-            if (mounted) setIsLoading(false)
-          })
-      })
+          // If not in cache or card not found, trigger scan
+          workdeskEngine
+            .scan()
+            .then((scanned) => {
+              if (!mounted) return
+              const found = scanned.cards.find((c) => c.id === taskId)
+              if (found) setCard(found)
+              setItemsMap(scanned.items)
+              setIsLoading(false)
+            })
+            .catch(() => {
+              if (mounted) setIsLoading(false)
+            })
+        })
+        .catch(() => {
+          if (mounted) setIsLoading(false)
+        })
     } else {
       setIsLoading(false)
     }
@@ -105,7 +115,7 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
       mounted = false
       unsubscribe()
     }
-  }, [taskId, card])
+  }, [taskId, card, initialCard])
 
   // Get list of work items for this card
   const taskItems = useMemo(() => {
@@ -314,13 +324,13 @@ export function WorkdeskTaskDetailView({ taskId, initialItemId, initialCard, ini
     (itemId: string) => {
       setActiveItemId(itemId)
       if (typeof window !== 'undefined') {
-        const nextUrl = `/workdesk/tasks/${encodeURIComponent(taskId)}/items/${encodeURIComponent(itemId)}`
+        const nextUrl = modeHref(`/workdesk/tasks/${encodeURIComponent(taskId)}/items/${encodeURIComponent(itemId)}`)
         if (window.location.pathname !== nextUrl) {
           window.history.replaceState(null, '', nextUrl)
         }
       }
     },
-    [taskId]
+    [modeHref, taskId]
   )
 
   const handleReorderItems = useCallback((sourceId: string, targetId: string) => {
@@ -397,7 +407,7 @@ ${cr.solution}
       if (onCollapse) {
         onCollapse()
       } else {
-        router.push('/workdesk')
+        router.push(modeHref('/workdesk'))
       }
       return
     }
@@ -405,10 +415,10 @@ ${cr.solution}
       if (onCollapse) {
         onCollapse()
       } else {
-        router.push('/workdesk')
+        router.push(modeHref('/workdesk'))
       }
     }, 240)
-  }, [isGathering, onCollapse, router])
+  }, [isGathering, modeHref, onCollapse, router])
 
   if (!card) {
     if (isLoading) {
@@ -438,7 +448,7 @@ ${cr.solution}
     return (
       <div className="flex flex-1 flex-col items-center justify-center p-8 text-center">
         <p className="text-sm text-ink-muted">{t('workdesk.ui.taskNotFound' as MessageKey)}</p>
-        <Link href="/workdesk" className="mt-4">
+        <Link href={modeHref('/workdesk')} className="mt-4">
           <Button size="sm">
             <LuArrowLeft className="mr-1.5 size-3.5" aria-hidden="true" />
             {t('workdesk.action.back')}

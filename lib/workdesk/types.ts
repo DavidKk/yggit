@@ -108,6 +108,6 @@ export interface WorkdeskStoreData {
   version: number
   lastChecked: number
   findings: Finding[]
-  cards: WorkCard[]
-  items: WorkItem[]
+  cards?: WorkCard[]
+  items?: WorkItem[]
 }

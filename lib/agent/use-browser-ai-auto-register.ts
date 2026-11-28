@@ -70,7 +70,7 @@ export function useBrowserAiAutoRegister({
           }),
         }).catch(() => {})
       }
-    })()
+    })().catch(() => {})
 
     return () => {
       cancelled = true

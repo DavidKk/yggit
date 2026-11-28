@@ -17,6 +17,7 @@ import {
   applyOptimisticSetProjectLabel,
 } from '@/lib/git/optimistic-updates'
 import type { GitCommit, GitLogView, GitProjectCatalog, GitProjectView, GitSelection } from '@/lib/git/types'
+import { logError, logInfo } from '@/lib/logger'
 
 export function useGitProjectActions({
   view,
@@ -226,8 +227,10 @@ export function useGitProjectActions({
       const driver = getGitDriver()
       const catalog = await driver.addRemoteProject(input)
       applyCatalog(catalog)
+      logInfo('git', `Added remote repository ${input.url}`)
       return ''
     } catch (err) {
+      logError('git', `Failed to add remote repository ${input.url}`, err)
       return err instanceof Error ? err.message : t('git.errors.addRemoteFailed')
     } finally {
       setBusy(false)
@@ -329,6 +332,7 @@ export function useGitProjectActions({
       const driver = getGitDriver()
       const catalog = await driver.removeProject(id)
       applyCatalog(catalog)
+      logInfo('git', `Removed repository ${id}`)
       if (view?.repo === id || scope === id) {
         setView(null)
         setCommits([])
@@ -368,6 +372,7 @@ export function useGitProjectActions({
       if (!response.ok || body.ok === false || !body.path) return readApiErrorMessage(body, t('git.errors.cloneFailed'))
       applyCatalog(body)
       closeMenu()
+      logInfo('git', `Cloned repository ${project.name} to ${body.path}`)
       await load(body.path)
       return ''
     } catch {

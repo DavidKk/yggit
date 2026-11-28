@@ -353,6 +353,15 @@ export type GitAgentMessages = {
   devLogsCleared?: string
   devLogsCopiedJson?: string
   devLogsAgentCleared?: string
+  devLogsPrevPage?: string
+  devLogsNextPage?: string
+  devLogsPerPage?: string
+  devLogsRetentionHint?: string
+  devLogsColTraceId?: string
+  devLogsCopiedTraceId?: string
+  devLogsViewOpLogs?: string
+  devLogsSelectTraceTitle?: string
+  devLogsSelectTraceMsg?: string
   capBranchesTitle?: string
   capBranchesDesc?: string
   capBranchesPrompt?: string

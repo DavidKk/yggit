@@ -35,10 +35,10 @@ import {
   type Mode,
   parseHunks,
   PlainRows,
-  rowsFor,
   SplitRows,
   type Viewport,
 } from '@/components/git/diff/DiffViewHelpers'
+import { useGitConflictComparison } from '@/components/git/diff/useGitConflictComparison'
 import { gitFileKind } from '@/components/git/fileKind'
 import { GitCodePane } from '@/components/git/GitCodePane'
 import { GitFileBlameView } from '@/components/git/GitFileBlameView'
@@ -49,10 +49,8 @@ import { GitFindBox } from '@/components/git/GitFindBox'
 import { useGitBlame } from '@/components/git/useGitBlame'
 import { useT } from '@/components/i18n/LocaleProvider'
 import { Button, EmptyState, ScrollArea, SegmentedNav, Tooltip } from '@/components/sk'
-import { fetchRemergeDiff, type MergeConflictRecord } from '@/lib/git/conflict-cache'
-import { conflictRegions, fileRemergePatch } from '@/lib/git/conflict-regions'
+import type { MergeConflictRecord } from '@/lib/git/conflict-cache'
 import { getGitDriver } from '@/lib/git/driver'
-import { analyzeMergeTopology } from '@/lib/git/topology'
 import { GIT_WORKTREE_HASH, type GitCommit, type GitCommitChanges } from '@/lib/git/types'
 import { useGitUiPref } from '@/lib/git/ui-prefs'
 import { cn } from '@/lib/utils'
@@ -110,79 +108,31 @@ export function GitFileDiff({
     if (initialTab) setTabInternal(initialTab)
   }, [initialTab])
 
-  const [conflictActiveInternal, setConflictActiveInternal] = useState(false)
-  const conflictActive = isConflictActive !== undefined ? isConflictActive : conflictActiveInternal
-  const setConflictActive = (active: boolean) => {
-    if (onToggleConflict) onToggleConflict(active)
-    else setConflictActiveInternal(active)
-  }
+  const {
+    conflictActive,
+    setConflictActive,
+    p1Hash,
+    p2Hash,
+    p1Commit,
+    p2Commit,
+    topology,
+    conflictViewMode,
+    setConflictViewMode,
+    conflictRows,
+    patchRows,
+    regions,
+    activeRegion,
+    conflictLoading,
+    remergeLoading,
+    conflictNavigation,
+    remergeFiles,
+    remergeRecord,
+    stepConflict,
+  } = useGitConflictComparison({ repo, hash, path, commit, commits, hasConflict, isConflictActive, onToggleConflict })
 
-  const p1Hash = commit?.parents?.[0] || ''
-  const p2Hash = commit?.parents?.[1] || ''
-  const [conflictViewMode, setConflictViewMode] = useState<'3way' | 'remerge'>('3way')
-  const [conflictContents, setConflictContents] = useState<[string | null, string | null, string | null]>([null, null, null])
-  const [remergeDiff, setRemergeDiff] = useState('')
-  const [remergeFiles, setRemergeFiles] = useState<string[]>([])
-  const [remergeRecord, setRemergeRecord] = useState<MergeConflictRecord | null>(null)
-  const [conflictLoading, setConflictLoading] = useState(false)
-  const [conflictNavigation, setConflictNavigation] = useState({ index: -1, sequence: 0 })
-
-  const topology = useMemo(() => {
-    if (!commit || !commits || commits.length === 0) return null
-    return analyzeMergeTopology(commit, new Map(commits.map((item) => [item.hash, item])))
-  }, [commit, commits])
-
-  const conflictPatch = useMemo(() => fileRemergePatch(remergeDiff, path), [remergeDiff, path])
-  const regions = useMemo(() => conflictRegions(conflictPatch, [conflictContents[0] ?? '', conflictContents[1] ?? '']), [conflictPatch, conflictContents])
-  const conflictRows = useMemo(() => conflictContents.map(rowsFor), [conflictContents])
-  const patchRows = useMemo(() => rowsFor(conflictPatch || null), [conflictPatch])
-  const activeRegion = regions[conflictNavigation.index]
-
-  const p1Commit = useMemo(() => commits.find((c) => c.hash === p1Hash), [commits, p1Hash])
-  const p2Commit = useMemo(() => commits.find((c) => c.hash === p2Hash), [commits, p2Hash])
   const p1BlameMap = useGitBlame(repo, path, p1Hash)
   const p2BlameMap = useGitBlame(repo, path, p2Hash)
   const resultBlameMap = useGitBlame(repo, path, hash)
-
-  useEffect(() => {
-    if ((!conflictActive && !hasConflict && !(commit && commit.parents.length > 1)) || !p1Hash || !p2Hash || !path) return
-    let cancelled = false
-    setConflictLoading(true)
-    const blob = async (h: string) => {
-      if (!h || !path) return null
-      try {
-        const res = await getGitDriver().readBlob({ repo, hash: h, path })
-        return res.binary ? null : res.content
-      } catch {
-        return null
-      }
-    }
-    void Promise.all([blob(p1Hash), blob(p2Hash), blob(hash), fetchRemergeDiff(repo, hash).catch(() => ({ diff: '', files: [], record: null }))]).then(
-      ([first, second, merged, diff]) => {
-        if (cancelled) return
-        setConflictContents([first, second, merged])
-        setRemergeDiff(diff.diff)
-        setRemergeFiles(diff.files || [])
-        setRemergeRecord(diff.record || null)
-        setConflictLoading(false)
-      }
-    )
-    return () => {
-      cancelled = true
-    }
-  }, [repo, hash, p1Hash, p2Hash, path, hasConflict, conflictActive, commit])
-
-  useEffect(() => {
-    if (regions.length > 0 && conflictNavigation.index === -1) {
-      setConflictNavigation({ index: 0, sequence: 1 })
-    }
-  }, [regions, conflictNavigation.index])
-
-  const stepConflict = (delta: number) =>
-    setConflictNavigation((previous) => ({
-      index: previous.index < 0 ? (delta > 0 ? 0 : regions.length - 1) : (previous.index + delta + regions.length) % regions.length,
-      sequence: previous.sequence + 1,
-    }))
 
   const parentHash = hash === 'WORKTREE' ? 'HEAD' : `${hash}~1`
   const beforeBlameMap = useGitBlame(repo, path, parentHash)
@@ -745,7 +695,7 @@ export function GitFileDiff({
               label={`Remerge Diff · ${hash.slice(0, 7)}${commit?.author ? ` (${commit.author})` : ''}`}
               path={path}
               rows={patchRows}
-              loading={conflictLoading}
+              loading={remergeLoading}
               targetLine={activeRegion?.patch}
               targetSequence={conflictNavigation.sequence}
               wordWrap={wordWrap}

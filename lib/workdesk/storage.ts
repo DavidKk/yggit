@@ -166,12 +166,13 @@ export async function saveWorkdeskStore(data: WorkdeskStoreData): Promise<void> 
 /**
  * Load the latest Workdesk snapshot.
  */
-export async function loadWorkdeskStore(): Promise<WorkdeskStoreData | null> {
+export async function loadWorkdeskStore(repo?: string): Promise<WorkdeskStoreData | null> {
   const mode = getDriverMode()
 
   if (mode === 'local' && typeof window !== 'undefined') {
     try {
-      const res = await fetch('/api/git/workdesk')
+      const endpoint = repo ? `/api/git/workdesk?repo=${encodeURIComponent(repo)}` : '/api/git/workdesk'
+      const res = await fetch(endpoint)
       if (res.ok) {
         const json = await res.json()
         const store = json?.data || json

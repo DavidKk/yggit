@@ -8,6 +8,7 @@ import { GIT_LOG_PAGE_SIZE, normalizeRemote } from '@/lib/git/identity'
 import { parseGitBranches, parseGitLog, parseGitRemotes, parseGitStashes, parseGitSubmodules, parseGitTags, parseGitWorktrees } from '@/lib/git/parse'
 import type { GitCommit, GitLogView, GitWorktree } from '@/lib/git/types'
 
+import { isEphemeralRepoPath } from './ephemeral'
 import { readBranchMarks } from './marks'
 import { getProjectRemotes, listGitProjects, originUrl, rememberLocalProject, writeLastOpenedRepo } from './projects'
 import { parseGitHubRepo, readRemoteGitLog } from './remote-provider'
@@ -25,7 +26,7 @@ function gitFailure(error: unknown): string {
   return message || 'git 失败'
 }
 
-async function git(repo: string, args: string[]): Promise<string> {
+export async function git(repo: string, args: string[]): Promise<string> {
   const { stdout } = await execFileAsync('git', ['-C', repo, ...args], {
     maxBuffer: 8 * 1024 * 1024,
     timeout: 15000,
@@ -34,7 +35,7 @@ async function git(repo: string, args: string[]): Promise<string> {
   return stdout
 }
 
-async function gitOptional(repo: string, args: string[]): Promise<string> {
+export async function gitOptional(repo: string, args: string[]): Promise<string> {
   try {
     return await git(repo, args)
   } catch {
@@ -91,7 +92,7 @@ export async function resolveGitRepo(input?: string): Promise<string> {
   }
 }
 
-async function readHead(repo: string): Promise<string> {
+export async function readHead(repo: string): Promise<string> {
   try {
     return (await git(repo, ['symbolic-ref', '--short', 'HEAD'])).trim()
   } catch {
@@ -158,7 +159,7 @@ export async function readFileHistory(options: { repo?: string; path: string; re
   }
 }
 
-async function readWorktree(repo: string): Promise<GitWorktree | null> {
+export async function readWorktree(repo: string): Promise<GitWorktree | null> {
   let porcelain = ''
   try {
     porcelain = await git(repo, ['status', '--porcelain', '-uall'])
@@ -322,7 +323,10 @@ export async function readGitLog(input?: { repo?: string; branch?: string; ref?:
     return await readRemoteGitLog(input.repo, input.branch || input.ref, input.skip)
   }
   const repo = await resolveGitRepo(input?.repo)
-  writeLastOpenedRepo(repo)
+  const ephemeralRepo = isEphemeralRepoPath(repo)
+  if (!ephemeralRepo) {
+    writeLastOpenedRepo(repo)
+  }
   const head = await readHead(repo)
   const historyRef = (input?.ref || input?.branch || '*').trim() || '*'
   let branchText = ''
@@ -352,7 +356,9 @@ export async function readGitLog(input?: { repo?: string; branch?: string; ref?:
     throw new Error(gitFailure(error))
   }
   const remoteIdentity = normalizeRemote(origin)
-  void rememberLocalProject(repo).catch(() => undefined)
+  if (!ephemeralRepo) {
+    void rememberLocalProject(repo).catch(() => undefined)
+  }
   const branches = parseGitBranches(branchText)
   if (head && !branches.some((item) => item.name === head)) {
     branches.unshift({ name: head, upstream: '', current: true, tip: '' })

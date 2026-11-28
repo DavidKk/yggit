@@ -89,10 +89,12 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       data-size={size === 'md' ? undefined : size}
       data-sheen={sheen ? 'true' : undefined}
       className={cn(
-        'relative isolate box-border inline-flex h-8 cursor-pointer appearance-none items-center justify-center gap-1.5 overflow-hidden rounded-md border border-line bg-[var(--panel-2)] px-3 font-inherit text-xs font-medium leading-none text-ink transition-[background-color,border-color,opacity,box-shadow] duration-100 ease-out',
-        'outline-none focus:outline-none focus-visible:outline-none',
-        'hover:enabled:bg-[color-mix(in_oklab,var(--panel-2)_80%,var(--ink))]',
-        variant !== 'plain' && !isGradient && 'hover:enabled:border-[var(--overlay-12)]',
+        'relative isolate box-border inline-flex h-8 cursor-pointer appearance-none items-center justify-center gap-1.5 overflow-hidden rounded-md border border-line bg-[var(--panel-2)] px-3 font-inherit text-xs font-medium leading-none text-ink transition-[background-color,border-color,color,opacity,box-shadow] duration-150 ease-out',
+        'outline-none focus:outline-none focus-visible:ring-1 focus-visible:ring-focus-contrast/60',
+        variant === 'default' &&
+          !isGradient &&
+          !isOutline &&
+          'border-[color-mix(in_oklab,var(--accent)_22%,var(--line))] bg-[color-mix(in_oklab,var(--accent)_5%,var(--panel))] text-ink shadow-[inset_0_1px_0_rgb(255_255_255/0.08)] hover:enabled:border-[color-mix(in_oklab,var(--accent)_52%,var(--line))] hover:enabled:bg-[color-mix(in_oklab,var(--accent)_11%,var(--panel))] hover:enabled:text-accent active:enabled:bg-[color-mix(in_oklab,var(--accent)_16%,var(--panel))]',
         !loading && cn(controlDisabled, 'disabled:shadow-none'),
         loading && 'pointer-events-none cursor-wait opacity-[0.72] !animate-none after:!opacity-0',
         sheen && accentSheen,
@@ -113,20 +115,21 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
         // 彩色描边次级色钮（淡底 + 彩色描边 + 彩色字，与渐变色钮互为两种独立样式）
         isOutline &&
           colorTone === 'accent' &&
-          'border-[color-mix(in_oklab,var(--accent)_42%,transparent)] bg-[color-mix(in_oklab,var(--accent)_10%,transparent)] font-medium text-accent shadow-none hover:enabled:border-[color-mix(in_oklab,var(--accent)_62%,transparent)] hover:enabled:bg-[color-mix(in_oklab,var(--accent)_16%,transparent)] hover:enabled:text-accent',
+          'border-[color-mix(in_oklab,var(--accent)_45%,transparent)] bg-[color-mix(in_oklab,var(--accent)_11%,var(--panel))] font-medium text-accent shadow-none hover:enabled:border-[color-mix(in_oklab,var(--accent)_68%,transparent)] hover:enabled:bg-[color-mix(in_oklab,var(--accent)_18%,var(--panel))] hover:enabled:text-accent',
         isOutline &&
           colorTone === 'ok' &&
-          'border-[color-mix(in_oklab,var(--ok)_42%,transparent)] bg-[color-mix(in_oklab,var(--ok)_10%,transparent)] font-medium text-ok shadow-none hover:enabled:border-[color-mix(in_oklab,var(--ok)_62%,transparent)] hover:enabled:bg-[color-mix(in_oklab,var(--ok)_16%,transparent)] hover:enabled:text-ok',
+          'border-[color-mix(in_oklab,var(--ok)_45%,transparent)] bg-[color-mix(in_oklab,var(--ok)_11%,var(--panel))] font-medium text-ok shadow-none hover:enabled:border-[color-mix(in_oklab,var(--ok)_68%,transparent)] hover:enabled:bg-[color-mix(in_oklab,var(--ok)_18%,var(--panel))] hover:enabled:text-ok',
         isOutline &&
           colorTone === 'warn' &&
-          'border-[color-mix(in_oklab,var(--warn)_42%,transparent)] bg-[color-mix(in_oklab,var(--warn)_10%,transparent)] font-medium text-warn shadow-none hover:enabled:border-[color-mix(in_oklab,var(--warn)_62%,transparent)] hover:enabled:bg-[color-mix(in_oklab,var(--warn)_16%,transparent)] hover:enabled:text-warn',
+          'border-[color-mix(in_oklab,var(--warn)_45%,transparent)] bg-[color-mix(in_oklab,var(--warn)_11%,var(--panel))] font-medium text-warn shadow-none hover:enabled:border-[color-mix(in_oklab,var(--warn)_68%,transparent)] hover:enabled:bg-[color-mix(in_oklab,var(--warn)_18%,var(--panel))] hover:enabled:text-warn',
         isOutline &&
           colorTone === 'fail' &&
-          'border-[color-mix(in_oklab,var(--fail)_42%,transparent)] bg-[color-mix(in_oklab,var(--fail)_10%,transparent)] font-medium text-fail shadow-none hover:enabled:border-[color-mix(in_oklab,var(--fail)_62%,transparent)] hover:enabled:bg-[color-mix(in_oklab,var(--fail)_16%,transparent)] hover:enabled:text-fail',
-        // ghost：描边透明底；default：浅底+边；plain：列表内轻量图标
-        variant === 'ghost' && 'bg-transparent text-ink-soft hover:enabled:bg-[var(--overlay-06)] hover:enabled:text-ink',
+          'border-[color-mix(in_oklab,var(--fail)_45%,transparent)] bg-[color-mix(in_oklab,var(--fail)_11%,var(--panel))] font-medium text-fail shadow-none hover:enabled:border-[color-mix(in_oklab,var(--fail)_68%,transparent)] hover:enabled:bg-[color-mix(in_oklab,var(--fail)_18%,var(--panel))] hover:enabled:text-fail',
+        // ghost：描边透明底；default：主题微染底+边；plain：列表内轻量图标
+        variant === 'ghost' &&
+          'border-[color-mix(in_oklab,var(--accent)_20%,var(--line))] bg-transparent text-ink-soft hover:enabled:border-[color-mix(in_oklab,var(--accent)_48%,var(--line))] hover:enabled:bg-[color-mix(in_oklab,var(--accent)_9%,transparent)] hover:enabled:text-accent',
         variant === 'plain' &&
-          'border-transparent bg-transparent text-ink-soft shadow-none hover:enabled:border-transparent hover:enabled:bg-[var(--overlay-06)] hover:enabled:text-ink',
+          'border-transparent bg-transparent text-ink-soft shadow-none hover:enabled:border-[color-mix(in_oklab,var(--accent)_26%,transparent)] hover:enabled:bg-[color-mix(in_oklab,var(--accent)_10%,transparent)] hover:enabled:text-accent',
         size === 'icon' && 'h-8 w-8 shrink-0 px-0 rounded-md',
         size === 'mini' && 'h-6 w-6 shrink-0 px-0 rounded-md',
         size === 'xs' && 'h-6 gap-1 px-2 text-xs font-normal shadow-none rounded-md',

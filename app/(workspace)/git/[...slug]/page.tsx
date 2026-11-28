@@ -1,8 +1,4 @@
-import { GitAssociateRepoGuide } from '@/components/git/GitAssociateRepoGuide'
-import { GitLogPage } from '@/components/git/GitLogPage'
-import { GitUiBootScript } from '@/components/git/GitUiBootScript'
-import { readGitLog } from '@/services/git/read'
-import { resolveRepoSlug } from '@/services/git/resolver'
+import { renderGitSlugPage } from '../_views'
 
 export const metadata = {
   title: 'Yggit — 仓库与提交',
@@ -15,55 +11,5 @@ interface Props {
 }
 
 export default async function GitSlugPage({ params, searchParams }: Props) {
-  const { slug } = await params
-  const search = (await searchParams) || {}
-  const { parsed, resolved } = resolveRepoSlug(slug, search.remote)
-
-  if (resolved.error === 'UNRESOLVED_REMOTE' && resolved.unresolvedIdentity) {
-    return (
-      <>
-        <GitUiBootScript />
-        <GitAssociateRepoGuide identity={resolved.unresolvedIdentity} />
-      </>
-    )
-  }
-
-  if (resolved.error || !resolved.repoPathOrUrl) {
-    return (
-      <>
-        <GitUiBootScript />
-        <GitLogPage initial={{ error: resolved.error || '无法解析仓库', repo: '' }} />
-      </>
-    )
-  }
-
-  let initial: Awaited<ReturnType<typeof readGitLog>> | { error: string; repo: string }
-  try {
-    initial = await readGitLog({
-      repo: resolved.repoPathOrUrl,
-      branch: parsed.resourceType === 'branch' ? parsed.resourceId : undefined,
-      ref: '*',
-    })
-  } catch (error) {
-    initial = {
-      error: error instanceof Error ? error.message : '无法读取 Git 仓库',
-      repo: resolved.repoPathOrUrl,
-    }
-  }
-
-  const initialCommitHash = parsed.resourceType === 'commit' ? parsed.resourceId : undefined
-  const initialFilePath = search.file
-
-  return (
-    <>
-      <GitUiBootScript />
-      <GitLogPage
-        key={resolved.repoPathOrUrl || slug.join('/')}
-        initial={initial}
-        initialCommitHash={initialCommitHash}
-        initialFilePath={initialFilePath}
-        initialPersistence={resolved.persistence}
-      />
-    </>
-  )
+  return renderGitSlugPage({ mode: 'edge', params, searchParams })
 }

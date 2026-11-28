@@ -10,7 +10,7 @@ import { useGitProjectActions } from '@/components/git/hooks/useGitProjectAction
 import { useT } from '@/components/i18n/LocaleProvider'
 import { useNotification } from '@/components/notification/useNotification'
 import { Button, Spinner } from '@/components/sk'
-import { getGitDriver } from '@/lib/git/driver'
+import { getGitDriver, useModeHref } from '@/lib/git/driver'
 import type { GitProjectView, GitSelection } from '@/lib/git/types'
 import { cn } from '@/lib/utils'
 
@@ -20,6 +20,7 @@ const NOOP_SELECTION = (_next: GitSelection) => {}
 export function WorkdeskHeaderSwitcher() {
   const t = useT()
   const router = useRouter()
+  const modeHref = useModeHref()
   const notification = useNotification()
   const [menuOpen, setMenuOpen] = useState(false)
   const [projects, setProjects] = useState<GitProjectView[]>([])
@@ -67,9 +68,9 @@ export function WorkdeskHeaderSwitcher() {
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('yggit:clear_searches', { detail: { repo: path } }))
       }
-      router.push(path ? `/git/${encodeURIComponent(path)}` : '/git')
+      router.push(modeHref(path ? `/git/${encodeURIComponent(path)}` : '/git'))
     },
-    [router]
+    [modeHref, router]
   )
 
   const reportError = useMemo(

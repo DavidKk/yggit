@@ -1,4 +1,13 @@
 import { type MergeConflictRecord, queryConflictsBatch, saveConflictToCache } from '@/lib/git/conflict-cache'
+import * as driverModule from '@/lib/git/driver'
+
+beforeEach(() => {
+  jest.spyOn(driverModule, 'getDriverMode').mockReturnValue('local')
+})
+
+afterEach(() => {
+  jest.restoreAllMocks()
+})
 
 const parents = ['first', 'second']
 const legacy: MergeConflictRecord = { hash: 'merge', hasConflict: true, conflictFiles: ['file.txt'], status: 'conflicted', analyzedAt: 1 }

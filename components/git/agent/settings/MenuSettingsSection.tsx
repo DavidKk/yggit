@@ -41,6 +41,7 @@ import { useT } from '@/components/i18n/LocaleProvider'
 import { useNotification } from '@/components/notification/useNotification'
 import { Badge, Button, SwitchToggle } from '@/components/sk'
 import { CONTEXT_MENU_PRESETS, ContextMenuPresetId, useContextMenuConfig } from '@/lib/git/context-menu-config'
+import { useModeHref } from '@/lib/git/driver'
 import { cn } from '@/lib/utils'
 
 import { SettingsSectionCard } from './SettingsSectionCard'
@@ -340,6 +341,7 @@ export function MenuSettingsSection() {
   const confirm = useConfirm()
   const notify = useNotification()
   const router = useRouter()
+  const modeHref = useModeHref()
   const [activeCategory, setActiveCategory] = useState<ActionCategory>('all')
 
   const currentQuickActions = useMemo(() => config.quickActions || [], [config.quickActions])
@@ -646,7 +648,7 @@ export function MenuSettingsSection() {
         title={t('gitAgent.menuActionsTitle')}
         description={t('gitAgent.menuActionsDesc')}
         titleAction={
-          <Button variant="accent" size="sm" onClick={() => router.push('/settings/menus/new')}>
+          <Button variant="accent" size="sm" onClick={() => router.push(modeHref('/settings/menus/new'))}>
             <LuPlus className="size-3.5 mr-1" aria-hidden="true" />
             <span>{t('gitAgent.addAction')}</span>
           </Button>
@@ -656,7 +658,7 @@ export function MenuSettingsSection() {
           {(config.agentActions || []).map((action) => (
             <li key={action.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
               <Link
-                href={`/settings/menus/${encodeURIComponent(action.id)}`}
+                href={modeHref(`/settings/menus/${encodeURIComponent(action.id)}`)}
                 className="group min-w-0 flex-1 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 aria-label={t('gitAgent.editNamedAction', { name: action.label })}
               >

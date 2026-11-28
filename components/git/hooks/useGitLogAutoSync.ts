@@ -57,92 +57,104 @@ export function useGitLogAutoSync({
     return () => window.removeEventListener('yggit:driver_mode_changed', onModeChanged)
   }, [])
 
-  const silentRefreshingRef = useRef(false)
+  const silentRefreshPromiseRef = useRef<Promise<void> | null>(null)
+  const lastRefreshCompletedAtRef = useRef<number>(0)
+  const lastSyncCompletedAtRef = useRef<number>(0)
+
   const silentRefresh = useCallback(async () => {
-    if (silentRefreshingRef.current || busy) return
+    if (silentRefreshPromiseRef.current) return silentRefreshPromiseRef.current
+    if (busy) return
     const currentRepo = viewRef.current?.repo
     if (!currentRepo) return
 
-    silentRefreshingRef.current = true
     const activeScope = scopeRef.current
-    try {
-      const driver = getGitDriver()
-      driver.clearCache?.(currentRepo)
-      const next = await driver.readLog({
-        repo: currentRepo,
-        ref: activeScope && activeScope !== '*' ? activeScope : undefined,
-      })
-      if (viewRef.current?.repo !== currentRepo || scopeRef.current !== activeScope) return
+    let task: Promise<void> | undefined = undefined
+    task = (async () => {
+      try {
+        const driver = getGitDriver()
+        driver.clearCache?.(currentRepo)
+        const next = await driver.readLog({
+          repo: currentRepo,
+          ref: activeScope && activeScope !== '*' ? activeScope : undefined,
+        })
+        if (viewRef.current?.repo !== currentRepo || scopeRef.current !== activeScope) return
 
-      setView((prev) => {
-        if (!prev) return next
-        if (!hasGitLogViewMetadataChanged(prev, next)) return prev
-        return {
-          ...prev,
-          head: next.head,
-          branch: next.branch,
-          branches: next.branches,
-          remotes: next.remotes,
-          tags: next.tags,
-          stashes: next.stashes,
-          worktrees: next.worktrees,
-          submodules: next.submodules,
-          marks: next.marks,
-          worktree: next.worktree,
-        }
-      })
-
-      if (startIndexRef.current === 0) {
-        if (commitsRef.current.length <= next.commits.length) {
-          if (!areCommitListsEquivalent(commitsRef.current, next.commits)) {
-            setCommits((prev) => reconcileCommitsPreservingRefs(prev, next.commits))
-            setHasMore(next.hasMore)
-            setHasPrev(Boolean(next.hasPrev))
-            setStartIndex(next.startIndex ?? 0)
+        setView((prev) => {
+          if (!prev) return next
+          if (!hasGitLogViewMetadataChanged(prev, next)) return prev
+          return {
+            ...prev,
+            head: next.head,
+            branch: next.branch,
+            branches: next.branches,
+            remotes: next.remotes,
+            tags: next.tags,
+            stashes: next.stashes,
+            worktrees: next.worktrees,
+            submodules: next.submodules,
+            marks: next.marks,
+            worktree: next.worktree,
           }
-        } else {
-          setCommits((prev) => {
-            if (prev.length <= next.commits.length) {
-              return areCommitListsEquivalent(prev, next.commits) ? prev : next.commits
-            }
-            if (areCommitListsEquivalent(prev.slice(0, next.commits.length), next.commits)) {
-              return prev
-            }
-            const freshHashes = new Set(next.commits.map((c) => c.hash))
-            const tailHash = next.commits[next.commits.length - 1]?.hash
-            const overlapIdx = tailHash ? prev.findIndex((c) => c.hash === tailHash) : -1
-            if (overlapIdx >= 0) {
-              const olderTail = prev.slice(overlapIdx + 1).filter((c) => !freshHashes.has(c.hash))
-              return [...next.commits, ...olderTail]
-            }
-            const prevHashes = new Set(prev.map((c) => c.hash))
-            const brandNew = next.commits.filter((c) => !prevHashes.has(c.hash))
-            return brandNew.length > 0 ? [...brandNew, ...prev] : prev
-          })
-        }
-      }
+        })
 
-      const worktreeClean = !next.worktree || next.worktree.files === 0
-      const isWorktree = selectedHashRef.current === GIT_WORKTREE_HASH || (!selectedHashRef.current && Boolean(viewRef.current?.worktree))
-      if (worktreeClean && isWorktree) {
-        if (selectedFileRef.current) {
-          setSelectedFile('')
-          setSelectedStatus('')
-          setConflictViewActive(false)
+        if (startIndexRef.current === 0) {
+          if (commitsRef.current.length <= next.commits.length) {
+            if (!areCommitListsEquivalent(commitsRef.current, next.commits)) {
+              setCommits((prev) => reconcileCommitsPreservingRefs(prev, next.commits))
+              setHasMore(next.hasMore)
+              setHasPrev(Boolean(next.hasPrev))
+              setStartIndex(next.startIndex ?? 0)
+            }
+          } else {
+            setCommits((prev) => {
+              if (prev.length <= next.commits.length) {
+                return areCommitListsEquivalent(prev, next.commits) ? prev : next.commits
+              }
+              if (areCommitListsEquivalent(prev.slice(0, next.commits.length), next.commits)) {
+                return prev
+              }
+              const freshHashes = new Set(next.commits.map((c) => c.hash))
+              const tailHash = next.commits[next.commits.length - 1]?.hash
+              const overlapIdx = tailHash ? prev.findIndex((c) => c.hash === tailHash) : -1
+              if (overlapIdx >= 0) {
+                const olderTail = prev.slice(overlapIdx + 1).filter((c) => !freshHashes.has(c.hash))
+                return [...next.commits, ...olderTail]
+              }
+              const prevHashes = new Set(prev.map((c) => c.hash))
+              const brandNew = next.commits.filter((c) => !prevHashes.has(c.hash))
+              return brandNew.length > 0 ? [...brandNew, ...prev] : prev
+            })
+          }
         }
-        const currentBranchName = next.head || next.branch || 'main'
-        const currentBranchObj = next.branches.find((b) => b.name === currentBranchName || b.current)
-        const headHash = currentBranchObj?.tip || next.commits.find((c) => c.refs.some((r) => r.includes(currentBranchName)))?.hash || next.commits[0]?.hash || ''
-        if (headHash) {
-          setSelectedHash(headHash)
-          setSelection({ kind: 'local', name: currentBranchName })
+
+        const worktreeClean = !next.worktree || next.worktree.files === 0
+        const isWorktree = selectedHashRef.current === GIT_WORKTREE_HASH || (!selectedHashRef.current && Boolean(viewRef.current?.worktree))
+        if (worktreeClean && isWorktree) {
+          if (selectedFileRef.current) {
+            setSelectedFile('')
+            setSelectedStatus('')
+            setConflictViewActive(false)
+          }
+          const currentBranchName = next.head || next.branch || 'main'
+          const currentBranchObj = next.branches.find((b) => b.name === currentBranchName || b.current)
+          const headHash = currentBranchObj?.tip || next.commits.find((c) => c.refs.some((r) => r.includes(currentBranchName)))?.hash || next.commits[0]?.hash || ''
+          if (headHash) {
+            setSelectedHash(headHash)
+            setSelection({ kind: 'local', name: currentBranchName })
+          }
+        }
+      } catch {
+        // Keep background revalidation non-intrusive
+      } finally {
+        lastRefreshCompletedAtRef.current = Date.now()
+        if (silentRefreshPromiseRef.current === task) {
+          silentRefreshPromiseRef.current = null
         }
       }
-    } catch {
-      // Keep background revalidation non-intrusive
-    } finally {
-      silentRefreshingRef.current = false
-    }
+    })()
+
+    silentRefreshPromiseRef.current = task
+    return task
   }, [
     busy,
     commitsRef,
@@ -178,10 +190,12 @@ export function useGitLogAutoSync({
       try {
         const driver = getGitDriver()
         await driver.fetch(currentRepo, { all: true, prune: true }).catch(() => {})
+        lastSyncCompletedAtRef.current = Date.now()
         await silentRefresh()
       } catch {
         // Silently ignore background fetch errors
       } finally {
+        lastSyncCompletedAtRef.current = Date.now()
         isFetchingRef.current = false
       }
     },
@@ -194,6 +208,9 @@ export function useGitLogAutoSync({
   useEffect(() => {
     const repoName = view?.repo
     if (!repoName) return
+    if (lastRefreshCompletedAtRef.current === 0) {
+      lastRefreshCompletedAtRef.current = Date.now()
+    }
 
     const IDLE_DELAY_MS = 8000
     const EDGE_POLL_MS = 15_000
@@ -244,7 +261,7 @@ export function useGitLogAutoSync({
         if (!isMainOverviewRef.current) return
         if (Date.now() - lastFetchTimeRef.current >= 45_000) {
           void autoFetch()
-        } else {
+        } else if (Date.now() - lastRefreshCompletedAtRef.current >= 4000) {
           void silentRefresh()
         }
       }, 250)
@@ -258,6 +275,7 @@ export function useGitLogAutoSync({
       eventSource = new EventSource(`/api/git/watch?repo=${encodeURIComponent(repoName)}`)
       eventSource.addEventListener('change', () => {
         if (document.visibilityState !== 'visible' || !isMainOverviewRef.current) return
+        if (isFetchingRef.current || Date.now() - lastSyncCompletedAtRef.current < 3500) return
         if (isIdle) {
           void silentRefresh()
         } else {

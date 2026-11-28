@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { getCachedConflictsBatch, type MergeConflictRecord, queryConflictsBatch } from '@/lib/git/conflict-cache'
 import type { GitCommit } from '@/lib/git/types'
+import { markForegroundActivity, runWithForegroundPriority } from '@/lib/workdesk/scheduler'
 
 interface UseMergeConflictsOptions {
   repo?: string
@@ -101,6 +102,7 @@ export function useMergeConflicts({ repo = '', commits, loading = false, scrollR
       if (commit && commit.parents && commit.parents.length >= 2) {
         if (
           !currentConflicts[commit.hash] ||
+          currentConflicts[commit.hash].status === 'error' ||
           (currentConflicts[commit.hash].hasConflict && (!currentConflicts[commit.hash].conflictFileCounts || currentConflicts[commit.hash].unresolvedConflictFiles === undefined))
         ) {
           uncachedMerges.push({ hash: commit.hash, parents: commit.parents })
@@ -121,7 +123,7 @@ export function useMergeConflicts({ repo = '', commits, loading = false, scrollR
     abortControllerRef.current = controller
     inFlightRef.current = true
 
-    void queryConflictsBatch(repo, batch, controller.signal)
+    void runWithForegroundPriority(() => queryConflictsBatch(repo, batch, controller.signal))
       .then((newlyResolved) => {
         if (controller.signal.aborted) return
         if (Object.keys(newlyResolved).length > 0) {
@@ -155,6 +157,7 @@ export function useMergeConflicts({ repo = '', commits, loading = false, scrollR
 
     const handleScroll = () => {
       isScrollingRef.current = true
+      markForegroundActivity()
 
       // Cancel any scheduled timer
       if (idleTimerRef.current !== null) {

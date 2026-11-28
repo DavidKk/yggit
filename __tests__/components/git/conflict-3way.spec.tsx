@@ -18,6 +18,7 @@ let container: HTMLDivElement
 
 beforeEach(() => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
+  window.history.replaceState(null, '', '/local/git')
   container = document.createElement('div')
   document.body.append(container)
   root = createRoot(container)

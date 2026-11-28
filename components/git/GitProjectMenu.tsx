@@ -20,7 +20,7 @@ import { useT } from '@/components/i18n/LocaleProvider'
 import { useNotification } from '@/components/notification/useNotification'
 import { Badge, Button, EmptyState, ScrollArea } from '@/components/sk'
 import { copyToClipboard } from '@/lib/clipboard'
-import { useGitDriver } from '@/lib/git/driver'
+import { useGitDriver, useModeHref } from '@/lib/git/driver'
 import { hasSavedRemote, projectOpenTarget, projectSource, remoteIdentity } from '@/lib/git/project-access'
 import { addTemporaryRepo, parseRemoteUrl, removeTemporaryRepo, type TemporaryRepo, useTemporaryRepos } from '@/lib/git/temporary-store'
 import type { GitProjectView } from '@/lib/git/types'
@@ -57,6 +57,7 @@ export function GitProjectMenu({
 }: GitProjectMenuProps) {
   const t = useT()
   const { isEdge } = useGitDriver()
+  const modeHref = useModeHref()
   const confirm = useConfirm()
   const [query, setQuery] = useState('')
   const [openGroups, setOpenGroups] = useGitUiPref(
@@ -555,7 +556,7 @@ export function GitProjectMenu({
       {!query && (
         <div className="border-b border-line p-1">
           <Link
-            href="/workdesk"
+            href={modeHref('/workdesk')}
             data-workdesk-entry="true"
             onClick={onClose}
             className={cn(

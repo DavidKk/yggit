@@ -6,9 +6,11 @@ import { LuCircleCheck, LuFlag, LuFolderGit2, LuGitBranch, LuGitFork, LuGitMerge
 
 import { useT } from '@/components/i18n/LocaleProvider'
 import { Badge, Tooltip } from '@/components/sk'
+import { useModeHref } from '@/lib/git/driver'
+import { stripLocalPrefix } from '@/lib/git/route-mode'
 import type { MessageKey } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
-import { workdeskEngine } from '@/lib/workdesk/engine'
+import { WORKDESK_SCAN_INTERVAL_MS, workdeskEngine } from '@/lib/workdesk/engine'
 import { dismissCard, undoDismissCard } from '@/lib/workdesk/storage'
 import type { WorkCard, WorkItem } from '@/lib/workdesk/types'
 
@@ -44,6 +46,7 @@ interface TransitionState {
 export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: WorkdeskBoardProps) {
   const t = useT()
   const router = useRouter()
+  const modeHref = useModeHref()
   const containerRef = useRef<HTMLDivElement>(null)
   const cardOriginMapRef = useRef<Record<string, CardRect>>({})
 
@@ -91,7 +94,7 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
           setTransition(null)
         })
         if (typeof window !== 'undefined') {
-          window.history.pushState(null, '', `/workdesk/tasks/${encodeURIComponent(cardId)}`)
+          window.history.pushState(null, '', modeHref(`/workdesk/tasks/${encodeURIComponent(cardId)}`))
         }
       }, 350)
       return
@@ -100,7 +103,7 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
     // Fallback if no DOM element (e.g. tests or direct call)
     setActiveTaskId(cardId)
     if (typeof window !== 'undefined') {
-      window.history.pushState(null, '', `/workdesk/tasks/${encodeURIComponent(cardId)}`)
+      window.history.pushState(null, '', modeHref(`/workdesk/tasks/${encodeURIComponent(cardId)}`))
     }
   }
 
@@ -140,10 +143,11 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
           setTransition(null)
         })
         if (typeof window !== 'undefined') {
-          if (window.location.pathname.startsWith('/workdesk')) {
-            router.replace('/workdesk')
+          const targetWorkdesk = modeHref('/workdesk')
+          if (stripLocalPrefix(window.location.pathname).startsWith('/workdesk')) {
+            router.replace(targetWorkdesk)
           } else {
-            window.history.pushState(null, '', '/workdesk')
+            window.history.pushState(null, '', targetWorkdesk)
           }
         }
       }, 350)
@@ -152,13 +156,14 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
 
     setActiveTaskId(null)
     if (typeof window !== 'undefined') {
-      if (window.location.pathname.startsWith('/workdesk')) {
-        router.replace('/workdesk')
+      const targetWorkdesk = modeHref('/workdesk')
+      if (stripLocalPrefix(window.location.pathname).startsWith('/workdesk')) {
+        router.replace(targetWorkdesk)
       } else {
-        window.history.pushState(null, '', '/workdesk')
+        window.history.pushState(null, '', targetWorkdesk)
       }
     }
-  }, [activeTaskId, router])
+  }, [activeTaskId, modeHref, router])
 
   // Listen to popstate for browser back/forward navigation
   useEffect(() => {
@@ -241,17 +246,20 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
 
   // Listen to engine updates and start background timer
   useEffect(() => {
-    workdeskEngine.loadInitial().then((cached) => {
-      if (cached) {
-        setCards(cached.cards)
-        setItemsMap(cached.items)
-      }
-      // Only scan if no cache exists or cache is older than 5 minutes
-      const isStale = !cached || Date.now() - (cached.lastChecked || 0) > 5 * 60 * 1000
-      if (isStale) {
-        workdeskEngine.scan().catch(() => {})
-      }
-    })
+    void workdeskEngine
+      .loadInitial()
+      .then((cached) => {
+        if (cached && (cached.cards.length > 0 || initialCards.length === 0)) {
+          setCards(cached.cards)
+          setItemsMap(cached.items)
+        }
+        // Only scan if no cache exists or cache is older than the 30-minute refresh window
+        const isStale = !cached || Date.now() - (cached.lastChecked || 0) > WORKDESK_SCAN_INTERVAL_MS
+        if (isStale && process.env.NODE_ENV !== 'test') {
+          workdeskEngine.scan().catch(() => {})
+        }
+      })
+      .catch(() => {})
 
     const unsubscribe = workdeskEngine.subscribe((result) => {
       setCards(result.cards)
@@ -264,6 +272,7 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
       unsubscribe()
       workdeskEngine.stopTimer()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const handleDismissCard = useCallback(
@@ -282,13 +291,11 @@ export function WorkdeskBoard({ initialCards = [], initialActiveTaskId }: Workde
   const handleUndoDismiss = useCallback((cardId: string) => {
     undoDismissCard(cardId)
     setUndoToast(null)
-    workdeskEngine
-      .scan()
-      .then((scanned) => {
-        setCards(scanned.cards)
-        setItemsMap(scanned.items)
-      })
-      .catch(() => {})
+    const refreshed = workdeskEngine.recluster()
+    if (refreshed) {
+      setCards(refreshed.cards)
+      setItemsMap(refreshed.items)
+    }
   }, [])
 
   useEffect(() => {

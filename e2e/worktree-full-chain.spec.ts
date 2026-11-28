@@ -15,11 +15,7 @@ test.describe('Worktree -> File Diff -> Stage -> Commit -> Push Full Chain (Loca
   })
 
   test('Local mode: Worktree -> expand files -> view diff -> stage -> commit -> push', async ({ page }) => {
-    await page.addInitScript(() => {
-      window.localStorage.setItem('yggit.driver_mode', 'local')
-    })
-
-    await page.goto(`/git?repo=${encodeURIComponent(fixture.repoDir)}`)
+    await page.goto(`/local/git?repo=${encodeURIComponent(fixture.repoDir)}`)
 
     // 1. Verify Working tree row and click it
     const historyRegion = page.getByRole('region', { name: /Commit history|提交历史/i }).first()

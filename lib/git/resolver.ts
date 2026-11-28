@@ -1,4 +1,5 @@
 import { normalizeRemote, projectId } from '@/lib/git/identity'
+import { driverModeFromPathname, type RouteDriverMode, withDriverModePath } from '@/lib/git/route-mode'
 
 export type RepositoryPersistence = 'temporary' | 'saved'
 export type RepositoryLoadStatus = 'idle' | 'resolving' | 'loading' | 'ready' | 'error'
@@ -19,6 +20,7 @@ export interface MakeShareUrlOptions {
   file?: string
   lines?: string
   remoteUrl?: string
+  mode?: RouteDriverMode
 }
 
 export function parseRepoSlug(slugParts: string[], remoteQueryParam?: string): ParsedRepoSlug | null {
@@ -155,7 +157,9 @@ export function makeShareUrl(repoPathOrUrl: string, optionsOrHash?: string | Mak
     url.searchParams.set('remote', identity.httpsUrl)
   }
 
-  let finalPath = `${url.pathname}${url.search}`
+  const activeMode: RouteDriverMode = options.mode ?? (typeof window !== 'undefined' ? driverModeFromPathname(window.location?.pathname) : 'edge')
+  const canonicalPath = withDriverModePath(url.pathname, activeMode)
+  let finalPath = `${canonicalPath}${url.search}`
   if (options.lines) {
     finalPath += `#L${options.lines}`
   }

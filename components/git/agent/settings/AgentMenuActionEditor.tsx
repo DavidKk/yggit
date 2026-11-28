@@ -9,6 +9,7 @@ import { useT } from '@/components/i18n/LocaleProvider'
 import { useNotification } from '@/components/notification/useNotification'
 import { Button, TextInput } from '@/components/sk'
 import { useContextMenuConfig } from '@/lib/git/context-menu-config'
+import { useModeHref } from '@/lib/git/driver'
 
 import { SettingsSectionCard } from './SettingsSectionCard'
 
@@ -17,12 +18,13 @@ export function AgentMenuActionEditor({ actionId }: { actionId: string }) {
   const confirm = useConfirm()
   const notify = useNotification()
   const router = useRouter()
+  const modeHref = useModeHref()
   const [config, setConfig] = useContextMenuConfig()
   const action = config.agentActions.find((item) => item.id === actionId)
   const isNew = actionId === 'new'
   const [draft, setDraft] = useState<{ label: string; description: string; prompt: string } | null>(null)
   const value = draft ?? { label: action?.label ?? '', description: action?.description ?? '', prompt: action?.prompt ?? '' }
-  const back = () => router.replace('/settings/menus')
+  const back = () => router.replace(modeHref('/settings/menus'))
 
   return (
     <SettingsSectionCard title={t(isNew ? 'gitAgent.newAction' : 'gitAgent.editAction')} description={t('gitAgent.menuActionsDesc')}>

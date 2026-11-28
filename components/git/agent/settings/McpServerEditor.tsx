@@ -8,6 +8,7 @@ import { useConfirm } from '@/components/confirm/ConfirmProvider'
 import { useT } from '@/components/i18n/LocaleProvider'
 import { useNotification } from '@/components/notification/useNotification'
 import { Badge, Button, SwitchToggle, TextInput } from '@/components/sk'
+import { useModeHref } from '@/lib/git/driver'
 import { testAndDiscoverMcpServer } from '@/lib/mcp/client'
 import { startMcpOAuthFlow } from '@/lib/mcp/oauth'
 import { deleteMcpServer, listMcpServers, saveMcpServer, toggleMcpServer, toggleMcpTool } from '@/lib/mcp/storage'
@@ -23,6 +24,7 @@ interface McpServerEditorProps {
 export function McpServerEditor({ serverId }: McpServerEditorProps) {
   const t = useT()
   const router = useRouter()
+  const modeHref = useModeHref()
   const notify = useNotification()
   const confirm = useConfirm()
 
@@ -61,7 +63,7 @@ export function McpServerEditor({ serverId }: McpServerEditorProps) {
   }, [serverId, isNew])
 
   const handleBack = () => {
-    router.replace('/settings/mcp')
+    router.replace(modeHref('/settings/mcp'))
   }
 
   const handleAddHeader = () => {
@@ -153,7 +155,7 @@ export function McpServerEditor({ serverId }: McpServerEditorProps) {
     } finally {
       await saveMcpServer(newServer)
       setTesting(false)
-      router.replace('/settings/mcp')
+      router.replace(modeHref('/settings/mcp'))
     }
   }
 
@@ -230,7 +232,7 @@ export function McpServerEditor({ serverId }: McpServerEditorProps) {
         try {
           await deleteMcpServer(server.id)
           notify.success(t('gitAgent.mcpRemoved') || 'MCP Server removed')
-          router.replace('/settings/mcp')
+          router.replace(modeHref('/settings/mcp'))
         } catch (err) {
           notify.error(err instanceof Error ? err.message : 'Failed to remove MCP server')
           throw err

@@ -13,14 +13,8 @@ test.describe('Git Main Workflows E2E (Open Local, Branch, File, Context Menus)'
     cleanupTestRepo(fixture.repoDir)
   })
 
-  test.beforeEach(async ({ page }) => {
-    await page.addInitScript(() => {
-      window.localStorage.setItem('yggit.driver_mode', 'local')
-    })
-  })
-
   test('Open local repository, inspect branches/tags, and filter in project switcher', async ({ page }) => {
-    await page.goto(`/git?repo=${encodeURIComponent(fixture.repoDir)}`)
+    await page.goto(`/local/git?repo=${encodeURIComponent(fixture.repoDir)}`)
 
     await expect(page.getByText('merge: conflicted feat/ui into main').first()).toBeVisible()
     await expect(page.getByRole('treeitem', { name: /^main/i }).first()).toBeVisible()
@@ -46,7 +40,7 @@ test.describe('Git Main Workflows E2E (Open Local, Branch, File, Context Menus)'
   })
 
   test('Select branches in sidebar and view commit files + diff + history + blame', async ({ page }) => {
-    await page.goto(`/git?repo=${encodeURIComponent(fixture.repoDir)}`)
+    await page.goto(`/local/git?repo=${encodeURIComponent(fixture.repoDir)}`)
 
     // Select branch in sidebar
     const featBranch = page.getByRole('treeitem', { name: /^ui/i }).first()
@@ -80,7 +74,7 @@ test.describe('Git Main Workflows E2E (Open Local, Branch, File, Context Menus)'
   })
 
   test('Right-click context menus work across Branch, Commit, and File panels', async ({ page }) => {
-    await page.goto(`/git?repo=${encodeURIComponent(fixture.repoDir)}`)
+    await page.goto(`/local/git?repo=${encodeURIComponent(fixture.repoDir)}`)
     await expect(page.getByText('feat(ui): add sub helper and ui mode').first()).toBeVisible()
     await expect(page.getByRole('button', { name: /Merge encountered conflicts|冲突/i }).first()).toBeVisible()
 

@@ -9,7 +9,9 @@ import { useT } from '@/components/i18n/LocaleProvider'
 import { LocaleSwitcher } from '@/components/i18n/LocaleSwitcher'
 import { useInWorkspaceHeader, WorkspaceHeaderSlot } from '@/components/layout/WorkspaceHeaderContext'
 import { ThemeSwitcher } from '@/components/theme/ThemeSwitcher'
+import { useGitDriver, useModeHref } from '@/lib/git/driver'
 import { getLastGitUrl } from '@/lib/git/last-git-url'
+import { stripLocalPrefix } from '@/lib/git/route-mode'
 
 import { AboutSettingsSection } from './AboutSettingsSection'
 import { AgentMenuActionEditor } from './AgentMenuActionEditor'
@@ -46,36 +48,38 @@ export function AgentSettingsPageContent({ section = 'models', menuActionId, ski
   const router = useRouter()
   const searchParams = useSearchParams()
   const tabParam = searchParams.get('tab') as SettingsSectionKey | null
+  const { mode } = useGitDriver()
+  const modeHref = useModeHref()
 
   const activeSection = section
 
   // Canonical path redirection: if accessed with legacy ?tab= query parameter, redirect to path route
   React.useEffect(() => {
     if (tabParam && ['models', 'skills', 'mcp', 'privacy', 'general', 'menus', 'about'].includes(tabParam)) {
-      router.replace(`/settings/${tabParam}`)
+      router.replace(modeHref(`/settings/${tabParam}`))
     }
-  }, [tabParam, router])
+  }, [tabParam, modeHref, router])
 
   const handleBack = () => {
     if (skillId) {
-      router.replace('/settings/skills')
+      router.replace(modeHref('/settings/skills'))
       return
     }
     if (mcpServerId) {
-      router.replace('/settings/mcp')
+      router.replace(modeHref('/settings/mcp'))
       return
     }
     if (menuActionId) {
-      router.replace('/settings/menus')
+      router.replace(modeHref('/settings/menus'))
       return
     }
     const returnTo = searchParams.get('returnTo') || searchParams.get('from')
-    if (returnTo && returnTo.startsWith('/git')) {
-      router.push(returnTo)
+    if (returnTo && stripLocalPrefix(returnTo).startsWith('/git')) {
+      router.push(modeHref(returnTo))
       return
     }
     // Directly exit settings and return to the active Git session
-    const target = getLastGitUrl()
+    const target = getLastGitUrl(mode)
     router.push(target)
   }
 

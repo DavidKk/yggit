@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 import { PRODUCT_DISPLAY_NAME } from '@/constants/brand'
+import { driverModeFromPathname, stripLocalPrefix, withDriverModePath } from '@/lib/git/route-mode'
 import { cn } from '@/lib/utils'
 
 type Props = {
@@ -53,7 +54,14 @@ export function BrandLogo({ className, markClassName, wordmarkClassName, priorit
 
   const logoClassName = cn('inline-flex min-w-0 items-center gap-2', className)
 
-  const effectiveHref = href && href !== '/' ? href : pathname?.startsWith('/git') || pathname?.startsWith('/workdesk') ? '/git' : href || '/'
+  const logicalPathname = pathname ? stripLocalPrefix(pathname) : ''
+  const defaultWorkspaceHref = pathname ? withDriverModePath('/git', driverModeFromPathname(pathname)) : '/git'
+  const effectiveHref =
+    href && href !== '/'
+      ? href
+      : logicalPathname.startsWith('/git') || logicalPathname.startsWith('/workdesk') || logicalPathname.startsWith('/dev')
+        ? defaultWorkspaceHref
+        : href || '/'
 
   const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     if (onClick) {

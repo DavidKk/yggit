@@ -20,6 +20,7 @@ import { remoteIdentity, uniqueLocalProject } from '@/lib/git/project-access'
 import { listRemoteGroup } from '@/lib/git/remote-groups'
 import { parseRemoteUrl } from '@/lib/git/temporary-store'
 import type { GitCommit, GitCommitChanges, GitLogView, GitProjectCatalog, GitProjectHost, GitProjectView, GitRemoteSource } from '@/lib/git/types'
+import { runWithForegroundPriority } from '@/lib/workdesk/scheduler'
 import { parseGitHubRepo, readRemoteBlobData, readRemoteCommitChanges, readRemoteGitLog } from '@/services/git/remote-provider'
 
 import { buildEdgeRemergeDiff, detectEdgeMergeConflict } from './edge-conflicts'
@@ -177,15 +178,17 @@ export class EdgeGitDriver implements IGitDriver {
   }
 
   async readCommitDiff(options: ReadCommitDiffOptions): Promise<GitCommitChanges> {
-    const { hash } = options
-    const resolvedRepo = await this.resolveRepo(options.repo)
-    const gh = parseGitHubRepo(resolvedRepo)
-    if (gh && !resolvedRepo.startsWith('edge_')) {
-      return await readRemoteCommitChanges(resolvedRepo, hash, options)
-    }
+    return runWithForegroundPriority(async () => {
+      const { hash } = options
+      const resolvedRepo = await this.resolveRepo(options.repo)
+      const gh = parseGitHubRepo(resolvedRepo)
+      if (gh && !resolvedRepo.startsWith('edge_')) {
+        return await readRemoteCommitChanges(resolvedRepo, hash, options)
+      }
 
-    const reader = await this.repository(resolvedRepo)
-    return await reader.readChanges(options)
+      const reader = await this.repository(resolvedRepo)
+      return await reader.readChanges(options)
+    })
   }
 
   async readBlob(options: ReadBlobOptions): Promise<{ content: string; binary: boolean }> {

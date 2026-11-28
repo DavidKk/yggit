@@ -99,18 +99,14 @@ test.describe('Yggit Core Git & Edge Parity E2E', () => {
       }
     })
 
-    await page.addInitScript(() => {
-      window.localStorage.setItem('yggit.driver_mode', 'local')
-    })
-
-    await page.goto(`/git?repo=${encodeURIComponent(repoDir)}`)
+    await page.goto(`/local/git?repo=${encodeURIComponent(repoDir)}`)
 
     // Verify merge commit appears in history and conflict detection fires automatically without refresh
     await expect(page.getByText('merge: conflicted merge').first()).toBeVisible()
     await expect.poll(() => conflictBatchCalls.length).toBeGreaterThan(0)
 
     // Navigate directly to the conflicted merge commit + file
-    await page.goto(`/git?repo=${encodeURIComponent(repoDir)}&hash=${mergeHash}&file=${encodeURIComponent(conflictFile)}`)
+    await page.goto(`/local/git?repo=${encodeURIComponent(repoDir)}&hash=${mergeHash}&file=${encodeURIComponent(conflictFile)}`)
     const conflictBtn = page.getByRole('button', { name: /Conflict|冲突/i }).first()
     await expect(conflictBtn).toBeEnabled()
 
@@ -120,13 +116,9 @@ test.describe('Yggit Core Git & Edge Parity E2E', () => {
   })
 
   test('Switching from Local to Edge mode stops /api/git/* server calls', async ({ page }) => {
-    await page.addInitScript(() => {
-      window.localStorage.setItem('yggit.driver_mode', 'local')
-    })
-
     const initialConflictsRes = page.waitForResponse((res) => res.url().includes('/api/git/conflicts'))
     const initialProjectsRes = page.waitForResponse((res) => res.url().includes('/api/git/projects'))
-    await page.goto(`/git?repo=${encodeURIComponent(repoDir)}`)
+    await page.goto(`/local/git?repo=${encodeURIComponent(repoDir)}`)
     await Promise.all([initialConflictsRes, initialProjectsRes])
     await expect(page.getByText('merge: conflicted merge').first()).toBeVisible()
     await expect(page.getByText(/All history commits loaded|已加载全部/i).first()).toBeVisible()
@@ -144,7 +136,8 @@ test.describe('Yggit Core Git & Edge Parity E2E', () => {
     })
 
     await localBtn.click()
-    await expect.poll(() => page.evaluate(() => window.localStorage.getItem('yggit.driver_mode'))).toBe('edge')
+    await expect(page).not.toHaveURL(/\/local\//)
+    await expect(page).toHaveURL(/\/git(?:\/|\?|$)/)
     await page.waitForTimeout(300)
 
     expect(postSwitchApiCalls).toEqual([])

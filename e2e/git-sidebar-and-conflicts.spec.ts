@@ -16,15 +16,12 @@ test.describe('Git Sidebar Icons, Remote Menus, Copy Actions & Conflict View E2E
     cleanupTestRepo(remoteFixture.rootDir)
   })
 
-  test.beforeEach(async ({ page, context }) => {
+  test.beforeEach(async ({ context }) => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write'])
-    await page.addInitScript(() => {
-      window.localStorage.setItem('yggit.driver_mode', 'local')
-    })
   })
 
   test('Conflict badge opens 3-way conflict view and toggles Remerge Diff tab', async ({ page }) => {
-    await page.goto(`/git?repo=${encodeURIComponent(richFixture.repoDir)}`)
+    await page.goto(`/local/git?repo=${encodeURIComponent(richFixture.repoDir)}`)
 
     // Wait for automatic conflict detection badge on the conflicted merge commit row
     const conflictBadge = page.getByRole('button', { name: /Merge encountered conflicts|冲突/i }).first()
@@ -43,7 +40,7 @@ test.describe('Git Sidebar Icons, Remote Menus, Copy Actions & Conflict View E2E
   })
 
   test('Sidebar header icons (Collapse/Expand, Locate, Add Remote, Add Worktree) and Remote context menu', async ({ page }) => {
-    await page.goto(`/git?repo=${encodeURIComponent(remoteFixture.repoDir)}`)
+    await page.goto(`/local/git?repo=${encodeURIComponent(remoteFixture.repoDir)}`)
     await expect(page.getByText('chore: initial remote commit').first()).toBeVisible()
     await expect(page.getByRole('status', { name: /Switching repository/i })).toHaveCount(0)
 
@@ -106,7 +103,7 @@ test.describe('Git Sidebar Icons, Remote Menus, Copy Actions & Conflict View E2E
 
   test('Stash, Tags, Worktrees, and Submodules sidebar panels support expand, search, and context menus', async ({ page }) => {
     // 1. Tags, Worktrees, and Submodules on richFixture
-    await page.goto(`/git?repo=${encodeURIComponent(richFixture.repoDir)}`)
+    await page.goto(`/local/git?repo=${encodeURIComponent(richFixture.repoDir)}`)
     await expect(page.getByText('merge: conflicted feat/ui into main').first()).toBeVisible()
     const branchNav = page.getByRole('navigation', { name: /Branches|分支/i }).first()
 
@@ -137,7 +134,7 @@ test.describe('Git Sidebar Icons, Remote Menus, Copy Actions & Conflict View E2E
     await expect(submodulesBtn).toHaveAttribute('aria-expanded', 'false')
 
     // 2. Stash panel on remoteFixture (has uncommitted README.md)
-    await page.goto(`/git?repo=${encodeURIComponent(remoteFixture.repoDir)}`)
+    await page.goto(`/local/git?repo=${encodeURIComponent(remoteFixture.repoDir)}`)
     await expect(page.getByText('chore: initial remote commit').first()).toBeVisible()
     await expect(page.getByRole('status', { name: /Switching repository/i })).toHaveCount(0)
 
@@ -168,7 +165,7 @@ test.describe('Git Sidebar Icons, Remote Menus, Copy Actions & Conflict View E2E
   })
 
   test('Context menu Copy actions copy Commit SHA/Message and File Path to clipboard', async ({ page }) => {
-    await page.goto(`/git?repo=${encodeURIComponent(richFixture.repoDir)}`)
+    await page.goto(`/local/git?repo=${encodeURIComponent(richFixture.repoDir)}`)
     await expect(page.getByText('feat(ui): add sub helper and ui mode').first()).toBeVisible()
     await expect(page.getByRole('button', { name: /Merge encountered conflicts|冲突/i }).first()).toBeVisible()
     await expect(page.getByRole('status', { name: /Switching repository/i })).toHaveCount(0)

@@ -1,6 +1,9 @@
 'use client'
 
+import { usePathname } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useState } from 'react'
+
+import { driverModeFromPathname, withDriverModePath } from '@/lib/git/route-mode'
 
 import { EdgeGitDriver } from './edge-driver'
 import { LocalGitDriver } from './local-driver'
@@ -10,11 +13,13 @@ export * from './edge-driver'
 export * from './local-driver'
 export * from './types'
 
-const DRIVER_MODE_KEY = 'yggit.driver_mode'
 const DRIVER_MODE_EVENT = 'yggit:driver_mode_changed'
 
 const localDriverSingleton = new LocalGitDriver()
 const edgeDriverSingleton = new EdgeGitDriver()
+
+// In-memory override used only in non-DOM/mocked-window test environments without `window.location`.
+let nonBrowserDriverMode: GitDriverMode | null = null
 
 export type DriverModeChangedDetail = {
   mode: GitDriverMode
@@ -23,44 +28,41 @@ export type DriverModeChangedDetail = {
 }
 
 function defaultDriverMode(): GitDriverMode {
-  return process.env.NEXT_PUBLIC_YGGIT_TARGET === 'cloud' ? 'edge' : 'local'
+  return 'edge'
 }
 
 /**
- * Read the current driver preference from localStorage.
- * Defaults to 'local' when running on localhost / dev server, or 'edge' on cloud builds.
+ * Resolve the active Git driver mode from the current URL pathname (`/local/...` -> `local`, else `edge`).
  */
 export function getDriverMode(): GitDriverMode {
-  const fallback = defaultDriverMode()
-  const storage = typeof window !== 'undefined' ? window.localStorage : typeof localStorage !== 'undefined' ? localStorage : null
-  if (!storage) return fallback
-  try {
-    const saved = storage.getItem(DRIVER_MODE_KEY)
-    if (saved === 'edge' || saved === 'local') return saved
-  } catch {
-    // ignore
+  if (typeof window !== 'undefined') {
+    const pathname = window.location?.pathname
+    if (typeof pathname === 'string' && pathname.length > 0) {
+      return driverModeFromPathname(pathname)
+    }
+    if (nonBrowserDriverMode) return nonBrowserDriverMode
   }
-  return fallback
+  return defaultDriverMode()
 }
 
 /**
- * Set and persist the driver mode preference
+ * Notify listeners of a mode change. In browser runtime, callers navigate via `/local/...`
+ * or Edge root URLs so the URL remains the single source of truth.
  */
 export function setDriverMode(mode: GitDriverMode, extra?: { targetRepo?: string; targetUrl?: string }): void {
-  const storage = typeof window !== 'undefined' ? window.localStorage : typeof localStorage !== 'undefined' ? localStorage : null
-  if (!storage) return
+  if (typeof window === 'undefined') return
+  if (!window.location?.pathname) {
+    nonBrowserDriverMode = mode
+  }
   try {
-    storage.setItem(DRIVER_MODE_KEY, mode)
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent(DRIVER_MODE_EVENT, { detail: { mode, ...extra } }))
-    }
+    window.dispatchEvent(new CustomEvent(DRIVER_MODE_EVENT, { detail: { mode, ...extra } }))
   } catch {
     // ignore
   }
 }
 
 /**
- * Retrieve the active IGitDriver instance for the specified or current mode
+ * Retrieve the active IGitDriver instance for the specified or current mode.
  */
 export function getGitDriver(mode?: GitDriverMode): IGitDriver {
   const activeMode = mode || getDriverMode()
@@ -68,26 +70,42 @@ export function getGitDriver(mode?: GitDriverMode): IGitDriver {
 }
 
 /**
- * React hook to observe and toggle Git driver mode in UI
+ * React hook to observe and toggle Git driver mode in UI.
  */
 export function useGitDriver() {
-  const [mode, setModeState] = useState<GitDriverMode>(defaultDriverMode)
+  let pathname: string | null = null
+  try {
+    // Some Jest suites mock next/navigation without usePathname
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    pathname = typeof usePathname === 'function' ? usePathname() : null
+  } catch {
+    pathname = null
+  }
+  const routeMode: GitDriverMode | null = pathname ? driverModeFromPathname(pathname) : null
+  const [mode, setModeState] = useState<GitDriverMode>(() => routeMode || getDriverMode())
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
     setMounted(true)
-    setModeState(getDriverMode())
+    setModeState(routeMode || getDriverMode())
+  }, [routeMode])
 
-    function onModeChanged(e: Event) {
-      const customEvent = e as CustomEvent<GitDriverMode | DriverModeChangedDetail>
-      const detail = customEvent.detail
+  useEffect(() => {
+    function syncFromUrlOrEvent(e?: Event) {
+      const detail = (e as CustomEvent<GitDriverMode | DriverModeChangedDetail> | undefined)?.detail
       const nextMode = typeof detail === 'string' ? detail : detail?.mode
       if (nextMode === 'edge' || nextMode === 'local') {
         setModeState(nextMode)
+        return
       }
+      setModeState(getDriverMode())
     }
-    window.addEventListener(DRIVER_MODE_EVENT, onModeChanged)
-    return () => window.removeEventListener(DRIVER_MODE_EVENT, onModeChanged)
+    window.addEventListener(DRIVER_MODE_EVENT, syncFromUrlOrEvent)
+    window.addEventListener('popstate', syncFromUrlOrEvent)
+    return () => {
+      window.removeEventListener(DRIVER_MODE_EVENT, syncFromUrlOrEvent)
+      window.removeEventListener('popstate', syncFromUrlOrEvent)
+    }
   }, [])
 
   const setMode = useCallback((nextMode: GitDriverMode, extra?: { targetRepo?: string; targetUrl?: string }) => {
@@ -95,14 +113,23 @@ export function useGitDriver() {
     setModeState(nextMode)
   }, [])
 
-  const driver = useMemo(() => getGitDriver(mode), [mode])
+  const activeMode = routeMode || mode
+  const driver = useMemo(() => getGitDriver(activeMode), [activeMode])
 
   return {
-    mode,
+    mode: activeMode,
     driver,
     setMode,
-    isEdge: mode === 'edge',
-    isLocal: mode === 'local',
+    isEdge: activeMode === 'edge',
+    isLocal: activeMode === 'local',
     mounted,
   }
+}
+
+/**
+ * Returns a helper that rewrites workspace hrefs to match the active URL mode (`/local/...` vs Edge).
+ */
+export function useModeHref(): (href: string) => string {
+  const { mode } = useGitDriver()
+  return useCallback((href: string) => withDriverModePath(href, mode), [mode])
 }

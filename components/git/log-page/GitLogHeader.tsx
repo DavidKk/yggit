@@ -15,6 +15,7 @@ import { WorkspaceHeaderSlot } from '@/components/layout/WorkspaceHeaderContext'
 import { Button, Spinner, Tooltip } from '@/components/sk'
 import { dropdownTriggerClass } from '@/components/sk/dropdownMenu'
 import { ThemeSwitcher } from '@/components/theme/ThemeSwitcher'
+import { useModeHref } from '@/lib/git/driver'
 import type { AddRemoteProjectOptions } from '@/lib/git/driver/types'
 import { saveLastGitUrl } from '@/lib/git/last-git-url'
 import type { GitLogView, GitProjectView } from '@/lib/git/types'
@@ -81,6 +82,7 @@ export function GitLogHeader({
   onCreateBranch?: (name: string, startPoint?: string, checkout?: boolean) => Promise<void>
   t: ReturnType<typeof useT>
 }) {
+  const modeHref = useModeHref()
   const projectSwitcher = (
     <div ref={projectFindRef} data-git-find="project-switcher" className="relative min-w-0">
       <Tooltip content={view?.displayPath || view?.repo || t('git.header.pickRepo')} placement="bottom" suppressed={menuOpen || !view}>
@@ -168,15 +170,16 @@ export function GitLogHeader({
   return (
     <header className="flex shrink-0 items-center gap-3 border-b border-line bg-panel-2/60 px-3 py-1.5">
       <BrandLogo
-        href="/git"
+        href={modeHref('/git')}
         className="shrink-0"
         markClassName="size-7"
         wordmarkClassName="text-[0.95rem]"
         onClick={(e) => {
           e.preventDefault()
           void load('')
-          if (typeof window !== 'undefined' && window.location.pathname !== '/git') {
-            window.history.pushState(null, '', '/git')
+          const baseGit = modeHref('/git')
+          if (typeof window !== 'undefined' && window.location.pathname !== baseGit) {
+            window.history.pushState(null, '', baseGit)
           }
         }}
       />
@@ -203,7 +206,7 @@ export function GitLogHeader({
         <LocaleSwitcher compact />
         <Tooltip content={t('gitAgent.settingsTitle')} placement="bottom">
           <Link
-            href="/settings/models"
+            href={modeHref('/settings/models')}
             onClick={() => {
               if (typeof window !== 'undefined') {
                 saveLastGitUrl(window.location.pathname + window.location.search)

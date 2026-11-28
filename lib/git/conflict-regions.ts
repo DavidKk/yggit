@@ -1,5 +1,23 @@
 export type ConflictRegion = { parents: [number, number]; result: number; patch: number }
 
+/** Detects balanced Git conflict marker blocks (`<<<<<<<` / `=======` / `>>>>>>>`) in text content. */
+export function containsConflictMarkers(content: string): boolean {
+  let width = 0
+  let separator = false
+  for (const line of content.split(/\r?\n/)) {
+    const start = line.match(/^(<{7,})(?: .*)?$/)
+    if (start) {
+      width = start[1].length
+      separator = false
+    } else if (width && line === '='.repeat(width)) {
+      separator = true
+    } else if (width && separator && new RegExp(`^>{${width}}(?: .*)?$`).test(line)) {
+      return true
+    }
+  }
+  return false
+}
+
 export function remergeHeaderPath(line: string): string | undefined {
   if (!/^(?:\+\+\+|---) /.test(line)) return undefined
   const value = line.slice(4).replace(/\t$/, '')

@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { promisify } from 'node:util'
 
+import { looksBinaryBuffer } from '@/lib/git/binary'
 import { GIT_WORKTREE_HASH, type GitCommitChanges, type GitFileChange } from '@/lib/git/types'
 
 import { resolveGitRepo } from './read'
@@ -40,16 +41,7 @@ async function gitBuffer(repo: string, args: string[]): Promise<Buffer> {
 }
 
 function looksBinary(buf: Buffer): boolean {
-  if (buf.includes(0)) return true
-  const n = Math.min(buf.length, 8000)
-  if (n === 0) return false
-  let weird = 0
-  for (let i = 0; i < n; i += 1) {
-    const code = buf[i]
-    if (code === 9 || code === 10 || code === 13) continue
-    if (code < 32 || code === 127) weird += 1
-  }
-  return weird / n > 0.12
+  return looksBinaryBuffer(buf)
 }
 
 function parseNameStatus(text: string): GitFileChange[] {

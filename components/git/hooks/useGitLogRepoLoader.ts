@@ -8,8 +8,10 @@ import { getDriverMode } from '@/lib/git/driver'
 import { saveLastGitUrl } from '@/lib/git/last-git-url'
 import { fetchRepoLogDeduplicated, getCachedRepoLog, hasGitLogViewChanged, isAbortError, prefetchTopCommitDiff, setCachedRepoLog } from '@/lib/git/log-view-cache'
 import { makeShareUrl, parseRepoSlug } from '@/lib/git/resolver'
+import { stripLocalPrefix, withDriverModePath } from '@/lib/git/route-mode'
 import { addTemporaryRepo, parseRemoteUrl } from '@/lib/git/temporary-store'
 import { GIT_WORKTREE_HASH, type GitCommit, type GitLogView, type GitProjectView, type GitSelection } from '@/lib/git/types'
+import { createScopedLogger } from '@/lib/logger'
 
 export function useGitLogRepoLoader({
   view,
@@ -77,13 +79,14 @@ export function useGitLogRepoLoader({
         url.searchParams.delete('url')
         url.searchParams.delete('hash')
         url.searchParams.delete('file')
-        window.history.replaceState(null, '', url.pathname.includes('/git') ? '/git' : url.pathname)
+        window.history.replaceState(null, '', stripLocalPrefix(url.pathname).includes('/git') ? withDriverModePath('/git', getDriverMode()) : url.pathname)
       }
       return
     }
 
     const controller = new AbortController()
     abortRef.current = controller
+    const loadLog = createScopedLogger('git')
 
     const cached = getCachedRepoLog(repo)
     if (cached) {
@@ -120,8 +123,14 @@ export function useGitLogRepoLoader({
       if (gen !== loadGenRef.current) return
       applyView(body)
       prefetchTopCommitDiff(body)
+      loadLog.info(`Loaded repository ${body.displayPath || body.repo}`, {
+        mode: getDriverMode(),
+        branch: body.branch,
+        commits: body.commits?.length ?? 0,
+      })
     } catch (loadError) {
       if (gen !== loadGenRef.current || isAbortError(loadError)) return
+      loadLog.error(`Failed to load repository ${repo}`, loadError)
       setView(null)
       setCommits([])
       setHasMore(false)
@@ -175,7 +184,7 @@ export function useGitLogRepoLoader({
       // Remote repository already resolved on SSR; keep it and warm the in-memory cache.
       setCachedRepoLog(view.repo, view)
     } else if (getDriverMode() === 'edge') {
-      const pathParts = window.location.pathname.split('/').filter(Boolean)
+      const pathParts = stripLocalPrefix(window.location.pathname).split('/').filter(Boolean)
       if (pathParts[0] === 'repo' && pathParts[1]) {
         void loadRef.current(pathParts[1])
       } else if (pathParts[0] === 'git' && pathParts.length > 1) {

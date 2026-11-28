@@ -8,6 +8,7 @@ import { useConfirm } from '@/components/confirm/ConfirmProvider'
 import { useT } from '@/components/i18n/LocaleProvider'
 import { useNotification } from '@/components/notification/useNotification'
 import { Badge, Button, SwitchToggle } from '@/components/sk'
+import { useModeHref } from '@/lib/git/driver'
 import { parseSkillMarkdown } from '@/lib/skills/parser'
 import { checkAndUpdateGitHubSkill, discoverSkillsFromGitHub } from '@/lib/skills/providers/github-provider'
 import { deleteSkill, listSkills, saveSkill, toggleSkill } from '@/lib/skills/storage'
@@ -24,6 +25,7 @@ interface SkillEditorProps {
 export function SkillEditor({ skillId }: SkillEditorProps) {
   const t = useT()
   const router = useRouter()
+  const modeHref = useModeHref()
   const notify = useNotification()
   const confirm = useConfirm()
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -72,7 +74,7 @@ export function SkillEditor({ skillId }: SkillEditorProps) {
   }, [skillId, isNew])
 
   const handleBack = () => {
-    router.replace('/settings/skills')
+    router.replace(modeHref('/settings/skills'))
   }
 
   // Handle local file selection
@@ -120,7 +122,7 @@ export function SkillEditor({ skillId }: SkillEditorProps) {
 
     await saveSkill(newSkill)
     notify.success(t('gitAgent.skillAdded', { name: finalName }) || `Added skill "${finalName}"`)
-    router.replace('/settings/skills')
+    router.replace(modeHref('/settings/skills'))
   }
 
   // Import GitHub skill
@@ -148,7 +150,7 @@ export function SkillEditor({ skillId }: SkillEditorProps) {
         await saveSkill(s)
       }
       notify.success(t('gitAgent.skillImported', { count: results.length }) || `Successfully imported ${results.length} GitHub skills`)
-      router.replace('/settings/skills')
+      router.replace(modeHref('/settings/skills'))
     } catch (err) {
       notify.error(err instanceof Error ? err.message : t('gitAgent.skillImportFailed') || 'Failed to import skill from GitHub')
     } finally {
@@ -213,7 +215,7 @@ export function SkillEditor({ skillId }: SkillEditorProps) {
         try {
           await deleteSkill(skill.id)
           notify.success(t('gitAgent.skillRemoved') || 'Skill removed')
-          router.replace('/settings/skills')
+          router.replace(modeHref('/settings/skills'))
         } catch (err) {
           notify.error(err instanceof Error ? err.message : 'Failed to remove skill')
           throw err

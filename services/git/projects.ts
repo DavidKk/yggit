@@ -11,7 +11,9 @@ import { listRemoteGroup, remoteGroupLocation } from '@/lib/git/remote-groups'
 import type { GitProjectCatalog, GitProjectGroup, GitProjectHost, GitProjectView, GitRemoteSource } from '@/lib/git/types'
 import { assertSafeOutboundUrl } from '@/lib/security/ssrf'
 
+import { cleanupRemovedProjectsData } from './cleanup'
 import { discoverGitRepos } from './discover'
+import { isEphemeralRepoPath } from './ephemeral'
 
 const execFileAsync = promisify(execFile)
 const DIR = path.join(ROOT_PATH, 'data', 'git-projects')
@@ -158,7 +160,7 @@ export function readLastOpenedRepo(): string {
 
 export function writeLastOpenedRepo(repo: string) {
   const pathName = repo.trim()
-  if (!pathName) return
+  if (!pathName || isEphemeralRepoPath(pathName)) return
   writeJson(LAST, { path: pathName })
 }
 
@@ -167,6 +169,7 @@ export function listGitProjects(): GitProjectView[] {
   const folderRank = new Map(folders.map((name, index) => [name, index]))
   // Keep catalog array order within a folder so drag-reorder can persist.
   return readCatalog()
+    .filter((item) => !(item.localPath && isEphemeralRepoPath(item.localPath) && !fs.existsSync(item.localPath)))
     .map(toView)
     .slice()
     .sort((a, b) => (folderRank.get(a.group) ?? 999) - (folderRank.get(b.group) ?? 999))
@@ -292,11 +295,19 @@ export function deleteGitFolder(name: string): GitProjectCatalog & { removedCoun
   const folder = normalizeFolderName(name)
   if (!folder) throw new Error('选择文件夹')
   const before = readCatalog()
-  const projects = before.filter((project) => normalizeFolderName(project.group) !== folder)
-  const removedCount = before.length - projects.length
+  const removed: StoredProject[] = []
+  const projects = before.filter((project) => {
+    if (normalizeFolderName(project.group) === folder) {
+      removed.push(project)
+      return false
+    }
+    return true
+  })
+  const removedCount = removed.length
   // Persist deletion: do not re-seed 工作项目/个人项目 from DEFAULT_FOLDERS.
   const folders = readFolders().filter((item) => normalizeFolderName(item) !== folder)
   writeCatalog(projects, folders)
+  cleanupRemovedProjectsData(removed)
   return { ...listGitCatalog(), removedCount }
 }
 
@@ -304,9 +315,11 @@ export function removeGitProject(id: string): GitProjectCatalog {
   const key = id.trim()
   if (!key) throw new Error('缺少项目')
   const projects = readCatalog()
+  const removed = projects.find((item) => item.id === key)
+  if (!removed) throw new Error('找不到这个项目')
   const next = projects.filter((item) => item.id !== key)
-  if (next.length === projects.length) throw new Error('找不到这个项目')
   writeCatalog(next)
+  cleanupRemovedProjectsData([removed])
   return listGitCatalog()
 }
 
@@ -343,6 +356,21 @@ export async function getProjectRemotes(repo: string): Promise<GitRemoteSource[]
     }))
   } catch {
     return []
+  }
+}
+
+function toTransientView(absolute: string, label: string, remote: ReturnType<typeof normalizeRemote>, remotesList: GitRemoteSource[]): GitProjectView {
+  return {
+    id: projectId(`local:${absolute}`),
+    name: label,
+    group: '',
+    host: remote?.kind || 'local',
+    localPath: absolute,
+    httpsUrl: remote?.httpsUrl || '',
+    local: true,
+    remote: Boolean(remote?.httpsUrl) || remotesList.length > 0,
+    authorized: false,
+    remotes: remotesList.length > 0 ? remotesList : undefined,
   }
 }
 
@@ -383,21 +411,10 @@ export async function rememberLocalProject(repo: string, options?: { create?: bo
     return toView(remoteOnly)
   }
 
-  // User wiped the switcher (folders: [] + no projects): stay empty until they explicitly add again.
-  // `create: true` is for 添加本地 / import, which may rebuild after a wipe.
-  if (catalogWasCleared() && options?.create !== true) {
-    return {
-      id: projectId(`local:${absolute}`),
-      name: label,
-      group: '',
-      host: remote?.kind || 'local',
-      localPath: absolute,
-      httpsUrl: remote?.httpsUrl || '',
-      local: true,
-      remote: Boolean(remote?.httpsUrl) || remotesList.length > 0,
-      authorized: false,
-      remotes: remotesList.length > 0 ? remotesList : undefined,
-    }
+  // Ephemeral temp repos (e.g. Playwright E2E) and wiped switchers must not auto-register.
+  // `create: true` is for explicit user actions such as 添加本地 / import.
+  if (options?.create !== true && (catalogWasCleared() || isEphemeralRepoPath(absolute))) {
+    return toTransientView(absolute, label, remote, remotesList)
   }
 
   const folders = readFolders()

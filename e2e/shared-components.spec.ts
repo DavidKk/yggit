@@ -13,14 +13,8 @@ test.describe('Shared Components E2E (Search, Collapse, Drag, ContextMenu)', () 
     cleanupTestRepo(fixture.repoDir)
   })
 
-  test.beforeEach(async ({ page }) => {
-    await page.addInitScript(() => {
-      window.localStorage.setItem('yggit.driver_mode', 'local')
-    })
-  })
-
   test('Sidebar section collapse/expand and branch search filter', async ({ page }) => {
-    await page.goto(`/git?repo=${encodeURIComponent(fixture.repoDir)}`)
+    await page.goto(`/local/git?repo=${encodeURIComponent(fixture.repoDir)}`)
 
     const branchNav = page.getByRole('navigation', { name: /Branches|分支/i }).first()
     const localSectionBtn = branchNav.getByRole('button', { name: /^Local|^本地/i }).first()
@@ -56,7 +50,7 @@ test.describe('Shared Components E2E (Search, Collapse, Drag, ContextMenu)', () 
   })
 
   test('PanelSplitter drag-to-resize updates sidebar and file-tree widths', async ({ page }) => {
-    await page.goto(`/git?repo=${encodeURIComponent(fixture.repoDir)}`)
+    await page.goto(`/local/git?repo=${encodeURIComponent(fixture.repoDir)}`)
     await expect(page.getByText('merge: conflicted feat/ui into main').first()).toBeVisible()
     await expect(page.getByRole('status', { name: /Switching repository|正在切换/i })).toHaveCount(0)
     await page.waitForFunction(() => document.documentElement.style.getPropertyValue('--git-sidebar-w') !== '')
@@ -99,7 +93,7 @@ test.describe('Shared Components E2E (Search, Collapse, Drag, ContextMenu)', () 
   })
 
   test('Commit file tree collapse/expand, file search, and diff find box', async ({ page }) => {
-    await page.goto(`/git?repo=${encodeURIComponent(fixture.repoDir)}`)
+    await page.goto(`/local/git?repo=${encodeURIComponent(fixture.repoDir)}`)
     await page.getByText('feat(ui): add sub helper and ui mode').first().click()
 
     const treePanel = page.getByRole('complementary', { name: /Files|文件/i }).first()
@@ -150,7 +144,7 @@ test.describe('Shared Components E2E (Search, Collapse, Drag, ContextMenu)', () 
   })
 
   test('Context menu opens on right-click and closes on Escape', async ({ page }) => {
-    await page.goto(`/git?repo=${encodeURIComponent(fixture.repoDir)}`)
+    await page.goto(`/local/git?repo=${encodeURIComponent(fixture.repoDir)}`)
     await expect(page.getByText('merge: conflicted feat/ui into main').first()).toBeVisible()
     await expect(page.getByRole('status', { name: /Switching repository|正在切换/i })).toHaveCount(0)
     await page.waitForFunction(() => document.documentElement.style.getPropertyValue('--git-sidebar-w') !== '')

@@ -12,7 +12,7 @@ import { getModelFilterConflicts, isModelAllowed } from '@/lib/agent/model-filte
 import type { AgentModelProfile } from '@/lib/agent/model-profiles'
 import { AGENT_PRESETS, DEFAULT_AGENT_CONFIG } from '@/lib/agent/types'
 import { useLocalProfileReadiness } from '@/lib/agent/use-local-readiness'
-import { getDriverMode } from '@/lib/git/driver'
+import { getDriverMode, useModeHref } from '@/lib/git/driver'
 
 import { ModelChannelEditor } from './ModelChannelEditor'
 import { ModelFilterInputs } from './ModelFilterInputs'
@@ -28,6 +28,7 @@ interface ModelChannelSectionProps {
 
 export function ModelChannelSection({ inline = false, onAdd, onEdit }: ModelChannelSectionProps = {}) {
   const t = useT()
+  const modeHref = useModeHref()
   let router: ReturnType<typeof useRouter> | null = null
   try {
     // eslint-disable-next-line react-hooks/rules-of-hooks
@@ -54,7 +55,7 @@ export function ModelChannelSection({ inline = false, onAdd, onEdit }: ModelChan
       return
     }
     if (!inline && router?.push) {
-      router.push('/settings/models/new')
+      router.push(modeHref('/settings/models/new'))
       return
     }
     setInlineEditing({ id: crypto.randomUUID(), name: '', config: { ...DEFAULT_AGENT_CONFIG } })
@@ -66,7 +67,7 @@ export function ModelChannelSection({ inline = false, onAdd, onEdit }: ModelChan
       return
     }
     if (!inline && router?.push) {
-      router.push(`/settings/models/${profile.id}`)
+      router.push(modeHref(`/settings/models/${profile.id}`))
       return
     }
     setInlineEditing(profile)

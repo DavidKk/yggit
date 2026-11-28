@@ -7,7 +7,7 @@ import { LuArrowLeft, LuCheck, LuFolderGit2, LuPlay, LuUpload } from 'react-icon
 
 import { useT } from '@/components/i18n/LocaleProvider'
 import { Badge, Button, TextInput } from '@/components/sk'
-import { getGitDriver } from '@/lib/git/driver'
+import { getGitDriver, useModeHref } from '@/lib/git/driver'
 import type { GitProjectView } from '@/lib/git/types'
 import { cn } from '@/lib/utils'
 import { workdeskEngine } from '@/lib/workdesk/engine'
@@ -17,6 +17,7 @@ import type { CheckRecipe, RepoMatchResult } from '@/lib/workdesk/types'
 export function PortableCheckImportView() {
   const t = useT()
   const router = useRouter()
+  const modeHref = useModeHref()
 
   const [rawInput, setRawInput] = useState('')
   const [recipe, setRecipe] = useState<CheckRecipe | null>(null)
@@ -83,7 +84,7 @@ export function PortableCheckImportView() {
         .filter(Boolean) as GitProjectView[]
 
       await workdeskEngine.scan(matchedProjects)
-      router.push('/workdesk')
+      router.push(modeHref('/workdesk'))
     } finally {
       setIsChecking(false)
     }
@@ -94,7 +95,7 @@ export function PortableCheckImportView() {
       {/* Top Header */}
       <div className="mb-6 flex items-center justify-between border-b border-line pb-4">
         <div className="flex items-center gap-3">
-          <Link href="/workdesk">
+          <Link href={modeHref('/workdesk')}>
             <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
               <LuArrowLeft className="size-4" aria-hidden="true" />
             </Button>

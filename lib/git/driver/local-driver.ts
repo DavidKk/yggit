@@ -1,5 +1,6 @@
 import { readApiErrorMessage } from '@/lib/api-error'
 import { GIT_WORKTREE_HASH, type GitCommit, type GitCommitChanges, type GitLogView, type GitProjectCatalog, type GitProjectView, type GitRemoteSource } from '@/lib/git/types'
+import { runWithForegroundPriority } from '@/lib/workdesk/scheduler'
 
 import type {
   AddProjectPayload,
@@ -93,7 +94,7 @@ export class LocalGitDriver implements IGitDriver {
     if (options.file) params.set('path', options.file)
     if (options.all) params.set('all', '1')
 
-    const fetchPromise = (async () => {
+    const fetchPromise = runWithForegroundPriority(async () => {
       const res = await fetch(`/api/git/commit?${params.toString()}`)
       if (!res.ok) {
         const body: unknown = await res.json().catch(() => null)
@@ -108,7 +109,7 @@ export class LocalGitDriver implements IGitDriver {
         commitDiffClientCache.set(cacheKey, data)
       }
       return data
-    })().finally(() => {
+    }).finally(() => {
       if (cacheKey) inFlightRequests.delete(cacheKey)
     })
 
@@ -128,8 +129,14 @@ export class LocalGitDriver implements IGitDriver {
       throw new Error(text || `Failed to read blob (${res.status})`)
     }
 
+    const binaryHeader = res.headers?.get('x-git-binary')
     const contentType = res.headers?.get('content-type') || ''
-    const isBinary = Boolean(contentType) && !contentType.startsWith('text/') && !contentType.includes('json') && !contentType.includes('javascript')
+    const isBinary =
+      binaryHeader === '1'
+        ? true
+        : binaryHeader === '0'
+          ? false
+          : Boolean(contentType) && !contentType.startsWith('text/') && !contentType.includes('json') && !contentType.includes('javascript') && !contentType.includes('xml')
     const text = await res.text()
     return {
       content: text,

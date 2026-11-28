@@ -1,3 +1,5 @@
+import { createTraceId } from '@/lib/logger'
+
 import { isModelAllowed, type ModelFilterOptions } from './model-filter'
 import { sendAgentCompletion } from './openapi-client'
 import { createRedactionSession, RedactionEngine } from './redact/engine'
@@ -116,6 +118,7 @@ export async function composeCommitMessageWithAi(options: ComposeCommitOptions):
 
   const engine = redactionOptions?.enabled ? new RedactionEngine(redactionOptions, createRedactionSession()) : undefined
   const startedAt = Date.now()
+  const traceId = createTraceId()
 
   try {
     const res = await sendAgentCompletion({
@@ -128,6 +131,7 @@ export async function composeCommitMessageWithAi(options: ComposeCommitOptions):
 
     const parsed = parseAiCommitResponse(res.content || '')
     recordAgentTrace({
+      traceId,
       durationMs: Date.now() - startedAt,
       status: parsed ? 'success' : 'error',
       provider: config.provider,
@@ -154,6 +158,7 @@ export async function composeCommitMessageWithAi(options: ComposeCommitOptions):
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : String(err)
     recordAgentTrace({
+      traceId,
       durationMs: Date.now() - startedAt,
       status: 'error',
       provider: config.provider,

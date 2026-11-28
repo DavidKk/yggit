@@ -1,6 +1,7 @@
 import { defineApiRoute } from '@/initializer/controller'
 import { apiBadRequest, apiOk } from '@/initializer/response'
 import { detectMergeConflict, getRemergeDiff, type MergeConflictRecord, readCachedConflicts, writeCachedConflicts } from '@/services/git/conflicts'
+import { isEphemeralRepoPath } from '@/services/git/ephemeral'
 import { resolveGitRepo } from '@/services/git/read'
 
 export const runtime = 'nodejs'
@@ -40,7 +41,7 @@ export const POST = defineApiRoute('post:/api/git/conflicts', async ({ request }
         cached[item.hash] = record
         dirty = true
       }
-      if (dirty) {
+      if (dirty && !isEphemeralRepoPath(repo)) {
         writeCachedConflicts(repo, cached)
       }
     }

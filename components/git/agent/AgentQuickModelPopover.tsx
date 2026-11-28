@@ -12,8 +12,9 @@ import { useAgent } from '@/lib/agent/agent-context'
 import { isModelAllowed } from '@/lib/agent/model-filter'
 import { AGENT_PRESETS } from '@/lib/agent/types'
 import { useLocalProfileReadiness } from '@/lib/agent/use-local-readiness'
-import { getDriverMode } from '@/lib/git/driver'
+import { getDriverMode, useModeHref } from '@/lib/git/driver'
 import { saveLastGitUrl } from '@/lib/git/last-git-url'
+import { stripLocalPrefix } from '@/lib/git/route-mode'
 import { openEdgeSecret } from '@/lib/security/edge-vault'
 import { cn } from '@/lib/utils'
 
@@ -25,6 +26,7 @@ interface Props {
 
 export function AgentQuickModelPopover({ tabIndex, className, side = 'top' }: Props) {
   const t = useT()
+  const modeHref = useModeHref()
   const { profiles, activeProfileId, selectProfile, saveProfile, modelFilter } = useAgent()
   const readinessMap = useLocalProfileReadiness(profiles)
   const [open, setOpen] = useState(false)
@@ -190,10 +192,10 @@ export function AgentQuickModelPopover({ tabIndex, className, side = 'top' }: Pr
               </div>
               <Tooltip content={t('gitAgent.settingsTitle')} placement="top">
                 <Link
-                  href="/settings/models"
+                  href={modeHref('/settings/models')}
                   onClick={() => {
                     setOpen(false)
-                    if (typeof window !== 'undefined' && window.location.pathname.startsWith('/git')) {
+                    if (typeof window !== 'undefined' && stripLocalPrefix(window.location.pathname).startsWith('/git')) {
                       saveLastGitUrl(window.location.pathname + window.location.search)
                     }
                   }}

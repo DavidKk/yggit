@@ -1,4 +1,5 @@
-import { openLogsDb } from '@/lib/logger'
+import { openLogsDb, resolveTraceId } from '@/lib/logger'
+import { getLogRetentionPolicy, pruneIndexedDbStore, retainRecentEntries } from '@/lib/logger/retention'
 
 export interface AgentTraceToolExecution {
   name: string
@@ -10,6 +11,7 @@ export interface AgentTraceToolExecution {
 
 export interface AgentRunTrace {
   id: string
+  traceId: string
   timestamp: number
   durationMs: number
   status: 'success' | 'error'
@@ -35,8 +37,10 @@ export interface AgentRunTrace {
   }
 }
 
-const MAX_MEMORY_TRACES = 100
+const PRUNE_WRITE_INTERVAL = 10
 const memoryTraces: AgentRunTrace[] = []
+let hydratedTracesFromDb = false
+let traceWritesSincePrune = 0
 type TraceListener = (traces: AgentRunTrace[]) => void
 const listeners = new Set<TraceListener>()
 
@@ -57,23 +61,33 @@ async function persistTrace(entry: AgentRunTrace): Promise<void> {
   try {
     const tx = db.transaction('agent_traces', 'readwrite')
     tx.objectStore('agent_traces').put(entry)
+    traceWritesSincePrune += 1
+    if (traceWritesSincePrune >= PRUNE_WRITE_INTERVAL) {
+      traceWritesSincePrune = 0
+      const policy = getLogRetentionPolicy()
+      void pruneIndexedDbStore(db, 'agent_traces', policy.maxTraces, policy.maxTraceAgeMs)
+    }
   } catch {
     // Ignore storage errors
   }
 }
 
+export type RecordAgentTraceInput = Omit<AgentRunTrace, 'id' | 'timestamp' | 'traceId'> & {
+  traceId?: string
+}
+
 /** Record an Agent execution trace in memory and IndexedDB. */
-export function recordAgentTrace(input: Omit<AgentRunTrace, 'id' | 'timestamp'>): AgentRunTrace {
+export function recordAgentTrace(input: RecordAgentTraceInput): AgentRunTrace {
   const entry: AgentRunTrace = {
     ...input,
     id: `trace_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    traceId: resolveTraceId(input.traceId),
     timestamp: Date.now(),
   }
 
-  memoryTraces.unshift(entry)
-  if (memoryTraces.length > MAX_MEMORY_TRACES) {
-    memoryTraces.pop()
-  }
+  const policy = getLogRetentionPolicy()
+  const retained = retainRecentEntries([entry, ...memoryTraces], policy.maxTraces, policy.maxTraceAgeMs)
+  memoryTraces.splice(0, memoryTraces.length, ...retained)
 
   void persistTrace(entry)
   notifyListeners()
@@ -91,10 +105,25 @@ export function subscribeAgentTraces(listener: TraceListener): () => void {
   }
 }
 
-export async function loadPersistedAgentTraces(limit = 100): Promise<AgentRunTrace[]> {
-  if (memoryTraces.length > 0) return [...memoryTraces]
+export async function loadPersistedAgentTraces(limit?: number, force = false): Promise<AgentRunTrace[]> {
+  const policy = getLogRetentionPolicy()
+  const effectiveLimit = Math.min(limit ?? policy.maxTraces, policy.maxTraces)
+
+  if (hydratedTracesFromDb && !force) {
+    const trimmed = retainRecentEntries(memoryTraces, policy.maxTraces, policy.maxTraceAgeMs)
+    memoryTraces.splice(0, memoryTraces.length, ...trimmed)
+    return memoryTraces.slice(0, effectiveLimit)
+  }
+
   const db = await openLogsDb()
-  if (!db || !db.objectStoreNames.contains('agent_traces')) return []
+  if (!db || !db.objectStoreNames.contains('agent_traces')) {
+    const trimmed = retainRecentEntries(memoryTraces, policy.maxTraces, policy.maxTraceAgeMs)
+    memoryTraces.splice(0, memoryTraces.length, ...trimmed)
+    return memoryTraces.slice(0, effectiveLimit)
+  }
+
+  const now = Date.now()
+  const cutoff = now - policy.maxTraceAgeMs
 
   return new Promise((resolve) => {
     try {
@@ -106,27 +135,35 @@ export async function loadPersistedAgentTraces(limit = 100): Promise<AgentRunTra
 
       req.onsuccess = () => {
         const cursor = req.result
-        if (cursor && results.length < limit) {
-          results.push(cursor.value as AgentRunTrace)
-          cursor.continue()
-        } else {
-          for (const item of results) {
-            if (!memoryTraces.some((t) => t.id === item.id)) {
-              memoryTraces.push(item)
-            }
+        if (cursor && results.length < effectiveLimit) {
+          const item = cursor.value as AgentRunTrace
+          if (item.timestamp >= cutoff) {
+            results.push(item)
+            cursor.continue()
+            return
           }
-          resolve([...memoryTraces])
         }
+
+        const deduped = new Map<string, AgentRunTrace>()
+        for (const item of memoryTraces) deduped.set(item.id, item)
+        for (const item of results) deduped.set(item.id, item)
+        const merged = retainRecentEntries([...deduped.values()], policy.maxTraces, policy.maxTraceAgeMs, now)
+        memoryTraces.splice(0, memoryTraces.length, ...merged)
+        hydratedTracesFromDb = true
+
+        void pruneIndexedDbStore(db, 'agent_traces', policy.maxTraces, policy.maxTraceAgeMs, now)
+        resolve(memoryTraces.slice(0, effectiveLimit))
       }
-      req.onerror = () => resolve([])
+      req.onerror = () => resolve(retainRecentEntries(memoryTraces, effectiveLimit, policy.maxTraceAgeMs, now))
     } catch {
-      resolve([])
+      resolve(retainRecentEntries(memoryTraces, effectiveLimit, policy.maxTraceAgeMs, now))
     }
   })
 }
 
 export async function clearAllAgentTraces(): Promise<void> {
   memoryTraces.length = 0
+  hydratedTracesFromDb = true
   notifyListeners()
   const db = await openLogsDb()
   if (!db || !db.objectStoreNames.contains('agent_traces')) return

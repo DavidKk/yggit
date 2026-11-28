@@ -1,17 +1,22 @@
 'use client'
 
-import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { LuCheck, LuChevronDown, LuChevronRight, LuCopy, LuDownload, LuRefreshCw, LuTrash2 } from 'react-icons/lu'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { LuChevronRight, LuCircleAlert, LuDownload, LuFileText, LuMonitor, LuRefreshCw, LuTrash2, LuZap } from 'react-icons/lu'
 
+import { AgentTraceDetailCard } from '@/components/dev/logs/AgentTraceDetailCard'
 import { useT } from '@/components/i18n/LocaleProvider'
 import { dataTable } from '@/components/layoutClasses'
 import { useNotification } from '@/components/notification/useNotification'
-import { Badge, Button, EmptyState, ScrollArea, Select, TextInput } from '@/components/sk'
+import { Button, EmptyState, ScrollArea, Select, TextInput, Tooltip } from '@/components/sk'
 import { type AgentRunTrace, clearAllAgentTraces, getMemoryAgentTraces, loadPersistedAgentTraces, subscribeAgentTraces } from '@/lib/agent/trace-logger'
 import { copyToClipboard } from '@/lib/clipboard'
+import { formatDuration } from '@/lib/format-duration'
+import { getLogRetentionPolicy } from '@/lib/logger/retention'
 import { cn } from '@/lib/utils'
 
-const traceTable = cn(dataTable, 'min-w-[44rem] text-xs [--data-list-columns:5.5rem_4.5rem_13rem_minmax(0,1fr)]')
+import { DevLogsPagination } from './DevLogsPagination'
+
+const traceTable = cn(dataTable, 'text-xs [--data-list-columns:4.75rem_9.5rem_minmax(0,1fr)]')
 
 function formatTime(ts: number): string {
   try {
@@ -26,15 +31,44 @@ export function AgentContextTracePanel({ title, desc }: { title: string; desc: s
   const notify = useNotification()
   const scrollRef = useRef<HTMLDivElement>(null)
   const [traces, setTraces] = useState<AgentRunTrace[]>(() => getMemoryAgentTraces())
-  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<'all' | 'success' | 'error'>('all')
   const [query, setQuery] = useState('')
   const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(25)
+  const policy = useMemo(() => getLogRetentionPolicy(), [])
 
   useEffect(() => {
-    void loadPersistedAgentTraces(100).then(setTraces)
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      const q = params.get('q')
+      const id = params.get('id')
+      if (q) setQuery(q)
+      if (id) setSelectedId(id)
+    }
+    void loadPersistedAgentTraces().then(setTraces)
     return subscribeAgentTraces(setTraces)
   }, [])
+
+  const syncSelectedUrl = useCallback((nextId: string | null) => {
+    if (typeof window === 'undefined') return
+    const url = new URL(window.location.href)
+    if (nextId) {
+      url.searchParams.set('id', nextId)
+    } else {
+      url.searchParams.delete('id')
+    }
+    window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`)
+  }, [])
+
+  const selectTrace = useCallback(
+    (nextId: string | null) => {
+      setSelectedId(nextId)
+      syncSelectedUrl(nextId)
+    },
+    [syncSelectedUrl]
+  )
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase()
@@ -45,10 +79,41 @@ export function AgentContextTracePanel({ title, desc }: { title: string; desc: s
         tr.userPrompt.toLowerCase().includes(needle) ||
         tr.model.toLowerCase().includes(needle) ||
         tr.provider.toLowerCase().includes(needle) ||
+        (tr.traceId || '').toLowerCase().includes(needle) ||
         (tr.repo || '').toLowerCase().includes(needle)
       )
     })
   }, [traces, statusFilter, query])
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
+  const safePage = Math.min(page, totalPages)
+  const pagedTraces = useMemo(() => {
+    const start = (safePage - 1) * pageSize
+    return filtered.slice(start, start + pageSize)
+  }, [filtered, safePage, pageSize])
+
+  const selectedTrace = useMemo(() => filtered.find((item) => item.id === selectedId || item.traceId === selectedId) ?? null, [filtered, selectedId])
+
+  useEffect(() => {
+    if (!selectedTrace) return
+    const idx = filtered.findIndex((item) => item.id === selectedTrace.id)
+    if (idx < 0) return
+    const targetPage = Math.floor(idx / pageSize) + 1
+    if (targetPage !== page) {
+      setPage(targetPage)
+    }
+  }, [filtered, page, pageSize, selectedTrace])
+
+  const handlePageChange = (nextPage: number) => {
+    setPage(nextPage)
+    scrollRef.current?.scrollTo({ top: 0 })
+  }
+
+  const handlePageSizeChange = (nextSize: number) => {
+    setPageSize(nextSize)
+    setPage(1)
+    scrollRef.current?.scrollTo({ top: 0 })
+  }
 
   const handleCopyJson = async (trace: AgentRunTrace) => {
     const ok = await copyToClipboard(JSON.stringify(trace, null, 2))
@@ -71,7 +136,7 @@ export function AgentContextTracePanel({ title, desc }: { title: string; desc: s
 
   const handleClear = async () => {
     await clearAllAgentTraces()
-    setExpandedId(null)
+    selectTrace(null)
     notify.success(t('gitAgent.devLogsAgentCleared') || 'Agent logs cleared')
   }
 
@@ -90,7 +155,10 @@ export function AgentContextTracePanel({ title, desc }: { title: string; desc: s
               search
               clearable
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => {
+                setQuery(e.target.value)
+                setPage(1)
+              }}
               placeholder={t('gitAgent.devLogsSearchAgentPlaceholder') || 'Search prompt, model, channel...'}
               className="w-48 shrink-0"
             />
@@ -103,177 +171,148 @@ export function AgentContextTracePanel({ title, desc }: { title: string; desc: s
                 { value: 'success', label: t('gitAgent.devLogsStatusSuccess') || 'Success' },
                 { value: 'error', label: t('gitAgent.devLogsStatusError') || 'Failed' },
               ]}
-              onChange={(val) => setStatusFilter(val as 'all' | 'success' | 'error')}
+              onChange={(val) => {
+                setStatusFilter(val as 'all' | 'success' | 'error')
+                setPage(1)
+              }}
             />
-            <Button variant="default" size="md" className="shrink-0" onClick={() => void loadPersistedAgentTraces(100).then(setTraces)}>
+            <Button
+              variant="outline-accent"
+              size="icon"
+              className="shrink-0"
+              aria-label={t('gitAgent.devLogsRefresh') || 'Refresh'}
+              tooltip={t('gitAgent.devLogsRefresh') || 'Refresh'}
+              onClick={() => void loadPersistedAgentTraces(undefined, true).then(setTraces)}
+            >
               <LuRefreshCw className="size-3.5" />
-              <span>{t('gitAgent.devLogsRefresh') || 'Refresh'}</span>
             </Button>
-            <Button variant="default" size="md" className="shrink-0" disabled={filtered.length === 0} onClick={handleExportAll}>
+            <span className="mx-1 h-4 w-px shrink-0 bg-line" aria-hidden="true" />
+            <Button
+              variant="default"
+              size="icon"
+              className="shrink-0"
+              disabled={filtered.length === 0}
+              aria-label={t('gitAgent.devLogsExport') || 'Export'}
+              tooltip={t('gitAgent.devLogsExport') || 'Export'}
+              onClick={handleExportAll}
+            >
               <LuDownload className="size-3.5" />
-              <span>{t('gitAgent.devLogsExport') || 'Export'}</span>
             </Button>
-            <Button variant="outline-fail" size="md" className="shrink-0" disabled={traces.length === 0} onClick={() => void handleClear()}>
+            <Button
+              variant="outline-fail"
+              size="icon"
+              className="shrink-0"
+              disabled={traces.length === 0}
+              aria-label={t('gitAgent.devLogsClear') || 'Clear'}
+              tooltip={t('gitAgent.devLogsClear') || 'Clear'}
+              onClick={() => void handleClear()}
+            >
               <LuTrash2 className="size-3.5" />
-              <span>{t('gitAgent.devLogsClear') || 'Clear'}</span>
             </Button>
           </div>
         </div>
       </div>
 
-      {/* Pure Trace Table + Expandable Details */}
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-paper">
-        {filtered.length === 0 ? (
-          <EmptyState
-            className="flex-1 py-12"
-            title={t('gitAgent.devLogsAgentEmptyTitle') || 'No Agent logs yet'}
-            message={t('gitAgent.devLogsAgentEmptyMsg') || 'Conversations with Yggi will record request context, raw responses, and tool executions here.'}
-          />
-        ) : (
-          <div role="list" aria-label={t('gitAgent.devLogsTabAgent') || 'Agent Logs'} className={cn(traceTable, 'flex min-h-0 flex-1 flex-col overflow-hidden')}>
-            <div data-list-head="" className="shrink-0">
-              <div role="presentation" data-list-row="">
-                <div data-list-heading="">{t('gitAgent.devLogsColTime') || 'Time'}</div>
-                <div data-list-heading="">{t('gitAgent.devLogsColStatus') || 'Status'}</div>
-                <div data-list-heading="">{t('gitAgent.devLogsColChannelModel') || 'Channel / Model'}</div>
-                <div data-list-heading="">{t('gitAgent.devLogsColPromptContext') || 'Prompt & Context'}</div>
+      {/* Trace List (Left) + Standalone Detail Card / NoData (Right) */}
+      <div className="flex min-h-0 flex-1 flex-row gap-0 overflow-hidden bg-paper p-0">
+        <div
+          role="list"
+          aria-label={t('gitAgent.devLogsTabAgent') || 'Agent Logs'}
+          className={cn(traceTable, 'flex min-h-0 w-[44%] min-w-[18rem] shrink-0 flex-col overflow-hidden border-r border-line bg-paper')}
+        >
+          {filtered.length === 0 ? (
+            <EmptyState
+              className="flex-1 py-12"
+              title={t('gitAgent.devLogsAgentEmptyTitle') || 'No Agent logs yet'}
+              message={t('gitAgent.devLogsAgentEmptyMsg') || 'Conversations with Yggi will record request context, raw responses, and tool executions here.'}
+            />
+          ) : (
+            <>
+              <div data-list-head="" className="shrink-0">
+                <div role="presentation" data-list-row="">
+                  <div data-list-heading="">{t('gitAgent.devLogsColTime') || 'Time'}</div>
+                  <div data-list-heading="">{t('gitAgent.devLogsColChannelModel') || 'Channel / Model'}</div>
+                  <div data-list-heading="">{t('gitAgent.devLogsColPromptContext') || 'Prompt & Context'}</div>
+                </div>
               </div>
-            </div>
-            <ScrollArea
-              className="min-h-0 flex-1"
-              scrollRef={scrollRef}
-              indicator="both"
-              scrollProps={{ 'aria-label': t('gitAgent.devLogsTabAgent') || 'Agent Logs', tabIndex: 0 }}
-            >
-              <div data-list-body="">
-                {filtered.map((item) => {
-                  const isExpanded = expandedId === item.id
-                  return (
-                    <React.Fragment key={item.id}>
+              <ScrollArea className="min-h-0 flex-1" scrollRef={scrollRef} indicator="both" scrollProps={{ 'aria-label': t('gitAgent.devLogsTabAgent') || 'Agent Logs', tabIndex: 0 }}>
+                <div data-list-body="">
+                  {pagedTraces.map((item) => {
+                    const isSelected = selectedTrace?.id === item.id
+                    return (
                       <div
+                        key={item.id}
                         role="listitem"
                         data-list-row=""
-                        onClick={() => setExpandedId((prev) => (prev === item.id ? null : item.id))}
-                        className="cursor-pointer"
+                        aria-current={isSelected ? 'true' : undefined}
+                        onClick={() => selectTrace(isSelected ? null : item.id)}
+                        className={cn('cursor-pointer transition-colors', isSelected && 'bg-accent/10 shadow-[inset_2px_0_0_var(--accent)]')}
                       >
                         <div data-list-cell="" className="whitespace-nowrap font-mono text-ink-soft tabular-nums" title={new Date(item.timestamp).toISOString()}>
                           {formatTime(item.timestamp)}
                         </div>
-                        <div data-list-cell="">
-                          <Badge tone={item.status === 'error' ? 'fail' : 'ok'}>
-                            {item.status === 'error' ? t('gitAgent.devLogsStatusError') || 'Failed' : t('gitAgent.devLogsStatusSuccess') || 'Success'}
-                          </Badge>
+                        <div data-list-cell="" className="flex min-w-0 items-center gap-1.5 font-mono text-ink-soft" title={`${item.provider} / ${item.model}`}>
+                          <LuMonitor className="size-3.5 shrink-0 opacity-75" aria-hidden="true" />
+                          <span className="block truncate">
+                            {item.provider} / {item.model}
+                          </span>
                         </div>
-                        <div data-list-cell="" className="truncate font-mono text-ink-soft" title={`${item.provider} / ${item.model}`}>
-                          {item.provider} / {item.model}
-                        </div>
-                        <div data-list-cell="" className="flex items-center justify-between gap-3">
+                        <div data-list-cell="" className="flex min-w-0 items-center justify-between gap-2">
                           <div className="flex min-w-0 items-center gap-1.5">
-                            {isExpanded ? <LuChevronDown className="size-3.5 shrink-0 text-ink-soft" /> : <LuChevronRight className="size-3.5 shrink-0 text-ink-soft" />}
+                            {item.status === 'error' ? (
+                              <Tooltip content={t('gitAgent.devLogsStatusError') || 'Failed'}>
+                                <span className="inline-flex shrink-0 items-center text-fail">
+                                  <LuCircleAlert className="size-3.5" />
+                                </span>
+                              </Tooltip>
+                            ) : null}
                             <span className="truncate text-ink">{item.userPrompt}</span>
                           </div>
-                          <div className="flex shrink-0 items-center gap-2 text-[11px] text-ink-soft tabular-nums">
-                            {item.fallbackToolCalls.length > 0 && <span className="text-accent">fallback x{item.fallbackToolCalls.length}</span>}
-                            {item.tokenUsage?.totalTokens ? <span>{item.tokenUsage.totalTokens} tok</span> : null}
-                            <span>{item.durationMs}ms</span>
+                          <div className="flex shrink-0 items-center gap-1.5 text-[11px] text-ink-soft tabular-nums">
+                            {item.fallbackToolCalls.length > 0 ? (
+                              <Tooltip content={`Fallback tool calls: ${item.fallbackToolCalls.length}`}>
+                                <span className="inline-flex items-center text-accent" aria-label={`Fallback tool calls: ${item.fallbackToolCalls.length}`}>
+                                  <LuZap className="size-3.5" />
+                                </span>
+                              </Tooltip>
+                            ) : null}
+                            <span>{formatDuration(item.durationMs)}</span>
+                            <LuChevronRight className={cn('size-3.5 text-ink-soft transition-colors', isSelected && 'text-accent')} />
                           </div>
                         </div>
                       </div>
+                    )
+                  })}
+                </div>
+              </ScrollArea>
+            </>
+          )}
+        </div>
 
-                      {isExpanded && (
-                        <div className="col-span-full space-y-3 border-b border-line bg-panel-2/40 p-3 text-xs select-text">
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <div className="text-[11px] text-ink-soft">
-                              {item.profileName ? `${item.profileName} · ` : ''}
-                              {new Date(item.timestamp).toLocaleString()}
-                              {item.repo ? ` · ${item.repo}` : ''}
-                            </div>
-                            <Button variant="default" size="xs" onClick={() => void handleCopyJson(item)}>
-                              {copiedId === item.id ? <LuCheck className="size-3.5 text-emerald-500" /> : <LuCopy className="size-3.5" />}
-                              <span>JSON</span>
-                            </Button>
-                          </div>
-
-                          {item.error && (
-                            <div className="rounded-lg border border-fail/35 bg-fail/10 p-2.5 text-xs text-fail">
-                              <pre className="whitespace-pre-wrap break-words font-mono text-[11px]">{item.error}</pre>
-                            </div>
-                          )}
-
-                          <div className="space-y-1.5">
-                            <div className="text-xs font-semibold text-ink">
-                              Tools ({item.toolNames.length} · native {item.nativeToolCalls.length} · fallback {item.fallbackToolCalls.length})
-                            </div>
-                            {item.matchedSkills.length > 0 && <div className="text-[11px] text-accent">Skills: {item.matchedSkills.join(', ')}</div>}
-                            {item.toolExecutions.length > 0 && (
-                              <div className="space-y-2">
-                                {item.toolExecutions.map((exec, idx) => (
-                                  <div key={`${exec.name}_${idx}`} className="rounded-lg border border-line bg-panel p-2.5 text-[11px]">
-                                    <div className="flex items-center justify-between gap-2 mb-1">
-                                      <span className="font-mono font-semibold text-ink">{exec.name}</span>
-                                      <span className={exec.ok ? 'text-emerald-600 dark:text-emerald-400' : 'text-fail'}>
-                                        {exec.ok ? 'OK' : 'FAIL'} · {exec.durationMs}ms
-                                      </span>
-                                    </div>
-                                    <div className="text-ink-soft font-mono break-all">Args: {JSON.stringify(exec.args)}</div>
-                                    <pre className="mt-1.5 max-h-32 overflow-y-auto rounded bg-panel-2 p-2 font-mono text-[11px] text-ink whitespace-pre-wrap break-words">
-                                      {exec.outputPreview}
-                                    </pre>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2">
-                            <div className="space-y-1">
-                              <div className="text-xs font-semibold text-ink">Raw Output</div>
-                              <pre className="max-h-56 overflow-y-auto rounded-lg border border-line bg-panel p-2.5 font-mono text-[11px] text-ink whitespace-pre-wrap break-words">
-                                {item.rawFinalContent !== undefined
-                                  ? `[Turn 1]\n${item.rawTurnOneContent || '(empty)'}\n\n[Final Turn]\n${item.rawFinalContent || '(empty)'}`
-                                  : item.rawTurnOneContent || '(empty)'}
-                              </pre>
-                            </div>
-                            <div className="space-y-1">
-                              <div className="text-xs font-semibold text-ink">Visible Output</div>
-                              <pre className="max-h-56 overflow-y-auto rounded-lg border border-line bg-panel p-2.5 font-mono text-[11px] text-ink whitespace-pre-wrap break-words">
-                                {item.visibleContent || '(empty)'}
-                              </pre>
-                            </div>
-                          </div>
-
-                          <div className="space-y-1.5">
-                            <div className="text-xs font-semibold text-ink">Request Messages ({item.requestMessages.length})</div>
-                            <div className="space-y-1.5">
-                              {item.requestMessages.map((msg, idx) => (
-                                <details key={idx} open={msg.role !== 'system'} className="rounded-lg border border-line bg-panel px-2.5 py-2">
-                                  <summary className="cursor-pointer text-[11px] font-semibold text-ink select-none">
-                                    [{idx + 1}] {msg.role} ({msg.content.length} chars)
-                                  </summary>
-                                  <pre className="mt-2 max-h-60 overflow-y-auto font-mono text-[11px] text-ink-soft whitespace-pre-wrap break-words">{msg.content}</pre>
-                                </details>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </React.Fragment>
-                  )
-                })}
-              </div>
-            </ScrollArea>
-          </div>
-        )}
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-panel p-0">
+          {selectedTrace ? (
+            <AgentTraceDetailCard trace={selectedTrace} copied={copiedId === selectedTrace.id} onCopyJson={(tr) => void handleCopyJson(tr)} onClose={() => selectTrace(null)} />
+          ) : (
+            <EmptyState
+              className="flex-1"
+              icon={<LuFileText className="size-6 opacity-50" />}
+              title={t('gitAgent.devLogsSelectTraceTitle') || 'No trace selected'}
+              message={t('gitAgent.devLogsSelectTraceMsg') || 'Select a record from the list on the left to inspect request context, tools, and outputs.'}
+            />
+          )}
+        </div>
       </div>
 
-      {/* Compact Footer Count */}
-      <div className="flex shrink-0 items-center justify-between border-t border-line bg-paper-2 px-3 py-1.5 text-[11px] text-ink-soft tabular-nums">
-        <span>
-          {(t('gitAgent.devLogsShowingCount') || 'Showing {filtered} / {total} entries')
-            .replace('{filtered}', String(filtered.length))
-            .replace('{total}', String(traces.length))}
-        </span>
-      </div>
+      <DevLogsPagination
+        page={safePage}
+        pageSize={pageSize}
+        filteredCount={filtered.length}
+        totalCount={traces.length}
+        retentionMax={policy.maxTraces}
+        retentionDays={policy.traceRetentionDays}
+        onPageChange={handlePageChange}
+        onPageSizeChange={handlePageSizeChange}
+      />
     </main>
   )
 }

@@ -9,6 +9,7 @@ import { GitFileBlameView } from '@/components/git/GitFileBlameView'
 import { GitFileHistoryView } from '@/components/git/GitFileHistoryView'
 import type { useT } from '@/components/i18n/LocaleProvider'
 import { Button, EmptyState, Spinner, Tooltip } from '@/components/sk'
+import { useModeHref } from '@/lib/git/driver'
 
 export function GitLogFilePanel({
   repo,
@@ -102,9 +103,10 @@ export function GitLogBlockingOverlay({ busy, progressStage, t }: { busy: boolea
 }
 
 export function GitSettingsLink({ className, label, onBeforeNavigate }: { className: string; label: string; onBeforeNavigate: () => void }) {
+  const modeHref = useModeHref()
   return (
     <Tooltip content={label} placement="bottom">
-      <Link href="/settings/models" onClick={onBeforeNavigate} className={className} aria-label={label}>
+      <Link href={modeHref('/settings/models')} onClick={onBeforeNavigate} className={className} aria-label={label}>
         {label}
       </Link>
     </Tooltip>

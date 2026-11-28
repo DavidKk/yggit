@@ -4,6 +4,8 @@
  * Seamlessly interfaces with local file cache via /api/git/conflicts in local mode.
  */
 
+import { getDriverMode } from '@/lib/git/driver'
+import { logInfo } from '@/lib/logger'
 import { CONFLICTS_DATABASE } from '@/lib/storage/databases'
 
 export interface MergeConflictRecord {
@@ -20,11 +22,15 @@ export interface MergeConflictRecord {
 }
 
 const DB_NAME = CONFLICTS_DATABASE
-const DB_VERSION = 1
+const DB_VERSION = 2
 const STORE_NAME = 'conflicts'
 
 // L1 in-memory cache: key = `${repo}:${hash}`
 const memoryCache = new Map<string, MergeConflictRecord>()
+type RemergeDiffResult = { diff: string; files: string[]; record: MergeConflictRecord | null }
+const remergeCache = new Map<string, RemergeDiffResult>()
+const inFlightRemerge = new Map<string, Promise<RemergeDiffResult>>()
+const MAX_REMERGE_CACHE = 32
 
 function cacheKey(repo: string, hash: string): string {
   return `${repo.trim().toLowerCase()}:${hash.trim().toLowerCase()}`
@@ -44,6 +50,9 @@ function openDB(): Promise<IDBDatabase | null> {
         const db = (event.target as IDBOpenDBRequest).result
         if (!db.objectStoreNames.contains(STORE_NAME)) {
           db.createObjectStore(STORE_NAME, { keyPath: 'key' })
+        } else if (event.oldVersion < 2) {
+          const tx = (event.target as IDBOpenDBRequest).transaction
+          tx?.objectStore(STORE_NAME).clear()
         }
       }
       request.onsuccess = () => {
@@ -163,15 +172,7 @@ export async function getCachedConflictsBatch(repo: string, hashes: string[]): P
 }
 
 function isEdgeDriverActive(): boolean {
-  if (typeof window === 'undefined') return process.env.NEXT_PUBLIC_YGGIT_TARGET === 'cloud'
-  try {
-    const saved = window.localStorage.getItem('yggit.driver_mode')
-    if (saved === 'edge') return true
-    if (saved === 'local') return false
-  } catch {
-    // ignore storage read error
-  }
-  return process.env.NEXT_PUBLIC_YGGIT_TARGET === 'cloud'
+  return getDriverMode() === 'edge'
 }
 
 /**
@@ -187,7 +188,9 @@ export async function queryConflictsBatch(repo: string, commits: Array<{ hash: s
   const uncached = commits.filter(
     (c) =>
       c.parents.length >= 2 &&
-      (!cachedMap[c.hash] || (cachedMap[c.hash].hasConflict && (!cachedMap[c.hash].conflictFileCounts || cachedMap[c.hash].unresolvedConflictFiles === undefined)))
+      (!cachedMap[c.hash] ||
+        cachedMap[c.hash].status === 'error' ||
+        (cachedMap[c.hash].hasConflict && (!cachedMap[c.hash].conflictFileCounts || cachedMap[c.hash].unresolvedConflictFiles === undefined)))
   )
   if (uncached.length === 0) {
     return cachedMap
@@ -200,7 +203,13 @@ export async function queryConflictsBatch(repo: string, commits: Array<{ hash: s
       const fetched = await edge.detectConflictsBatch(repo, uncached)
       for (const [hash, record] of Object.entries(fetched)) {
         cachedMap[hash] = record
-        void saveConflictToCache(repo, record)
+        if (record.status !== 'error') {
+          void saveConflictToCache(repo, record)
+        }
+      }
+      const conflictedCount = Object.values(fetched).filter((r) => r.hasConflict).length
+      if (conflictedCount > 0) {
+        logInfo('git', `Detected ${conflictedCount} conflicted merge commit(s) in ${repo}`, { mode: 'edge', checked: uncached.length })
       }
     } catch {
       // Ignore pure-browser detection errors
@@ -224,6 +233,10 @@ export async function queryConflictsBatch(repo: string, commits: Array<{ hash: s
         cachedMap[hash] = record
         void saveConflictToCache(repo, record)
       }
+      const conflictedCount = Object.values(fetched).filter((r) => r.hasConflict).length
+      if (conflictedCount > 0) {
+        logInfo('git', `Detected ${conflictedCount} conflicted merge commit(s) in ${repo}`, { mode: 'local', checked: uncached.length })
+      }
     }
   } catch {
     // Aborted or failed network fetch
@@ -232,25 +245,56 @@ export async function queryConflictsBatch(repo: string, commits: Array<{ hash: s
   return cachedMap
 }
 
-export async function fetchRemergeDiff(repo: string, hash: string): Promise<{ diff: string; files: string[]; record: MergeConflictRecord | null }> {
-  if (isEdgeDriverActive()) {
-    try {
-      const { EdgeGitDriver } = await import('@/lib/git/driver/edge-driver')
-      const edge = new EdgeGitDriver()
-      return await edge.readRemergeDiff(repo, hash)
-    } catch {
-      return { diff: '', files: [], record: null }
+export async function fetchRemergeDiff(repo: string, hash: string): Promise<RemergeDiffResult> {
+  const mode = getDriverMode()
+  const key = `${mode}:${cacheKey(repo, hash)}`
+  const cached = remergeCache.get(key)
+  if (cached) {
+    remergeCache.delete(key)
+    remergeCache.set(key, cached)
+    return cached
+  }
+  const existing = inFlightRemerge.get(key)
+  if (existing) return existing
+
+  const task = (async (): Promise<RemergeDiffResult> => {
+    if (mode === 'edge') {
+      try {
+        const { EdgeGitDriver } = await import('@/lib/git/driver/edge-driver')
+        const edge = new EdgeGitDriver()
+        return await edge.readRemergeDiff(repo, hash)
+      } catch {
+        return { diff: '', files: [], record: null }
+      }
     }
-  }
 
-  const params = new URLSearchParams()
-  if (repo) params.set('repo', repo)
-  params.set('hash', hash)
+    const params = new URLSearchParams()
+    if (repo) params.set('repo', repo)
+    params.set('hash', hash)
 
-  const res = await fetch(`/api/git/conflicts?${params.toString()}`)
-  if (!res.ok) {
-    throw new Error('无法读取冲突解决方案')
-  }
+    const res = await fetch(`/api/git/conflicts?${params.toString()}`)
+    if (!res.ok) {
+      throw new Error('无法读取冲突解决方案')
+    }
 
-  return (await res.json()) as { diff: string; files: string[]; record: MergeConflictRecord | null }
+    return (await res.json()) as RemergeDiffResult
+  })()
+    .then((result) => {
+      if (result.diff || result.files.length > 0 || result.record) {
+        if (remergeCache.size >= MAX_REMERGE_CACHE) {
+          const oldest = remergeCache.keys().next().value
+          if (oldest) remergeCache.delete(oldest)
+        }
+        remergeCache.set(key, result)
+      }
+      return result
+    })
+    .finally(() => {
+      if (inFlightRemerge.get(key) === task) {
+        inFlightRemerge.delete(key)
+      }
+    })
+
+  inFlightRemerge.set(key, task)
+  return task
 }

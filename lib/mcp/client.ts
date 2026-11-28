@@ -1,4 +1,4 @@
-import { logError, logInfo } from '@/lib/logger'
+import { createScopedLogger } from '@/lib/logger'
 
 import type { McpPromptInfo, McpResourceInfo, McpServerConfig, McpToolInfo } from './types'
 
@@ -112,9 +112,10 @@ export async function testAndDiscoverMcpServer(config: McpServerConfig): Promise
   error?: string
 }> {
   const authHeaders = buildMcpAuthHeaders(config.auth)
+  const mcpLog = createScopedLogger('mcp')
 
   try {
-    logInfo('mcp', `Connecting to MCP server "${config.name}" at ${config.url}`)
+    mcpLog.info(`Connecting to MCP server "${config.name}" at ${config.url}`)
 
     // 1. Initialize MCP protocol session
     await sendMcpRequest(
@@ -182,11 +183,11 @@ export async function testAndDiscoverMcpServer(config: McpServerConfig): Promise
       // Server may not support prompts
     }
 
-    logInfo('mcp', `Successfully connected to "${config.name}". Discovered ${tools.length} tools.`)
+    mcpLog.info(`Successfully connected to "${config.name}". Discovered ${tools.length} tools.`)
     return { ok: true, tools, resources, prompts }
   } catch (err) {
     const error = err instanceof Error ? err.message : String(err)
-    logError('mcp', `Failed to connect to MCP server "${config.name}": ${error}`)
+    mcpLog.error(`Failed to connect to MCP server "${config.name}": ${error}`)
     return { ok: false, tools: [], resources: [], prompts: [], error }
   }
 }
@@ -196,8 +197,9 @@ export async function testAndDiscoverMcpServer(config: McpServerConfig): Promise
  */
 export async function callMcpTool(config: McpServerConfig, toolName: string, args: Record<string, unknown>): Promise<{ ok: boolean; result?: unknown; error?: string }> {
   const authHeaders = buildMcpAuthHeaders(config.auth)
+  const mcpLog = createScopedLogger('mcp')
   try {
-    logInfo('mcp', `Calling MCP tool "${toolName}" on server "${config.name}"`, args)
+    mcpLog.info(`Calling MCP tool "${toolName}" on server "${config.name}"`, args)
     const res = await sendMcpRequest<{ content?: Array<{ type: string; text?: string }> }>(
       config.url,
       'tools/call',
@@ -220,7 +222,7 @@ export async function callMcpTool(config: McpServerConfig, toolName: string, arg
     return { ok: true, result: textResult }
   } catch (err) {
     const error = err instanceof Error ? err.message : String(err)
-    logError('mcp', `Error calling MCP tool "${toolName}": ${error}`)
+    mcpLog.error(`Error calling MCP tool "${toolName}": ${error}`)
     return { ok: false, error }
   }
 }

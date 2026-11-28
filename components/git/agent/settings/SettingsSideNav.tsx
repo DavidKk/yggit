@@ -6,6 +6,7 @@ import { LuCpu, LuInfo, LuMousePointerClick, LuNetwork, LuShieldCheck, LuSliders
 
 import { useT } from '@/components/i18n/LocaleProvider'
 import { Tooltip } from '@/components/sk'
+import { useModeHref } from '@/lib/git/driver'
 import { cn } from '@/lib/utils'
 
 export type SettingsSectionKey = 'models' | 'skills' | 'mcp' | 'privacy' | 'general' | 'menus' | 'about'
@@ -17,42 +18,43 @@ interface Props {
 
 export function SettingsSideNav({ activeSection, onSelectSection }: Props) {
   const t = useT()
+  const modeHref = useModeHref()
 
   const navItems = [
     {
       id: 'models' as const,
       label: t('gitAgent.tabModels'),
-      href: '/settings/models',
+      href: modeHref('/settings/models'),
       icon: <LuCpu className="h-4.5 w-4.5" aria-hidden="true" />,
     },
     {
       id: 'skills' as const,
       label: t('gitAgent.tabSkills') || 'Skills',
-      href: '/settings/skills',
+      href: modeHref('/settings/skills'),
       icon: <LuSparkles className="h-4.5 w-4.5" aria-hidden="true" />,
     },
     {
       id: 'mcp' as const,
       label: t('gitAgent.tabMcp') || 'MCP Tools',
-      href: '/settings/mcp',
+      href: modeHref('/settings/mcp'),
       icon: <LuNetwork className="h-4.5 w-4.5" aria-hidden="true" />,
     },
     {
       id: 'privacy' as const,
       label: t('gitAgent.tabPrivacy'),
-      href: '/settings/privacy',
+      href: modeHref('/settings/privacy'),
       icon: <LuShieldCheck className="h-4.5 w-4.5" aria-hidden="true" />,
     },
     {
       id: 'general' as const,
       label: t('gitAgent.tabGeneral') || 'General',
-      href: '/settings/general',
+      href: modeHref('/settings/general'),
       icon: <LuSlidersHorizontal className="h-4.5 w-4.5" aria-hidden="true" />,
     },
     {
       id: 'menus' as const,
       label: t('gitAgent.menusSettingsTitle') || 'Context Menus',
-      href: '/settings/menus',
+      href: modeHref('/settings/menus'),
       icon: <LuMousePointerClick className="h-4.5 w-4.5" aria-hidden="true" />,
     },
   ]

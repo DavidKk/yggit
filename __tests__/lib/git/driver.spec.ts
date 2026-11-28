@@ -28,11 +28,28 @@ describe('GitDriver layer', () => {
     mockLocalStorage.clear()
   })
 
-  it('defaults to local mode when no preference stored', () => {
+  it('defaults to edge mode and resolves local mode from /local/... pathname', () => {
+    expect(getDriverMode()).toBe('edge')
+
+    Object.defineProperty(global, 'window', {
+      value: { location: { pathname: '/local/git' } },
+      configurable: true,
+      writable: true,
+    })
     expect(getDriverMode()).toBe('local')
+
+    Object.defineProperty(global, 'window', {
+      value: { location: { pathname: '/git' } },
+      configurable: true,
+      writable: true,
+    })
+    expect(getDriverMode()).toBe('edge')
+
+    // @ts-expect-error clean mock
+    delete global.window
   })
 
-  it('updates and persists driver mode and dispatches event with payload', () => {
+  it('dispatches driver mode change event with payload and supports non-location test fallback', () => {
     const events: Array<{ mode: string; targetRepo?: string }> = []
     const listeners: Record<string, ((e: any) => void)[]> = {}
     const mockWindow = {
@@ -200,6 +217,25 @@ describe('GitDriver layer', () => {
         })
       )
       expect(deleted.removedCount).toBe(1)
+    })
+
+    it('honors X-Git-Binary header and handles application/octet-stream fallback in readBlob', async () => {
+      const driver = new LocalGitDriver()
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        headers: { get: (name: string) => (name === 'x-git-binary' ? '0' : name === 'content-type' ? 'application/octet-stream' : null) },
+        text: async () => 'module admin\n\ngo 1.24\n',
+      })
+      const textBlob = await driver.readBlob({ repo: '/path/to/repo', hash: 'abc1234', path: 'go.mod' })
+      expect(textBlob).toEqual({ content: 'module admin\n\ngo 1.24\n', binary: false })
+
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        headers: { get: (name: string) => (name === 'x-git-binary' ? '1' : name === 'content-type' ? 'application/octet-stream' : null) },
+        text: async () => '',
+      })
+      const binBlob = await driver.readBlob({ repo: '/path/to/repo', hash: 'abc1234', path: 'image.bin' })
+      expect(binBlob).toEqual({ content: '', binary: true })
     })
   })
 })

@@ -16,30 +16,36 @@ import { Tooltip } from '@/components/sk'
 import { dropdownTriggerClass } from '@/components/sk/dropdownMenu'
 import { ThemeSwitcher } from '@/components/theme/ThemeSwitcher'
 import { useAgent } from '@/lib/agent/agent-context'
+import { useGitDriver, useModeHref } from '@/lib/git/driver'
 import { getLastGitUrl, saveLastGitUrl } from '@/lib/git/last-git-url'
+import { stripLocalPrefix } from '@/lib/git/route-mode'
 import { cn } from '@/lib/utils'
 
 export function WorkspaceHeader() {
   const t = useT()
   const pathname = usePathname() || ''
+  const logicalPath = stripLocalPrefix(pathname)
+  const { mode } = useGitDriver()
+  const modeHref = useModeHref()
   const ctx = useWorkspaceHeader()
   const { dockMode, setDockMode, isProcessing } = useAgent()
-  const isSettings = pathname.startsWith('/settings')
-  const hideAgent = pathname.startsWith('/dev/studio')
+  const isSettings = logicalPath.startsWith('/settings')
+  const isDev = logicalPath.startsWith('/dev')
+  const hideAgent = logicalPath.startsWith('/dev/studio') || logicalPath.startsWith('/dev/logs')
   const isSidebarOpen = dockMode !== 'collapsed'
   const sidebarTooltip = isSidebarOpen ? t('gitAgent.collapseYggi') || 'Collapse Yggi' : t('gitAgent.wakeYggi') || 'Wake Yggi'
-  const [settingsHomeHref, setSettingsHomeHref] = React.useState('/git')
+  const [lastGitHomeHref, setLastGitHomeHref] = React.useState(() => modeHref('/git'))
 
   React.useEffect(() => {
-    if (typeof window !== 'undefined' && pathname.startsWith('/git')) {
+    if (typeof window !== 'undefined' && logicalPath.startsWith('/git')) {
       saveLastGitUrl(window.location.pathname + window.location.search)
     }
-    if (isSettings) {
-      setSettingsHomeHref(getLastGitUrl())
+    if (isSettings || isDev) {
+      setLastGitHomeHref(getLastGitUrl(mode))
     }
-  }, [pathname, isSettings])
+  }, [pathname, logicalPath, isSettings, isDev, mode])
 
-  const homeHref = pathname.startsWith('/workdesk') ? '/workdesk' : pathname.startsWith('/git') ? '/git' : isSettings ? settingsHomeHref : '/'
+  const homeHref = logicalPath.startsWith('/workdesk') ? modeHref('/workdesk') : logicalPath.startsWith('/git') ? modeHref('/git') : isSettings || isDev ? lastGitHomeHref : '/'
 
   return (
     <header className="flex h-11 shrink-0 items-center gap-3 border-b border-line bg-panel-2/60 px-3 py-1.5">
@@ -49,7 +55,7 @@ export function WorkspaceHeader() {
         markClassName="size-7"
         wordmarkClassName="text-[0.95rem]"
         onClick={(e) => {
-          if (pathname.startsWith('/workdesk')) {
+          if (logicalPath.startsWith('/workdesk')) {
             const closeBtn = document.querySelector<HTMLButtonElement>('[data-testid="workdesk-detail-close-btn"]')
             if (closeBtn) {
               e.preventDefault()
@@ -69,7 +75,7 @@ export function WorkspaceHeader() {
         <div ref={ctx?.setActionsNode} className="flex items-center gap-1.5" />
 
         {/* Git Mode Switcher (Edge / Local) retained across development view (hidden in /dev pages) */}
-        {!pathname.startsWith('/dev') && process.env.NODE_ENV === 'development' && (
+        {!logicalPath.startsWith('/dev') && process.env.NODE_ENV === 'development' && (
           <>
             <GitModeSwitcher />
             <span className="mx-0.5 h-3.5 w-px shrink-0 bg-[color-mix(in_oklab,var(--ink)_14%,transparent)]" aria-hidden="true" />
@@ -82,9 +88,9 @@ export function WorkspaceHeader() {
 
         <Tooltip content={t('gitAgent.settingsTitle')} placement="bottom">
           <Link
-            href="/settings/models"
+            href={modeHref('/settings/models')}
             onClick={() => {
-              if (pathname.startsWith('/git')) {
+              if (logicalPath.startsWith('/git')) {
                 saveLastGitUrl(window.location.pathname + window.location.search)
               }
             }}

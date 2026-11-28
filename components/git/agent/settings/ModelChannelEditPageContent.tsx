@@ -10,6 +10,7 @@ import { LocaleSwitcher } from '@/components/i18n/LocaleSwitcher'
 import { useInWorkspaceHeader, WorkspaceHeaderSlot } from '@/components/layout/WorkspaceHeaderContext'
 import { ThemeSwitcher } from '@/components/theme/ThemeSwitcher'
 import { useAgent } from '@/lib/agent/agent-context'
+import { useModeHref } from '@/lib/git/driver'
 
 import { ModelChannelEditor } from './ModelChannelEditor'
 import { SettingsSideNav } from './SettingsSideNav'
@@ -22,6 +23,7 @@ interface Props {
 export function ModelChannelEditPageContent({ profileId, isNew = false }: Props) {
   const t = useT()
   const router = useRouter()
+  const modeHref = useModeHref()
   const inWorkspace = useInWorkspaceHeader()
   const { profiles } = useAgent()
 
@@ -31,7 +33,7 @@ export function ModelChannelEditPageContent({ profileId, isNew = false }: Props)
   const desc = isNew ? 'Configure a new model channel and access filters.' : 'Edit channel endpoint and access filters.'
 
   const handleBack = () => {
-    router.replace('/settings/models')
+    router.replace(modeHref('/settings/models'))
   }
 
   return (

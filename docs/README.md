@@ -37,7 +37,9 @@ Welcome to the Yggit documentation repository. Yggit is a high-performance, orga
 
 - [Theme Persistence & Hydration](technical/theme-hydration.md) - Cookie preference, system theme resolution, and consistent SSR/client initialization.
 - [E2E Workflow Contracts](technical/e2e-workflow-contracts.md) - Locked-down Playwright E2E behavioral contracts for shared components, Git read/write/Edge parity, settings, and Agent Skill/MCP runtime injection.
-- [Git Optimistic Updates & Incremental UI Specification](technical/git-optimistic-updates.md) - Phase 1 implemented optimistic worktree staging/unstaging queue and Phase 2 roadmap for branch, tag, remote, and catalog optimistic operations.
+- [Git Optimistic Updates & Incremental UI Specification](technical/git-optimistic-updates.md) - Phase 1 and Phase 2 implemented optimistic mutations, error-only toasts, and post-ack commit insertion across Local and Edge drivers.
+- [Edge Performance, Algorithmic Pruning & Worker Isolation PRD](prd/edge-performance-and-worker-optimization.md) - Staged requirements for conflict tree pruning, cache preservation, log walker sharing, and dedicated Edge Worker isolation.
+- [Edge Performance & Worker Isolation Architecture](technical/edge-performance-and-worker-optimization.md) - Technical design detailing Phase 1–3 optimizations, `isomorphic-git@1.44.13` boundaries, scenario routing matrix, and Worker ownership.
 
 ## Standards
 

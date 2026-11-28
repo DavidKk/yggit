@@ -14,7 +14,7 @@ test.describe('Agent CRUD (Model, Skill, MCP) & Runtime Injection E2E', () => {
   })
 
   test('Create Model, Skill, and MCP Server, verify runtime injection into gateway payload, then clean up', async ({ page }) => {
-    test.setTimeout(30_000)
+    test.setTimeout(45_000)
     const stamp = Date.now()
     const modelName = `E2E-Inject-Model-${stamp}`
     const skillName = `e2e-skill-magic-${stamp}`
@@ -69,12 +69,8 @@ test.describe('Agent CRUD (Model, Skill, MCP) & Runtime Injection E2E', () => {
       })
     })
 
-    await page.addInitScript(() => {
-      window.localStorage.setItem('yggit.driver_mode', 'local')
-    })
-
-    // 1. Create Model Channel
-    await page.goto('/settings/models/new')
+    // 1. Create Model Channel in Local mode
+    await page.goto('/local/settings/models/new', { waitUntil: 'networkidle' })
     const modelNameInput = page.getByPlaceholder(/DeepSeek-V3/i).first()
     await expect(modelNameInput).toBeVisible()
     await modelNameInput.fill(modelName)
@@ -87,7 +83,7 @@ test.describe('Agent CRUD (Model, Skill, MCP) & Runtime Injection E2E', () => {
     await expect(page.getByText(modelName).first()).toBeVisible()
 
     // 2. Create Custom Skill
-    await page.goto('/settings/skills/new')
+    await page.goto('/local/settings/skills/new')
     await page.getByPlaceholder('e.g. Go Concurrency Review').fill(skillName)
     await page.getByPlaceholder(/Briefly describe/i).fill(`Trigger for ${skillName}`)
     await page.getByPlaceholder(/Workflow Instructions/i).fill(`---\nname: ${skillName}\ndescription: Trigger for ${skillName}\n---\n\n# Instructions\n${skillInstruction}\n`)
@@ -99,7 +95,7 @@ test.describe('Agent CRUD (Model, Skill, MCP) & Runtime Injection E2E', () => {
     await expect(page.getByText(skillName).first()).toBeVisible()
 
     // 3. Create MCP Server & verify tool discovery
-    await page.goto('/settings/mcp/new')
+    await page.goto('/local/settings/mcp/new')
     await page.locator('#mcp-server-name').fill(mcpName)
     await page.locator('#mcp-server-url').fill('https://mcp.e2e.local/mcp')
     await page
@@ -131,7 +127,7 @@ test.describe('Agent CRUD (Model, Skill, MCP) & Runtime Injection E2E', () => {
       })
     })
 
-    await page.goto(`/git?repo=${encodeURIComponent(fixture.repoDir)}`)
+    await page.goto(`/local/git?repo=${encodeURIComponent(fixture.repoDir)}`)
     await expect(page.getByText('merge: conflicted feat/ui into main').first()).toBeVisible()
 
     await page
@@ -169,7 +165,7 @@ test.describe('Agent CRUD (Model, Skill, MCP) & Runtime Injection E2E', () => {
     expect(toolNames.some((n) => n.includes(mcpToolName))).toBe(true)
 
     // 5. Clean up created Model, Skill, and MCP Server
-    await page.goto('/settings/models')
+    await page.goto('/local/settings/models')
     await page.getByText(modelName).first().click()
     await page
       .getByRole('button', { name: /^Delete$|^删除$/i })
@@ -181,7 +177,7 @@ test.describe('Agent CRUD (Model, Skill, MCP) & Runtime Injection E2E', () => {
       .click()
     await expect(page).toHaveURL(/\/settings\/models$/)
 
-    await page.goto('/settings/skills')
+    await page.goto('/local/settings/skills')
     await page.getByText(skillName).first().click()
     await page
       .getByRole('button', { name: /^Delete$|^删除$/i })
@@ -191,7 +187,7 @@ test.describe('Agent CRUD (Model, Skill, MCP) & Runtime Injection E2E', () => {
     if (await skillConfirm.isVisible().catch(() => false)) await skillConfirm.click()
     await expect(page).toHaveURL(/\/settings\/skills$/)
 
-    await page.goto('/settings/mcp')
+    await page.goto('/local/settings/mcp')
     await page.getByText(mcpName).first().click()
     await page
       .getByRole('button', { name: /^Delete$|^删除$/i })

@@ -236,13 +236,30 @@ export function useWorkdeskProactiveReminder(projects?: GitProjectView[]) {
   }, [isTest, isProcessing])
 
   useEffect(() => {
+    let active = true
     const unsubscribe = workdeskEngine.subscribe((result) => {
-      setScanResult(result)
+      if (active) setScanResult(result)
     })
     return () => {
+      active = false
       unsubscribe()
     }
   }, [])
+
+  // Only hydrate Workdesk data for the active repository once the user is idle (never fetch full Workdesk store eagerly on /git mount)
+  useEffect(() => {
+    if (isTest || !isIdle || !activeRepo) return
+    let active = true
+    void workdeskEngine
+      .loadInitialForRepo(activeRepo)
+      .then((cached) => {
+        if (active && cached) setScanResult(cached)
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [isTest, isIdle, activeRepo])
 
   const candidateItem: WorkItem | null = useMemo(() => {
     if (!activeRepo || !scanResult || !scanResult.items) return null

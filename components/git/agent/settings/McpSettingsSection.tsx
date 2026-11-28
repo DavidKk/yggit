@@ -8,6 +8,7 @@ import { LuChevronRight, LuNetwork, LuPlus, LuServer } from 'react-icons/lu'
 import { useT } from '@/components/i18n/LocaleProvider'
 import { useNotification } from '@/components/notification/useNotification'
 import { Badge, Button, SwitchToggle } from '@/components/sk'
+import { useModeHref } from '@/lib/git/driver'
 import { listMcpServers, subscribeMcp, toggleMcpServer } from '@/lib/mcp/storage'
 import type { McpServerConfig } from '@/lib/mcp/types'
 import { cn } from '@/lib/utils'
@@ -17,6 +18,7 @@ import { SettingsSectionCard } from './SettingsSectionCard'
 export function McpSettingsSection() {
   const t = useT()
   const router = useRouter()
+  const modeHref = useModeHref()
   const notify = useNotification()
   const [servers, setServers] = useState<McpServerConfig[]>([])
   const [loading, setLoading] = useState(true)
@@ -52,7 +54,7 @@ export function McpSettingsSection() {
         description={t('gitAgent.mcpCardDesc') || 'Connect external HTTP MCP Server tools and data sources.'}
         descriptionTooltip={t('gitAgent.mcpCardTooltip') || 'Follows the open Model Context Protocol specification, supporting Streamable HTTP and Bearer Token auth.'}
         titleAction={
-          <Button variant="accent" size="sm" onClick={() => router.push('/settings/mcp/new')}>
+          <Button variant="accent" size="sm" onClick={() => router.push(modeHref('/settings/mcp/new'))}>
             <LuPlus className="size-3.5 mr-1" />
             <span>{t('gitAgent.skillsAddBtn') || 'Add'}</span>
           </Button>
@@ -83,7 +85,7 @@ export function McpSettingsSection() {
                 )}
               >
                 <Link
-                  href={`/settings/mcp/${encodeURIComponent(s.id)}`}
+                  href={modeHref(`/settings/mcp/${encodeURIComponent(s.id)}`)}
                   className="min-w-0 flex-1 group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-sm"
                   aria-label={s.name}
                 >
@@ -119,7 +121,7 @@ export function McpSettingsSection() {
                     aria-label={s.name}
                   />
                   <Link
-                    href={`/settings/mcp/${encodeURIComponent(s.id)}`}
+                    href={modeHref(`/settings/mcp/${encodeURIComponent(s.id)}`)}
                     className="text-ink-soft/40 hover:text-ink transition-colors p-1"
                     title={t('gitAgent.mcpManageTooltip') || 'Manage tools & settings'}
                   >

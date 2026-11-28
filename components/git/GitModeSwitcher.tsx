@@ -1,12 +1,13 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
 import { LuGlobe, LuTerminal } from 'react-icons/lu'
 
 import { useT } from '@/components/i18n/LocaleProvider'
 import { Tooltip } from '@/components/sk'
 import { getGitDriver, useGitDriver } from '@/lib/git/driver'
 import { normalizeRemote } from '@/lib/git/identity'
+import { stripLocalPrefix, withDriverModePath } from '@/lib/git/route-mode'
+import { logInfo } from '@/lib/logger'
 import { cn } from '@/lib/utils'
 
 export function GitModeSwitcher({
@@ -23,7 +24,6 @@ export function GitModeSwitcher({
   onSwitchRepo?: (targetMode: 'edge' | 'local', targetRepo: string) => void | Promise<void>
 }) {
   const t = useT()
-  const router = useRouter()
   const { setMode, isEdge } = useGitDriver()
 
   const toggleMode = async () => {
@@ -42,8 +42,9 @@ export function GitModeSwitcher({
       if (!repoIdent && url.searchParams.get('repo')) {
         repoIdent = url.searchParams.get('repo') || ''
       }
-      if (!nameIdent && window.location.pathname.startsWith('/git/')) {
-        const parts = window.location.pathname
+      const logicalPath = stripLocalPrefix(window.location.pathname)
+      if (!nameIdent && logicalPath.startsWith('/git/')) {
+        const parts = logicalPath
           .replace(/^\/git\//, '')
           .split('/')
           .filter(Boolean)
@@ -61,10 +62,8 @@ export function GitModeSwitcher({
       // Look for a matching project in target mode
       const repoBasename = repoIdent ? repoIdent.split(/[/\\]/).filter(Boolean).pop() || '' : ''
       const match = targetProjects.find((p) => {
-        // 1. By project name
         if (nameIdent && p.name && p.name.toLowerCase() === nameIdent.toLowerCase()) return true
         if (repoBasename && p.name && p.name.toLowerCase() === repoBasename.toLowerCase()) return true
-        // 2. By localPath / id / folder basename
         if (repoIdent) {
           if (p.localPath === repoIdent || p.id === repoIdent) return true
           const pBasename = (p.localPath || p.id || '').split(/[/\\]/).filter(Boolean).pop() || ''
@@ -74,7 +73,6 @@ export function GitModeSwitcher({
           if (p.id?.toLowerCase() === nameIdent.toLowerCase()) return true
           if (p.localPath?.toLowerCase().endsWith(`/${nameIdent.toLowerCase()}`)) return true
         }
-        // 3. By normalized remote URL
         if (remoteIdent) {
           const kTarget = normalizeRemote(remoteIdent)?.key?.toLowerCase()
           if (kTarget) {
@@ -85,40 +83,52 @@ export function GitModeSwitcher({
         return false
       })
 
-      // Invalidate caches in both drivers to guarantee freshly synchronized repository content
       targetDriver.clearCache?.()
       const currentDriver = getGitDriver(isEdge ? 'edge' : 'local')
       currentDriver.clearCache?.()
 
       const nextRepo = match ? (nextMode === 'local' ? match.localPath || match.id : match.id || match.localPath || match.name) : repoIdent || currentRepo || nameIdent || ''
-      let nextUrl: string | null = null
+      let nextUrl = withDriverModePath('/git', nextMode)
       if (typeof window !== 'undefined') {
-        const currentPath = window.location.pathname
-        if (currentPath.startsWith('/settings') || currentPath.startsWith('/privacy')) {
-          nextUrl = null
-        } else if (currentPath.startsWith('/git/') && !currentPath.startsWith('/git/edge_')) {
+        const logicalPath = stripLocalPrefix(window.location.pathname)
+        if (logicalPath.startsWith('/settings') || logicalPath.startsWith('/privacy') || logicalPath.startsWith('/workdesk') || logicalPath.startsWith('/import')) {
+          nextUrl = withDriverModePath(`${logicalPath}${window.location.search}`, nextMode)
+        } else if (logicalPath.startsWith('/git/') && !logicalPath.startsWith('/git/edge_')) {
           // Keep current canonical repository route seamlessly across mode switches
-          nextUrl = `${window.location.pathname}${window.location.search}`
+          nextUrl = withDriverModePath(`${logicalPath}${window.location.search}`, nextMode)
         } else if (match) {
-          nextUrl = match.id ? `/git/${match.id}` : `/git?repo=${encodeURIComponent(nextRepo)}`
-        } else {
-          nextUrl = '/git'
+          const base = match.id ? `/git/${match.id}` : `/git?repo=${encodeURIComponent(nextRepo)}`
+          nextUrl = withDriverModePath(base, nextMode)
         }
       }
 
-      setMode(nextMode, { targetRepo: nextRepo, targetUrl: nextUrl || undefined })
+      logInfo('system', `Switched git driver mode to ${nextMode.toUpperCase()}`, {
+        from: isEdge ? 'edge' : 'local',
+        to: nextMode,
+        targetRepo: nextRepo || undefined,
+        nextUrl,
+      })
+
+      if (typeof window !== 'undefined' && `${window.location.pathname}${window.location.search}` !== nextUrl) {
+        // Hard-navigate across /local <-> Edge URL prefixes so Local SSE/timers tear down cleanly before Edge mounts.
+        window.location.assign(nextUrl)
+        return
+      }
+
+      setMode(nextMode, { targetRepo: nextRepo, targetUrl: nextUrl })
 
       if (onSwitchRepo) {
         await onSwitchRepo(nextMode, nextRepo)
-      } else if (nextUrl && typeof window !== 'undefined' && window.location.pathname !== nextUrl) {
-        router.push(nextUrl)
       }
     } catch {
-      setMode(nextMode, { targetRepo: '', targetUrl: '/git' })
+      const fallbackUrl = withDriverModePath('/git', nextMode)
+      if (typeof window !== 'undefined' && window.location.pathname !== fallbackUrl && !stripLocalPrefix(window.location.pathname).startsWith('/settings')) {
+        window.location.assign(fallbackUrl)
+        return
+      }
+      setMode(nextMode, { targetRepo: '', targetUrl: fallbackUrl })
       if (onSwitchRepo) {
         await onSwitchRepo(nextMode, '')
-      } else if (typeof window !== 'undefined' && window.location.pathname !== '/git' && !window.location.pathname.startsWith('/settings')) {
-        router.push('/git')
       }
     }
   }

@@ -17,7 +17,7 @@ import { filterAllowedModels, getModelFilterConflicts, isModelAllowed } from '@/
 import type { AgentModelProfile } from '@/lib/agent/model-profiles'
 import { testAgentConnection } from '@/lib/agent/openapi-client'
 import { AGENT_PRESETS, type AgentProviderType, DEFAULT_AGENT_CONFIG, OPENAPI_ENDPOINT_SUGGESTIONS } from '@/lib/agent/types'
-import { getDriverMode } from '@/lib/git/driver'
+import { getDriverMode, useGitDriver, useModeHref } from '@/lib/git/driver'
 import { openEdgeSecret } from '@/lib/security/edge-vault'
 import { cn } from '@/lib/utils'
 
@@ -38,6 +38,7 @@ interface ModelChannelEditorProps {
 
 export function ModelChannelEditor({ profile, isNew = false, onBack, showTools = false }: ModelChannelEditorProps) {
   const t = useT()
+  const modeHref = useModeHref()
   let router: ReturnType<typeof useRouter> | null = null
   try {
     // eslint-disable-next-line react-hooks/rules-of-hooks
@@ -120,7 +121,7 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
   const [detectedClis, setDetectedClis] = useState<Record<string, { command: string; installed: boolean }>>({})
   const [browserAiRefreshSignal, setBrowserAiRefreshSignal] = useState(0)
 
-  const isLocalMode = getDriverMode() === 'local'
+  const { isLocal: isLocalMode } = useGitDriver()
 
   useEffect(() => {
     if (!isLocalMode || typeof fetch !== 'function') return
@@ -351,9 +352,9 @@ export function ModelChannelEditor({ profile, isNew = false, onBack, showTools =
       return
     }
     if (router?.replace) {
-      router.replace('/settings/models')
+      router.replace(modeHref('/settings/models'))
     } else if (router?.push) {
-      router.push('/settings/models')
+      router.push(modeHref('/settings/models'))
     }
   }
 

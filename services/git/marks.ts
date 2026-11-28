@@ -33,3 +33,16 @@ export function writeBranchMark(repo: string, branch: string, mark: BranchMark):
   fs.writeFileSync(marksFile(repo), JSON.stringify({ repo, branches }, null, 2))
   return branches
 }
+
+export function deleteBranchMarksForRepo(repo: string): boolean {
+  const target = repo.trim()
+  if (!target) return false
+  try {
+    const file = marksFile(target)
+    if (!fs.existsSync(file)) return false
+    fs.unlinkSync(file)
+    return true
+  } catch {
+    return false
+  }
+}

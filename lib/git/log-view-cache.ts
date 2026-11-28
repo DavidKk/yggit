@@ -3,6 +3,7 @@
 import { getGitDriver } from '@/lib/git/driver'
 import { remoteIdentity } from '@/lib/git/project-access'
 import type { GitLogView } from '@/lib/git/types'
+import { runWithForegroundPriority } from '@/lib/workdesk/scheduler'
 
 interface CachedLogEntry {
   view: GitLogView
@@ -87,8 +88,7 @@ export async function fetchRepoLogDeduplicated(repo: string, options: { signal?:
     return inFlightLoads.get(key)!
   }
   const driver = getGitDriver()
-  const promise = driver
-    .readLog({ repo, signal: options.signal, onProgress: options.onProgress })
+  const promise = runWithForegroundPriority(() => driver.readLog({ repo, signal: options.signal, onProgress: options.onProgress }))
     .then((view) => {
       setCachedRepoLog(repo, view)
       return view

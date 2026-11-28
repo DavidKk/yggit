@@ -8,11 +8,8 @@ import { cleanupTestRepo, createRepoWithBareRemote, type RemoteRepoFixture, runG
 test.describe('Git Write Workflows E2E (P0: Worktree, Branch Lifecycle, Stash, Remote Sync)', () => {
   let fixture: RemoteRepoFixture
 
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(() => {
     fixture = createRepoWithBareRemote()
-    await page.addInitScript(() => {
-      window.localStorage.setItem('yggit.driver_mode', 'local')
-    })
   })
 
   test.afterEach(() => {
@@ -20,7 +17,7 @@ test.describe('Git Write Workflows E2E (P0: Worktree, Branch Lifecycle, Stash, R
   })
 
   test('Worktree stage, unstage, and commit creates a new commit in graph', async ({ page }) => {
-    await page.goto(`/git?repo=${encodeURIComponent(fixture.repoDir)}`)
+    await page.goto(`/local/git?repo=${encodeURIComponent(fixture.repoDir)}`)
 
     // Click Worktree / Uncommitted changes row inside Commit history region
     const historyRegion = page.getByRole('region', { name: /Commit history|提交历史/i }).first()
@@ -52,7 +49,7 @@ test.describe('Git Write Workflows E2E (P0: Worktree, Branch Lifecycle, Stash, R
   })
 
   test('Create, checkout, rename, and delete branch with confirmation', async ({ page }) => {
-    await page.goto(`/git?repo=${encodeURIComponent(fixture.repoDir)}`)
+    await page.goto(`/local/git?repo=${encodeURIComponent(fixture.repoDir)}`)
 
     // Open Create Branch modal from toolbar Branch button
     await page
@@ -100,7 +97,7 @@ test.describe('Git Write Workflows E2E (P0: Worktree, Branch Lifecycle, Stash, R
   })
 
   test('Toolbar Stash, Pop, Refresh, and Push/Pull with bare origin remote', async ({ page }) => {
-    await page.goto(`/git?repo=${encodeURIComponent(fixture.repoDir)}`)
+    await page.goto(`/local/git?repo=${encodeURIComponent(fixture.repoDir)}`)
     await expect(page.getByText('chore: initial remote commit').first()).toBeVisible()
     await expect(page.getByRole('status', { name: /Switching repository/i })).toHaveCount(0)
 
@@ -146,7 +143,7 @@ test.describe('Git Write Workflows E2E (P0: Worktree, Branch Lifecycle, Stash, R
     runGit(peerClone, ['commit', '-m', 'feat: remote peer commit'])
     runGit(peerClone, ['push', 'origin', 'main'])
 
-    await page.goto(`/git?repo=${encodeURIComponent(fixture.repoDir)}`)
+    await page.goto(`/local/git?repo=${encodeURIComponent(fixture.repoDir)}`)
     await expect(page.getByText('chore: initial remote commit').first()).toBeVisible()
     await expect(page.getByRole('status', { name: /Switching repository/i })).toHaveCount(0)
 
