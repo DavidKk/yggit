@@ -129,7 +129,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
         variant === 'ghost' &&
           'border-[color-mix(in_oklab,var(--accent)_20%,var(--line))] bg-transparent text-ink-soft hover:enabled:border-[color-mix(in_oklab,var(--accent)_48%,var(--line))] hover:enabled:bg-[color-mix(in_oklab,var(--accent)_9%,transparent)] hover:enabled:text-accent',
         variant === 'plain' &&
-          'border-transparent bg-transparent text-ink-soft shadow-none hover:enabled:border-[color-mix(in_oklab,var(--accent)_26%,transparent)] hover:enabled:bg-[color-mix(in_oklab,var(--accent)_10%,transparent)] hover:enabled:text-accent',
+          'border-transparent bg-transparent text-ink-soft shadow-none hover:enabled:border-transparent hover:enabled:bg-[color-mix(in_oklab,var(--accent)_10%,transparent)] hover:enabled:text-accent',
         size === 'icon' && 'h-8 w-8 shrink-0 px-0 rounded-md',
         size === 'mini' && 'h-6 w-6 shrink-0 px-0 rounded-md',
         size === 'xs' && 'h-6 gap-1 px-2 text-xs font-normal shadow-none rounded-md',

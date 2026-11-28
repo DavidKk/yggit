@@ -82,23 +82,26 @@ export function prefetchTopCommitDiff(view: GitLogView): void {
 }
 
 /** Load a repo's log with per-repo in-flight deduplication and cache updates. */
-export async function fetchRepoLogDeduplicated(repo: string, options: { signal?: AbortSignal; onProgress?: (stage: string) => void } = {}): Promise<GitLogView> {
+export async function fetchRepoLogDeduplicated(repo: string, options: { locate?: string; signal?: AbortSignal; onProgress?: (stage: string) => void } = {}): Promise<GitLogView> {
   const key = repoLogCacheKey(repo)
-  if (!options.signal && key && inFlightLoads.has(key)) {
+  const canShareInFlight = !options.locate && !options.signal && Boolean(key)
+  if (canShareInFlight && inFlightLoads.has(key)) {
     return inFlightLoads.get(key)!
   }
   const driver = getGitDriver()
-  const promise = runWithForegroundPriority(() => driver.readLog({ repo, signal: options.signal, onProgress: options.onProgress }))
+  const promise = runWithForegroundPriority(() => driver.readLog({ repo, locate: options.locate, signal: options.signal, onProgress: options.onProgress }))
     .then((view) => {
-      setCachedRepoLog(repo, view)
+      if (!options.locate) {
+        setCachedRepoLog(repo, view)
+      }
       return view
     })
     .finally(() => {
-      if (key && inFlightLoads.get(key) === promise) {
+      if (canShareInFlight && inFlightLoads.get(key) === promise) {
         inFlightLoads.delete(key)
       }
     })
-  if (!options.signal && key) {
+  if (canShareInFlight) {
     inFlightLoads.set(key, promise)
   }
   return promise

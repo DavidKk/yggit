@@ -1,3 +1,4 @@
+import type { MergeConflictRecord } from '@/lib/git/conflict-cache'
 import type { GitCommit, GitCommitChanges, GitLogView, GitProjectCatalog, GitProjectView, GitRemoteSource } from '@/lib/git/types'
 
 export type GitDriverMode = 'edge' | 'local'
@@ -364,6 +365,16 @@ export interface IGitDriver {
    * Read commit history for a specific file across renames
    */
   readFileHistory?(options: { repo: string; path: string; ref?: string; limit?: number }): Promise<{ commits: GitCommit[] }>
+
+  /**
+   * Detect historical or unresolved merge conflicts across a batch of merge commits
+   */
+  detectConflictsBatch?(repo: string, commits: Array<{ hash: string; parents: string[] }>, signal?: AbortSignal): Promise<Record<string, MergeConflictRecord>>
+
+  /**
+   * Build or read the remerge diff with conflict resolution markers for a merge commit
+   */
+  readRemergeDiff?(repo: string, hash: string): Promise<{ diff: string; files: string[]; record: MergeConflictRecord | null }>
 }
 
 export interface GitBlameLine {

@@ -368,6 +368,26 @@
   text-underline-offset: 3px !important;
 }
 
+/* Sidebar locate-current-branch 3-pulse background focus flash (no scale/shrink) */
+@keyframes git-sidebar-focus-flash {
+  50% {
+    background-color: color-mix(in oklab, var(--accent) 42%, var(--panel));
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent) 65%, transparent);
+  }
+}
+
+.git-sidebar-focus-flash {
+  animation: git-sidebar-focus-flash 0.45s ease-in-out 3;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .git-sidebar-focus-flash {
+    animation: none;
+    background-color: color-mix(in oklab, var(--accent) 30%, var(--panel));
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent) 60%, transparent);
+  }
+}
+
 /* Suppress Next.js dev indicators and overlays on game / mobile viewport */
 nextjs-portal,
 [data-nextjs-dev-indicator],

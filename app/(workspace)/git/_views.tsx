@@ -87,6 +87,7 @@ export async function renderGitSlugPage({
       repo: resolved.repoPathOrUrl,
       branch: parsed.resourceType === 'branch' ? parsed.resourceId : undefined,
       ref: '*',
+      locate: parsed.resourceType === 'commit' ? parsed.resourceId : undefined,
     })
   } catch (error) {
     initial = {

@@ -1,4 +1,4 @@
-import { buildGraphRows, graphScene, isHighlightedStroke, ROW, xAt } from '@/lib/git/graph-scene'
+import { buildGraphRows, graphScene, isHighlightedStroke, laneColor, ROW, xAt } from '@/lib/git/graph-scene'
 import type { GitCommit, GitStash } from '@/lib/git/types'
 
 function commit(hash: string, date: number, parents: string[] = [], refs: string[] = []): GitCommit {
@@ -157,5 +157,22 @@ describe('stash graph scene', () => {
       expect(stroke.y2).toBeDefined()
       expect(stroke.hash).toBeDefined()
     }
+  })
+
+  it('assigns theme color index 0 to current HEAD branch and sequences remaining lanes after it', () => {
+    expect(laneColor(0)).toContain('--wt-primary')
+    const scene = graphScene(
+      [
+        commit('feat-tip', 200, ['base'], ['origin/feat']),
+        commit('fix-tip', 150, ['base'], ['origin/fix']),
+        commit('main-tip', 100, ['base'], ['HEAD -> main']),
+        commit('base', 50),
+      ],
+      null,
+      []
+    )
+    expect(scene.points[2].color).toBe(0)
+    expect(scene.points[0].color).toBe(1)
+    expect(scene.points[1].color).toBe(2)
   })
 })

@@ -380,6 +380,7 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
   const { load, loadRef } = useGitLogRepoLoader({
     view,
     projects,
+    initialCommitHash,
     selectedHash,
     selectedFile,
     applyView,

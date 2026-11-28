@@ -32,6 +32,7 @@ export function useMergeConflicts({ repo = '', commits, loading = false, scrollR
   const idleTimerRef = useRef<number | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
   const inFlightRef = useRef(false)
+  const errorAttemptsRef = useRef<Map<string, number>>(new Map())
 
   const commitsRef = useRef(commits)
   commitsRef.current = commits
@@ -50,6 +51,11 @@ export function useMergeConflicts({ repo = '', commits, loading = false, scrollR
     window.addEventListener('yggit:driver_mode_changed', handleModeChange)
     return () => window.removeEventListener('yggit:driver_mode_changed', handleModeChange)
   }, [])
+
+  useEffect(() => {
+    setConflicts({})
+    errorAttemptsRef.current.clear()
+  }, [repo, driverModeVersion])
 
   // 1. Immediately hydrate any already-cached conflict records from IndexedDB/L1 memory (0ms)
   useEffect(() => {
@@ -81,8 +87,9 @@ export function useMergeConflicts({ repo = '', commits, loading = false, scrollR
     const currentConflicts = conflictsRef.current
     const currentSelectedHash = selectedHashRef.current
 
-    // Find candidate merge commits that have not been cached yet
-    const uncachedMerges: Array<{ hash: string; parents: string[] }> = []
+    // Find candidate merge commits, prioritizing fresh uncached commits over error retries so one failed commit cannot starve later merges
+    const freshUncached: Array<{ hash: string; parents: string[] }> = []
+    const errorRetries: Array<{ hash: string; parents: string[] }> = []
 
     // Prioritize visible rows based on scroll offset if scroll element is available
     const el = scrollRef?.current
@@ -100,20 +107,25 @@ export function useMergeConflicts({ repo = '', commits, loading = false, scrollR
 
     for (const commit of slice) {
       if (commit && commit.parents && commit.parents.length >= 2) {
-        if (
-          !currentConflicts[commit.hash] ||
-          currentConflicts[commit.hash].status === 'error' ||
-          (currentConflicts[commit.hash].hasConflict && (!currentConflicts[commit.hash].conflictFileCounts || currentConflicts[commit.hash].unresolvedConflictFiles === undefined))
-        ) {
-          uncachedMerges.push({ hash: commit.hash, parents: commit.parents })
+        const existing = currentConflicts[commit.hash]
+        if (!existing || (existing.hasConflict && (!existing.conflictFileCounts || existing.unresolvedConflictFiles === undefined))) {
+          freshUncached.push({ hash: commit.hash, parents: commit.parents })
+        } else if (existing.status === 'error' && (errorAttemptsRef.current.get(commit.hash) ?? 0) < 1) {
+          errorRetries.push({ hash: commit.hash, parents: commit.parents })
         }
       }
     }
 
+    const uncachedMerges = [...freshUncached, ...errorRetries]
     if (uncachedMerges.length === 0) return
 
     // Limit to at most 5 per idle cycle to keep load virtually invisible
     const batch = uncachedMerges.slice(0, 5)
+    for (const item of batch) {
+      if (currentConflicts[item.hash]?.status === 'error') {
+        errorAttemptsRef.current.set(item.hash, (errorAttemptsRef.current.get(item.hash) ?? 0) + 1)
+      }
+    }
     const hasMore = uncachedMerges.length > batch.length
 
     if (abortControllerRef.current) {
@@ -128,15 +140,15 @@ export function useMergeConflicts({ repo = '', commits, loading = false, scrollR
         if (controller.signal.aborted) return
         if (Object.keys(newlyResolved).length > 0) {
           setConflicts((prev) => ({ ...prev, ...newlyResolved }))
-          if (hasMore && !isScrollingRef.current) {
-            if (idleTimerRef.current !== null) {
-              window.clearTimeout(idleTimerRef.current)
-            }
-            idleTimerRef.current = window.setTimeout(() => {
-              idleTimerRef.current = null
-              triggerIdleDetectionRef.current()
-            }, 100)
+        }
+        if (hasMore && !isScrollingRef.current && Object.keys(newlyResolved).length > 0) {
+          if (idleTimerRef.current !== null) {
+            window.clearTimeout(idleTimerRef.current)
           }
+          idleTimerRef.current = window.setTimeout(() => {
+            idleTimerRef.current = null
+            triggerIdleDetectionRef.current()
+          }, 100)
         }
       })
       .catch(() => {})

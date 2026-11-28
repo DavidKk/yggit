@@ -187,7 +187,10 @@ export function GraphNodesOverlay({
           const y = scene.commitRow[index] * ROW + ROW / 2
           const tint = laneColor(point.color)
           const isMerge = commit.parents.length > 1
-          const isConflictedMerge = isMerge && Boolean(conflicts?.[commit.hash]?.hasConflict)
+          const conflictRecord = conflicts?.[commit.hash]
+          const isConflictedMerge = isMerge && Boolean(conflictRecord?.hasConflict)
+          const hasUnresolvedConflict = Boolean(conflictRecord?.unresolvedConflictFiles?.length)
+          const mergeBorderColor = isConflictedMerge ? (hasUnresolvedConflict ? 'var(--fail)' : 'var(--warn)') : tint
           const isLineageHit = lineageHashes?.has(commit.hash)
           const isSpotlightHit = Boolean(spotlightMap?.get(commit.hash.toLowerCase()))
           const isSpotlightDimmed = isSpotlightActive && !isSpotlightHit
@@ -226,8 +229,12 @@ export function GraphNodesOverlay({
                       width: MERGE_NODE_DOT,
                       height: MERGE_NODE_DOT,
                       background: 'var(--panel)',
-                      border: `1.5px solid ${tint}`,
-                      boxShadow: isSelected ? `0 0 0 2px var(--panel), 0 0 0 4px ${tint}, 0 0 10px ${tint}` : `0 0 3px color-mix(in oklab, ${tint} 30%, transparent)`,
+                      border: `${isConflictedMerge ? '2px' : '1.5px'} solid ${mergeBorderColor}`,
+                      boxShadow: isSelected
+                        ? `0 0 0 2px var(--panel), 0 0 0 4px ${mergeBorderColor}, 0 0 10px ${mergeBorderColor}`
+                        : isConflictedMerge
+                          ? `0 0 0 2px color-mix(in oklab, ${mergeBorderColor} 24%, transparent)`
+                          : `0 0 3px color-mix(in oklab, ${tint} 30%, transparent)`,
                     }
                   : {
                       left: nodeX,

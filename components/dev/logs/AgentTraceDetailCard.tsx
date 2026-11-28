@@ -282,8 +282,8 @@ export function AgentTraceDetailCard({ trace, copied, onCopyJson, onClose }: Age
             </section>
           ) : null}
 
-          <details open className="group/sec px-3.5 py-2.5">
-            <summary className="-mx-1.5 flex cursor-pointer list-none items-center justify-between gap-2 rounded-md px-1.5 py-1 transition-colors select-none hover:bg-accent/8 [&::-webkit-details-marker]:hidden">
+          <details open className="group/sec">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3.5 py-3 transition-colors select-none hover:bg-accent/8 [&::-webkit-details-marker]:hidden">
               <div className="flex items-center gap-1.5 text-xs font-semibold text-ink">
                 <LuWrench className="size-3.5 text-ok" aria-hidden="true" />
                 <span>
@@ -306,7 +306,7 @@ export function AgentTraceDetailCard({ trace, copied, onCopyJson, onClose }: Age
               </div>
             </summary>
 
-            <div className="mt-2.5 space-y-2">
+            <div className="space-y-2 px-3.5 pb-3 pt-0.5">
               {trace.matchedSkills.length > 0 ? (
                 <div className="text-[11px] text-accent">
                   {t('gitAgent.devLogsSkillsLabel') || 'Skills'}: {trace.matchedSkills.join(', ')}
@@ -339,8 +339,8 @@ export function AgentTraceDetailCard({ trace, copied, onCopyJson, onClose }: Age
             </div>
           </details>
 
-          <details open className="group/sec px-3.5 py-2.5">
-            <summary className="-mx-1.5 flex cursor-pointer list-none items-center justify-between gap-2 rounded-md px-1.5 py-1 transition-colors select-none hover:bg-accent/8 [&::-webkit-details-marker]:hidden">
+          <details open className="group/sec">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3.5 py-3 transition-colors select-none hover:bg-accent/8 [&::-webkit-details-marker]:hidden">
               <div className="flex items-center gap-1.5 text-xs font-semibold text-ink">
                 <LuTerminal className="size-3.5 text-ok" aria-hidden="true" />
                 <span>{t('gitAgent.devLogsSectionOutput') || 'Output'}</span>
@@ -348,7 +348,7 @@ export function AgentTraceDetailCard({ trace, copied, onCopyJson, onClose }: Age
               <LuChevronRight className="size-3.5 shrink-0 text-ink-soft transition-transform group-open/sec:rotate-90" aria-hidden="true" />
             </summary>
 
-            <div className={trace.visibleContent ? 'mt-2.5 grid grid-cols-1 gap-4 xl:grid-cols-2' : 'mt-2.5'}>
+            <div className={trace.visibleContent ? 'grid grid-cols-1 gap-4 px-3.5 pb-3 pt-0.5 xl:grid-cols-2' : 'px-3.5 pb-3 pt-0.5'}>
               <div className="min-w-0">
                 <TraceMarkdownView content={rawOutputMarkdown} />
               </div>
@@ -364,8 +364,8 @@ export function AgentTraceDetailCard({ trace, copied, onCopyJson, onClose }: Age
             </div>
           </details>
 
-          <details open className="group/sec px-3.5 py-2.5">
-            <summary className="-mx-1.5 flex cursor-pointer list-none items-center justify-between gap-2 rounded-md px-1.5 py-1 transition-colors select-none hover:bg-accent/8 [&::-webkit-details-marker]:hidden">
+          <details open className="group/sec">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3.5 py-3 transition-colors select-none hover:bg-accent/8 [&::-webkit-details-marker]:hidden">
               <div className="flex items-center gap-1.5 text-xs font-semibold text-ink">
                 <LuMessageSquare className="size-3.5 text-ok" aria-hidden="true" />
                 <span>
@@ -375,13 +375,13 @@ export function AgentTraceDetailCard({ trace, copied, onCopyJson, onClose }: Age
               <LuChevronRight className="size-3.5 shrink-0 text-ink-soft transition-transform group-open/sec:rotate-90" aria-hidden="true" />
             </summary>
 
-            <div className="mt-2.5 divide-y divide-line/60 pl-[5px]">
+            <div className="divide-y divide-line/60 pb-3 pl-[5px]">
               {trace.requestMessages.map((msg, idx) => {
                 const trimmedMsg = msg.content.trim()
                 const isJsonMessage = msg.role === 'tool' || trimmedMsg.startsWith('{') || trimmedMsg.startsWith('[')
                 return (
-                  <details key={idx} open={msg.role !== 'system'} className="group/msg py-1.5 first:pt-0 last:pb-0">
-                    <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-md px-1.5 py-1 text-[11px] font-semibold text-ink transition-colors select-none hover:bg-accent/10 [&::-webkit-details-marker]:hidden">
+                  <details key={idx} open={msg.role !== 'system'} className="group/msg">
+                    <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-l-md py-2.5 pr-3.5 pl-2.5 text-[11px] font-semibold text-ink transition-colors select-none hover:bg-accent/10 [&::-webkit-details-marker]:hidden">
                       <div className="flex min-w-0 items-center gap-2">
                         <Badge tone={msg.role === 'user' ? 'accent' : 'neutral'} size="mini" dot={false} className="min-w-4 justify-center rounded-sm px-1 font-mono tabular-nums">
                           {idx + 1}
@@ -391,7 +391,7 @@ export function AgentTraceDetailCard({ trace, copied, onCopyJson, onClose }: Age
                       </div>
                       <LuChevronRight className="size-3.5 shrink-0 text-ink-soft transition-transform group-open/msg:rotate-90" aria-hidden="true" />
                     </summary>
-                    <div className="mt-1.5 px-1.5">
+                    <div className="pt-1 pr-3.5 pb-3 pl-2.5">
                       {isJsonMessage ? (
                         <ToolOutputBlock
                           ok

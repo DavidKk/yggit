@@ -20,6 +20,7 @@ import { remoteIdentity, uniqueLocalProject } from '@/lib/git/project-access'
 import { listRemoteGroup } from '@/lib/git/remote-groups'
 import { parseRemoteUrl } from '@/lib/git/temporary-store'
 import type { GitCommit, GitCommitChanges, GitLogView, GitProjectCatalog, GitProjectHost, GitProjectView, GitRemoteSource } from '@/lib/git/types'
+import { logWarn } from '@/lib/logger'
 import { runWithForegroundPriority } from '@/lib/workdesk/scheduler'
 import { parseGitHubRepo, readRemoteBlobData, readRemoteCommitChanges, readRemoteGitLog } from '@/services/git/remote-provider'
 
@@ -204,18 +205,27 @@ export class EdgeGitDriver implements IGitDriver {
     return (await this.repository(resolvedRepo)).readBlob(hash, path)
   }
 
-  async detectConflictsBatch(repo: string, commits: Array<{ hash: string; parents: string[] }>): Promise<Record<string, MergeConflictRecord>> {
+  async detectConflictsBatch(repo: string, commits: Array<{ hash: string; parents: string[] }>, signal?: AbortSignal): Promise<Record<string, MergeConflictRecord>> {
+    if (signal?.aborted) return {}
     const resolvedRepo = await this.resolveRepo(repo)
     if (parseGitHubRepo(resolvedRepo) && !resolvedRepo.startsWith('edge_')) {
       return {}
     }
     try {
       const reader = await this.repository(resolvedRepo)
-      const entries = await Promise.all(
-        commits.filter((c) => c.parents && c.parents.length >= 2).map(async (c) => [c.hash, await detectEdgeMergeConflict(reader, c.hash, c.parents)] as const)
-      )
-      return Object.fromEntries(entries)
-    } catch {
+      const records: Record<string, MergeConflictRecord> = {}
+      // Analyze sequentially so shared packfile indexes and commit/tree caches warm progressively across commits.
+      for (const commit of commits) {
+        if (signal?.aborted) break
+        if (!commit.parents || commit.parents.length < 2) continue
+        records[commit.hash] = await detectEdgeMergeConflict(reader, commit.hash, commit.parents)
+      }
+      return records
+    } catch (error) {
+      logWarn('git', `Edge conflict batch failed for ${resolvedRepo}`, {
+        error: error instanceof Error ? error.message : String(error),
+        count: commits.length,
+      })
       return {}
     }
   }

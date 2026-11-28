@@ -8,6 +8,7 @@ export const DOT = 22
 export const MERGE_DOT = 12
 
 const LANE_COLOR = [
+  'var(--wt-primary, var(--accent, #12a884))',
   'var(--focus-contrast, #3b82f6)',
   'var(--wt-git-merge, var(--wt-merge, #d946ef))',
   'var(--wt-git-modified, var(--wt-modified, #eab308))',
@@ -110,6 +111,29 @@ export function graphScene(commits: GitCommit[], worktree: GitWorktree | null, s
     if (row.kind === 'commit') commitRow[row.index] = index
     if (row.kind === 'stash') {
       stashPoints.set(row.stash.hash, rowPoints[index])
+    }
+  })
+
+  // Prioritize theme color (index 0) for the current HEAD branch, preserving discovery order for others.
+  const headRowIndex = headIndex >= 0 ? commitRow[headIndex] : -1
+  const headColor = headRowIndex >= 0 ? rowPoints[headRowIndex]?.color : undefined
+  if (headColor !== undefined && headColor !== 0) {
+    const normalizeColor = (c: number) => (c === headColor ? 0 : c < headColor ? c + 1 : c)
+    for (const point of rowPoints) {
+      point.color = normalizeColor(point.color)
+      for (const link of point.links) {
+        link.color = normalizeColor(link.color)
+      }
+      if (point.incoming) {
+        for (const link of point.incoming) {
+          link.color = normalizeColor(link.color)
+        }
+      }
+    }
+  }
+
+  rows.forEach((row, index) => {
+    if (row.kind === 'stash') {
       dashedColors.add(rowPoints[index].color)
     }
   })

@@ -16,6 +16,7 @@ import { createScopedLogger } from '@/lib/logger'
 export function useGitLogRepoLoader({
   view,
   projects,
+  initialCommitHash,
   selectedHash,
   selectedFile,
   applyView,
@@ -36,6 +37,7 @@ export function useGitLogRepoLoader({
 }: {
   view: GitLogView | null
   projects: GitProjectView[]
+  initialCommitHash?: string
   selectedHash: string
   selectedFile: string
   applyView: (next: GitLogView) => void
@@ -57,11 +59,12 @@ export function useGitLogRepoLoader({
   const loadGenRef = useRef(0)
   const abortRef = useRef<AbortController | null>(null)
 
-  async function load(repo: string) {
+  async function load(repo: string, loadOptions?: { locate?: string }) {
     loadGenRef.current += 1
     const gen = loadGenRef.current
     abortRef.current?.abort()
     abortRef.current = null
+    const locateHash = loadOptions?.locate?.trim() || undefined
 
     if (!repo || !repo.trim()) {
       setView(null)
@@ -89,7 +92,9 @@ export function useGitLogRepoLoader({
     const loadLog = createScopedLogger('git')
 
     const cached = getCachedRepoLog(repo)
-    if (cached) {
+    const cacheHasLocate =
+      !locateHash || Boolean(cached?.view.commits.some((c) => c.hash.toLowerCase() === locateHash.toLowerCase() || c.hash.toLowerCase().startsWith(locateHash.toLowerCase())))
+    if (cached && cacheHasLocate) {
       setError('')
       setBusy(false)
       setProgressStage('')
@@ -115,6 +120,7 @@ export function useGitLogRepoLoader({
     setProgressStage(t('git.page.preparingRepo') || 'Preparing repository...')
     try {
       const body = await fetchRepoLogDeduplicated(repo, {
+        locate: locateHash,
         signal: controller.signal,
         onProgress: (stage) => {
           if (gen === loadGenRef.current) setProgressStage(stage)
@@ -193,7 +199,8 @@ export function useGitLogRepoLoader({
           parsedSlug?.remoteUrl ||
           (parsedSlug?.owner && parsedSlug?.repo ? `https://github.com/${parsedSlug.owner}/${parsedSlug.repo}` : parsedSlug?.repoKey) ||
           pathParts.slice(1).join('/')
-        void loadRef.current(target)
+        const targetCommit = initialCommitHash || (parsedSlug?.resourceType === 'commit' ? parsedSlug.resourceId : undefined)
+        void loadRef.current(target, { locate: targetCommit })
       } else if (view?.repo && view.repo.startsWith('/')) {
         const name = view.displayPath || repoName(view.repo)
         if (name) void loadRef.current(name)

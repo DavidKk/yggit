@@ -31,7 +31,7 @@ export function CommitStatusBadge({ commit, conflict, onOpenConflictView }: Prop
         }}
         className={cn(
           'relative z-20 mr-1.5 flex size-[18px] shrink-0 cursor-pointer items-center justify-center rounded-[3.5px] border transition-colors',
-          unresolved ? 'border-danger/50 bg-danger/15 text-danger hover:bg-danger/25' : 'border-warn/50 bg-warn/15 text-warn hover:bg-warn/25'
+          unresolved ? 'border-fail/50 bg-fail/15 text-fail hover:bg-fail/25' : 'border-warn/50 bg-warn/15 text-warn hover:bg-warn/25'
         )}
       >
         <LuTriangleAlert className="size-3 shrink-0" aria-hidden />

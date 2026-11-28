@@ -4,7 +4,7 @@
  * Seamlessly interfaces with local file cache via /api/git/conflicts in local mode.
  */
 
-import { getDriverMode } from '@/lib/git/driver'
+import { getDriverMode, getGitDriver } from '@/lib/git/driver'
 import { logInfo } from '@/lib/logger'
 import { CONFLICTS_DATABASE } from '@/lib/storage/databases'
 
@@ -22,7 +22,7 @@ export interface MergeConflictRecord {
 }
 
 const DB_NAME = CONFLICTS_DATABASE
-const DB_VERSION = 2
+const DB_VERSION = 3
 const STORE_NAME = 'conflicts'
 
 // L1 in-memory cache: key = `${repo}:${hash}`
@@ -50,7 +50,7 @@ function openDB(): Promise<IDBDatabase | null> {
         const db = (event.target as IDBOpenDBRequest).result
         if (!db.objectStoreNames.contains(STORE_NAME)) {
           db.createObjectStore(STORE_NAME, { keyPath: 'key' })
-        } else if (event.oldVersion < 2) {
+        } else if (event.oldVersion < DB_VERSION) {
           const tx = (event.target as IDBOpenDBRequest).transaction
           tx?.objectStore(STORE_NAME).clear()
         }
@@ -198,9 +198,8 @@ export async function queryConflictsBatch(repo: string, commits: Array<{ hash: s
 
   if (isEdgeDriverActive()) {
     try {
-      const { EdgeGitDriver } = await import('@/lib/git/driver/edge-driver')
-      const edge = new EdgeGitDriver()
-      const fetched = await edge.detectConflictsBatch(repo, uncached)
+      const edge = getGitDriver('edge')
+      const fetched = (await edge.detectConflictsBatch?.(repo, uncached, signal)) ?? {}
       for (const [hash, record] of Object.entries(fetched)) {
         cachedMap[hash] = record
         if (record.status !== 'error') {
@@ -260,9 +259,8 @@ export async function fetchRemergeDiff(repo: string, hash: string): Promise<Reme
   const task = (async (): Promise<RemergeDiffResult> => {
     if (mode === 'edge') {
       try {
-        const { EdgeGitDriver } = await import('@/lib/git/driver/edge-driver')
-        const edge = new EdgeGitDriver()
-        return await edge.readRemergeDiff(repo, hash)
+        const edge = getGitDriver('edge')
+        return (await edge.readRemergeDiff?.(repo, hash)) ?? { diff: '', files: [], record: null }
       } catch {
         return { diff: '', files: [], record: null }
       }

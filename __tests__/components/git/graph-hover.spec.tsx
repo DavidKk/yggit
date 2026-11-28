@@ -45,7 +45,7 @@ it('shows a secondary branch badge and its node connector on pointer hover', asy
     const cell = merge.querySelector('[data-git-message-cell]')!
     expect(cell.className).not.toContain('bg-[color-mix')
     const warning = cell.querySelector('button')!
-    expect(warning.className).toContain('text-danger')
+    expect(warning.className).toContain('text-fail')
     const row = host.querySelector('[data-git-commit-hash="other"]')!
     const badge = row.querySelector('[title="feature"]')!
     const connector = () => host.querySelector('line[y1="65"]')

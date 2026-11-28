@@ -42,3 +42,27 @@ it('refreshes counts-only records to inspect committed conflict markers', async 
   expect(fetchMock).toHaveBeenCalledTimes(1)
   expect(result.merge.unresolvedConflictFiles).toEqual(['file.txt'])
 })
+
+it('reuses singleton Edge driver and passes AbortSignal in edge mode', async () => {
+  jest.spyOn(driverModule, 'getDriverMode').mockReturnValue('edge')
+  const controller = new AbortController()
+  const edgeRecord: MergeConflictRecord = {
+    hash: 'edge-merge-1',
+    hasConflict: true,
+    conflictFiles: ['main.go'],
+    conflictFileCounts: { 'main.go': 1 },
+    unresolvedConflictFiles: [],
+    status: 'conflicted',
+    analyzedAt: 2,
+  }
+  const detectConflictsBatch = jest.fn().mockResolvedValue({ 'edge-merge-1': edgeRecord })
+  const driverSpy = jest.spyOn(driverModule, 'getGitDriver').mockReturnValue({
+    mode: 'edge',
+    detectConflictsBatch,
+  } as unknown as driverModule.IGitDriver)
+
+  const result = await queryConflictsBatch('edge_repo_singleton_test', [{ hash: 'edge-merge-1', parents }], controller.signal)
+  expect(driverSpy).toHaveBeenCalledWith('edge')
+  expect(detectConflictsBatch).toHaveBeenCalledWith('edge_repo_singleton_test', [{ hash: 'edge-merge-1', parents }], controller.signal)
+  expect(result['edge-merge-1'].hasConflict).toBe(true)
+})

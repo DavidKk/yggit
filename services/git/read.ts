@@ -322,7 +322,7 @@ export async function readGitHistory(input: { repo?: string; ref?: string; skip?
   }
 }
 
-export async function readGitLog(input?: { repo?: string; branch?: string; ref?: string; skip?: number }): Promise<GitLogView> {
+export async function readGitLog(input?: { repo?: string; branch?: string; ref?: string; skip?: number; locate?: string }): Promise<GitLogView> {
   if (input?.repo && parseGitHubRepo(input.repo)) {
     return await readRemoteGitLog(input.repo, input.branch || input.ref, input.skip)
   }
@@ -333,6 +333,8 @@ export async function readGitLog(input?: { repo?: string; branch?: string; ref?:
   }
   const head = await readHead(repo)
   const historyRef = (input?.ref || input?.branch || '*').trim() || '*'
+  const locatedOffset = input?.locate ? await locateCommitOffset(repo, historyRef, input.locate) : -1
+  const startIndex = locatedOffset >= 0 ? Math.max(0, locatedOffset - Math.floor(GIT_LOG_PAGE_SIZE / 2)) : (input?.skip ?? 0)
   let branchText = ''
   let remoteText = ''
   let tagText = ''
@@ -351,7 +353,7 @@ export async function readGitLog(input?: { repo?: string; branch?: string; ref?:
       gitOptional(repo, ['stash', 'list', '--format=%gd%x1f%H%x1f%P%x1f%cI%x1f%s']),
       gitOptional(repo, ['worktree', 'list', '--porcelain']),
       gitOptional(repo, ['submodule', 'status']),
-      readLogPage(repo, historyRef, input?.skip ?? 0),
+      readLogPage(repo, historyRef, startIndex),
       readWorktree(repo),
       originUrl(repo),
       getProjectRemotes(repo),
@@ -386,6 +388,8 @@ export async function readGitLog(input?: { repo?: string; branch?: string; ref?:
     submodules: parseGitSubmodules(submoduleText, repo),
     commits: page.commits,
     hasMore: page.hasMore,
+    hasPrev: startIndex > 0,
+    startIndex,
     marks: readBranchMarks(repo),
     worktree: status,
   }

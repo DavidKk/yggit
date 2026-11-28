@@ -319,10 +319,12 @@ export function GitSidebar({
       const el = asideRef.current?.querySelector(`[data-git-sidebar-branch="${safeBranch}"]`) as HTMLElement | null
       if (el) {
         el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-        el.classList.add('ring-2', 'ring-accent', 'ring-offset-1')
-        setTimeout(() => {
-          el.classList.remove('ring-2', 'ring-accent', 'ring-offset-1')
-        }, 1200)
+        el.classList.remove('git-sidebar-focus-flash')
+        void el.offsetWidth
+        el.classList.add('git-sidebar-focus-flash')
+        window.setTimeout(() => {
+          el.classList.remove('git-sidebar-focus-flash')
+        }, 1450)
       }
     }, 60)
   }, [view.branch, view.head, setOpen, setOpenFolders])
@@ -454,7 +456,7 @@ export function GitSidebar({
                 <Button
                   variant="plain"
                   data-git-tree-id={sectionId}
-                  className="h-8 min-w-0 flex-1 justify-start whitespace-nowrap px-3 font-normal text-ink-soft hover:enabled:bg-transparent"
+                  className="h-8 min-w-0 flex-1 justify-start whitespace-nowrap border-0 px-3 font-normal text-ink-soft hover:enabled:bg-transparent"
                   aria-expanded={expanded}
                   onClick={() => setOpen((prev) => ({ ...prev, [section.id]: !prev[section.id] }))}
                   onKeyDown={(event) => handleTreeExpandKey(event, expanded, (next) => setOpen((prev) => ({ ...prev, [section.id]: next })))}
