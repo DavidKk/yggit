@@ -3,6 +3,7 @@
 import { type CSSProperties, Fragment, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { measureCellsFit } from '@/components/git/fitColumn'
+import { setGitUiDebugHoldGapLoading, setGitUiDebugPreviewGapStrip, useGitUiDebugHoldGapLoading, useGitUiDebugPreviewGapStrip } from '@/components/git/git-ui-debug'
 import { GitGapStrip } from '@/components/git/graph/GitGapStrip'
 import { buildCommitContextItems, buildStashContextItems, buildWorktreeContextItems } from '@/components/git/graph/graphContextItems'
 import type { GraphOverlayHoverNode } from '@/components/git/graph/GraphNodesOverlay'
@@ -208,24 +209,42 @@ function GitGraphComponent({
 
   const [hiddenStashes, setHiddenStashes] = useGitUiPref(repo ? repoPrefKey(repo, 'hiddenStashes') : 'git.hiddenStashes.none', [] as string[], Array.isArray)
   const visibleStashes = useMemo(() => stashes.filter((s) => !hiddenStashes.includes(s.name)), [stashes, hiddenStashes])
+  const debugGapPreview = useGitUiDebugPreviewGapStrip()
+  const debugGapLoading = useGitUiDebugHoldGapLoading()
 
-  const resolvedSegments = useMemo<GitHistorySegment[]>(() => {
+  const baseSegments = useMemo<GitHistorySegment[]>(() => {
     if (segments && segments.length > 0) {
       return segments.filter((seg) => seg.commits.length > 0)
     }
     return commits.length > 0 || worktree || visibleStashes.length > 0 ? [{ id: 'default', startIndex: 0, commits, hasMore: false }] : []
   }, [segments, commits, worktree, visibleStashes.length])
 
+  const isDebugSplitActive = Boolean((debugGapPreview || debugGapLoading) && baseSegments.length === 1 && baseSegments[0].commits.length >= 6)
+
+  const resolvedSegments = useMemo<GitHistorySegment[]>(() => {
+    if (!isDebugSplitActive) return baseSegments
+    const source = baseSegments[0]
+    const splitAt = Math.min(6, source.commits.length - 3)
+    return [
+      { id: `${source.id}-debug-top`, startIndex: source.startIndex, commits: source.commits.slice(0, splitAt), hasMore: true },
+      { id: `${source.id}-debug-bot`, startIndex: source.startIndex + splitAt + 477, commits: source.commits.slice(splitAt), hasMore: source.hasMore },
+    ]
+  }, [baseSegments, isDebugSplitActive])
+
   const segmentScenes = useMemo(
     () =>
       resolvedSegments.map((segment, index) => {
+        const prevSegment = index > 0 ? resolvedSegments[index - 1] : null
+        const nextSegment = index < resolvedSegments.length - 1 ? resolvedSegments[index + 1] : null
+        const continuesAbove = segment.startIndex > 0 && (!prevSegment || segment.startIndex > prevSegment.startIndex + prevSegment.commits.length)
+        const continuesBelow = Boolean(nextSegment && nextSegment.startIndex > segment.startIndex + segment.commits.length)
         const segWorktree = segment.startIndex === 0 ? worktree : null
         const segStashes = assignStashesToSegment(segment, index, resolvedSegments.length, visibleStashes)
         return {
           segment,
           worktree: segWorktree,
           stashes: segStashes,
-          scene: graphScene(segment.commits, segWorktree, segStashes),
+          scene: graphScene(segment.commits, segWorktree, segStashes, { continuesAbove, continuesBelow }),
         }
       }),
     [resolvedSegments, worktree, visibleStashes]
@@ -417,8 +436,10 @@ function GitGraphComponent({
             <div ref={(el) => registerGapSentinel?.(firstSegment.id, el)} data-git-gap-segment={firstSegment.id}>
               <GitGapStrip
                 columns={columns}
+                contentWidth={contentWidth}
                 hiddenCount={firstSegment.startIndex}
-                loading={loadingPrevSegmentId === firstSegment.id}
+                lowerRails={segmentScenes[0]?.scene.topRails}
+                loading={loadingPrevSegmentId === firstSegment.id || debugGapLoading}
                 canJumpTop={Boolean(onJumpTop)}
                 onLoadPrev={onLoadPrevSegment ? () => onLoadPrevSegment(firstSegment.id) : undefined}
                 onJumpTop={onJumpTop}
@@ -434,10 +455,20 @@ function GitGraphComponent({
                   <div ref={(el) => registerGapSentinel?.(entry.segment.id, el)} data-git-gap-segment={entry.segment.id}>
                     <GitGapStrip
                       columns={columns}
+                      contentWidth={contentWidth}
                       hiddenCount={gapCount}
-                      loading={loadingPrevSegmentId === entry.segment.id}
+                      upperRails={prevEntry.scene.bottomRails}
+                      lowerRails={entry.scene.topRails}
+                      loading={loadingPrevSegmentId === entry.segment.id || debugGapLoading}
                       canJumpTop={Boolean(onJumpTop)}
-                      onLoadPrev={onLoadPrevSegment ? () => onLoadPrevSegment(entry.segment.id) : undefined}
+                      onLoadPrev={
+                        !isDebugSplitActive && onLoadPrevSegment
+                          ? () => onLoadPrevSegment(entry.segment.id)
+                          : () => {
+                              setGitUiDebugPreviewGapStrip(false)
+                              setGitUiDebugHoldGapLoading(false)
+                            }
+                      }
                       onJumpTop={onJumpTop}
                     />
                   </div>

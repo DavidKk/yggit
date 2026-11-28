@@ -107,8 +107,11 @@ export function isHighlightedStroke(stroke: Stroke, hashes?: Set<string> | null)
 
 type Dot = { key: string; x: number; y: number; color: string; filled: boolean; radius: number }
 type StashMark = { key: string; hash: string; x: number; y: number; color: string }
+export type GapRail = { lane: number; color: number; dashed?: boolean }
 
-export function graphScene(commits: GitCommit[], worktree: GitWorktree | null, stashes: GitStash[]) {
+export function graphScene(commits: GitCommit[], worktree: GitWorktree | null, stashes: GitStash[], options?: { continuesAbove?: boolean; continuesBelow?: boolean }) {
+  const continuesAbove = Boolean(options?.continuesAbove)
+  const continuesBelow = Boolean(options?.continuesBelow)
   const rows = buildGraphRows(commits, stashes, worktree)
   const headIndex = commits.findIndex((commit) => commit.refs.some((ref) => ref === 'HEAD' || ref.startsWith('HEAD -> ')))
   const nodes = rows.map((row) => {
@@ -155,6 +158,8 @@ export function graphScene(commits: GitCommit[], worktree: GitWorktree | null, s
   const strokes: Stroke[] = []
   const dots: Dot[] = []
   const stashMarks: StashMark[] = []
+  const bottomRailsMap = new Map<number, GapRail>()
+  const topRails: GapRail[] = rowPoints[0] ? [{ lane: rowPoints[0].lane, color: rowPoints[0].color }] : []
   let rails = new Map<number, { childHash: string; parentHash: string }>()
   rows.forEach((row, index) => {
     const previousRails = rails
@@ -164,10 +169,34 @@ export function graphScene(commits: GitCommit[], worktree: GitWorktree | null, s
     const isLastRow = index === rows.length - 1
     const yTop = index * ROW
     const yMid = yTop + ROW / 2
-    const yBot = isLastRow ? yMid : yTop + ROW
+    const yBot = isLastRow && !continuesBelow ? yMid : yTop + ROW
     const hash = nodes[index].hash
+    if (index === 0 && continuesAbove && !point.joins) {
+      strokes.push({
+        key: `${hash}:above-entry`,
+        d: `M ${xAt(point.lane)} ${yTop} L ${xAt(point.lane)} ${yMid}`,
+        color: point.color,
+        startColor: point.color,
+        targetColor: point.color,
+        x1: xAt(point.lane),
+        y1: yTop,
+        x2: xAt(point.lane),
+        y2: yMid,
+        dashed: true,
+        hash,
+        fromLane: point.lane,
+        toLane: point.lane,
+      })
+    }
     point.links.forEach((link, linkIndex) => {
-      if (isLastRow && link.from === point.lane) return
+      if (isLastRow && !bottomRailsMap.has(link.to)) {
+        bottomRailsMap.set(link.to, {
+          lane: link.to,
+          color: link.color,
+          dashed: dashedColors.has(link.color),
+        })
+      }
+      if (isLastRow && !continuesBelow && link.from === point.lane) return
       const x1 = xAt(link.from)
       const x2 = xAt(link.to)
       const startY = link.from === point.lane ? yMid : yTop
@@ -247,5 +276,6 @@ export function graphScene(commits: GitCommit[], worktree: GitWorktree | null, s
   // Draw bends above straight rails; a narrow background stroke makes crossings
   // readable without implying an extra parent/merge connection.
   strokes.sort((a, b) => Number(!!a.bridge) - Number(!!b.bridge))
-  return { strokes, dots, stashMarks, rows, commitRow, points, stashPoints, headIndex, laneCount, height: rows.length * ROW }
+  const bottomRails = Array.from(bottomRailsMap.values()).sort((a, b) => a.lane - b.lane)
+  return { strokes, dots, stashMarks, rows, commitRow, points, stashPoints, headIndex, laneCount, height: rows.length * ROW, topRails, bottomRails }
 }

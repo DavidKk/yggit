@@ -20,6 +20,8 @@ export type DebugMessages = {
   gameUiPluginsOutdated: string
   gitTitle: string
   gitExploreLoading: string
+  gitGapPreview: string
+  gitGapLoading: string
 }
 export const debugZh: DebugMessages = {
   title: '调试菜单',
@@ -43,6 +45,8 @@ export const debugZh: DebugMessages = {
   gameUiPluginsOutdated: '插件待更新',
   gitTitle: 'Git',
   gitExploreLoading: '根系 Loading',
+  gitGapPreview: '折叠间隙行',
+  gitGapLoading: '折叠行 Loading',
 }
 export const debugEn: DebugMessages = {
   title: 'Debug menu',
@@ -66,6 +70,8 @@ export const debugEn: DebugMessages = {
   gameUiPluginsOutdated: 'Plugins outdated',
   gitTitle: 'Git',
   gitExploreLoading: 'Root loading',
+  gitGapPreview: 'Gap fold row',
+  gitGapLoading: 'Gap row loading',
 }
 export const debugJa: DebugMessages = {
   title: 'デバッグメニュー',
@@ -89,6 +95,8 @@ export const debugJa: DebugMessages = {
   gameUiPluginsOutdated: 'プラグイン更新あり',
   gitTitle: 'Git',
   gitExploreLoading: '根系 Loading',
+  gitGapPreview: '折りたたみ行プレビュー',
+  gitGapLoading: '折りたたみ行 Loading',
 }
 export const debugKo: DebugMessages = {
   title: '디버그 메뉴',
@@ -112,6 +120,8 @@ export const debugKo: DebugMessages = {
   gameUiPluginsOutdated: '플러그인 업데이트',
   gitTitle: 'Git',
   gitExploreLoading: '뿌리 Loading',
+  gitGapPreview: '접힘 간격 행',
+  gitGapLoading: '접힘 행 Loading',
 }
 export const debugCht: DebugMessages = {
   title: '除錯選單',
@@ -135,6 +145,8 @@ export const debugCht: DebugMessages = {
   gameUiPluginsOutdated: '外掛待更新',
   gitTitle: 'Git',
   gitExploreLoading: '根系 Loading',
+  gitGapPreview: '折疊間隙列',
+  gitGapLoading: '折疊列 Loading',
 }
 export const debugDe: DebugMessages = {
   title: 'Debug-Menü',
@@ -158,6 +170,8 @@ export const debugDe: DebugMessages = {
   gameUiPluginsOutdated: 'Plugins veraltet',
   gitTitle: 'Git',
   gitExploreLoading: 'Wurzel-Loading',
+  gitGapPreview: 'Lücken-Faltzeile',
+  gitGapLoading: 'Faltzeilen-Loading',
 }
 export const debugEs: DebugMessages = {
   title: 'Menú de depuración',
@@ -181,6 +195,8 @@ export const debugEs: DebugMessages = {
   gameUiPluginsOutdated: 'Plugins desactualizados',
   gitTitle: 'Git',
   gitExploreLoading: 'Loading raíces',
+  gitGapPreview: 'Fila de hueco',
+  gitGapLoading: 'Loading fila de hueco',
 }
 export const debugFr: DebugMessages = {
   title: 'Menu de débogage',
@@ -204,6 +220,8 @@ export const debugFr: DebugMessages = {
   gameUiPluginsOutdated: 'Plugins obsolètes',
   gitTitle: 'Git',
   gitExploreLoading: 'Loading racines',
+  gitGapPreview: 'Ligne d’intervalle',
+  gitGapLoading: 'Loading intervalle',
 }
 export const debugRu: DebugMessages = {
   title: 'Меню отладки',
@@ -227,6 +245,8 @@ export const debugRu: DebugMessages = {
   gameUiPluginsOutdated: 'Плагины устарели',
   gitTitle: 'Git',
   gitExploreLoading: 'Loading корней',
+  gitGapPreview: 'Строка пропуска',
+  gitGapLoading: 'Loading строки пропуска',
 }
 export const debugPtBR: DebugMessages = {
   title: 'Menu de depuração',
@@ -250,4 +270,6 @@ export const debugPtBR: DebugMessages = {
   gameUiPluginsOutdated: 'Plugins desatualizados',
   gitTitle: 'Git',
   gitExploreLoading: 'Loading raízes',
+  gitGapPreview: 'Linha de lacuna',
+  gitGapLoading: 'Loading linha de lacuna',
 }

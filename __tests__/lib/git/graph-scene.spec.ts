@@ -180,4 +180,14 @@ describe('stash graph scene', () => {
     expect(scene.points[0].color).toBe(1)
     expect(scene.points[1].color).toBe(2)
   })
+
+  it('exposes continuing top/bottom rails across segment gap boundaries', () => {
+    const upper = graphScene([commit('head', 100, ['p1', 'p2'], ['HEAD -> main']), commit('p1', 90, ['older'])], null, [], { continuesBelow: true })
+    expect(upper.bottomRails.map((r) => r.lane)).toEqual([0, 1])
+    expect(upper.strokes.some((s) => s.key === 'p1:0' && s.y2 === upper.height)).toBe(true)
+
+    const lower = graphScene([commit('mid', 50, ['root'])], null, [], { continuesAbove: true })
+    expect(lower.topRails).toEqual([{ lane: 0, color: lower.points[0].color }])
+    expect(lower.strokes.some((s) => s.key === 'mid:above-entry' && s.dashed)).toBe(true)
+  })
 })

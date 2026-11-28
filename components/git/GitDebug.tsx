@@ -3,13 +3,22 @@
 import { useMemo } from 'react'
 
 import { type DebugRegistration, useDebugMenuRegistration } from '@/components/debug/registry'
-import { setGitUiDebugHoldExploreLoading, useGitUiDebugHoldExploreLoading } from '@/components/git/git-ui-debug'
+import {
+  setGitUiDebugHoldExploreLoading,
+  setGitUiDebugHoldGapLoading,
+  setGitUiDebugPreviewGapStrip,
+  useGitUiDebugHoldExploreLoading,
+  useGitUiDebugHoldGapLoading,
+  useGitUiDebugPreviewGapStrip,
+} from '@/components/git/git-ui-debug'
 import { useT } from '@/components/i18n/LocaleProvider'
 
-/** Dev-only: one toggle for the explore-strip loading preview. */
+/** Dev-only: debug menu toggles for explore loading and segmented gap row previews. */
 export function GitDebug() {
   const t = useT()
-  const hold = useGitUiDebugHoldExploreLoading()
+  const holdExplore = useGitUiDebugHoldExploreLoading()
+  const previewGap = useGitUiDebugPreviewGapStrip()
+  const holdGapLoading = useGitUiDebugHoldGapLoading()
 
   const registration = useMemo<DebugRegistration>(
     () => ({
@@ -19,12 +28,24 @@ export function GitDebug() {
         {
           id: 'explore-loading',
           label: t('debug.gitExploreLoading'),
-          active: hold,
-          run: () => setGitUiDebugHoldExploreLoading(!hold),
+          active: holdExplore,
+          run: () => setGitUiDebugHoldExploreLoading(!holdExplore),
+        },
+        {
+          id: 'gap-preview',
+          label: t('debug.gitGapPreview'),
+          active: previewGap,
+          run: () => setGitUiDebugPreviewGapStrip(!previewGap),
+        },
+        {
+          id: 'gap-loading',
+          label: t('debug.gitGapLoading'),
+          active: holdGapLoading,
+          run: () => setGitUiDebugHoldGapLoading(!holdGapLoading),
         },
       ],
     }),
-    [hold, t]
+    [holdExplore, previewGap, holdGapLoading, t]
   )
 
   useDebugMenuRegistration(registration)
