@@ -8,6 +8,7 @@
 import { LOGS_DATABASE } from '@/lib/storage/databases'
 
 import { getLogRetentionPolicy, pruneIndexedDbStore, retainRecentEntries } from './retention'
+import { maskSensitiveTokens } from './sanitize'
 import { createTraceId, normalizeLegacyTraceId, resolveTraceId } from './trace-context'
 
 export type LogLevel = 'info' | 'warn' | 'error' | 'debug'
@@ -129,8 +130,8 @@ export function recordLog(level: LogLevel, module: LogModule, message: string, d
     timestamp: Date.now(),
     level,
     module,
-    message,
-    details: detailsStr,
+    message: maskSensitiveTokens(message),
+    details: detailsStr !== undefined ? maskSensitiveTokens(detailsStr) : undefined,
   }
 
   const policy = getLogRetentionPolicy()
@@ -267,7 +268,7 @@ export function generateIssueReportMarkdown(entries: ServiceLogEntry[]): string 
       ? errorOrWarnLogs
           .map(
             (e) =>
-              `\`[${new Date(e.timestamp).toISOString()}] [${e.level.toUpperCase()}] [${e.module}] [${e.traceId || '-'}]\` ${e.message}${e.details ? `\n\`\`\`\n${e.details.slice(0, 500)}\n\`\`\`` : ''}`
+              `\`[${new Date(e.timestamp).toISOString()}] [${e.level.toUpperCase()}] [${e.module}] [${e.traceId || '-'}]\` ${maskSensitiveTokens(e.message)}${e.details ? `\n\`\`\`\n${maskSensitiveTokens(e.details).slice(0, 500)}\n\`\`\`` : ''}`
           )
           .join('\n\n')
       : 'No error or warning events recorded.'

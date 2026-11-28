@@ -7,6 +7,7 @@ import { LuCheck, LuCopy, LuFolder, LuFolderPlus, LuHash, LuLayers } from 'react
 import { useT } from '@/components/i18n/LocaleProvider'
 import { Button, Select, type SelectOption } from '@/components/sk'
 import { copyToClipboard } from '@/lib/clipboard'
+import { maskUserHomePath } from '@/lib/format-home-path'
 import { getDriverMode, getGitDriver } from '@/lib/git/driver'
 import { getDirectoryHandle, isFileSystemAccessSupported, saveDirectoryHandle, saveRepoAlias } from '@/lib/git/indexeddb-handles'
 import { makeShareUrl } from '@/lib/git/resolver'
@@ -37,10 +38,13 @@ export function GitAssociateRepoGuide({ identity }: Props) {
   const projectOptions: SelectOption[] = useMemo(
     () => [
       { value: '', label: t('git.associate.selectPlaceholder') },
-      ...projects.map((p) => ({
-        value: p.id,
-        label: `${p.name}${p.localPath ? ` (${p.localPath})` : ''}`,
-      })),
+      ...projects.map((p) => {
+        const masked = p.localPath ? maskUserHomePath(p.localPath) : ''
+        return {
+          value: p.id,
+          label: `${p.name}${masked ? ` (${masked})` : ''}`,
+        }
+      }),
     ],
     [projects, t]
   )

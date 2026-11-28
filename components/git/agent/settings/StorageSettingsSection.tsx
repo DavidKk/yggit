@@ -7,6 +7,7 @@ import { useConfirm } from '@/components/confirm/ConfirmProvider'
 import { useT } from '@/components/i18n/LocaleProvider'
 import { useNotification } from '@/components/notification/useNotification'
 import { Badge, Button, Tooltip } from '@/components/sk'
+import { maskUserHomePath } from '@/lib/format-home-path'
 import { getDriverMode } from '@/lib/git/driver'
 import { clearBrowserStorage, deleteBrowserDatabase, inspectBrowserStorage, type StorageSource } from '@/lib/storage/browser-storage'
 
@@ -230,7 +231,7 @@ export function StorageSettingsSection() {
               </Badge>
             </div>
             <div className="flex items-center justify-between gap-2 rounded border border-line bg-panel px-2.5 py-1.5">
-              <span className="font-mono text-xs text-ink truncate select-all">{localInfo.dataPath}</span>
+              <span className="font-mono text-xs text-ink truncate select-all">{maskUserHomePath(localInfo.dataPath)}</span>
               <div className="flex items-center gap-1.5 shrink-0">
                 <Button variant="plain" size="sm" onClick={() => void handleCopyPath()} tooltip="Copy full directory path">
                   {copied ? <LuCheck className="size-3.5 text-ok" /> : <LuCopy className="size-3.5" />}

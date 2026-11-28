@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { LuChevronRight, LuCircleAlert, LuDownload, LuFileText, LuMonitor, LuRefreshCw, LuTrash2, LuZap } from 'react-icons/lu'
+import { LuChevronRight, LuCircleAlert, LuDownload, LuFileText, LuFilterX, LuMonitor, LuRefreshCw, LuTrash2, LuZap } from 'react-icons/lu'
 
 import { AgentTraceDetailCard } from '@/components/dev/logs/AgentTraceDetailCard'
 import { useT } from '@/components/i18n/LocaleProvider'
@@ -12,6 +12,7 @@ import { type AgentRunTrace, clearAllAgentTraces, getMemoryAgentTraces, loadPers
 import { copyToClipboard } from '@/lib/clipboard'
 import { formatDuration } from '@/lib/format-duration'
 import { getLogRetentionPolicy } from '@/lib/logger/retention'
+import { maskSensitiveTokens } from '@/lib/logger/sanitize'
 import { cn } from '@/lib/utils'
 
 import { DevLogsPagination } from './DevLogsPagination'
@@ -104,6 +105,21 @@ export function AgentContextTracePanel({ title, desc }: { title: string; desc: s
     }
   }, [filtered, page, pageSize, selectedTrace])
 
+  const hasActiveFilters = Boolean(query.trim() || statusFilter !== 'all')
+
+  const handleClearFilters = () => {
+    setQuery('')
+    setStatusFilter('all')
+    setPage(1)
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href)
+      if (url.searchParams.has('q')) {
+        url.searchParams.delete('q')
+        window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`)
+      }
+    }
+  }
+
   const handlePageChange = (nextPage: number) => {
     setPage(nextPage)
     scrollRef.current?.scrollTo({ top: 0 })
@@ -156,7 +172,7 @@ export function AgentContextTracePanel({ title, desc }: { title: string; desc: s
             <p className="mt-0.5 text-xs text-ink-soft leading-relaxed truncate">{desc}</p>
           </div>
 
-          <div className="flex min-w-0 items-center justify-end gap-1.5 overflow-x-auto">
+          <ScrollArea indicator="horizontal" reserveGutter={false} className="min-w-0" scrollClassName="flex items-center justify-end gap-1.5">
             <TextInput
               search
               clearable
@@ -182,6 +198,17 @@ export function AgentContextTracePanel({ title, desc }: { title: string; desc: s
                 setPage(1)
               }}
             />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="shrink-0"
+              disabled={!hasActiveFilters}
+              aria-label={t('gitAgent.devLogsClearFilters') || 'Clear filters'}
+              tooltip={t('gitAgent.devLogsClearFilters') || 'Clear filters'}
+              onClick={handleClearFilters}
+            >
+              <LuFilterX className="size-3.5" />
+            </Button>
             <Button
               variant="outline-accent"
               size="icon"
@@ -215,7 +242,7 @@ export function AgentContextTracePanel({ title, desc }: { title: string; desc: s
             >
               <LuTrash2 className="size-3.5" />
             </Button>
-          </div>
+          </ScrollArea>
         </div>
       </div>
 
@@ -291,7 +318,7 @@ export function AgentContextTracePanel({ title, desc }: { title: string; desc: s
                                 </span>
                               </Tooltip>
                             ) : null}
-                            <span className="truncate text-ink">{item.userPrompt}</span>
+                            <span className="truncate text-ink">{maskSensitiveTokens(item.userPrompt)}</span>
                           </div>
                           <div className="flex shrink-0 items-center gap-1.5 text-[11px] text-ink-soft tabular-nums">
                             {item.fallbackToolCalls.length > 0 ? (

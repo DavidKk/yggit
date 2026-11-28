@@ -22,15 +22,18 @@ import {
   LuZap,
 } from 'react-icons/lu'
 
-import { TraceMarkdownView } from '@/components/dev/logs/TraceMarkdownView'
+import { TraceJsonView, TraceMarkdownView } from '@/components/dev/logs/TraceMarkdownView'
 import { useT } from '@/components/i18n/LocaleProvider'
 import { useNotification } from '@/components/notification/useNotification'
 import { Badge, Button, ScrollArea, Tooltip } from '@/components/sk'
 import type { AgentRunTrace } from '@/lib/agent/trace-logger'
 import { copyToClipboard } from '@/lib/clipboard'
 import { formatDuration } from '@/lib/format-duration'
+import { maskUserHomeInText, maskUserHomePath } from '@/lib/format-home-path'
+import { formatJsonLikeValue } from '@/lib/format-json-like'
+import { maskSensitiveTokens } from '@/lib/logger/sanitize'
 
-const LARGE_ARGS_THRESHOLD = 400
+const LARGE_PAYLOAD_THRESHOLD = 4000
 
 interface AgentTraceDetailCardProps {
   trace: AgentRunTrace
@@ -49,62 +52,92 @@ function formatRawOutputMarkdown(trace: AgentRunTrace, turnOneLabel: string, fin
   return `#### ${turnOneLabel}\n\n${turnOne}\n\n---\n\n#### ${finalTurnLabel}\n\n${finalTurn}`
 }
 
-function formatArgsPayload(args: unknown): { formatted: string; isEmpty: boolean; isLarge: boolean } {
-  if (args == null) return { formatted: '{}', isEmpty: true, isLarge: false }
-  if (typeof args === 'string') {
-    const trimmed = args.trim()
-    if (!trimmed || trimmed === '{}') return { formatted: '{}', isEmpty: true, isLarge: false }
-    try {
-      const parsed = JSON.parse(trimmed) as unknown
-      const formatted = JSON.stringify(parsed, null, 2)
-      return { formatted, isEmpty: false, isLarge: formatted.length > LARGE_ARGS_THRESHOLD }
-    } catch {
-      return { formatted: trimmed, isEmpty: false, isLarge: trimmed.length > LARGE_ARGS_THRESHOLD }
-    }
-  }
-  if (typeof args === 'object' && !Array.isArray(args) && Object.keys(args as Record<string, unknown>).length === 0) {
-    return { formatted: '{}', isEmpty: true, isLarge: false }
-  }
-  try {
-    const formatted = JSON.stringify(args, null, 2)
-    return { formatted, isEmpty: formatted === '{}', isLarge: formatted.length > LARGE_ARGS_THRESHOLD }
-  } catch {
-    const str = String(args)
-    return { formatted: str, isEmpty: false, isLarge: str.length > LARGE_ARGS_THRESHOLD }
-  }
+function ScrollablePlainText({ text, className, scrollClassName }: { text: string; className?: string; scrollClassName?: string }) {
+  return (
+    <ScrollArea indicator="vertical" className={className} scrollClassName={scrollClassName}>
+      <pre className="m-0 whitespace-pre-wrap break-words font-mono text-[11px] leading-relaxed">{text}</pre>
+    </ScrollArea>
+  )
 }
 
 function ToolArgsBlock({ args, argsLabel, charsTemplate }: { args: unknown; argsLabel: string; charsTemplate: string }) {
   const [loaded, setLoaded] = useState(false)
-  const { formatted, isEmpty, isLarge } = formatArgsPayload(args)
+  const { text: formatted, isEmpty } = formatJsonLikeValue(args)
 
   if (isEmpty) {
     return (
-      <span className="font-mono text-ink-soft">
+      <div className="font-mono text-ink-soft">
         {argsLabel}: {'{}'}
-      </span>
+      </div>
+    )
+  }
+
+  const sanitized = maskSensitiveTokens(maskUserHomeInText(formatted))
+
+  if (sanitized.length > LARGE_PAYLOAD_THRESHOLD && !loaded) {
+    return (
+      <div>
+        <button
+          type="button"
+          onClick={() => setLoaded(true)}
+          className="inline-flex cursor-pointer items-center gap-1.5 border border-line bg-paper px-2 py-1 font-mono text-[11px] text-ink-soft transition-colors hover:border-accent/50 hover:text-ink"
+        >
+          <LuBraces className="size-3 shrink-0 text-accent" aria-hidden="true" />
+          <span>
+            {argsLabel} ({charsTemplate.replace('{count}', String(sanitized.length))})
+          </span>
+        </button>
+      </div>
+    )
+  }
+
+  const trimmed = sanitized.trim()
+  const looksJson = trimmed.startsWith('{') || trimmed.startsWith('[')
+  return looksJson ? (
+    <TraceJsonView code={sanitized} lang="json" />
+  ) : (
+    <ScrollablePlainText text={sanitized} className="max-h-44 bg-paper/55 text-ink-soft" scrollClassName="px-2.5 py-2" />
+  )
+}
+
+function ToolOutputBlock({ ok, output, outputLabel, charsTemplate }: { ok: boolean; output: string; outputLabel: string; charsTemplate: string }) {
+  const [loaded, setLoaded] = useState(false)
+  const { text: formatted } = formatJsonLikeValue(output)
+  const sanitized = maskSensitiveTokens(maskUserHomeInText(formatted))
+  const isLarge = ok && sanitized.length > LARGE_PAYLOAD_THRESHOLD
+
+  if (!ok) {
+    return (
+      <div className="flex items-center gap-2 bg-fail/8 px-2.5 py-2 font-mono text-[11px] text-fail">
+        <LuCircleAlert className="size-3.5 shrink-0" aria-hidden="true" />
+        <ScrollablePlainText text={sanitized} className="max-h-44 min-w-0 flex-1" />
+      </div>
     )
   }
 
   if (isLarge && !loaded) {
     return (
-      <button
-        type="button"
-        onClick={() => setLoaded(true)}
-        className="inline-flex cursor-pointer items-center gap-1.5 border border-line bg-paper px-2 py-1 font-mono text-[11px] text-ink-soft transition-colors hover:border-accent/50 hover:text-ink"
-      >
-        <LuBraces className="size-3 shrink-0 text-accent" aria-hidden="true" />
-        <span>
-          {argsLabel} ({charsTemplate.replace('{count}', String(formatted.length))})
-        </span>
-      </button>
+      <div>
+        <button
+          type="button"
+          onClick={() => setLoaded(true)}
+          className="inline-flex cursor-pointer items-center gap-1.5 border border-line bg-paper px-2 py-1 font-mono text-[11px] text-ink-soft transition-colors hover:border-accent/50 hover:text-ink"
+        >
+          <LuBraces className="size-3 shrink-0 text-accent" aria-hidden="true" />
+          <span>
+            {outputLabel} ({charsTemplate.replace('{count}', String(sanitized.length))})
+          </span>
+        </button>
+      </div>
     )
   }
 
-  return (
-    <pre className="m-0 overflow-x-auto bg-paper/55 px-2.5 py-1.5 font-mono text-[11px] leading-relaxed text-ink-soft whitespace-pre-wrap break-words">
-      {formatted}
-    </pre>
+  const trimmed = sanitized.trim()
+  const looksJson = trimmed.startsWith('{') || trimmed.startsWith('[')
+  return looksJson ? (
+    <TraceJsonView code={sanitized} lang="json" />
+  ) : (
+    <ScrollablePlainText text={sanitized} className="max-h-44 bg-paper/55 text-ink" scrollClassName="px-2.5 py-2" />
   )
 }
 
@@ -133,11 +166,15 @@ export function AgentTraceDetailCard({ trace, copied, onCopyJson, onClose }: Age
 
   const fallbackTip = (t('gitAgent.devLogsFallbackTip') || 'Fallback tool calls: {count}').replace('{count}', String(trace.fallbackToolCalls.length))
   const charsTemplate = t('gitAgent.devLogsCharsCount') || '{count} chars'
-  const rawOutputMarkdown = formatRawOutputMarkdown(
-    trace,
-    t('gitAgent.devLogsTurnOne') || 'Turn 1',
-    t('gitAgent.devLogsFinalTurn') || 'Final Turn',
-    t('gitAgent.devLogsEmptyValue') || 'empty'
+  const rawOutputMarkdown = maskSensitiveTokens(
+    maskUserHomeInText(
+      formatRawOutputMarkdown(
+        trace,
+        t('gitAgent.devLogsTurnOne') || 'Turn 1',
+        t('gitAgent.devLogsFinalTurn') || 'Final Turn',
+        t('gitAgent.devLogsEmptyValue') || 'empty'
+      )
+    )
   )
 
   return (
@@ -167,7 +204,7 @@ export function AgentTraceDetailCard({ trace, copied, onCopyJson, onClose }: Age
             ) : null}
           </div>
 
-          <p className="m-0 text-xs leading-snug font-medium text-ink break-words">{trace.userPrompt}</p>
+          <p className="m-0 text-xs leading-snug font-medium text-ink break-words">{maskSensitiveTokens(trace.userPrompt)}</p>
 
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] leading-snug text-ink-soft tabular-nums">
             <span className="inline-flex items-center gap-1.5">
@@ -205,7 +242,7 @@ export function AgentTraceDetailCard({ trace, copied, onCopyJson, onClose }: Age
             {trace.repo ? (
               <span className="inline-flex min-w-0 items-center gap-1.5 font-mono">
                 <LuLink className="size-3 shrink-0" aria-hidden="true" />
-                <span className="truncate">{trace.repo}</span>
+                <span className="truncate">{maskUserHomePath(trace.repo)}</span>
               </span>
             ) : null}
           </div>
@@ -251,7 +288,7 @@ export function AgentTraceDetailCard({ trace, copied, onCopyJson, onClose }: Age
                 <LuCircleAlert className="size-3.5 shrink-0" aria-hidden="true" />
                 <span>{t('gitAgent.devLogsStatusError') || 'Failed'}</span>
               </div>
-              <pre className="m-0 whitespace-pre-wrap break-words font-mono text-[11px]">{trace.error}</pre>
+              <pre className="m-0 whitespace-pre-wrap break-words font-mono text-[11px]">{maskSensitiveTokens(maskUserHomeInText(trace.error))}</pre>
             </section>
           ) : null}
 
@@ -289,7 +326,7 @@ export function AgentTraceDetailCard({ trace, copied, onCopyJson, onClose }: Age
               {trace.toolExecutions.length > 0 ? (
                 <div className="divide-y divide-line/60">
                   {trace.toolExecutions.map((exec, idx) => (
-                    <div key={`${exec.name}_${idx}`} className="space-y-1.5 py-2 first:pt-0 last:pb-0 text-[11px]">
+                    <div key={`${exec.name}_${idx}`} className="flex flex-col gap-2 py-2.5 first:pt-0 last:pb-0 text-[11px]">
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-mono font-semibold text-ink">{exec.name}</span>
                         <span className={exec.ok ? 'shrink-0 font-mono text-ok tabular-nums' : 'shrink-0 font-mono text-fail tabular-nums'}>
@@ -297,16 +334,12 @@ export function AgentTraceDetailCard({ trace, copied, onCopyJson, onClose }: Age
                         </span>
                       </div>
                       <ToolArgsBlock args={exec.args} argsLabel={t('gitAgent.devLogsArgsLabel') || 'Args'} charsTemplate={charsTemplate} />
-                      <div
-                        className={
-                          exec.ok
-                            ? 'max-h-36 overflow-y-auto bg-paper/55 px-2.5 py-1.5 font-mono text-[11px] text-ink whitespace-pre-wrap break-words'
-                            : 'flex items-start gap-2 bg-fail/8 px-2.5 py-1.5 font-mono text-[11px] text-fail'
-                        }
-                      >
-                        {!exec.ok ? <LuCircleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" /> : null}
-                        <pre className="m-0 min-w-0 flex-1 whitespace-pre-wrap break-words font-mono text-[11px]">{exec.outputPreview}</pre>
-                      </div>
+                      <ToolOutputBlock
+                        ok={exec.ok}
+                        output={exec.outputPreview}
+                        outputLabel={t('gitAgent.devLogsSectionOutput') || 'Output'}
+                        charsTemplate={charsTemplate}
+                      />
                     </div>
                   ))}
                 </div>
@@ -335,7 +368,7 @@ export function AgentTraceDetailCard({ trace, copied, onCopyJson, onClose }: Age
                     <LuEye className="size-3.5 text-ok" aria-hidden="true" />
                     <span>{t('gitAgent.devLogsSectionVisibleOutput') || 'Visible Output'}</span>
                   </div>
-                  <TraceMarkdownView content={trace.visibleContent} />
+                  <TraceMarkdownView content={maskSensitiveTokens(maskUserHomeInText(trace.visibleContent))} />
                 </div>
               ) : null}
             </div>
@@ -352,24 +385,37 @@ export function AgentTraceDetailCard({ trace, copied, onCopyJson, onClose }: Age
               <LuChevronRight className="size-3.5 shrink-0 text-ink-soft transition-transform group-open/sec:rotate-90" aria-hidden="true" />
             </summary>
 
-            <div className="mt-2.5 divide-y divide-line/60">
-              {trace.requestMessages.map((msg, idx) => (
-                <details key={idx} open={msg.role !== 'system'} className="group/msg py-2 first:pt-0 last:pb-0">
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 py-0.5 text-[11px] font-semibold text-ink select-none [&::-webkit-details-marker]:hidden">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <Badge tone={msg.role === 'user' ? 'accent' : 'neutral'} size="mini" dot={false} className="min-w-4 justify-center font-mono tabular-nums">
-                        {idx + 1}
-                      </Badge>
-                      <span>{msg.role}</span>
-                      <span className="font-normal text-ink-soft tabular-nums">({charsTemplate.replace('{count}', String(msg.content.length))})</span>
+            <div className="mt-2.5 divide-y divide-line/60 pl-4">
+              {trace.requestMessages.map((msg, idx) => {
+                const trimmedMsg = msg.content.trim()
+                const isJsonMessage = msg.role === 'tool' || trimmedMsg.startsWith('{') || trimmedMsg.startsWith('[')
+                return (
+                  <details key={idx} open={msg.role !== 'system'} className="group/msg py-2 first:pt-0 last:pb-0">
+                    <summary className="flex cursor-pointer list-none items-center justify-between gap-2 py-0.5 text-[11px] font-semibold text-ink select-none [&::-webkit-details-marker]:hidden">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <Badge tone={msg.role === 'user' ? 'accent' : 'neutral'} size="mini" dot={false} className="min-w-4 justify-center rounded-sm px-1 font-mono tabular-nums">
+                          {idx + 1}
+                        </Badge>
+                        <span>{msg.role}</span>
+                        <span className="font-normal text-ink-soft tabular-nums">({charsTemplate.replace('{count}', String(msg.content.length))})</span>
+                      </div>
+                      <LuChevronRight className="size-3.5 shrink-0 text-ink-soft transition-transform group-open/msg:rotate-90" aria-hidden="true" />
+                    </summary>
+                    <div className="mt-2">
+                      {isJsonMessage ? (
+                        <ToolOutputBlock
+                          ok
+                          output={msg.content}
+                          outputLabel={msg.role === 'tool' ? t('gitAgent.devLogsSectionTools') || 'Tool' : 'JSON'}
+                          charsTemplate={charsTemplate}
+                        />
+                      ) : (
+                        <TraceMarkdownView content={maskSensitiveTokens(maskUserHomeInText(msg.content))} />
+                      )}
                     </div>
-                    <LuChevronRight className="size-3.5 shrink-0 text-ink-soft transition-transform group-open/msg:rotate-90" aria-hidden="true" />
-                  </summary>
-                  <div className="mt-2">
-                    <TraceMarkdownView content={msg.content} />
-                  </div>
-                </details>
-              ))}
+                  </details>
+                )
+              })}
             </div>
           </details>
         </div>

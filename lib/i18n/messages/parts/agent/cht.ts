@@ -277,6 +277,7 @@ export const gitAgentCht: { gitAgent: GitAgentMessages } = {
     devLogsCopyJson: '複製 JSON',
     devLogsModuleSystem: '系統',
     devLogsViewAgentTrace: '檢視 Agent 追蹤詳情',
+    devLogsClearFilters: '清空篩選',
     capBranchesTitle: '分支統計與清單',
     capBranchesDesc: '統計倉庫分支總數，列出本地分支與遠端分支',
     capBranchesPrompt: '目前分支有多少個？請統計分支數量，並列出本地與遠端分支。',

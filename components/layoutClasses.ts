@@ -102,14 +102,17 @@ export const dataTable = dataList
 export const logBadgeBase =
   'inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded-full border px-2 py-1 text-[0.72rem] font-semibold uppercase leading-none tracking-[0.02em]'
 
+const FAIL_BADGE_TONE = 'border-[color-mix(in_oklab,var(--fail)_40%,transparent)] bg-[color-mix(in_oklab,var(--fail)_12%,transparent)] text-fail'
+
 const logBadgeTone: Record<string, string> = {
   ok: 'border-[color-mix(in_oklab,var(--ok)_35%,transparent)] bg-[color-mix(in_oklab,var(--ok)_12%,transparent)] text-ok',
   warn: 'border-[color-mix(in_oklab,var(--warn)_40%,transparent)] bg-[color-mix(in_oklab,var(--warn)_12%,transparent)] text-warn',
-  fail: 'border-[color-mix(in_oklab,var(--fail)_40%,transparent)] bg-[color-mix(in_oklab,var(--fail)_12%,transparent)] text-fail',
+  fail: FAIL_BADGE_TONE,
+  error: FAIL_BADGE_TONE,
   info: 'border-[color-mix(in_oklab,var(--info)_40%,transparent)] bg-[color-mix(in_oklab,var(--info)_12%,transparent)] text-info',
   debug: 'border-[color-mix(in_oklab,var(--debug)_40%,transparent)] bg-[color-mix(in_oklab,var(--debug)_12%,transparent)] text-debug',
 }
 
 export function logBadgeClass(level: string) {
-  return cn(logBadgeBase, logBadgeTone[level] ?? logBadgeTone.info)
+  return cn(logBadgeBase, logBadgeTone[level.toLowerCase()] ?? logBadgeTone.info)
 }

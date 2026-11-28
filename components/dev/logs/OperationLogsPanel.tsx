@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { LuCopy, LuCpu, LuDownload, LuRefreshCw, LuTrash2 } from 'react-icons/lu'
+import { LuCopy, LuCpu, LuDownload, LuFilterX, LuRefreshCw, LuTrash2 } from 'react-icons/lu'
 
 import { useT } from '@/components/i18n/LocaleProvider'
 import { dataTable } from '@/components/layoutClasses'
@@ -10,6 +10,7 @@ import { useNotification } from '@/components/notification/useNotification'
 import { Button, EmptyState, ScrollArea, Select, TextInput, Tooltip, TruncateText } from '@/components/sk'
 import { type AgentRunTrace, getMemoryAgentTraces, loadPersistedAgentTraces, subscribeAgentTraces } from '@/lib/agent/trace-logger'
 import { copyToClipboard } from '@/lib/clipboard'
+import { maskUserHomeInText } from '@/lib/format-home-path'
 import {
   clearAllLogs,
   generateIssueReportMarkdown,
@@ -21,6 +22,7 @@ import {
   subscribeLogs,
 } from '@/lib/logger'
 import { getLogRetentionPolicy } from '@/lib/logger/retention'
+import { maskSensitiveTokens } from '@/lib/logger/sanitize'
 import { cn } from '@/lib/utils'
 
 import { DevLogsPagination } from './DevLogsPagination'
@@ -116,6 +118,22 @@ export function OperationLogsPanel({ title, desc }: { title: string; desc: strin
     return filtered.slice(start, start + pageSize)
   }, [filtered, safePage, pageSize])
 
+  const hasActiveFilters = Boolean(query.trim() || levels.size > 0 || moduleFilter !== 'all')
+
+  const handleClearFilters = () => {
+    setQuery('')
+    setLevels(new Set())
+    setModuleFilter('all')
+    setPage(1)
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href)
+      if (url.searchParams.has('q')) {
+        url.searchParams.delete('q')
+        window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`)
+      }
+    }
+  }
+
   const handlePageChange = (nextPage: number) => {
     setPage(nextPage)
     scrollRef.current?.scrollTo({ top: 0 })
@@ -158,7 +176,7 @@ export function OperationLogsPanel({ title, desc }: { title: string; desc: strin
             <p className="mt-0.5 text-xs text-ink-soft leading-relaxed truncate">{desc}</p>
           </div>
 
-          <div className="flex min-w-0 items-center justify-end gap-1.5 overflow-x-auto">
+          <ScrollArea indicator="horizontal" reserveGutter={false} className="min-w-0" scrollClassName="flex items-center justify-end gap-1.5">
             <TextInput
               search
               clearable
@@ -195,6 +213,17 @@ export function OperationLogsPanel({ title, desc }: { title: string; desc: strin
                 setPage(1)
               }}
             />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="shrink-0"
+              disabled={!hasActiveFilters}
+              aria-label={t('gitAgent.devLogsClearFilters') || 'Clear filters'}
+              tooltip={t('gitAgent.devLogsClearFilters') || 'Clear filters'}
+              onClick={handleClearFilters}
+            >
+              <LuFilterX className="size-3.5" />
+            </Button>
             <span className="mx-1 h-4 w-px shrink-0 bg-line" aria-hidden="true" />
             <Button
               variant="outline-accent"
@@ -239,7 +268,7 @@ export function OperationLogsPanel({ title, desc }: { title: string; desc: strin
             >
               <LuTrash2 className="size-3.5" />
             </Button>
-          </div>
+          </ScrollArea>
         </div>
       </div>
 
@@ -299,9 +328,11 @@ export function OperationLogsPanel({ title, desc }: { title: string; desc: strin
                         )}
                       </div>
                       <div data-list-cell="" className="select-text">
-                        <p className="m-0 whitespace-pre-wrap break-words text-ink">{entry.message}</p>
+                        <p className="m-0 whitespace-pre-wrap break-words text-ink">{maskSensitiveTokens(maskUserHomeInText(entry.message))}</p>
                         {entry.details ? (
-                          <p className="m-0 mt-1 whitespace-pre-wrap break-all text-[0.7rem] leading-[1.35] text-ink-soft">{entry.details}</p>
+                          <p className="m-0 mt-1 whitespace-pre-wrap break-all text-[0.7rem] leading-[1.35] text-ink-soft">
+                            {maskSensitiveTokens(maskUserHomeInText(entry.details))}
+                          </p>
                         ) : null}
                       </div>
                       <div data-list-cell="" className="flex justify-end">

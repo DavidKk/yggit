@@ -4,6 +4,7 @@ import { LuChevronDown, LuChevronRight, LuCopy, LuExternalLink, LuFolder, LuGlob
 
 import type { FloatingMenuItem } from '@/components/git/RefChipsCell'
 import type { useT } from '@/components/i18n/LocaleProvider'
+import { maskUserHomePath } from '@/lib/format-home-path'
 import type { GitProjectView } from '@/lib/git/types'
 
 type TFn = ReturnType<typeof useT>
@@ -134,7 +135,7 @@ export function buildProjectContextItems({
       ? [
           {
             key: 'copy-path',
-            label: t('git.project.copyLocalPath', { path: project.localPath }) || `Copy local path (${project.localPath})`,
+            label: t('git.project.copyLocalPath', { path: maskUserHomePath(project.localPath) }) || `Copy local path (${maskUserHomePath(project.localPath)})`,
             icon: <LuHardDrive className="size-3.5 text-ink-soft" />,
             onSelect: () => void copyValue(project.localPath),
             group: t('git.project.groupCopy') || 'Copy',

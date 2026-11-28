@@ -380,6 +380,7 @@ export const gitAgentEn: { gitAgent: GitAgentMessages } = {
     devLogsCopyJson: 'Copy JSON',
     devLogsModuleSystem: 'System',
     devLogsViewAgentTrace: 'View Agent trace',
+    devLogsClearFilters: 'Clear filters',
     capBranchesTitle: 'Branches & Counts',
     capBranchesDesc: 'Count total branches and list local and remote branches',
     capBranchesPrompt: 'How many branches are there? Summarize the counts and list local and remote branches.',

@@ -303,7 +303,7 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
               name: tc.function.name,
               args: parsedArgs,
               ok: toolExec.ok,
-              outputPreview: rawResultStr.slice(0, 600),
+              outputPreview: rawResultStr.slice(0, 65_536),
               durationMs: toolDurationMs,
             })
 

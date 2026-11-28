@@ -379,6 +379,7 @@ export const gitAgentZh: { gitAgent: GitAgentMessages } = {
     devLogsCopyJson: '复制 JSON',
     devLogsModuleSystem: '系统',
     devLogsViewAgentTrace: '查看 Agent 追踪详情',
+    devLogsClearFilters: '清空筛选',
     capBranchesTitle: '分支统计与清单',
     capBranchesDesc: '统计仓库分支总数，列出本地分支与远程分支',
     capBranchesPrompt: '当前分支有多少个？请统计分支数量，并列出本地与远程分支。',

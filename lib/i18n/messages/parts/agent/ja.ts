@@ -170,6 +170,7 @@ export const gitAgentJa: { gitAgent: GitAgentMessages } = {
     devLogsCopyJson: 'JSON をコピー',
     devLogsModuleSystem: 'システム',
     devLogsViewAgentTrace: 'Agent トレースを表示',
+    devLogsClearFilters: 'フィルターをクリア',
     capBranchesTitle: 'ブランチ統計と一覧',
     capBranchesDesc: 'リポジトリのブランチ数を集計し、ローカルとリモートを一覧表示',
     capBranchesPrompt: '現在のブランチ数はいくつですか？ローカルとリモートのブランチを一覧で教えてください。',

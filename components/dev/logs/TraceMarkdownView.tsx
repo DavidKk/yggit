@@ -3,9 +3,10 @@
 import { marked } from 'marked'
 import React, { useEffect, useRef, useState } from 'react'
 
-import { renderMarkdownWithHighlight } from '@/components/git/gitHighlight'
+import { highlightGitCodeHtml, renderMarkdownWithHighlight } from '@/components/git/gitHighlight'
 import { markdownBody } from '@/components/git/markdown'
 import { installTableResizers } from '@/components/git/markdownTableResizer'
+import { ScrollArea } from '@/components/sk'
 import { useThemeMode } from '@/components/theme/ThemeProvider'
 import { cn } from '@/lib/utils'
 
@@ -73,4 +74,44 @@ export function TraceMarkdownView({ content, className }: TraceMarkdownViewProps
   }, [html])
 
   return <article ref={containerRef} className={cn(COMPACT_TRACE_MARKDOWN, className)} dangerouslySetInnerHTML={{ __html: html }} />
+}
+
+/**
+ * Compact, scrollable Shiki-highlighted JSON/code block for Tool args and outputs.
+ */
+export function TraceJsonView({ code, lang = 'json', className }: { code: string; lang?: string; className?: string }) {
+  const theme = useThemeMode()
+  const [highlightedHtml, setHighlightedHtml] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    setHighlightedHtml(null)
+    highlightGitCodeHtml(code, lang, theme)
+      .then((html) => {
+        if (!cancelled) setHighlightedHtml(html)
+      })
+      .catch(() => {
+        // Fallback to plain pre text below
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [code, lang, theme])
+
+  const contentClass = cn(
+    'px-2.5 py-2 font-mono text-[11px] leading-relaxed text-ink',
+    '[&_pre]:m-0 [&_pre]:bg-transparent [&_pre]:p-0 [&_pre]:font-mono [&_pre]:whitespace-pre-wrap [&_pre]:break-words [&_code]:font-mono'
+  )
+
+  return (
+    <ScrollArea indicator="both" className={cn('max-h-44 bg-paper/55', className)} scrollClassName={contentClass}>
+      {highlightedHtml ? (
+        <div dangerouslySetInnerHTML={{ __html: highlightedHtml }} />
+      ) : (
+        <pre className="m-0 whitespace-pre-wrap break-words font-mono text-[11px] leading-relaxed text-ink">
+          <code>{code}</code>
+        </pre>
+      )}
+    </ScrollArea>
+  )
 }

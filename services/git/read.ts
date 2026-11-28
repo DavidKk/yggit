@@ -4,6 +4,7 @@ import os from 'node:os'
 import { promisify } from 'node:util'
 
 import { ROOT_PATH } from '@/constants/paths'
+import { maskUserHomePath } from '@/lib/format-home-path'
 import { GIT_LOG_PAGE_SIZE, normalizeRemote } from '@/lib/git/identity'
 import { parseGitBranches, parseGitLog, parseGitRemotes, parseGitStashes, parseGitSubmodules, parseGitTags, parseGitWorktrees } from '@/lib/git/parse'
 import type { GitCommit, GitLogView, GitWorktree } from '@/lib/git/types'
@@ -46,7 +47,10 @@ export async function gitOptional(repo: string, args: string[]): Promise<string>
 function displayPath(repo: string): string {
   const home = os.homedir()
   if (repo === home) return '~'
-  return repo.startsWith(`${home}/`) ? `~${repo.slice(home.length)}` : repo
+  if (repo.startsWith(`${home}/`) || repo.startsWith(`${home}\\`)) {
+    return `~${repo.slice(home.length)}`
+  }
+  return maskUserHomePath(repo)
 }
 
 export async function resolveGitRepo(input?: string): Promise<string> {

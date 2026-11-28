@@ -15,6 +15,7 @@ import { WorkspaceHeaderSlot } from '@/components/layout/WorkspaceHeaderContext'
 import { Button, Spinner, Tooltip } from '@/components/sk'
 import { dropdownTriggerClass } from '@/components/sk/dropdownMenu'
 import { ThemeSwitcher } from '@/components/theme/ThemeSwitcher'
+import { maskUserHomePath } from '@/lib/format-home-path'
 import { useModeHref } from '@/lib/git/driver'
 import type { AddRemoteProjectOptions } from '@/lib/git/driver/types'
 import { saveLastGitUrl } from '@/lib/git/last-git-url'
@@ -85,7 +86,7 @@ export function GitLogHeader({
   const modeHref = useModeHref()
   const projectSwitcher = (
     <div ref={projectFindRef} data-git-find="project-switcher" className="relative min-w-0">
-      <Tooltip content={view?.displayPath || view?.repo || t('git.header.pickRepo')} placement="bottom" suppressed={menuOpen || !view}>
+      <Tooltip content={maskUserHomePath(view?.displayPath || view?.repo || '') || t('git.header.pickRepo')} placement="bottom" suppressed={menuOpen || !view}>
         <Button
           ref={anchorRef}
           variant="plain"

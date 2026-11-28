@@ -1,5 +1,6 @@
 import { openLogsDb, resolveTraceId } from '@/lib/logger'
 import { getLogRetentionPolicy, pruneIndexedDbStore, retainRecentEntries } from '@/lib/logger/retention'
+import { maskSensitiveTokens } from '@/lib/logger/sanitize'
 import { normalizeLegacyTraceId } from '@/lib/logger/trace-context'
 
 export interface AgentTraceToolExecution {
@@ -77,10 +78,43 @@ export type RecordAgentTraceInput = Omit<AgentRunTrace, 'id' | 'timestamp' | 'tr
   traceId?: string
 }
 
+function sanitizeToolArgs(args: Record<string, unknown>): Record<string, unknown> {
+  try {
+    const serialized = JSON.stringify(args)
+    const masked = maskSensitiveTokens(serialized)
+    if (masked === serialized) return args
+    return JSON.parse(masked) as Record<string, unknown>
+  } catch {
+    return args
+  }
+}
+
 /** Record an Agent execution trace in memory and IndexedDB. */
 export function recordAgentTrace(input: RecordAgentTraceInput): AgentRunTrace {
   const entry: AgentRunTrace = {
     ...input,
+    userPrompt: maskSensitiveTokens(input.userPrompt),
+    requestMessages: input.requestMessages.map((msg) => ({
+      role: msg.role,
+      content: maskSensitiveTokens(msg.content),
+    })),
+    nativeToolCalls: input.nativeToolCalls.map((tc) => ({
+      name: tc.name,
+      arguments: maskSensitiveTokens(tc.arguments),
+    })),
+    fallbackToolCalls: input.fallbackToolCalls.map((tc) => ({
+      name: tc.name,
+      arguments: maskSensitiveTokens(tc.arguments),
+    })),
+    toolExecutions: input.toolExecutions.map((exec) => ({
+      ...exec,
+      args: sanitizeToolArgs(exec.args),
+      outputPreview: maskSensitiveTokens(exec.outputPreview),
+    })),
+    rawTurnOneContent: maskSensitiveTokens(input.rawTurnOneContent),
+    rawFinalContent: input.rawFinalContent !== undefined ? maskSensitiveTokens(input.rawFinalContent) : undefined,
+    visibleContent: maskSensitiveTokens(input.visibleContent),
+    error: input.error !== undefined ? maskSensitiveTokens(input.error) : undefined,
     id: `trace_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
     traceId: resolveTraceId(input.traceId),
     timestamp: Date.now(),

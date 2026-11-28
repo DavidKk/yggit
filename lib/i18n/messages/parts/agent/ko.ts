@@ -170,6 +170,7 @@ export const gitAgentKo: { gitAgent: GitAgentMessages } = {
     devLogsCopyJson: 'JSON 복사',
     devLogsModuleSystem: '시스템',
     devLogsViewAgentTrace: 'Agent 추적 보기',
+    devLogsClearFilters: '필터 지우기',
     capBranchesTitle: '브랜치 통계 및 목록',
     capBranchesDesc: '저장소의 전체 브랜치 수를 집계하고 로컬/원격 브랜치를 나열합니다',
     capBranchesPrompt: '현재 브랜치가 몇 개인가요? 로컬 및 원격 브랜치 수를 집계하고 목록을 보여주세요.',
