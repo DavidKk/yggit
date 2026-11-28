@@ -94,7 +94,7 @@ export const dataList = cn(
   '[&_[data-list-heading]]:border-b [&_[data-list-heading]]:border-line [&_[data-list-heading]]:px-3 [&_[data-list-heading]]:py-2 [&_[data-list-heading]]:text-xs [&_[data-list-heading]]:font-semibold [&_[data-list-heading]]:text-ink-soft',
   '[&_[data-list-body]>[data-list-row]]:border-b [&_[data-list-body]>[data-list-row]]:border-line',
   '[&_[data-list-cell]]:min-w-0 [&_[data-list-cell]]:break-words [&_[data-list-cell]]:px-3 [&_[data-list-cell]]:py-2',
-  '[&_[data-list-row]:hover]:bg-accent/10'
+  '[&_[data-list-body]>[data-list-row]:hover]:bg-accent/10'
 )
 /** @deprecated Compatibility for existing importers; renders list chrome, never a table. */
 export const dataTable = dataList

@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { LuCopy, LuCpu, LuDownload, LuFilterX, LuRefreshCw, LuTrash2 } from 'react-icons/lu'
+import { LuCpu, LuFileOutput, LuFilterX, LuRefreshCw, LuTrash2 } from 'react-icons/lu'
 
 import { useT } from '@/components/i18n/LocaleProvider'
 import { dataTable } from '@/components/layoutClasses'
@@ -13,7 +13,6 @@ import { copyToClipboard } from '@/lib/clipboard'
 import { maskUserHomeInText } from '@/lib/format-home-path'
 import {
   clearAllLogs,
-  generateIssueReportMarkdown,
   getMemoryLogs,
   loadPersistedLogs,
   type LogLevel,
@@ -145,12 +144,6 @@ export function OperationLogsPanel({ title, desc }: { title: string; desc: strin
     scrollRef.current?.scrollTo({ top: 0 })
   }
 
-  const handleCopyReport = async () => {
-    const md = generateIssueReportMarkdown(filtered)
-    const ok = await copyToClipboard(md)
-    if (ok) notify.success(t('gitAgent.devLogsCopiedReport') || 'Copied diagnostics report (Markdown)')
-  }
-
   const handleExportJson = () => {
     const blob = new Blob([JSON.stringify(filtered, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
@@ -240,22 +233,11 @@ export function OperationLogsPanel({ title, desc }: { title: string; desc: strin
               size="icon"
               className="shrink-0"
               disabled={filtered.length === 0}
-              aria-label={t('gitAgent.devLogsCopyReport') || 'Copy Report'}
-              tooltip={t('gitAgent.devLogsCopyReport') || 'Copy Report'}
-              onClick={() => void handleCopyReport()}
-            >
-              <LuCopy className="size-3.5" />
-            </Button>
-            <Button
-              variant="default"
-              size="icon"
-              className="shrink-0"
-              disabled={filtered.length === 0}
               aria-label={t('gitAgent.devLogsExport') || 'Export'}
               tooltip={t('gitAgent.devLogsExport') || 'Export'}
               onClick={handleExportJson}
             >
-              <LuDownload className="size-3.5" />
+              <LuFileOutput className="size-3.5" />
             </Button>
             <Button
               variant="outline-fail"

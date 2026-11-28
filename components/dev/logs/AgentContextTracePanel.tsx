@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { LuChevronRight, LuCircleAlert, LuDownload, LuFileText, LuFilterX, LuMonitor, LuRefreshCw, LuTrash2, LuZap } from 'react-icons/lu'
+import { LuChevronRight, LuCircleAlert, LuFileOutput, LuFileText, LuFilterX, LuMonitor, LuRefreshCw, LuTrash2, LuZap } from 'react-icons/lu'
 
 import { AgentTraceDetailCard } from '@/components/dev/logs/AgentTraceDetailCard'
 import { useT } from '@/components/i18n/LocaleProvider'
@@ -229,7 +229,7 @@ export function AgentContextTracePanel({ title, desc }: { title: string; desc: s
               tooltip={t('gitAgent.devLogsExport') || 'Export'}
               onClick={handleExportAll}
             >
-              <LuDownload className="size-3.5" />
+              <LuFileOutput className="size-3.5" />
             </Button>
             <Button
               variant="outline-fail"
@@ -280,7 +280,10 @@ export function AgentContextTracePanel({ title, desc }: { title: string; desc: s
                         data-list-row=""
                         aria-current={isSelected ? 'true' : undefined}
                         onClick={() => selectTrace(isSelected ? null : item.id)}
-                        className={cn('cursor-pointer transition-colors', isSelected && 'bg-accent/10 shadow-[inset_2px_0_0_var(--accent)]')}
+                        className={cn(
+                          'cursor-pointer transition-colors hover:bg-accent/12',
+                          isSelected && 'bg-accent/14 shadow-[inset_2px_0_0_var(--accent)] hover:bg-accent/16'
+                        )}
                       >
                         <div data-list-cell="" className="whitespace-nowrap font-mono text-ink-soft tabular-nums" title={new Date(item.timestamp).toISOString()}>
                           {formatTime(item.timestamp)}

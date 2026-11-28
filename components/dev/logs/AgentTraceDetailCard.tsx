@@ -9,8 +9,8 @@ import {
   LuChevronRight,
   LuCircleAlert,
   LuClock,
-  LuDownload,
   LuEye,
+  LuFileOutput,
   LuHash,
   LuLink,
   LuMessageSquare,
@@ -32,6 +32,7 @@ import { formatDuration } from '@/lib/format-duration'
 import { maskUserHomeInText, maskUserHomePath } from '@/lib/format-home-path'
 import { formatJsonLikeValue } from '@/lib/format-json-like'
 import { maskSensitiveTokens } from '@/lib/logger/sanitize'
+import { cn } from '@/lib/utils'
 
 const LARGE_PAYLOAD_THRESHOLD = 4000
 
@@ -60,8 +61,46 @@ function ScrollablePlainText({ text, className, scrollClassName }: { text: strin
   )
 }
 
-function ToolArgsBlock({ args, argsLabel, charsTemplate }: { args: unknown; argsLabel: string; charsTemplate: string }) {
+function LazyPayloadView({
+  payload,
+  expandLabel,
+  charsTemplate,
+  plainTextClassName = 'bg-paper/55 text-ink',
+}: {
+  payload: string
+  expandLabel: string
+  charsTemplate: string
+  plainTextClassName?: string
+}) {
   const [loaded, setLoaded] = useState(false)
+
+  if (payload.length > LARGE_PAYLOAD_THRESHOLD && !loaded) {
+    return (
+      <div>
+        <button
+          type="button"
+          onClick={() => setLoaded(true)}
+          className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-line bg-paper px-2.5 py-1 font-mono text-[11px] text-ink-soft transition-colors hover:border-accent/50 hover:text-ink"
+        >
+          <LuBraces className="size-3 shrink-0 text-accent" aria-hidden="true" />
+          <span>
+            {expandLabel} ({charsTemplate.replace('{count}', String(payload.length))})
+          </span>
+        </button>
+      </div>
+    )
+  }
+
+  const trimmed = payload.trim()
+  const looksJson = trimmed.startsWith('{') || trimmed.startsWith('[')
+  return looksJson ? (
+    <TraceJsonView code={payload} lang="json" />
+  ) : (
+    <ScrollablePlainText text={payload} className={cn('max-h-44 rounded-md', plainTextClassName)} scrollClassName="px-2.5 py-2" />
+  )
+}
+
+function ToolArgsBlock({ args, argsLabel, charsTemplate }: { args: unknown; argsLabel: string; charsTemplate: string }) {
   const { text: formatted, isEmpty } = formatJsonLikeValue(args)
 
   if (isEmpty) {
@@ -73,72 +112,23 @@ function ToolArgsBlock({ args, argsLabel, charsTemplate }: { args: unknown; args
   }
 
   const sanitized = maskSensitiveTokens(maskUserHomeInText(formatted))
-
-  if (sanitized.length > LARGE_PAYLOAD_THRESHOLD && !loaded) {
-    return (
-      <div>
-        <button
-          type="button"
-          onClick={() => setLoaded(true)}
-          className="inline-flex cursor-pointer items-center gap-1.5 border border-line bg-paper px-2 py-1 font-mono text-[11px] text-ink-soft transition-colors hover:border-accent/50 hover:text-ink"
-        >
-          <LuBraces className="size-3 shrink-0 text-accent" aria-hidden="true" />
-          <span>
-            {argsLabel} ({charsTemplate.replace('{count}', String(sanitized.length))})
-          </span>
-        </button>
-      </div>
-    )
-  }
-
-  const trimmed = sanitized.trim()
-  const looksJson = trimmed.startsWith('{') || trimmed.startsWith('[')
-  return looksJson ? (
-    <TraceJsonView code={sanitized} lang="json" />
-  ) : (
-    <ScrollablePlainText text={sanitized} className="max-h-44 bg-paper/55 text-ink-soft" scrollClassName="px-2.5 py-2" />
-  )
+  return <LazyPayloadView payload={sanitized} expandLabel={argsLabel} charsTemplate={charsTemplate} plainTextClassName="bg-paper/55 text-ink-soft" />
 }
 
 function ToolOutputBlock({ ok, output, outputLabel, charsTemplate }: { ok: boolean; output: string; outputLabel: string; charsTemplate: string }) {
-  const [loaded, setLoaded] = useState(false)
   const { text: formatted } = formatJsonLikeValue(output)
   const sanitized = maskSensitiveTokens(maskUserHomeInText(formatted))
-  const isLarge = ok && sanitized.length > LARGE_PAYLOAD_THRESHOLD
 
   if (!ok) {
     return (
-      <div className="flex items-center gap-2 bg-fail/8 px-2.5 py-2 font-mono text-[11px] text-fail">
+      <div className="flex items-center gap-2 rounded-md bg-fail/8 px-2.5 py-2 font-mono text-[11px] text-fail">
         <LuCircleAlert className="size-3.5 shrink-0" aria-hidden="true" />
         <ScrollablePlainText text={sanitized} className="max-h-44 min-w-0 flex-1" />
       </div>
     )
   }
 
-  if (isLarge && !loaded) {
-    return (
-      <div>
-        <button
-          type="button"
-          onClick={() => setLoaded(true)}
-          className="inline-flex cursor-pointer items-center gap-1.5 border border-line bg-paper px-2 py-1 font-mono text-[11px] text-ink-soft transition-colors hover:border-accent/50 hover:text-ink"
-        >
-          <LuBraces className="size-3 shrink-0 text-accent" aria-hidden="true" />
-          <span>
-            {outputLabel} ({charsTemplate.replace('{count}', String(sanitized.length))})
-          </span>
-        </button>
-      </div>
-    )
-  }
-
-  const trimmed = sanitized.trim()
-  const looksJson = trimmed.startsWith('{') || trimmed.startsWith('[')
-  return looksJson ? (
-    <TraceJsonView code={sanitized} lang="json" />
-  ) : (
-    <ScrollablePlainText text={sanitized} className="max-h-44 bg-paper/55 text-ink" scrollClassName="px-2.5 py-2" />
-  )
+  return <LazyPayloadView payload={sanitized} expandLabel={outputLabel} charsTemplate={charsTemplate} />
 }
 
 /**
@@ -265,7 +255,7 @@ export function AgentTraceDetailCard({ trace, copied, onCopyJson, onClose }: Age
             tooltip={t('gitAgent.devLogsExport') || 'Export'}
             onClick={handleExportSingle}
           >
-            <LuDownload className="size-3.5" />
+            <LuFileOutput className="size-3.5" />
           </Button>
           <Button
             variant="plain"
@@ -293,7 +283,7 @@ export function AgentTraceDetailCard({ trace, copied, onCopyJson, onClose }: Age
           ) : null}
 
           <details open className="group/sec px-3.5 py-2.5">
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 select-none [&::-webkit-details-marker]:hidden">
+            <summary className="-mx-1.5 flex cursor-pointer list-none items-center justify-between gap-2 rounded-md px-1.5 py-1 transition-colors select-none hover:bg-accent/8 [&::-webkit-details-marker]:hidden">
               <div className="flex items-center gap-1.5 text-xs font-semibold text-ink">
                 <LuWrench className="size-3.5 text-ok" aria-hidden="true" />
                 <span>
@@ -350,7 +340,7 @@ export function AgentTraceDetailCard({ trace, copied, onCopyJson, onClose }: Age
           </details>
 
           <details open className="group/sec px-3.5 py-2.5">
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 select-none [&::-webkit-details-marker]:hidden">
+            <summary className="-mx-1.5 flex cursor-pointer list-none items-center justify-between gap-2 rounded-md px-1.5 py-1 transition-colors select-none hover:bg-accent/8 [&::-webkit-details-marker]:hidden">
               <div className="flex items-center gap-1.5 text-xs font-semibold text-ink">
                 <LuTerminal className="size-3.5 text-ok" aria-hidden="true" />
                 <span>{t('gitAgent.devLogsSectionOutput') || 'Output'}</span>
@@ -375,7 +365,7 @@ export function AgentTraceDetailCard({ trace, copied, onCopyJson, onClose }: Age
           </details>
 
           <details open className="group/sec px-3.5 py-2.5">
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 select-none [&::-webkit-details-marker]:hidden">
+            <summary className="-mx-1.5 flex cursor-pointer list-none items-center justify-between gap-2 rounded-md px-1.5 py-1 transition-colors select-none hover:bg-accent/8 [&::-webkit-details-marker]:hidden">
               <div className="flex items-center gap-1.5 text-xs font-semibold text-ink">
                 <LuMessageSquare className="size-3.5 text-ok" aria-hidden="true" />
                 <span>
@@ -385,13 +375,13 @@ export function AgentTraceDetailCard({ trace, copied, onCopyJson, onClose }: Age
               <LuChevronRight className="size-3.5 shrink-0 text-ink-soft transition-transform group-open/sec:rotate-90" aria-hidden="true" />
             </summary>
 
-            <div className="mt-2.5 divide-y divide-line/60 pl-4">
+            <div className="mt-2.5 divide-y divide-line/60 pl-[5px]">
               {trace.requestMessages.map((msg, idx) => {
                 const trimmedMsg = msg.content.trim()
                 const isJsonMessage = msg.role === 'tool' || trimmedMsg.startsWith('{') || trimmedMsg.startsWith('[')
                 return (
-                  <details key={idx} open={msg.role !== 'system'} className="group/msg py-2 first:pt-0 last:pb-0">
-                    <summary className="flex cursor-pointer list-none items-center justify-between gap-2 py-0.5 text-[11px] font-semibold text-ink select-none [&::-webkit-details-marker]:hidden">
+                  <details key={idx} open={msg.role !== 'system'} className="group/msg py-1.5 first:pt-0 last:pb-0">
+                    <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-md px-1.5 py-1 text-[11px] font-semibold text-ink transition-colors select-none hover:bg-accent/10 [&::-webkit-details-marker]:hidden">
                       <div className="flex min-w-0 items-center gap-2">
                         <Badge tone={msg.role === 'user' ? 'accent' : 'neutral'} size="mini" dot={false} className="min-w-4 justify-center rounded-sm px-1 font-mono tabular-nums">
                           {idx + 1}
@@ -401,7 +391,7 @@ export function AgentTraceDetailCard({ trace, copied, onCopyJson, onClose }: Age
                       </div>
                       <LuChevronRight className="size-3.5 shrink-0 text-ink-soft transition-transform group-open/msg:rotate-90" aria-hidden="true" />
                     </summary>
-                    <div className="mt-2">
+                    <div className="mt-1.5 px-1.5">
                       {isJsonMessage ? (
                         <ToolOutputBlock
                           ok

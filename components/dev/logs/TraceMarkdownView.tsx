@@ -104,7 +104,7 @@ export function TraceJsonView({ code, lang = 'json', className }: { code: string
   )
 
   return (
-    <ScrollArea indicator="both" className={cn('max-h-44 bg-paper/55', className)} scrollClassName={contentClass}>
+    <ScrollArea indicator="both" className={cn('max-h-44 rounded-md bg-paper/55', className)} scrollClassName={contentClass}>
       {highlightedHtml ? (
         <div dangerouslySetInnerHTML={{ __html: highlightedHtml }} />
       ) : (
