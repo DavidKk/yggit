@@ -8,7 +8,7 @@
 import { LOGS_DATABASE } from '@/lib/storage/databases'
 
 import { getLogRetentionPolicy, pruneIndexedDbStore, retainRecentEntries } from './retention'
-import { createTraceId, resolveTraceId } from './trace-context'
+import { createTraceId, normalizeLegacyTraceId, resolveTraceId } from './trace-context'
 
 export type LogLevel = 'info' | 'warn' | 'error' | 'debug'
 export type LogModule = 'agent' | 'mcp' | 'skill' | 'git' | 'system'
@@ -220,7 +220,11 @@ export async function loadPersistedLogs(limit?: number, force = false): Promise<
       req.onsuccess = () => {
         const cursor = req.result
         if (cursor && results.length < effectiveLimit) {
-          const item = cursor.value as ServiceLogEntry
+          const raw = cursor.value as ServiceLogEntry
+          const item: ServiceLogEntry = {
+            ...raw,
+            traceId: normalizeLegacyTraceId(raw.traceId, raw.id),
+          }
           if (item.timestamp >= cutoff) {
             results.push(item)
             cursor.continue()

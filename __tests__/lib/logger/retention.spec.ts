@@ -1,6 +1,6 @@
 import { clearAllLogs, createScopedLogger, getMemoryLogs, recordLog } from '@/lib/logger'
 import { getLogRetentionPolicy, retainRecentEntries } from '@/lib/logger/retention'
-import { createTraceId, getActiveTraceId, runWithTrace } from '@/lib/logger/trace-context'
+import { createTraceId, getActiveTraceId, normalizeLegacyTraceId, runWithTrace } from '@/lib/logger/trace-context'
 
 describe('log retention policy, filtering, and trace correlation', () => {
   afterEach(async () => {
@@ -66,5 +66,8 @@ describe('log retention policy, filtering, and trace correlation', () => {
     })
     expect(getActiveTraceId()).toBeUndefined()
     expect(nested.traceId).toBe(customTrace)
+
+    expect(normalizeLegacyTraceId(undefined, 'trace_1700000000_ab12')).toBe('tr_00000000ab12')
+    expect(normalizeLegacyTraceId('tr_existing1234', 'trace_1')).toBe('tr_existing1234')
   })
 })

@@ -291,14 +291,20 @@ export function AgentProvider({ children, currentRepo }: { children: React.React
             setMessages((prev) => prev.map((m) => (m.id === assistantMsgId ? { ...m, statusTool: { name: tc.function.name, branch: branchArg } } : m)))
 
             const toolStartedAt = Date.now()
-            const toolExec = await executeAgentTool(tc.function.name, parsedArgs, repo)
+            const toolExec = await executeAgentTool(tc.function.name, parsedArgs, repo, traceLog.traceId)
             const rawResultStr = typeof toolExec.result === 'string' ? toolExec.result : JSON.stringify(toolExec.result ?? '')
+            const toolDurationMs = Date.now() - toolStartedAt
+            if (!toolExec.ok) {
+              traceLog.error(`Tool "${tc.function.name}" failed (${toolDurationMs}ms)`, rawResultStr.slice(0, 400))
+            } else {
+              traceLog.info(`Executed tool "${tc.function.name}" (${toolDurationMs}ms)`)
+            }
             toolExecutions.push({
               name: tc.function.name,
               args: parsedArgs,
               ok: toolExec.ok,
               outputPreview: rawResultStr.slice(0, 600),
-              durationMs: Date.now() - toolStartedAt,
+              durationMs: toolDurationMs,
             })
 
             if (tc.function.name === 'sync_branch' && toolExec.ok) {

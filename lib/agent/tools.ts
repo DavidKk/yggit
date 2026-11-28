@@ -449,7 +449,7 @@ export function buildMcpToolDefinitions(servers: McpServerConfig[]): AgentToolDe
 /**
  * Executes a tool called by the LLM.
  */
-export async function executeAgentTool(toolName: string, args: Record<string, unknown>, repo?: string): Promise<ToolExecutionResponse> {
+export async function executeAgentTool(toolName: string, args: Record<string, unknown>, repo?: string, traceId?: string): Promise<ToolExecutionResponse> {
   // If the tool is an external MCP tool:
   if (toolName.startsWith('mcp__')) {
     const parts = toolName.split('__')
@@ -461,7 +461,7 @@ export async function executeAgentTool(toolName: string, args: Record<string, un
       if (!server) {
         return { ok: false, result: `MCP server "${serverId}" not found or disabled.` }
       }
-      const res = await callMcpTool(server, actualToolName, args)
+      const res = await callMcpTool(server, actualToolName, args, traceId)
       return { ok: res.ok, result: res.ok ? res.result : res.error }
     } catch (err) {
       return { ok: false, result: err instanceof Error ? err.message : String(err) }
@@ -695,7 +695,10 @@ export async function executeAgentTool(toolName: string, args: Record<string, un
   try {
     const res = await fetch('/api/git/agent/tools', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(traceId ? { 'X-Trace-Id': traceId } : {}),
+      },
       body: JSON.stringify({
         tool: toolName,
         args,

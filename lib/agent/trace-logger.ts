@@ -1,5 +1,6 @@
 import { openLogsDb, resolveTraceId } from '@/lib/logger'
 import { getLogRetentionPolicy, pruneIndexedDbStore, retainRecentEntries } from '@/lib/logger/retention'
+import { normalizeLegacyTraceId } from '@/lib/logger/trace-context'
 
 export interface AgentTraceToolExecution {
   name: string
@@ -136,7 +137,11 @@ export async function loadPersistedAgentTraces(limit?: number, force = false): P
       req.onsuccess = () => {
         const cursor = req.result
         if (cursor && results.length < effectiveLimit) {
-          const item = cursor.value as AgentRunTrace
+          const raw = cursor.value as AgentRunTrace
+          const item: AgentRunTrace = {
+            ...raw,
+            traceId: normalizeLegacyTraceId(raw.traceId, raw.id),
+          }
           if (item.timestamp >= cutoff) {
             results.push(item)
             cursor.continue()

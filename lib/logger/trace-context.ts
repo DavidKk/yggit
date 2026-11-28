@@ -28,6 +28,18 @@ export function resolveTraceId(explicitTraceId?: string | null): string {
   return getActiveTraceId() || createTraceId()
 }
 
+/**
+ * Normalize or deterministically derive a Trace ID for legacy persisted records
+ * that predate `traceId` instrumentation.
+ */
+export function normalizeLegacyTraceId(traceId: string | undefined, recordId: string): string {
+  const trimmed = traceId?.trim()
+  if (trimmed) return trimmed
+  const compact = recordId.replace(/[^a-z0-9]/gi, '')
+  const suffix = compact.slice(-12) || 'legacy'
+  return `tr_${suffix}`
+}
+
 /** Execute a synchronous callback with `traceId` active for implicit log correlation. */
 export function runWithTrace<T>(traceId: string, fn: () => T): T {
   traceStack.push(traceId)

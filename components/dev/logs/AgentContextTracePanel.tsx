@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils'
 
 import { DevLogsPagination } from './DevLogsPagination'
 
-const traceTable = cn(dataTable, 'text-xs [--data-list-columns:4.75rem_9.5rem_minmax(0,1fr)]')
+const traceTable = cn(dataTable, 'text-xs [--data-list-columns:4.25rem_6.75rem_7.5rem_minmax(0,1fr)]')
 
 function formatTime(ts: number): string {
   try {
@@ -113,6 +113,12 @@ export function AgentContextTracePanel({ title, desc }: { title: string; desc: s
     setPageSize(nextSize)
     setPage(1)
     scrollRef.current?.scrollTo({ top: 0 })
+  }
+
+  const handleCopyTraceId = async (traceId: string) => {
+    if (!traceId) return
+    const ok = await copyToClipboard(traceId)
+    if (ok) notify.success(t('gitAgent.devLogsCopiedTraceId') || 'Copied Trace ID')
   }
 
   const handleCopyJson = async (trace: AgentRunTrace) => {
@@ -218,7 +224,7 @@ export function AgentContextTracePanel({ title, desc }: { title: string; desc: s
         <div
           role="list"
           aria-label={t('gitAgent.devLogsTabAgent') || 'Agent Logs'}
-          className={cn(traceTable, 'flex min-h-0 w-[44%] min-w-[18rem] shrink-0 flex-col overflow-hidden border-r border-line bg-paper')}
+          className={cn(traceTable, 'flex min-h-0 w-[46%] min-w-[23rem] shrink-0 flex-col overflow-hidden border-r border-line bg-paper')}
         >
           {filtered.length === 0 ? (
             <EmptyState
@@ -231,6 +237,7 @@ export function AgentContextTracePanel({ title, desc }: { title: string; desc: s
               <div data-list-head="" className="shrink-0">
                 <div role="presentation" data-list-row="">
                   <div data-list-heading="">{t('gitAgent.devLogsColTime') || 'Time'}</div>
+                  <div data-list-heading="">{t('gitAgent.devLogsColTraceId') || 'Trace ID'}</div>
                   <div data-list-heading="">{t('gitAgent.devLogsColChannelModel') || 'Channel / Model'}</div>
                   <div data-list-heading="">{t('gitAgent.devLogsColPromptContext') || 'Prompt & Context'}</div>
                 </div>
@@ -251,6 +258,24 @@ export function AgentContextTracePanel({ title, desc }: { title: string; desc: s
                         <div data-list-cell="" className="whitespace-nowrap font-mono text-ink-soft tabular-nums" title={new Date(item.timestamp).toISOString()}>
                           {formatTime(item.timestamp)}
                         </div>
+                        <div data-list-cell="" className="min-w-0">
+                          {item.traceId ? (
+                            <Tooltip content={item.traceId}>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  void handleCopyTraceId(item.traceId)
+                                }}
+                                className="inline-flex max-w-full cursor-pointer items-center truncate rounded px-1 py-0.5 font-mono text-[11px] text-ink-soft transition-colors hover:bg-accent/10 hover:text-accent"
+                              >
+                                <span className="truncate">{item.traceId}</span>
+                              </button>
+                            </Tooltip>
+                          ) : (
+                            <span className="font-mono text-[11px] text-ink-soft">—</span>
+                          )}
+                        </div>
                         <div data-list-cell="" className="flex min-w-0 items-center gap-1.5 font-mono text-ink-soft" title={`${item.provider} / ${item.model}`}>
                           <LuMonitor className="size-3.5 shrink-0 opacity-75" aria-hidden="true" />
                           <span className="block truncate">
@@ -270,8 +295,11 @@ export function AgentContextTracePanel({ title, desc }: { title: string; desc: s
                           </div>
                           <div className="flex shrink-0 items-center gap-1.5 text-[11px] text-ink-soft tabular-nums">
                             {item.fallbackToolCalls.length > 0 ? (
-                              <Tooltip content={`Fallback tool calls: ${item.fallbackToolCalls.length}`}>
-                                <span className="inline-flex items-center text-accent" aria-label={`Fallback tool calls: ${item.fallbackToolCalls.length}`}>
+                              <Tooltip content={(t('gitAgent.devLogsFallbackTip') || 'Fallback tool calls: {count}').replace('{count}', String(item.fallbackToolCalls.length))}>
+                                <span
+                                  className="inline-flex items-center text-accent"
+                                  aria-label={(t('gitAgent.devLogsFallbackTip') || 'Fallback tool calls: {count}').replace('{count}', String(item.fallbackToolCalls.length))}
+                                >
                                   <LuZap className="size-3.5" />
                                 </span>
                               </Tooltip>

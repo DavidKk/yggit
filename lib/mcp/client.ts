@@ -195,9 +195,14 @@ export async function testAndDiscoverMcpServer(config: McpServerConfig): Promise
 /**
  * Calls a specific tool on an MCP server.
  */
-export async function callMcpTool(config: McpServerConfig, toolName: string, args: Record<string, unknown>): Promise<{ ok: boolean; result?: unknown; error?: string }> {
+export async function callMcpTool(
+  config: McpServerConfig,
+  toolName: string,
+  args: Record<string, unknown>,
+  traceId?: string
+): Promise<{ ok: boolean; result?: unknown; error?: string }> {
   const authHeaders = buildMcpAuthHeaders(config.auth)
-  const mcpLog = createScopedLogger('mcp')
+  const mcpLog = createScopedLogger('mcp', traceId)
   try {
     mcpLog.info(`Calling MCP tool "${toolName}" on server "${config.name}"`, args)
     const res = await sendMcpRequest<{ content?: Array<{ type: string; text?: string }> }>(
