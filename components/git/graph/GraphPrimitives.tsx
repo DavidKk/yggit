@@ -5,12 +5,18 @@ import { memo, type ReactNode, type Ref } from 'react'
 import { type FloatingAnchor, type refChips } from '@/components/git/RefChipsCell'
 import type { MergeConflictRecord } from '@/lib/git/conflict-cache'
 import { DOT, type graphScene, isHighlightedStroke, laneColor, type Stroke } from '@/lib/git/graph-scene'
+import type { GitHistorySegment } from '@/lib/git/history-segments'
 import type { GitCommit, GitStash, GitWorktree } from '@/lib/git/types'
 
 export type GitGraphProps = {
   repo?: string
   remoteUrl?: string
   commits: GitCommit[]
+  segments?: GitHistorySegment[]
+  loadingPrevSegmentId?: string | null
+  registerGapSentinel?: (segmentId: string, el: HTMLDivElement | null) => void
+  onLoadPrevSegment?: (segmentId: string) => void
+  onJumpTop?: () => void
   worktree: GitWorktree | null
   stashes?: GitStash[]
   highlight: string

@@ -2,28 +2,15 @@
 
 import { type CSSProperties, Fragment, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
-import { AnnotationBadge } from '@/components/git/agent/spotlight/AnnotationBadge'
-import { CommitStatusBadge } from '@/components/git/CommitStatusBadge'
 import { measureCellsFit } from '@/components/git/fitColumn'
+import { GitGapStrip } from '@/components/git/graph/GitGapStrip'
 import { buildCommitContextItems, buildStashContextItems, buildWorktreeContextItems } from '@/components/git/graph/graphContextItems'
-import { GraphNodesOverlay, type GraphOverlayHoverNode } from '@/components/git/graph/GraphNodesOverlay'
-import {
-  BADGE_H,
-  BRANCH_DEFAULT,
-  BRANCH_MIN,
-  commitFindHit,
-  type GitGraphProps,
-  GRAPH_DEFAULT_WIDTH,
-  GRAPH_MIN,
-  type GraphContextMenu,
-  isCommitCurrentBranch,
-  MESSAGE_MIN,
-  toDateKey,
-} from '@/components/git/graph/GraphPrimitives'
-import { DateBoundaryDividers, StashRow, WorktreeRow } from '@/components/git/graph/GraphSpecialRows'
+import type { GraphOverlayHoverNode } from '@/components/git/graph/GraphNodesOverlay'
+import { BRANCH_DEFAULT, BRANCH_MIN, type GitGraphProps, GRAPH_DEFAULT_WIDTH, GRAPH_MIN, type GraphContextMenu, MESSAGE_MIN } from '@/components/git/graph/GraphPrimitives'
+import { GraphSegmentView } from '@/components/git/graph/GraphSegmentView'
 import { useGraphPanning } from '@/components/git/graph/useGraphPanning'
 import { PanelSplitter } from '@/components/git/PanelSplitter'
-import { branchAtCommits, FloatingMenu, type FloatingMenuItem, refChips, RefChipsCell } from '@/components/git/RefChipsCell'
+import { FloatingMenu, type FloatingMenuItem } from '@/components/git/RefChipsCell'
 import { useLocaleCode, useT } from '@/components/i18n/LocaleProvider'
 import { useNotification } from '@/components/notification/useNotification'
 import { EmptyState, ScrollArea } from '@/components/sk'
@@ -31,15 +18,31 @@ import { useOptionalSpotlight } from '@/lib/agent/spotlight-context'
 import { copyToClipboard } from '@/lib/clipboard'
 import { useContextMenuConfig } from '@/lib/git/context-menu-config'
 import { getGitDriver } from '@/lib/git/driver'
-import { COL, DOT, graphScene, laneColor, PAD, xAt } from '@/lib/git/graph-scene'
+import { COL, graphScene, PAD } from '@/lib/git/graph-scene'
+import type { GitHistorySegment } from '@/lib/git/history-segments'
 import { getBranchCommitHashes } from '@/lib/git/topology'
 import { type GitCommit, type GitStash, type GitWorktree } from '@/lib/git/types'
 import { isPositiveNumber, repoPrefKey, useGitUiPref, useGitUiReady } from '@/lib/git/ui-prefs'
-import { cn } from '@/lib/utils'
+
+function assignStashesToSegment(segment: GitHistorySegment, segmentIndex: number, totalSegments: number, stashes: GitStash[]): GitStash[] {
+  if (totalSegments <= 1) return stashes
+  const commitSet = new Set(segment.commits.map((c) => c.hash))
+  return stashes.filter((stash) => {
+    const matchedBase = commitSet.has(stash.base) || segment.commits.some((c) => c.hash.startsWith(stash.base) || stash.base.startsWith(c.hash))
+    if (matchedBase) return true
+    return segmentIndex === 0 && segment.startIndex === 0
+  })
+}
+
 function GitGraphComponent({
   repo,
   remoteUrl,
   commits,
+  segments,
+  loadingPrevSegmentId,
+  registerGapSentinel,
+  onLoadPrevSegment,
+  onJumpTop,
   worktree,
   stashes = [],
   highlight,
@@ -118,6 +121,17 @@ function GitGraphComponent({
     setInternalHoverBranch(null)
   }, [onBranchHoverEnd])
 
+  const handleClearBranchHover = useCallback(() => {
+    if (internalHoverBranch || activeHoverBranch) {
+      if (hoverTimerRef.current) {
+        clearTimeout(hoverTimerRef.current)
+        hoverTimerRef.current = null
+      }
+      setInternalHoverBranch(null)
+      onBranchHoverEnd?.()
+    }
+  }, [activeHoverBranch, internalHoverBranch, onBranchHoverEnd])
+
   useEffect(() => {
     return () => {
       if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current)
@@ -194,9 +208,31 @@ function GitGraphComponent({
 
   const [hiddenStashes, setHiddenStashes] = useGitUiPref(repo ? repoPrefKey(repo, 'hiddenStashes') : 'git.hiddenStashes.none', [] as string[], Array.isArray)
   const visibleStashes = useMemo(() => stashes.filter((s) => !hiddenStashes.includes(s.name)), [stashes, hiddenStashes])
-  const scene = useMemo(() => graphScene(commits, worktree, visibleStashes), [commits, worktree, visibleStashes])
-  const { points, headIndex } = scene
-  const contentWidth = PAD + scene.laneCount * COL
+
+  const resolvedSegments = useMemo<GitHistorySegment[]>(() => {
+    if (segments && segments.length > 0) {
+      return segments.filter((seg) => seg.commits.length > 0)
+    }
+    return commits.length > 0 || worktree || visibleStashes.length > 0 ? [{ id: 'default', startIndex: 0, commits, hasMore: false }] : []
+  }, [segments, commits, worktree, visibleStashes.length])
+
+  const segmentScenes = useMemo(
+    () =>
+      resolvedSegments.map((segment, index) => {
+        const segWorktree = segment.startIndex === 0 ? worktree : null
+        const segStashes = assignStashesToSegment(segment, index, resolvedSegments.length, visibleStashes)
+        return {
+          segment,
+          worktree: segWorktree,
+          stashes: segStashes,
+          scene: graphScene(segment.commits, segWorktree, segStashes),
+        }
+      }),
+    [resolvedSegments, worktree, visibleStashes]
+  )
+
+  const contentWidth = useMemo(() => Math.max(...segmentScenes.map((entry) => PAD + entry.scene.laneCount * COL), GRAPH_MIN), [segmentScenes])
+
   const [branchWidth, setBranchWidth] = useGitUiPref('graph.branchWidth', BRANCH_DEFAULT, isPositiveNumber)
   const [graphView, setGraphView] = useGitUiPref('graph.viewWidth', GRAPH_DEFAULT_WIDTH, isPositiveNumber)
   const prefsReady = useGitUiReady()
@@ -219,11 +255,18 @@ function GitGraphComponent({
   ) as CSSProperties
 
   const syncGraphEdge = useCallback(() => {
-    const node = graphScrollRef.current
+    const node = graphScrollRef.current || frameRef.current?.querySelector<HTMLDivElement>('[data-git-graph-pan]')
     if (!node) return
     const max = Math.max(0, node.scrollWidth - node.clientWidth)
     setGraphEdge({ left: node.scrollLeft > 1, right: node.scrollLeft < max - 1, scrollLeft: node.scrollLeft })
     frameRef.current?.style.setProperty('--git-graph-scroll-x', `${node.scrollLeft}px`)
+    if (frameRef.current) {
+      for (const el of frameRef.current.querySelectorAll<HTMLElement>('[data-git-graph-pan]')) {
+        if (el !== node && Math.abs(el.scrollLeft - node.scrollLeft) > 0.5) {
+          el.scrollLeft = node.scrollLeft
+        }
+      }
+    }
   }, [])
 
   useEffect(() => {
@@ -235,7 +278,6 @@ function GitGraphComponent({
     requestAnimationFrame(syncGraphEdge)
   }, [branchWidth, graphView, syncGraphEdge])
   const checkedOut = useMemo(() => new Set(worktreeBranches), [worktreeBranches])
-  const branchAt = useMemo(() => branchAtCommits(commits, points, remoteNames), [commits, points, remoteNames])
   const room = () => cachedRoomRef.current ?? (cachedRoomRef.current = frameRef.current?.clientWidth ?? 960)
   const applyBranch = (next: number) => {
     branchRef.current = next
@@ -278,8 +320,11 @@ function GitGraphComponent({
     const next = Math.max(GRAPH_MIN, Math.min(max, target))
     applyGraph(next)
     setGraphView(next)
-    const node = graphScrollRef.current
-    if (node) node.scrollLeft = 0
+    if (frameRef.current) {
+      for (const el of frameRef.current.querySelectorAll<HTMLElement>('[data-git-graph-pan]')) {
+        el.scrollLeft = 0
+      }
+    }
     requestAnimationFrame(syncGraphEdge)
   }
 
@@ -302,23 +347,11 @@ function GitGraphComponent({
     syncGraphEdge,
   })
 
-  const dateBoundaries = useMemo(() => {
-    const boundaries: Array<{ rowIndex: number; date: string }> = []
-    for (let rowIndex = 1; rowIndex < scene.rows.length; rowIndex++) {
-      const row = scene.rows[rowIndex]
-      const currDate = row.kind === 'commit' ? commits[row.index]?.date : row.kind === 'stash' ? row.stash.date : ''
-      const prevRow = scene.rows[rowIndex - 1]
-      const prevDate = prevRow?.kind === 'commit' ? commits[prevRow.index]?.date : prevRow?.kind === 'stash' ? prevRow.stash.date : ''
-      if (currDate && prevDate && toDateKey(currDate) !== toDateKey(prevDate)) {
-        boundaries.push({ rowIndex, date: currDate })
-      }
-    }
-    return boundaries
-  }, [scene.rows, commits])
-
   if (commits.length === 0 && !worktree && stashes.length === 0) {
     return <EmptyState title={t('git.graph.noCommits')} message={t('git.graph.noCommitsMessage')} density="panel" />
   }
+
+  const firstSegment = segmentScenes[0]?.segment
 
   return (
     <div ref={frameRef} className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden" style={frameStyle}>
@@ -380,338 +413,89 @@ function GitGraphComponent({
       >
         <div className="relative min-w-0" style={{ overflowAnchor: 'none' }}>
           {header}
-          <DateBoundaryDividers dateBoundaries={dateBoundaries} locale={locale} />
-          <ol className="m-0 list-none">
-            {scene.rows.map((row) => {
-              if (row.kind === 'worktree' && worktree) {
-                return (
-                  <WorktreeRow
-                    key="worktree"
-                    worktree={worktree}
-                    scene={scene}
-                    headIndex={headIndex}
-                    selectedHash={selectedHash}
-                    contextMenu={contextMenu}
-                    columns={columns}
-                    onSelectWorktree={onSelectWorktree}
-                    setContextMenu={setContextMenu}
-                    t={t}
-                  />
-                )
-              }
-              if (row.kind === 'stash') {
-                return (
-                  <StashRow
-                    key={row.stash.name}
-                    stash={row.stash}
-                    scene={scene}
-                    selectedHash={selectedHash}
-                    findNeedle={findNeedle}
-                    contextMenu={contextMenu}
-                    columns={columns}
-                    onSelect={onSelect}
-                    setContextMenu={setContextMenu}
-                  />
-                )
-              }
-              if (row.kind !== 'commit') return null
-              const index = row.index
-              const commit = commits[index]
-              if (!commit) return null
-              const selected = selectedHash === commit.hash
-              const findHit = commitFindHit(commit, findNeedle)
-              const chips = refChips(commit.refs, remoteNames, { hiddenRemotes, soloRemote })
-              const point = points[index]
-              const color = point ? laneColor(point.color) : 'var(--accent)'
-              const branch = branchAt.get(commit.hash) || ''
-              const isLineageActive = Boolean(lineageHashes && lineageHashes.size > 0)
-              const isLineageHit = isLineageActive && lineageHashes!.has(commit.hash)
-              const isContextActive = contextMenu?.type === 'commit' && contextMenu.commit.hash === commit.hash
-              const spotlightTarget = spotlightMap?.get(commit.hash.toLowerCase())
-              const isSpotlightHit = Boolean(spotlightTarget)
-              const isSpotlightDimmed = isSpotlightActive && !isSpotlightHit
-              const isHead = index === headIndex || commit.refs.some((r) => r === 'HEAD' || r.startsWith('HEAD -> '))
-              const isCommitCurrent = isCommitCurrentBranch(commit, chips, checkedOut, headIndex, index, currentBranch)
-              const isCurrentBranchHead = Boolean(
-                isCommitCurrent || (currentBranch && commit.refs.some((r) => r === currentBranch || r === `HEAD -> ${currentBranch}` || r.endsWith(`/${currentBranch}`)))
-              )
-              const marked = Boolean(
-                highlight && commit.refs.some((r) => r === highlight || r === `HEAD -> ${highlight}` || r === `tag: ${highlight}` || r.endsWith(`/${highlight}`))
-              )
-              const isBranchHit = isHoverBranchActive ? Boolean(isBranchActive && branchHashes?.has(commit.hash)) : isCurrentBranchHead || marked
-              const rowTintClass = cn(
-                isSpotlightHit && spotlightTarget?.role === 'primary'
-                  ? 'bg-[color-mix(in_oklab,var(--accent)_22%,transparent)] ring-1 ring-inset ring-accent/60'
-                  : isSpotlightHit
-                    ? 'bg-[color-mix(in_oklab,var(--accent)_14%,transparent)] ring-1 ring-inset ring-blue-500/40'
-                    : isLineageHit
-                      ? 'bg-[color-mix(in_oklab,var(--accent)_16%,transparent)] ring-1 ring-inset ring-accent/35'
-                      : ''
-              )
-              const isHovered = isContextActive || hoveredHash === commit.hash
-              const isMerge = commit.parents.length > 1
-              const isConflictedMerge = isMerge && Boolean(conflicts?.[commit.hash]?.hasConflict)
-              const nodeRadius = isMerge ? (selected ? 8.5 : 4) : selected ? 12.5 : isHead ? 10 : 8
-              const nodeX = xAt(point?.lane ?? 0)
-              return (
-                <li
-                  key={commit.hash}
-                  className="group/commit git-commit-row relative z-0 h-[26px] max-h-[26px] min-w-0 shrink-0 overflow-visible hover:z-10"
-                  onPointerEnter={() => {
-                    if (isScrollingRef.current) return
-                    setHoveredHash(commit.hash)
-                    if (internalHoverBranch || activeHoverBranch) {
-                      if (hoverTimerRef.current) {
-                        clearTimeout(hoverTimerRef.current)
-                        hoverTimerRef.current = null
-                      }
-                      setInternalHoverBranch(null)
-                      onBranchHoverEnd?.()
-                    }
-                  }}
-                  onPointerLeave={() => {
-                    if (isScrollingRef.current) return
-                    setHoveredHash(null)
-                  }}
-                >
-                  {/* Seamless dual highlight pills across graph and message columns */}
-                  <div
-                    className="git-graph-col-pill"
-                    data-selected={selected ? 'true' : 'false'}
-                    data-branch-hit={isBranchHit ? 'true' : 'false'}
-                    style={
-                      {
-                        '--row-tint': color,
-                        '--node-x': `${nodeX}px`,
-                        '--node-radius': `${nodeRadius}px`,
-                      } as React.CSSProperties
-                    }
-                  />
-                  <div
-                    className="git-message-col-pill"
-                    data-selected={selected ? 'true' : 'false'}
-                    data-branch-hit={isBranchHit ? 'true' : 'false'}
-                    style={{ '--row-tint': color } as React.CSSProperties}
-                  />
-                  <div
-                    role="row"
-                    tabIndex={0}
-                    aria-selected={selected}
-                    data-git-commit-hash={commit.hash}
-                    className={cn(
-                      'group/commit grid h-[26px] max-h-[26px] w-full min-w-0 cursor-pointer select-text items-center justify-start gap-0 rounded-none border-0 bg-transparent px-0 text-left leading-none font-normal outline-none focus:outline-none focus-visible:outline-none transition-opacity duration-150',
-                      findNeedle && !findHit && 'opacity-35',
-                      isLineageActive && !isLineageHit && !selected && !isHovered && 'opacity-35 hover:opacity-100',
-                      isSpotlightDimmed && !selected && !isHovered && 'opacity-35 hover:opacity-100',
-                      isHoverBranchActive && isBranchActive && !branchHashes?.has(commit.hash) && !selected && !isHovered && 'opacity-25 hover:opacity-100'
-                    )}
-                    style={{ gridTemplateColumns: columns }}
-                    onClick={() => {
-                      const sel = window.getSelection()
-                      if (sel && sel.toString().length > 0) return
-                      onSelect?.(commit)
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault()
-                        onSelect?.(commit)
-                      }
-                    }}
-                    onContextMenu={(event) => {
-                      event.preventDefault()
-                      const branchList = [...chips.map((c) => c.label), ...(branch ? [branch] : [])]
-                      setContextMenu({
-                        type: 'commit',
-                        target: 'commit',
-                        commit,
-                        branches: branchList,
-                        color,
-                        anchor: { x: event.clientX, y: event.clientY },
-                      })
-                    }}
-                  >
-                    <span
-                      data-git-branch-cell
-                      className="flex h-[26px] min-h-0 min-w-0 items-center justify-start overflow-hidden bg-transparent pl-0.5"
-                      onContextMenu={(event) => {
-                        event.preventDefault()
-                        event.stopPropagation()
-                        const branchList = [...chips.map((c) => c.label), ...(branch ? [branch] : [])]
-                        setContextMenu({
-                          type: 'commit',
-                          target: 'branch',
-                          commit,
-                          branches: branchList,
-                          color,
-                          anchor: { x: event.clientX, y: event.clientY },
-                        })
-                      }}
-                    >
-                      {chips.length > 0 ? (
-                        <>
-                          <RefChipsCell
-                            chips={chips}
-                            commit={commit}
-                            checkedOut={checkedOut}
-                            color={color}
-                            remoteNames={remoteNames}
-                            onBranchHoverStart={handleBranchPointerEnter}
-                            onBranchHoverEnd={handleBranchPointerLeave}
-                            onSelectCommit={onSelect}
-                            onCheckoutBranch={onCheckoutBranch}
-                            onPushBranch={onPushBranch}
-                            onPullBranch={onPullBranch}
-                            onCreateBranch={onCreateBranch}
-                            onDeleteBranch={onDeleteBranch}
-                            onRenameBranch={onRenameBranch}
-                            soloBranch={soloBranch}
-                            onSoloBranch={onSoloBranch}
-                          />
-                          {spotlightTarget && <AnnotationBadge target={spotlightTarget} className="ml-1 shrink-0" />}
-                          <span
-                            className={cn('min-w-2 flex-1', isCommitCurrent ? 'h-0.5' : 'h-px')}
-                            style={{
-                              background: isCommitCurrent ? color : undefined,
-                              backgroundImage: isCommitCurrent ? undefined : `repeating-linear-gradient(to right, ${color} 0, ${color} 3px, transparent 3px, transparent 6px)`,
-                              opacity: isCommitCurrent ? 1 : 0.7,
-                            }}
-                          />
-                        </>
-                      ) : branch ? (
-                        <>
-                          <span
-                            className={cn(
-                              'max-w-full min-w-0 cursor-pointer items-center justify-start truncate rounded-sm px-2 text-[12px] leading-none font-medium select-text',
-                              isHovered ? 'inline-flex opacity-[0.85]' : 'hidden opacity-[0.45] group-hover/commit:inline-flex'
-                            )}
-                            style={{
-                              height: BADGE_H,
-                              color,
-                              background: `color-mix(in oklab, ${color} 16%, var(--panel))`,
-                              border: `1px solid color-mix(in oklab, ${color} 30%, transparent)`,
-                            }}
-                            title={branch}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              onSelect?.(commit)
-                            }}
-                            onPointerEnter={() => handleBranchPointerEnter(branch)}
-                            onPointerLeave={handleBranchPointerLeave}
-                          >
-                            {branch}
-                          </span>
-                          {spotlightTarget && <AnnotationBadge target={spotlightTarget} className="ml-1 shrink-0" />}
-                          <span
-                            className={cn('h-px min-w-2 flex-1', isHovered ? 'inline-flex opacity-70' : 'hidden opacity-30 group-hover/commit:inline-flex')}
-                            style={{
-                              backgroundImage: `repeating-linear-gradient(to right, ${color} 0, ${color} 3px, transparent 3px, transparent 6px)`,
-                            }}
-                          />
-                        </>
-                      ) : spotlightTarget ? (
-                        <>
-                          <AnnotationBadge target={spotlightTarget} className="ml-1 shrink-0" />
-                          <span
-                            className="h-0.5 min-w-2 flex-1"
-                            style={{
-                              background: `linear-gradient(to right, ${color}, color-mix(in oklab, ${color} 20%, transparent))`,
-                              opacity: 0.25,
-                            }}
-                          />
-                        </>
-                      ) : null}
-                    </span>
-                    <span
-                      className="flex h-[26px] min-h-0 items-center justify-end bg-transparent"
-                      onContextMenu={(event) => {
-                        event.preventDefault()
-                        event.stopPropagation()
-                        const branchList = [...chips.map((c) => c.label), ...(branch ? [branch] : [])]
-                        setContextMenu({
-                          type: 'commit',
-                          target: 'graph',
-                          commit,
-                          branches: branchList,
-                          color,
-                          anchor: { x: event.clientX, y: event.clientY },
-                        })
-                      }}
-                    >
-                      <span className="w-0.5 shrink-0" style={{ height: DOT, background: color }} aria-hidden />
-                    </span>
-                    <span
-                      data-git-message-cell
-                      className={cn('flex h-[26px] min-h-0 min-w-0 items-center pl-2', rowTintClass)}
-                      onContextMenu={(event) => {
-                        event.preventDefault()
-                        event.stopPropagation()
-                        const branchList = [...chips.map((c) => c.label), ...(branch ? [branch] : [])]
-                        setContextMenu({
-                          type: 'commit',
-                          target: 'commit',
-                          commit,
-                          branches: branchList,
-                          color,
-                          anchor: { x: event.clientX, y: event.clientY },
-                        })
-                      }}
-                    >
-                      {isConflictedMerge && <CommitStatusBadge commit={commit} conflict={conflicts?.[commit.hash]} onOpenConflictView={onOpenConflictView} />}
-                      <span
-                        className="flex min-w-0 flex-1 items-center truncate pr-2 text-sm leading-none font-normal select-text cursor-pointer transition-colors duration-150 text-ink"
-                        style={{ height: DOT }}
-                        title={`${commit.short || commit.hash.slice(0, 7)} · ${commit.author} (${commit.date})\n${commit.subject}`}
-                      >
-                        {commit.subject}
-                      </span>
-                    </span>
-                  </div>
-                </li>
-              )
-            })}
-          </ol>
-          <GraphNodesOverlay
-            graphScrollRef={graphScrollRef}
-            syncGraphEdge={syncGraphEdge}
-            contentWidth={contentWidth}
-            scene={scene}
-            commits={commits}
-            lineageHashes={lineageHashes}
-            spotlightHashes={spotlightHashes}
-            spotlightMap={spotlightMap}
-            isSpotlightActive={isSpotlightActive}
-            isHoverBranchActive={isHoverBranchActive}
-            isBranchActive={isBranchActive}
-            branchHashes={branchHashes}
-            remoteNames={remoteNames}
-            hiddenRemotes={hiddenRemotes}
-            soloRemote={soloRemote}
-            branchAt={branchAt}
-            contextMenu={contextMenu}
-            hoveredHash={hoveredHash}
-            checkedOut={checkedOut}
-            headIndex={headIndex}
-            currentBranch={currentBranch}
-            selectedHash={selectedHash}
-            visibleStashes={visibleStashes}
-            conflicts={conflicts}
-            isScrollingRef={isScrollingRef}
-            hoveredNode={hoveredNode}
-            setHoveredHash={setHoveredHash}
-            setHoveredNode={setHoveredNode}
-            setContextMenu={setContextMenu}
-            onSelect={onSelect}
-            locale={locale}
-            t={t}
-          />
-
-          {graphEdge.right ? (
-            <div
-              className="pointer-events-none absolute top-0 z-[3] h-full w-4 bg-[linear-gradient(to_left,color-mix(in_oklab,var(--panel)_88%,transparent),transparent)]"
-              style={{ left: 'calc(var(--git-branch-w) + var(--git-graph-w) - 1rem)', height: scene.height }}
-              aria-hidden
-            />
+          {firstSegment && firstSegment.startIndex > 0 ? (
+            <div ref={(el) => registerGapSentinel?.(firstSegment.id, el)} data-git-gap-segment={firstSegment.id}>
+              <GitGapStrip
+                columns={columns}
+                hiddenCount={firstSegment.startIndex}
+                loading={loadingPrevSegmentId === firstSegment.id}
+                canJumpTop={Boolean(onJumpTop)}
+                onLoadPrev={onLoadPrevSegment ? () => onLoadPrevSegment(firstSegment.id) : undefined}
+                onJumpTop={onJumpTop}
+              />
+            </div>
           ) : null}
+          {segmentScenes.map((entry, idx) => {
+            const prevEntry = idx > 0 ? segmentScenes[idx - 1] : null
+            const gapCount = prevEntry ? Math.max(0, entry.segment.startIndex - (prevEntry.segment.startIndex + prevEntry.segment.commits.length)) : 0
+            return (
+              <Fragment key={entry.segment.id}>
+                {prevEntry && gapCount > 0 ? (
+                  <div ref={(el) => registerGapSentinel?.(entry.segment.id, el)} data-git-gap-segment={entry.segment.id}>
+                    <GitGapStrip
+                      columns={columns}
+                      hiddenCount={gapCount}
+                      loading={loadingPrevSegmentId === entry.segment.id}
+                      canJumpTop={Boolean(onJumpTop)}
+                      onLoadPrev={onLoadPrevSegment ? () => onLoadPrevSegment(entry.segment.id) : undefined}
+                      onJumpTop={onJumpTop}
+                    />
+                  </div>
+                ) : null}
+                <GraphSegmentView
+                  segmentId={entry.segment.id}
+                  commits={entry.segment.commits}
+                  scene={entry.scene}
+                  worktree={entry.worktree}
+                  visibleStashes={entry.stashes}
+                  contentWidth={contentWidth}
+                  columns={columns}
+                  selectedHash={selectedHash}
+                  findNeedle={findNeedle}
+                  highlight={highlight}
+                  lineageHashes={lineageHashes}
+                  spotlightHashes={spotlightHashes}
+                  spotlightMap={spotlightMap}
+                  isSpotlightActive={isSpotlightActive}
+                  isHoverBranchActive={isHoverBranchActive}
+                  isBranchActive={isBranchActive}
+                  branchHashes={branchHashes}
+                  remoteNames={remoteNames}
+                  hiddenRemotes={hiddenRemotes}
+                  soloRemote={soloRemote}
+                  soloBranch={soloBranch}
+                  checkedOut={checkedOut}
+                  currentBranch={currentBranch}
+                  conflicts={conflicts}
+                  contextMenu={contextMenu}
+                  hoveredHash={hoveredHash}
+                  hoveredNode={hoveredNode}
+                  isScrollingRef={isScrollingRef}
+                  graphScrollRef={graphScrollRef}
+                  syncGraphEdge={syncGraphEdge}
+                  graphRightEdgeFade={graphEdge.right}
+                  setContextMenu={setContextMenu}
+                  setHoveredHash={setHoveredHash}
+                  setHoveredNode={setHoveredNode}
+                  onSelect={onSelect}
+                  onSelectWorktree={onSelectWorktree}
+                  onOpenConflictView={onOpenConflictView}
+                  onCheckoutBranch={onCheckoutBranch}
+                  onPushBranch={onPushBranch}
+                  onPullBranch={onPullBranch}
+                  onCreateBranch={onCreateBranch}
+                  onDeleteBranch={onDeleteBranch}
+                  onRenameBranch={onRenameBranch}
+                  onSoloBranch={onSoloBranch}
+                  onBranchPointerEnter={handleBranchPointerEnter}
+                  onBranchPointerLeave={handleBranchPointerLeave}
+                  onClearBranchHover={handleClearBranchHover}
+                  locale={locale}
+                  t={t}
+                />
+              </Fragment>
+            )
+          })}
           {contextMenu ? (
             <FloatingMenu
               anchor={contextMenu.anchor}

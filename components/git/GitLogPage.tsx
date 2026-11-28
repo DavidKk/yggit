@@ -8,8 +8,6 @@ import { GitCommitPanel } from '@/components/git/GitCommitPanel'
 import { GitDebug } from '@/components/git/GitDebug'
 import { GitFileDiff } from '@/components/git/GitFileDiff'
 import { GIT_FIND_EVENT, useGitFindShortcut } from '@/components/git/gitFind'
-import { GitHistory } from '@/components/git/GitHistory'
-import { GitMergePanel } from '@/components/git/GitMergePanel'
 import { GitSidebar } from '@/components/git/GitSidebar'
 import { useGitBranchActions } from '@/components/git/hooks/useGitBranchActions'
 import { useGitCommitSelection } from '@/components/git/hooks/useGitCommitSelection'
@@ -19,18 +17,20 @@ import { useGitLogPanelLayout } from '@/components/git/hooks/useGitLogPanelLayou
 import { useGitLogRepoLoader } from '@/components/git/hooks/useGitLogRepoLoader'
 import { useGitProjectActions } from '@/components/git/hooks/useGitProjectActions'
 import { useOptimisticGitActions } from '@/components/git/hooks/useOptimisticGitActions'
+import { useSegmentedHistory } from '@/components/git/hooks/useSegmentedHistory'
 import { GitLogBlockingOverlay, GitLogBranchModals, GitLogFilePanel, GitLogNoRepoState } from '@/components/git/log-page/GitLogFilePanel'
 import { GitLogHeader } from '@/components/git/log-page/GitLogHeader'
+import { GitLogHistoryPane } from '@/components/git/log-page/GitLogHistoryPane'
 import { type GitLogPageProps, highlightOf, isError, isGitSelection, selectionFor, SIDEBAR_MIN, TREE_MIN } from '@/components/git/log-page/gitLogUtils'
 import { PanelSplitter } from '@/components/git/PanelSplitter'
 import { useMergeConflicts } from '@/components/git/useMergeConflicts'
 import { useT } from '@/components/i18n/LocaleProvider'
 import { useInWorkspaceHeader } from '@/components/layout/WorkspaceHeaderContext'
 import { useNotification } from '@/components/notification/useNotification'
-import { EmptyState } from '@/components/sk'
 import { useOptionalAgent } from '@/lib/agent/agent-context'
 import { useOptionalSpotlight } from '@/lib/agent/spotlight-context'
 import { getDriverMode, getGitDriver, type GitDriverMode } from '@/lib/git/driver'
+import { buildPendingCommitPlaceholder } from '@/lib/git/history-segments'
 import { makeShareUrl } from '@/lib/git/resolver'
 import {
   GIT_WORKTREE_COMMIT,
@@ -66,10 +66,8 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
   projectsRef.current = projects
   const foldersRef = useRef<string[]>(folders)
   foldersRef.current = folders
-  const [commits, setCommits] = useState<GitCommit[]>(failed ? [] : initial.commits)
-  const [hasMore, setHasMore] = useState(failed ? false : initial.hasMore)
-  const [hasPrev, setHasPrev] = useState(failed ? false : Boolean(initial.hasPrev))
-  const [startIndex, setStartIndex] = useState<number>(failed ? 0 : (initial.startIndex ?? 0))
+  const { segments, commits, hasMore, hasPrev, startIndex, setCommits, setHasMore, setHasPrev, setStartIndex, resetHistory, mergeSegment, appendSegment, prependSegment } =
+    useSegmentedHistory(failed ? null : initial)
   const commitsRef = useRef<GitCommit[]>(commits)
   commitsRef.current = commits
   const startIndexRef = useRef<number>(startIndex)
@@ -183,23 +181,23 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
 
   // 3-second hover timer for branch spotlight
   const scope = view ? '*' : ''
-  const { activeHoverBranch, handleBranchHoverStart, handleBranchHoverEnd, select } = useGitLogNavigation({
-    view,
-    scope,
-    commits,
-    startIndex,
-    setSelection,
-    setCommits,
-    setHasMore,
-    setHasPrev,
-    setStartIndex,
-    setSelectedHash,
-    setSelectedFile,
-    setSelectedStatus,
-    setLineageHashes,
-    setConflictViewActive,
-    setFocusRequest,
-  })
+  const { activeHoverBranch, handleBranchHoverStart, handleBranchHoverEnd, select, locateStatus, cancelLocate, dismissLocate, jumpToLocated, jumpToTop, markHistoryInteraction } =
+    useGitLogNavigation({
+      view,
+      scope,
+      commits,
+      segments,
+      startIndex,
+      historyScrollRef,
+      setSelection,
+      onMergeSegment: mergeSegment,
+      setSelectedHash,
+      setSelectedFile,
+      setSelectedStatus,
+      setLineageHashes,
+      setConflictViewActive,
+      setFocusRequest,
+    })
 
   useEffect(() => {
     const host = projectFindRef.current
@@ -213,23 +211,27 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
   }, [])
   const closeMenu = useCallback(() => setMenuOpen(false), [])
   const scopeRef = useRef('')
-  const onPage = useCallback((pageScope: string, next: GitCommit[], more: boolean, nextHasPrev?: boolean, nextStartIndex?: number) => {
-    if (pageScope !== scopeRef.current) return
-    setCommits(next)
-    setHasMore(more)
-    if (nextHasPrev !== undefined) setHasPrev(nextHasPrev)
-    if (nextStartIndex !== undefined) setStartIndex(nextStartIndex)
-  }, [])
+  const onPage = useCallback(
+    (pageScope: string, next: GitCommit[], more: boolean, nextHasPrev?: boolean, nextStartIndex?: number) => {
+      if (pageScope !== scopeRef.current) return
+      if (nextStartIndex !== undefined) {
+        mergeSegment(next, more, nextStartIndex)
+        return
+      }
+      resetHistory(next, more, 0)
+      if (nextHasPrev !== undefined) setHasPrev(nextHasPrev)
+    },
+    [mergeSegment, resetHistory, setHasPrev]
+  )
 
-  const handlePagePrepend = useCallback((newCommits: GitCommit[], nextHasPrev: boolean, nextStartIndex: number) => {
-    setCommits((prev) => {
-      const seen = new Set(prev.map((c) => c.hash))
-      const uniqueNew = newCommits.filter((c) => !seen.has(c.hash))
-      return [...uniqueNew, ...prev]
-    })
-    setHasPrev(nextHasPrev)
-    setStartIndex(nextStartIndex)
-  }, [])
+  const handlePagePrepend = useCallback(
+    (newCommits: GitCommit[], _nextHasPrev: boolean, nextStartIndex: number) => {
+      if (segments[0]) {
+        prependSegment(segments[0].id, newCommits, nextStartIndex)
+      }
+    },
+    [prependSegment, segments]
+  )
 
   const applyCatalog = useCallback((body: { projects?: GitProjectView[]; folders?: string[] }) => {
     if (Array.isArray(body.projects)) setProjects(body.projects)
@@ -289,10 +291,7 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
     const nextSelection = readGitUiPref(repoPrefKey(next.repo, 'selection'), isGitSelection) || selectionFor(next)
     setView(next)
     setSelection(nextSelection)
-    setCommits(next.commits)
-    setHasMore(next.hasMore)
-    setHasPrev(Boolean(next.hasPrev))
-    setStartIndex(next.startIndex ?? 0)
+    resetHistory(next.commits, next.hasMore, next.startIndex ?? 0)
     if (isRepoSwitch) {
       setSelectedHash('')
       setSelectedFile('')
@@ -317,12 +316,13 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
   }
 
   const selectedStash = view?.stashes.find((item) => item.hash === selectedHash)
+  const matchedCommit = commits.find((commit) => commit.hash === selectedHash || (selectedHash && selectedHash.length >= 6 && commit.hash.startsWith(selectedHash)))
   const selected =
     selectedHash === GIT_WORKTREE_HASH
       ? GIT_WORKTREE_COMMIT
       : selectedStash
         ? gitStashAsCommit(selectedStash)
-        : commits.find((commit) => commit.hash === selectedHash || (selectedHash && selectedHash.length >= 6 && commit.hash.startsWith(selectedHash))) || null
+        : matchedCommit || buildPendingCommitPlaceholder(view, selectedHash, selection)
   const selectedIsWorktree = selectedHash === GIT_WORKTREE_HASH
 
   const { handleLocateCommit, handleCommitFilesLoaded } = useGitCommitSelection({
@@ -343,6 +343,7 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
     setHasMore,
     setHasPrev,
     setStartIndex,
+    onMergeSegment: mergeSegment,
     setCommitFiles,
     setSelection,
     setView,
@@ -608,91 +609,61 @@ export function GitLogPage({ initial, initialCommitHash, initialFilePath, initia
                   onResizeEnd={commitSidebar}
                   onAutoFit={fitSidebar}
                 />
-                <section className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden border-l border-line" aria-label={t('git.section.history')}>
-                  {error ? <p className="m-0 px-3 py-2 text-xs text-fail">{error}</p> : null}
-                  {scopeMiss ? (
-                    <EmptyState
-                      title={view.branches.length === 0 ? t('git.page.noBranch') : t('git.page.noCommits')}
-                      message={view.branches.length === 0 ? t('git.page.noBranchMessage') : t('git.page.noCommitsInRef')}
-                      hint={view.branches.length === 0 ? t('git.page.noBranchHint') : t('git.page.noCommitsHint')}
-                      density="panel"
-                    />
-                  ) : (
-                    <GitHistory
-                      repo={view.repo}
-                      remoteUrl={view.remoteUrl}
-                      scope={scope}
-                      commits={commits}
-                      hasMore={hasMore}
-                      hasPrev={hasPrev}
-                      startIndex={startIndex}
-                      worktree={view.worktree}
-                      stashes={view.stashes}
-                      highlight={highlight}
-                      lineageHashes={lineageSet}
-                      remoteNames={[...new Set(view.remotes.map((item) => item.remote))]}
-                      worktreeBranches={view.worktrees.filter((item) => item.branch && !item.current).map((item) => item.branch)}
-                      selectedHash={selectedHash}
-                      conflicts={conflicts}
-                      scrollRef={historyScrollRef}
-                      focusRequest={focusRequest}
-                      activeHoverBranch={activeHoverBranch}
-                      onBranchHoverStart={handleBranchHoverStart}
-                      onBranchHoverEnd={handleBranchHoverEnd}
-                      onSelect={(commit) => {
-                        setSelectedHash(commit.hash)
-                        setSelectedFile('')
-                        setSelectedStatus('')
-                        setLineageHashes(null)
-                        setConflictViewActive(false)
-                      }}
-                      onSelectWorktree={() => {
-                        setSelectedHash(GIT_WORKTREE_HASH)
-                        setSelectedFile('')
-                        setSelectedStatus('')
-                        setLineageHashes(null)
-                        setConflictViewActive(false)
-                      }}
-                      onOpenConflictView={handleOpenConflictView}
-                      currentBranch={view.branch}
-                      soloBranch={soloBranch}
-                      onSoloBranch={setSoloBranch}
-                      soloRemote={soloRemote}
-                      hiddenRemotes={hiddenRemotes}
-                      onCheckoutBranch={handleCheckoutBranch}
-                      onCreateBranch={handleCreateBranch}
-                      onDeleteBranch={handleDeleteBranch}
-                      onRenameBranch={handleRenameBranch}
-                      onPushBranch={handlePushBranch}
-                      onPullBranch={handlePullBranch}
-                      onPage={onPage}
-                      onPagePrepend={handlePagePrepend}
-                      onRefresh={silentRefresh}
-                    />
-                  )}
-                  {/* Standalone Merge Lineage Panel beside Git history */}
-                  {selected && selected.parents && selected.parents.length >= 2 ? (
-                    <GitMergePanel
-                      repo={view.repo}
-                      commit={selected}
-                      commits={commits}
-                      conflict={conflicts[selected.hash]}
-                      highlighted={Boolean(lineageHashes && lineageHashes.length > 0)}
-                      onHighlight={(active, hashes) => {
-                        if (!active || !hashes) {
-                          setLineageHashes(null)
-                        } else {
-                          setLineageHashes(hashes)
-                        }
-                      }}
-                      onLocate={(hash) => {
-                        setSelectedHash(hash)
-                        setFocusRequest({ hash })
-                      }}
-                      onOpenConflictView={() => handleOpenConflictView(selected.hash)}
-                    />
-                  ) : null}
-                </section>
+                <GitLogHistoryPane
+                  sectionLabel={t('git.section.history')}
+                  emptyTitle={view.branches.length === 0 ? t('git.page.noBranch') : t('git.page.noCommits')}
+                  emptyMessage={view.branches.length === 0 ? t('git.page.noBranchMessage') : t('git.page.noCommitsInRef')}
+                  emptyHint={view.branches.length === 0 ? t('git.page.noBranchHint') : t('git.page.noCommitsHint')}
+                  scopeMiss={scopeMiss}
+                  error={error}
+                  view={view}
+                  scope={scope}
+                  commits={commits}
+                  segments={segments}
+                  hasMore={hasMore}
+                  hasPrev={hasPrev}
+                  startIndex={startIndex}
+                  highlight={highlight}
+                  lineageHashes={lineageHashes}
+                  lineageSet={lineageSet}
+                  selectedHash={selectedHash}
+                  selected={selected}
+                  conflicts={conflicts}
+                  historyScrollRef={historyScrollRef}
+                  focusRequest={focusRequest}
+                  locateStatus={locateStatus}
+                  activeHoverBranch={activeHoverBranch}
+                  soloBranch={soloBranch}
+                  soloRemote={soloRemote}
+                  hiddenRemotes={hiddenRemotes}
+                  onJumpToLocated={jumpToLocated}
+                  onCancelLocate={cancelLocate}
+                  onDismissLocate={dismissLocate}
+                  onJumpTop={jumpToTop}
+                  onHistoryInteraction={markHistoryInteraction}
+                  onBranchHoverStart={handleBranchHoverStart}
+                  onBranchHoverEnd={handleBranchHoverEnd}
+                  onOpenConflictView={handleOpenConflictView}
+                  onSoloBranch={setSoloBranch}
+                  onCheckoutBranch={handleCheckoutBranch}
+                  onCreateBranch={handleCreateBranch}
+                  onDeleteBranch={handleDeleteBranch}
+                  onRenameBranch={handleRenameBranch}
+                  onPushBranch={handlePushBranch}
+                  onPullBranch={handlePullBranch}
+                  onPage={onPage}
+                  onPagePrepend={handlePagePrepend}
+                  onAppendSegment={appendSegment}
+                  onPrependSegment={prependSegment}
+                  onMergeSegment={mergeSegment}
+                  onRefresh={silentRefresh}
+                  onSetLineageHashes={setLineageHashes}
+                  onLocateCommit={handleLocateCommit}
+                  onSetSelectedHash={setSelectedHash}
+                  onSetSelectedFile={setSelectedFile}
+                  onSetSelectedStatus={setSelectedStatus}
+                  onSetConflictViewActive={setConflictViewActive}
+                />
               </>
             )}
             {selected ? (

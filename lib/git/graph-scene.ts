@@ -7,20 +7,34 @@ export const PAD = 12
 export const DOT = 22
 export const MERGE_DOT = 12
 
-const LANE_COLOR = [
+export const LANE_COLOR = [
   'var(--wt-primary, var(--accent, #12a884))',
-  'var(--focus-contrast, #3b82f6)',
-  'var(--wt-git-merge, var(--wt-merge, #d946ef))',
-  'var(--wt-git-modified, var(--wt-modified, #eab308))',
-  'var(--wt-secondary, #0ea5e9)',
-  'var(--fail)',
-  'color-mix(in oklab, var(--focus-contrast, #3b82f6) 55%, var(--wt-git-merge, #d946ef))',
-  'color-mix(in oklab, var(--wt-git-modified, #eab308) 55%, var(--fail))',
-  'color-mix(in oklab, var(--wt-secondary, #0ea5e9) 40%, var(--ink))',
-]
+  'var(--wt-secondary, #0284c7)',
+  '#9333ea',
+  '#ea580c',
+  '#2563eb',
+  '#65a30d',
+  'var(--wt-git-merge, var(--wt-merge, #c026d3))',
+  '#d97706',
+  '#0891b2',
+  'var(--fail, #db2777)',
+  '#4f46e5',
+  '#16a34a',
+  '#e11d48',
+  'var(--wt-git-modified, var(--wt-modified, #ca8a04))',
+  '#7c3aed',
+  '#0d9488',
+] as const
 
 export function laneColor(index: number): string {
-  return LANE_COLOR[index % LANE_COLOR.length]
+  const normalized = Math.max(0, Math.floor(index))
+  if (normalized < LANE_COLOR.length) {
+    return LANE_COLOR[normalized]
+  }
+  // Deterministic golden-angle spread beyond the 16 curated slots so colors remain consistent without wrapping onto index 0.
+  const offset = normalized - LANE_COLOR.length + 1
+  const hue = Math.round((offset * 137.508 + 29) % 360)
+  return `hsl(${hue}, 74%, 46%)`
 }
 
 function commitIndexForBase(commits: GitCommit[], base: string): number {

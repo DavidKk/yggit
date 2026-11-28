@@ -31,7 +31,7 @@ export function useGraphPanning({
         return
       }
 
-      const pan = graphScrollRef.current
+      const pan = graphScrollRef.current || frame.querySelector<HTMLElement>('[data-git-graph-pan]')
       if (!pan) return
       const maxScroll = Math.max(0, pan.scrollWidth - pan.clientWidth)
       if (maxScroll <= 0) return
@@ -47,9 +47,12 @@ export function useGraphPanning({
 
       const delta = hasHorizontalDelta ? e.deltaX : e.deltaY
       const prev = pan.scrollLeft
-      pan.scrollLeft = Math.max(0, Math.min(maxScroll, pan.scrollLeft + delta))
-      if (pan.scrollLeft !== prev) {
+      const nextScrollLeft = Math.max(0, Math.min(maxScroll, pan.scrollLeft + delta))
+      if (nextScrollLeft !== prev) {
         e.preventDefault()
+        for (const el of frame.querySelectorAll<HTMLElement>('[data-git-graph-pan]')) {
+          el.scrollLeft = nextScrollLeft
+        }
         syncGraphEdge()
       }
     }
@@ -63,7 +66,7 @@ export function useGraphPanning({
 
     const handlePointerDown = (e: PointerEvent) => {
       if (e.button !== 0 && e.button !== 1) return
-      const pan = graphScrollRef.current
+      const pan = graphScrollRef.current || frame.querySelector<HTMLElement>('[data-git-graph-pan]')
       if (!pan) return
       const maxScroll = Math.max(0, pan.scrollWidth - pan.clientWidth)
       if (maxScroll <= 0) return
@@ -93,7 +96,10 @@ export function useGraphPanning({
           frame.style.cursor = 'grabbing'
         }
         if (isDragging) {
-          pan.scrollLeft = Math.max(0, Math.min(maxScroll, dragStartScroll - dx))
+          const nextScrollLeft = Math.max(0, Math.min(maxScroll, dragStartScroll - dx))
+          for (const el of frame.querySelectorAll<HTMLElement>('[data-git-graph-pan]')) {
+            el.scrollLeft = nextScrollLeft
+          }
           syncGraphEdge()
         }
       }

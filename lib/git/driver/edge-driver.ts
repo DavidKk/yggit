@@ -281,17 +281,23 @@ export class EdgeGitDriver implements IGitDriver {
 
   async checkoutBranch(repo: string, branch: string, _options?: GitCheckoutOptions): Promise<{ ok: boolean; message: string }> {
     const reader = await this.repository(await this.resolveRepo(repo))
-    return checkoutEdgeBranch(reader, branch)
+    const res = await checkoutEdgeBranch(reader, branch)
+    reader.invalidateLogCaches()
+    return res
   }
 
   async createBranch(repo: string, branch: string, startPoint?: string, checkout = true): Promise<{ ok: boolean; message: string }> {
     const reader = await this.repository(await this.resolveRepo(repo))
-    return createEdgeBranch(reader, branch, startPoint, checkout)
+    const res = await createEdgeBranch(reader, branch, startPoint, checkout)
+    reader.invalidateLogCaches()
+    return res
   }
 
   async deleteBranch(repo: string, branch: string, _force = false): Promise<{ ok: boolean; message: string }> {
     const reader = await this.repository(await this.resolveRepo(repo))
-    return deleteEdgeBranch(reader, branch)
+    const res = await deleteEdgeBranch(reader, branch)
+    reader.invalidateLogCaches()
+    return res
   }
 
   private unsupportedInEdge(action: string): never {
@@ -316,7 +322,9 @@ export class EdgeGitDriver implements IGitDriver {
 
   async commit(repo: string, message: string, options?: boolean | GitCommitOptions): Promise<{ ok: boolean; message: string; hash?: string }> {
     const reader = await this.repository(await this.resolveRepo(repo))
-    return commitEdgeChanges(reader, message, options)
+    const res = await commitEdgeChanges(reader, message, options)
+    reader.invalidateLogCaches()
+    return res
   }
 
   async undo(_repo: string, _soft = true): Promise<{ ok: boolean; message: string; undoneHash?: string }> {
@@ -372,12 +380,16 @@ export class EdgeGitDriver implements IGitDriver {
 
   async pull(repo: string, options?: GitPullOptions): Promise<{ ok: boolean; message: string }> {
     const reader = await this.repository(await this.resolveRepo(repo))
-    return pullEdgeRepo(reader, options)
+    const res = await pullEdgeRepo(reader, options)
+    reader.invalidateLogCaches()
+    return res
   }
 
   async fetch(repo: string, options?: GitFetchOptions): Promise<{ ok: boolean; message: string }> {
     const reader = await this.repository(await this.resolveRepo(repo))
-    return fetchEdgeRepo(reader, options)
+    const res = await fetchEdgeRepo(reader, options)
+    reader.invalidateLogCaches()
+    return res
   }
 
   async stash(_repo: string, _options: GitStashOptions): Promise<{ ok: boolean; message: string }> {
@@ -390,12 +402,16 @@ export class EdgeGitDriver implements IGitDriver {
 
   async createTag(repo: string, tag: string, options?: { target?: string; message?: string }): Promise<{ ok: boolean; message: string }> {
     const reader = await this.repository(await this.resolveRepo(repo))
-    return createEdgeTag(reader, tag, options)
+    const res = await createEdgeTag(reader, tag, options)
+    reader.invalidateLogCaches()
+    return res
   }
 
   async deleteTag(repo: string, tag: string): Promise<{ ok: boolean; message: string }> {
     const reader = await this.repository(await this.resolveRepo(repo))
-    return deleteEdgeTag(reader, tag)
+    const res = await deleteEdgeTag(reader, tag)
+    reader.invalidateLogCaches()
+    return res
   }
 
   async getRemotes(repo: string): Promise<GitRemoteSource[]> {

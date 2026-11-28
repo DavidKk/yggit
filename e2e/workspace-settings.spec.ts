@@ -31,17 +31,19 @@ test.describe('Workspace, Settings & Yggi Assistant E2E (P2)', () => {
 
   test('Model channel create and delete flow uses confirmation modal and returns to list', async ({ page }) => {
     await page.goto('/settings/models/new')
+    await page.waitForLoadState('networkidle')
 
     const channelName = `E2E-Channel-${Date.now()}`
-    const nameInput = page.locator('input').first()
+    const nameInput = page.locator('#agent-model-name')
     await expect(nameInput).toBeVisible()
     await nameInput.fill(channelName)
+    await expect(nameInput).toHaveValue(channelName)
 
     const saveBtn = page.getByRole('button', { name: /Save|Create|保存|创建/i }).first()
     await expect(saveBtn).toBeVisible()
     await saveBtn.click()
 
-    await expect(page).toHaveURL(/\/settings\/models/)
+    await expect(page).toHaveURL(/\/settings\/models$/)
     await expect(page.getByText(channelName).first()).toBeVisible()
 
     // Open channel or delete directly with confirmation

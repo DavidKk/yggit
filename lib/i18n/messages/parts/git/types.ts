@@ -61,6 +61,15 @@ export type GitMessages = {
     findZero: string
     allLoaded: string
     loadMore: string
+    locatingBranch: string
+    locateReady: string
+    locateNotFound: string
+    jumpToLocated: string
+    cancelLocate: string
+    loadingNewer: string
+    loadNewer: string
+    gapCommits: string
+    jumpToTop: string
   }
   graph: {
     colBranch: string

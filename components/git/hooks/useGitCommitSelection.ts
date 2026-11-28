@@ -23,6 +23,7 @@ export function useGitCommitSelection({
   setHasMore,
   setHasPrev,
   setStartIndex,
+  onMergeSegment,
   setCommitFiles,
   setSelection,
   setView,
@@ -44,6 +45,7 @@ export function useGitCommitSelection({
   setHasMore: Dispatch<SetStateAction<boolean>>
   setHasPrev: Dispatch<SetStateAction<boolean>>
   setStartIndex: Dispatch<SetStateAction<number>>
+  onMergeSegment?: (commits: GitCommit[], hasMore: boolean, startIndex: number) => void
   setCommitFiles: Dispatch<SetStateAction<GitFileChange[]>>
   setSelection: (next: GitSelection) => void
   setView: Dispatch<SetStateAction<GitLogView | null>>
@@ -86,10 +88,14 @@ export function useGitCommitSelection({
           }
 
           if (res && res.commits && res.commits.length > 0) {
-            setCommits(res.commits)
-            setHasMore(Boolean(res.hasMore))
-            setHasPrev(Boolean(res.hasPrev))
-            setStartIndex(res.startIndex ?? 0)
+            if (onMergeSegment) {
+              onMergeSegment(res.commits, Boolean(res.hasMore), res.startIndex ?? 0)
+            } else {
+              setCommits(res.commits)
+              setHasMore(Boolean(res.hasMore))
+              setHasPrev(Boolean(res.hasPrev))
+              setStartIndex(res.startIndex ?? 0)
+            }
             setSelectedHash(commitHash)
             setFocusRequest({ hash: commitHash })
           }
@@ -106,6 +112,7 @@ export function useGitCommitSelection({
       setHasMore,
       setHasPrev,
       setLineageHashes,
+      onMergeSegment,
       setSelectedFile,
       setSelectedHash,
       setSelectedStatus,

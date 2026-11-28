@@ -283,8 +283,8 @@ export function AgentTraceDetailCard({ trace, copied, onCopyJson, onClose }: Age
           ) : null}
 
           <details open className="group/sec">
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3.5 py-3 transition-colors select-none hover:bg-accent/8 [&::-webkit-details-marker]:hidden">
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-ink">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3.5 py-3 text-ink transition-colors select-none hover:text-accent [&::-webkit-details-marker]:hidden">
+              <div className="flex items-center gap-1.5 text-xs font-semibold">
                 <LuWrench className="size-3.5 text-ok" aria-hidden="true" />
                 <span>
                   {t('gitAgent.devLogsSectionTools') || 'Tools'} ({trace.toolExecutions.length || trace.toolNames.length})
@@ -340,8 +340,8 @@ export function AgentTraceDetailCard({ trace, copied, onCopyJson, onClose }: Age
           </details>
 
           <details open className="group/sec">
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3.5 py-3 transition-colors select-none hover:bg-accent/8 [&::-webkit-details-marker]:hidden">
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-ink">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3.5 py-3 text-ink transition-colors select-none hover:text-accent [&::-webkit-details-marker]:hidden">
+              <div className="flex items-center gap-1.5 text-xs font-semibold">
                 <LuTerminal className="size-3.5 text-ok" aria-hidden="true" />
                 <span>{t('gitAgent.devLogsSectionOutput') || 'Output'}</span>
               </div>
@@ -365,8 +365,8 @@ export function AgentTraceDetailCard({ trace, copied, onCopyJson, onClose }: Age
           </details>
 
           <details open className="group/sec">
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3.5 py-3 transition-colors select-none hover:bg-accent/8 [&::-webkit-details-marker]:hidden">
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-ink">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3.5 py-3 text-ink transition-colors select-none hover:text-accent [&::-webkit-details-marker]:hidden">
+              <div className="flex items-center gap-1.5 text-xs font-semibold">
                 <LuMessageSquare className="size-3.5 text-ok" aria-hidden="true" />
                 <span>
                   {t('gitAgent.devLogsSectionMessages') || 'Messages'} ({trace.requestMessages.length})

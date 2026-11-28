@@ -1,10 +1,19 @@
 import { createTwoFilesPatch, diffLines } from 'diff'
 import git from 'isomorphic-git'
 
-import { GIT_WORKTREE_HASH, type GitCommitChanges, type GitFileChange, type GitWorktree } from '@/lib/git/types'
+import { GIT_WORKTREE_HASH, type GitCommitChanges, type GitFileChange, type GitLogView, type GitWorktree, type GitWorktreeEntry } from '@/lib/git/types'
 
+import type { EdgeRefsSnapshot } from './edge-git-refs'
+import type { MultiBranchLogSession } from './edge-log-walker'
 import { createDirectoryHandleFs } from './handle-fs'
 import type { ReadCommitDiffOptions } from './types'
+
+export interface EdgeLogSnapshotCache {
+  refs: EdgeRefsSnapshot
+  stashes: GitLogView['stashes']
+  worktrees: GitWorktreeEntry[]
+  tipsSignature: string
+}
 
 const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'
 const CONTENT_LIMIT = 2 * 1024 * 1024
@@ -39,9 +48,41 @@ export class EdgeRepositoryReader {
   private internalIndexWriteDepth = 0
   private internalIndexGraceUntil = 0
   private readonly observerDirtyPaths = new Set<string>()
+  private logSnapshotCache?: EdgeLogSnapshotCache
+  private readonly logSessions = new Map<string, MultiBranchLogSession>()
 
   constructor(readonly handle: FileSystemDirectoryHandle) {
     this.fs = createDirectoryHandleFs(handle)
+  }
+
+  getCachedLogContext(): EdgeLogSnapshotCache | undefined {
+    return this.logSnapshotCache
+  }
+
+  setCachedLogContext(snapshot: EdgeLogSnapshotCache): void {
+    this.logSnapshotCache = snapshot
+  }
+
+  getLogSession(key: string): MultiBranchLogSession | undefined {
+    const hit = this.logSessions.get(key)
+    if (hit) {
+      this.logSessions.delete(key)
+      this.logSessions.set(key, hit)
+    }
+    return hit
+  }
+
+  setLogSession(key: string, session: MultiBranchLogSession): void {
+    this.logSessions.set(key, session)
+    if (this.logSessions.size > 4) {
+      const oldest = this.logSessions.keys().next().value
+      if (oldest) this.logSessions.delete(oldest)
+    }
+  }
+
+  invalidateLogCaches(): void {
+    this.logSnapshotCache = undefined
+    this.logSessions.clear()
   }
 
   dispose(): void {
@@ -52,6 +93,7 @@ export class EdgeRepositoryReader {
     this.internalIndexWriteDepth = 0
     this.internalIndexGraceUntil = 0
     this.observerDirtyPaths.clear()
+    this.invalidateLogCaches()
   }
 
   invalidateWorktree(): void {
@@ -61,6 +103,7 @@ export class EdgeRepositoryReader {
     this.lastIndexMtimeMs = -1
     this.observerClean = false
     this.observerDirtyPaths.clear()
+    this.invalidateLogCaches()
     this.fs.clearCache()
   }
 

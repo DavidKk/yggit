@@ -1,15 +1,17 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 import { useGitUiDebugHoldExploreLoading } from '@/components/git/git-ui-debug'
 import { GitExploreStrip } from '@/components/git/GitExploreStrip'
 import { GIT_FIND_EVENT } from '@/components/git/gitFind'
 import { GitFindBox } from '@/components/git/GitFindBox'
 import { GitGraph } from '@/components/git/GitGraph'
+import { GitLocateBanner, type LocateStatusState } from '@/components/git/GitLocateBanner'
 import { useT } from '@/components/i18n/LocaleProvider'
 import type { MergeConflictRecord } from '@/lib/git/conflict-cache'
 import { getGitDriver } from '@/lib/git/driver'
+import type { GitHistorySegment } from '@/lib/git/history-segments'
 import { type GitCommit, type GitStash, gitStashAsCommit, type GitWorktree } from '@/lib/git/types'
 
 type Props = {
@@ -17,6 +19,7 @@ type Props = {
   remoteUrl?: string
   scope: string
   commits: GitCommit[]
+  segments?: GitHistorySegment[]
   hasMore: boolean
   hasPrev?: boolean
   startIndex?: number
@@ -30,6 +33,12 @@ type Props = {
   conflicts?: Record<string, MergeConflictRecord>
   scrollRef?: React.RefObject<HTMLDivElement | null>
   focusRequest?: { hash: string } | null
+  locateStatus?: LocateStatusState | null
+  onJumpToLocated?: (hash: string) => void
+  onCancelLocate?: () => void
+  onDismissLocate?: () => void
+  onJumpTop?: () => void
+  onHistoryInteraction?: () => void
   activeHoverBranch?: string | null
   onBranchHoverStart?: (branchName: string) => void
   onBranchHoverEnd?: () => void
@@ -44,6 +53,9 @@ type Props = {
   onOpenConflictView?: (hash: string, file?: string) => void
   onPage: (scope: string, commits: GitCommit[], hasMore: boolean, hasPrev?: boolean, startIndex?: number) => void
   onPagePrepend?: (commits: GitCommit[], hasPrev: boolean, startIndex: number) => void
+  onAppendSegment?: (segmentId: string, commits: GitCommit[], hasMore: boolean) => void
+  onPrependSegment?: (segmentId: string, commits: GitCommit[], startIndex: number) => void
+  onMergeSegment?: (commits: GitCommit[], hasMore: boolean, startIndex: number) => void
   onRefresh?: () => Promise<void> | void
   currentBranch?: string
   soloBranch?: string | null
@@ -82,6 +94,7 @@ export function GitHistory({
   remoteUrl,
   scope,
   commits,
+  segments,
   hasMore,
   hasPrev,
   startIndex,
@@ -95,6 +108,12 @@ export function GitHistory({
   conflicts,
   scrollRef,
   focusRequest,
+  locateStatus,
+  onJumpToLocated,
+  onCancelLocate,
+  onDismissLocate,
+  onJumpTop,
+  onHistoryInteraction,
   activeHoverBranch,
   onBranchHoverStart,
   onBranchHoverEnd,
@@ -109,6 +128,9 @@ export function GitHistory({
   onOpenConflictView,
   onPage,
   onPagePrepend,
+  onAppendSegment,
+  onPrependSegment,
+  onMergeSegment,
   onRefresh,
   currentBranch,
   soloBranch,
@@ -124,12 +146,23 @@ export function GitHistory({
   const panelRef = useRef<HTMLDivElement>(null)
   const findInputRef = useRef<HTMLInputElement>(null)
   const sentinelRef = useRef<HTMLDivElement>(null)
-  const topSentinelRef = useRef<HTMLDivElement>(null)
+  const gapSentinelsRef = useRef<Map<string, HTMLDivElement>>(new Map())
   const lockRef = useRef(false)
+  const prevLockRef = useRef(false)
   const lastRequestedSkipRef = useRef<number>(-1)
+  const lastRequestedPrevKeyRef = useRef<string>('')
+  const prevScrollTopRef = useRef<number>(0)
+  const pendingScrollAnchorRef = useRef<{ prevScrollTop: number; prevScrollHeight: number } | null>(null)
   const focusedRequestRef = useRef<Props['focusRequest']>(null)
-  const stateRef = useRef({ repo, scope, commits, hasMore, hasPrev, startIndex })
-  const [loading, setLoading] = useState(false)
+
+  const resolvedSegments = useMemo<GitHistorySegment[]>(
+    () => (segments && segments.length > 0 ? segments : [{ id: 'default', startIndex: startIndex ?? 0, commits, hasMore }]),
+    [segments, startIndex, commits, hasMore]
+  )
+
+  const stateRef = useRef({ repo, scope, commits, segments: resolvedSegments, hasMore, hasPrev, startIndex })
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [loadingPrevSegmentId, setLoadingPrevSegmentId] = useState<string | null>(null)
   const [query, setQuery] = useState('')
   const [findOpen, setFindOpen] = useState(false)
   const [gitMatches, setGitMatches] = useState<GitCommit[]>([])
@@ -141,6 +174,7 @@ export function GitHistory({
     setGitMatches([])
     setIsSearchingGit(false)
     lastRequestedSkipRef.current = -1
+    lastRequestedPrevKeyRef.current = ''
   }, [repo, scope])
 
   useEffect(() => {
@@ -154,7 +188,7 @@ export function GitHistory({
     return () => window.removeEventListener('yggit:clear_searches', onClearSearches)
   }, [])
   const holdExplore = useGitUiDebugHoldExploreLoading()
-  stateRef.current = { repo, scope, commits, hasMore, hasPrev, startIndex }
+  stateRef.current = { repo, scope, commits, segments: resolvedSegments, hasMore, hasPrev, startIndex }
 
   const needle = query.trim().toLowerCase()
 
@@ -220,85 +254,121 @@ export function GitHistory({
           matches.findIndex((commit) => commit.hash === selectedHash)
         )
       : -1
-  const showFooterLoading = loading || holdExplore
+  const showFooterLoading = loadingMore || holdExplore
 
   const loadMore = useCallback(() => {
     const current = stateRef.current
-    const skipOffset = (current.startIndex ?? 0) + current.commits.length
+    const bottomSeg = current.segments[current.segments.length - 1]
+    const skipOffset = bottomSeg ? bottomSeg.startIndex + bottomSeg.commits.length : (current.startIndex ?? 0) + current.commits.length
     if (lockRef.current || !current.hasMore || !current.repo || !current.scope) return
     if (lastRequestedSkipRef.current === skipOffset) return
-    lockRef.current = true
     lastRequestedSkipRef.current = skipOffset
-    setLoading(true)
+    lockRef.current = true
+    setLoadingMore(true)
     const startTime = Date.now()
     const driver = getGitDriver()
     driver
-      .readLog({
-        repo: current.repo,
-        ref: current.scope,
-        skip: skipOffset,
-      })
+      .readLog({ repo: current.repo, ref: current.scope, skip: skipOffset, take: 50 })
       .then((body) => {
         if (!body || !body.commits) return
         if (stateRef.current.repo !== current.repo || stateRef.current.scope !== current.scope) return
-        const seen = new Set(current.commits.map((commit) => commit.hash))
-        const next = current.commits.concat(body.commits.filter((commit) => !seen.has(commit.hash)))
-        onPage(current.scope, next, body.hasMore === true)
-      })
-      .catch(() => {
-        lastRequestedSkipRef.current = -1
-      })
-      .finally(() => {
-        const elapsed = Date.now() - startTime
-        const delay = Math.max(0, 260 - elapsed)
-        setTimeout(() => {
-          lockRef.current = false
-          setLoading(false)
-        }, delay)
-      })
-  }, [onPage])
-
-  const loadPrev = useCallback(() => {
-    const current = stateRef.current
-    const curStartIndex = current.startIndex ?? 0
-    if (lockRef.current || !current.hasPrev || curStartIndex <= 0 || !current.repo || !current.scope) return
-    lockRef.current = true
-    setLoading(true)
-    const take = Math.min(50, curStartIndex)
-    const newSkip = curStartIndex - take
-    const root = rootRefHolder.current.current
-    const prevScrollTop = root?.scrollTop ?? 0
-    const startTime = Date.now()
-    const driver = getGitDriver()
-
-    driver
-      .readLog({
-        repo: current.repo,
-        ref: current.scope,
-        skip: newSkip,
-        take,
-      })
-      .then((body) => {
-        if (!body || !body.commits || body.commits.length === 0) return
-        if (stateRef.current.repo !== current.repo || stateRef.current.scope !== current.scope) return
-        onPagePrepend?.(body.commits, newSkip > 0, newSkip)
-        requestAnimationFrame(() => {
-          const r = rootRefHolder.current.current
-          if (r) {
-            r.scrollTop = prevScrollTop + body.commits.length * 26
-          }
-        })
+        if (onAppendSegment && bottomSeg) {
+          onAppendSegment(bottomSeg.id, body.commits, body.hasMore === true)
+        } else {
+          const seen = new Set(current.commits.map((commit) => commit.hash))
+          const next = current.commits.concat(body.commits.filter((commit) => !seen.has(commit.hash)))
+          onPage(current.scope, next, body.hasMore === true)
+        }
       })
       .catch(() => {})
       .finally(() => {
         const elapsed = Date.now() - startTime
-        const delay = Math.max(0, 320 - elapsed)
+        const wait = Math.max(0, 600 - elapsed)
         setTimeout(() => {
           lockRef.current = false
-          setLoading(false)
-        }, delay)
+          setLoadingMore(false)
+        }, wait)
       })
-  }, [onPagePrepend])
+  }, [onAppendSegment, onPage])
+
+  const loadPrevSegment = useCallback(
+    (segmentId: string) => {
+      const current = stateRef.current
+      if (prevLockRef.current || !current.repo || !current.scope) return
+      const segIdx = current.segments.findIndex((seg) => seg.id === segmentId)
+      const targetSeg = segIdx >= 0 ? current.segments[segIdx] : null
+      if (!targetSeg || targetSeg.startIndex <= 0) return
+
+      const upperSeg = segIdx > 0 ? current.segments[segIdx - 1] : null
+      const minStart = upperSeg ? upperSeg.startIndex + upperSeg.commits.length : 0
+      const remainingGap = targetSeg.startIndex - minStart
+      if (remainingGap <= 0) return
+
+      const take = Math.min(50, remainingGap)
+      const newSkip = targetSeg.startIndex - take
+      const reqKey = `${segmentId}:${newSkip}:${take}`
+      if (lastRequestedPrevKeyRef.current === reqKey) return
+      lastRequestedPrevKeyRef.current = reqKey
+
+      prevLockRef.current = true
+      setLoadingPrevSegmentId(segmentId)
+      const startTime = Date.now()
+      const driver = getGitDriver()
+
+      driver
+        .readLog({ repo: current.repo, ref: current.scope, skip: newSkip, take })
+        .then((body) => {
+          if (!body || !body.commits || body.commits.length === 0) return
+          if (stateRef.current.repo !== current.repo || stateRef.current.scope !== current.scope) return
+
+          // Capture scroll anchor synchronously right before prepending rows so useLayoutEffect restores pixel-exact position.
+          const root = rootRefHolder.current.current
+          if (root) {
+            pendingScrollAnchorRef.current = {
+              prevScrollTop: root.scrollTop,
+              prevScrollHeight: root.scrollHeight,
+            }
+          }
+
+          if (onPrependSegment) {
+            onPrependSegment(segmentId, body.commits, newSkip)
+          } else {
+            onPagePrepend?.(body.commits, newSkip > 0, newSkip)
+          }
+        })
+        .catch(() => {})
+        .finally(() => {
+          const elapsed = Date.now() - startTime
+          const wait = Math.max(0, 350 - elapsed)
+          setTimeout(() => {
+            prevLockRef.current = false
+            setLoadingPrevSegmentId(null)
+          }, wait)
+        })
+    },
+    [onPagePrepend, onPrependSegment]
+  )
+
+  useLayoutEffect(() => {
+    const anchor = pendingScrollAnchorRef.current
+    if (!anchor) return
+    pendingScrollAnchorRef.current = null
+    const root = rootRefHolder.current.current
+    if (!root) return
+    const delta = root.scrollHeight - anchor.prevScrollHeight
+    if (delta !== 0) {
+      root.scrollTop = anchor.prevScrollTop + delta
+    }
+    prevScrollTopRef.current = root.scrollTop
+  }, [resolvedSegments])
+
+  const registerGapSentinel = useCallback((segmentId: string, el: HTMLDivElement | null) => {
+    if (el) {
+      gapSentinelsRef.current.set(segmentId, el)
+    } else {
+      gapSentinelsRef.current.delete(segmentId)
+    }
+  }, [])
 
   useEffect(() => {
     if (!focusRequest?.hash || focusedRequestRef.current === focusRequest) return
@@ -311,7 +381,7 @@ export function GitHistory({
     const safeHash = CSS.escape(fullHash)
     const row = root.querySelector<HTMLElement>(`[data-git-commit-hash="${safeHash}"]`) || root.querySelector<HTMLElement>(`[data-git-commit-hash^="${CSS.escape(targetHash)}"]`)
     if (!row) {
-      if (hasMore) loadMore()
+      if (hasMore && locateStatus?.phase !== 'loading') loadMore()
       return
     }
     focusedRequestRef.current = focusRequest
@@ -320,14 +390,20 @@ export function GitHistory({
       const target = row.getBoundingClientRect()
       if (bounds.height > 0 && target.height > 0) {
         root.scrollTop += target.top - bounds.top - (root.clientHeight - target.height) / 2
+        prevScrollTopRef.current = root.scrollTop
       }
-      const pan = root.querySelector<HTMLElement>('[data-git-graph-pan]')
-      const node = root.querySelector<HTMLElement>(`[data-git-node-hash="${safeHash}"]`) || root.querySelector<HTMLElement>(`[data-git-node-hash^="${CSS.escape(targetHash)}"]`)
+      const segmentEl = row.closest<HTMLElement>('[data-git-segment-id]') || root
+      const pan = segmentEl.querySelector<HTMLElement>('[data-git-graph-pan]')
+      const node =
+        segmentEl.querySelector<HTMLElement>(`[data-git-node-hash="${safeHash}"]`) || segmentEl.querySelector<HTMLElement>(`[data-git-node-hash^="${CSS.escape(targetHash)}"]`)
       if (pan && node) {
         const viewport = pan.getBoundingClientRect()
         const dot = node.getBoundingClientRect()
         if (dot.left < viewport.left || dot.right > viewport.right) {
-          pan.scrollLeft += (dot.left + dot.right - viewport.left - viewport.right) / 2
+          const nextScrollLeft = pan.scrollLeft + (dot.left + dot.right - viewport.left - viewport.right) / 2
+          for (const el of root.querySelectorAll<HTMLElement>('[data-git-graph-pan]')) {
+            el.scrollLeft = nextScrollLeft
+          }
         }
       }
       // Only transfer focus if the user was not interacting with the sidebar or file tree
@@ -336,13 +412,13 @@ export function GitHistory({
         row.focus({ preventScroll: true })
       }
     })
-  }, [repo, focusRequest, commits, stashes, hasMore, loadMore, rootRef])
+  }, [repo, focusRequest, commits, stashes, hasMore, loadMore, locateStatus?.phase, rootRef])
 
   useEffect(() => {
     const root = rootRef.current
     const sentinel = sentinelRef.current
-    const topSentinel = topSentinelRef.current
     if (!root) return
+    prevScrollTopRef.current = root.scrollTop
 
     let bottomObserver: IntersectionObserver | null = null
     let wasBottomIntersecting = false
@@ -360,35 +436,60 @@ export function GitHistory({
       bottomObserver.observe(sentinel)
     }
 
-    let topObserver: IntersectionObserver | null = null
-    if (topSentinel && hasPrev) {
-      topObserver = new IntersectionObserver(
+    let gapObserver: IntersectionObserver | null = null
+    const gapNodes = Array.from(gapSentinelsRef.current.values())
+    if (gapNodes.length > 0) {
+      gapObserver = new IntersectionObserver(
         (entries) => {
-          if (entries.some((entry) => entry.isIntersecting)) loadPrev()
+          for (const entry of entries) {
+            if (!entry.isIntersecting) continue
+            const segId = (entry.target as HTMLElement).dataset.gitGapSegment
+            // Only auto-load upward when scrolling up OR when gap is near the top edge of viewport.
+            const rootTop = root.getBoundingClientRect().top
+            if (segId && entry.boundingClientRect.bottom >= rootTop - 160 && root.scrollTop <= prevScrollTopRef.current + 2) {
+              loadPrevSegment(segId)
+            }
+          }
         },
-        { root, rootMargin: '120px' }
+        { root, rootMargin: '120px 0px 0px 0px' }
       )
-      topObserver.observe(topSentinel)
+      for (const el of gapNodes) {
+        gapObserver.observe(el)
+      }
     }
 
-    // Passive scroll listener: triggers fallback loadMore / loadPrev without mutating React state during scroll
     const onScroll = () => {
-      if (lockRef.current) return
-      const remaining = root.scrollHeight - root.scrollTop - root.clientHeight
-      if (remaining <= 48 && stateRef.current.hasMore) {
-        loadMore()
-      } else if (root.scrollTop <= 120 && stateRef.current.hasPrev && (stateRef.current.startIndex ?? 0) > 0) {
-        loadPrev()
+      const currScrollTop = root.scrollTop
+      const scrollingUp = currScrollTop < prevScrollTopRef.current - 1
+      prevScrollTopRef.current = currScrollTop
+
+      if (!lockRef.current) {
+        const remaining = root.scrollHeight - currScrollTop - root.clientHeight
+        if (remaining <= 48 && stateRef.current.hasMore) {
+          loadMore()
+        }
+      }
+
+      if (scrollingUp && !prevLockRef.current) {
+        const rootRect = root.getBoundingClientRect()
+        for (const [segId, el] of gapSentinelsRef.current.entries()) {
+          const rect = el.getBoundingClientRect()
+          // Trigger when scrolling up brings a gap strip close to or inside the top edge of the scroll viewport.
+          if (rect.bottom >= rootRect.top - 160 && rect.top <= rootRect.top + 140) {
+            loadPrevSegment(segId)
+            break
+          }
+        }
       }
     }
     root.addEventListener('scroll', onScroll, { passive: true })
 
     return () => {
       bottomObserver?.disconnect()
-      topObserver?.disconnect()
+      gapObserver?.disconnect()
       root.removeEventListener('scroll', onScroll)
     }
-  }, [hasMore, hasPrev, loadMore, loadPrev, rootRef])
+  }, [hasMore, resolvedSegments, loadMore, loadPrevSegment, rootRef])
 
   useEffect(() => {
     const panel = panelRef.current
@@ -425,12 +526,16 @@ export function GitHistory({
           })
           .then((body) => {
             if (!body || !body.commits || body.commits.length === 0) return
-            onPage(scope, body.commits, body.hasMore === true, body.hasPrev, body.startIndex)
+            if (onMergeSegment) {
+              onMergeSegment(body.commits, body.hasMore === true, body.startIndex ?? 0)
+            } else {
+              onPage(scope, body.commits, body.hasMore === true, body.hasPrev, body.startIndex)
+            }
           })
           .catch(() => {})
       }
     },
-    [commits, onPage, onSelect, repo, scope]
+    [commits, onMergeSegment, onPage, onSelect, repo, scope]
   )
 
   function stepMatch(delta: number) {
@@ -496,6 +601,11 @@ export function GitHistory({
         repo={repo}
         remoteUrl={remoteUrl}
         commits={commits}
+        segments={resolvedSegments}
+        loadingPrevSegmentId={loadingPrevSegmentId}
+        registerGapSentinel={registerGapSentinel}
+        onLoadPrevSegment={loadPrevSegment}
+        onJumpTop={onJumpTop}
         conflicts={conflicts}
         worktree={startIndex === 0 || !startIndex ? worktree : null}
         stashes={stashes}
@@ -509,7 +619,6 @@ export function GitHistory({
         onBranchHoverEnd={onBranchHoverEnd}
         findNeedle={needle}
         scrollRef={rootRef}
-        header={hasPrev ? <div ref={topSentinelRef} className="h-px" aria-hidden /> : null}
         footer={
           hasMore ? (
             <div ref={sentinelRef} className="flex min-h-[56px] w-full items-center justify-center border-t border-[color-mix(in_oklab,var(--ink)_8%,transparent)]">
@@ -536,8 +645,14 @@ export function GitHistory({
             </div>
           ) : null
         }
-        onSelect={onSelect}
-        onSelectWorktree={onSelectWorktree}
+        onSelect={(commit) => {
+          onHistoryInteraction?.()
+          onSelect?.(commit)
+        }}
+        onSelectWorktree={() => {
+          onHistoryInteraction?.()
+          onSelectWorktree?.()
+        }}
         onCheckoutBranch={onCheckoutBranch}
         onPushBranch={onPushBranch}
         onPullBranch={onPullBranch}
@@ -552,6 +667,7 @@ export function GitHistory({
         soloRemote={soloRemote}
         hiddenRemotes={hiddenRemotes}
       />
+      <GitLocateBanner status={locateStatus ?? null} onJump={(hash) => onJumpToLocated?.(hash)} onCancel={() => onCancelLocate?.()} onDismiss={() => onDismissLocate?.()} />
     </div>
   )
 }
